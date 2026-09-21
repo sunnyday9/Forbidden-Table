@@ -31,6 +31,11 @@ func is_open() -> bool:
 func candidates() -> Array:
 	return _candidates.duplicate()
 
+func refresh() -> void:
+	if not _open:
+		return
+	_refresh_candidates()
+
 func resolve(selected_instance_ids: Array):
 	if not _open:
 		return PartialSettlementResultScript.new(PartialSettlementResultScript.WINDOW_CLOSED)

@@ -10,6 +10,7 @@ const CompleteHandEvaluatorTest = preload("res://tests/complete_hand_evaluator_t
 const SettlementTest = preload("res://tests/settlement_test.gd")
 const MahjongScoreResolverTest = preload("res://tests/mahjong_score_resolver_test.gd")
 const CombatConversionTest = preload("res://tests/combat_conversion_test.gd")
+const SettlementTurnTest = preload("res://tests/settlement_turn_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -21,7 +22,8 @@ func _init() -> void:
 	var settlements_only := "--settlements" in OS.get_cmdline_args()
 	var scores_only := "--scores" in OS.get_cmdline_args()
 	var combat_conversion_only := "--combat-conversion" in OS.get_cmdline_args()
-	var focused_test_requested := content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only or complete_hands_only or settlements_only or scores_only or combat_conversion_only
+	var settlement_turn_only := "--settlement-turn" in OS.get_cmdline_args()
+	var focused_test_requested := content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only or complete_hands_only or settlements_only or scores_only or combat_conversion_only or settlement_turn_only
 	var failures: Array[String] = []
 	if not focused_test_requested:
 		failures.append_array(SmokeTest.new().run())
@@ -43,6 +45,8 @@ func _init() -> void:
 		failures.append_array(MahjongScoreResolverTest.new().run())
 	if not focused_test_requested or combat_conversion_only:
 		failures.append_array(CombatConversionTest.new().run())
+	if not focused_test_requested or settlement_turn_only:
+		failures.append_array(SettlementTurnTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -66,8 +70,10 @@ func _init() -> void:
 			print("PASS: Mahjong score resolver tests")
 		elif combat_conversion_only:
 			print("PASS: combat conversion tests")
+		elif settlement_turn_only:
+			print("PASS: settlement turn tests")
 		else:
-			print("PASS: domain smoke scenario, content registry, RNG stream, tile zone, draw action, pattern evaluator, complete hand evaluator, settlement, Mahjong score resolver, and CombatConversion tests")
+			print("PASS: domain smoke scenario, content registry, RNG stream, tile zone, draw action, pattern evaluator, complete hand evaluator, settlement, Mahjong score resolver, CombatConversion, and settlement turn tests")
 		quit(0)
 		return
 
