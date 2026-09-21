@@ -1,0 +1,18 @@
+class_name DrawSource
+extends RefCounted
+
+const NORMAL_ACTION := "NORMAL_ACTION"
+const SETTLEMENT_REPLACEMENT := "SETTLEMENT_REPLACEMENT"
+const COMPLETE_HAND_REBUILD := "COMPLETE_HAND_REBUILD"
+const TECHNIQUE := "TECHNIQUE"
+const EFFECT := "EFFECT"
+const ALL_SOURCES: Array[String] = [
+	NORMAL_ACTION,
+	SETTLEMENT_REPLACEMENT,
+	COMPLETE_HAND_REBUILD,
+	TECHNIQUE,
+	EFFECT,
+]
+
+static func is_valid(source: String) -> bool:
+	return ALL_SOURCES.has(source)

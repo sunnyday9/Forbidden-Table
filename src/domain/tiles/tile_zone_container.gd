@@ -45,6 +45,25 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 	_locations[instance_id] = target_zone
 	return true
 
+func reorder(zone: String, ordered_instance_ids: Array[String]) -> bool:
+	if not TileZoneScript.is_valid(zone):
+		return false
+	if ordered_instance_ids.size() != _contents[zone].size():
+		return false
+
+	var existing_ids := _instance_ids(_contents[zone])
+	var requested_ids: Array[String] = ordered_instance_ids.duplicate()
+	existing_ids.sort()
+	requested_ids.sort()
+	if existing_ids != requested_ids:
+		return false
+
+	var reordered: Array = []
+	for instance_id in ordered_instance_ids:
+		reordered.append(_find_instance(_contents[zone], instance_id))
+	_contents[zone] = reordered
+	return true
+
 func contents(zone: String) -> Array:
 	if not TileZoneScript.is_valid(zone):
 		return []
@@ -69,3 +88,15 @@ func _find_instance_index(zone_contents: Array, instance_id: String) -> int:
 		if zone_contents[index].instance_id == instance_id:
 			return index
 	return -1
+
+func _find_instance(zone_contents: Array, instance_id: String):
+	for tile_instance in zone_contents:
+		if tile_instance.instance_id == instance_id:
+			return tile_instance
+	return null
+
+func _instance_ids(zone_contents: Array) -> Array[String]:
+	var ids: Array[String] = []
+	for tile_instance in zone_contents:
+		ids.append(tile_instance.instance_id)
+	return ids
