@@ -1,0 +1,168 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scenes/battle/battle_scene.gd" id="1_battle"]
+
+[node name="BattleScene" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_battle")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 24.0
+offset_right = 400.0
+offset_bottom = 56.0
+text = "Forbidden Table — Battle"
+
+[node name="HandLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 88.0
+offset_right = 160.0
+offset_bottom = 116.0
+text = "Hand"
+
+[node name="HandValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 88.0
+offset_right = 620.0
+offset_bottom = 116.0
+text = "None"
+
+[node name="DrawWallLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 128.0
+offset_right = 160.0
+offset_bottom = 156.0
+text = "Draw Wall"
+
+[node name="DrawWallValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 128.0
+offset_right = 300.0
+offset_bottom = 156.0
+text = "0"
+
+[node name="DiscardLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 168.0
+offset_right = 160.0
+offset_bottom = 196.0
+text = "Discard"
+
+[node name="DiscardValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 168.0
+offset_right = 620.0
+offset_bottom = 196.0
+text = "None"
+
+[node name="EnemyLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 224.0
+offset_right = 160.0
+offset_bottom = 252.0
+text = "Enemy HP"
+
+[node name="EnemyHpValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 224.0
+offset_right = 300.0
+offset_bottom = 252.0
+text = "0 / 0"
+
+[node name="EnemyIntentLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 264.0
+offset_right = 160.0
+offset_bottom = 292.0
+text = "Intent"
+
+[node name="EnemyIntentValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 264.0
+offset_right = 620.0
+offset_bottom = 292.0
+text = "None"
+
+[node name="PressureLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 304.0
+offset_right = 160.0
+offset_bottom = 332.0
+text = "Pressure"
+
+[node name="PressureValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 304.0
+offset_right = 300.0
+offset_bottom = 332.0
+text = "0 / 0"
+
+[node name="PatternLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 88.0
+offset_right = 840.0
+offset_bottom = 116.0
+text = "Pattern Highlights"
+
+[node name="PatternHighlights" type="Label" parent="."]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 120.0
+offset_right = 920.0
+offset_bottom = 220.0
+text = "No Scoring Pattern highlighted."
+autowrap_mode = 2
+
+[node name="StatusLabel" type="Label" parent="."]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 264.0
+offset_right = 920.0
+offset_bottom = 292.0
+text = "Status"
+
+[node name="StatusValue" type="Label" parent="."]
+layout_mode = 0
+offset_left = 520.0
+offset_top = 296.0
+offset_right = 920.0
+offset_bottom = 324.0
+text = ""
+
+[node name="DrawButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 32.0
+offset_top = 400.0
+offset_right = 180.0
+offset_bottom = 448.0
+text = "Draw"
+
+[node name="SettleButton" type="Button" parent="."]
+layout_mode = 0
+offset_left = 196.0
+offset_top = 400.0
+offset_right = 344.0
+offset_bottom = 448.0
+text = "Settle Pattern"
+
+[connection signal="pressed" from="DrawButton" to="." method="_on_draw_pressed"]
+[connection signal="pressed" from="SettleButton" to="." method="_on_settle_pressed"]
