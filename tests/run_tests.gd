@@ -6,6 +6,7 @@ const RngStreamTest = preload("res://tests/rng_stream_test.gd")
 const TileZoneTest = preload("res://tests/tile_zone_test.gd")
 const DrawActionTest = preload("res://tests/draw_action_test.gd")
 const PatternEvaluatorTest = preload("res://tests/pattern_evaluator_test.gd")
+const CompleteHandEvaluatorTest = preload("res://tests/complete_hand_evaluator_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -13,7 +14,8 @@ func _init() -> void:
 	var tile_zones_only := "--tile-zones" in OS.get_cmdline_args()
 	var draw_actions_only := "--draw-actions" in OS.get_cmdline_args()
 	var patterns_only := "--patterns" in OS.get_cmdline_args()
-	var focused_test_requested := content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
+	var complete_hands_only := "--complete-hands" in OS.get_cmdline_args()
+	var focused_test_requested := content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only or complete_hands_only
 	var failures: Array[String] = []
 	if not focused_test_requested:
 		failures.append_array(SmokeTest.new().run())
@@ -27,6 +29,8 @@ func _init() -> void:
 		failures.append_array(DrawActionTest.new().run())
 	if not focused_test_requested or patterns_only:
 		failures.append_array(PatternEvaluatorTest.new().run())
+	if not focused_test_requested or complete_hands_only:
+		failures.append_array(CompleteHandEvaluatorTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -42,8 +46,10 @@ func _init() -> void:
 			print("PASS: draw action tests")
 		elif patterns_only:
 			print("PASS: pattern evaluator tests")
+		elif complete_hands_only:
+			print("PASS: complete hand evaluator tests")
 		else:
-			print("PASS: domain smoke scenario, content registry, RNG stream, tile zone, draw action, and pattern evaluator tests")
+			print("PASS: domain smoke scenario, content registry, RNG stream, tile zone, draw action, pattern evaluator, and complete hand evaluator tests")
 		quit(0)
 		return
 
