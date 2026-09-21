@@ -3,6 +3,7 @@ extends RefCounted
 
 const TILE_DRAWN := "TileDrawn"
 const TILE_DISCARDED := "TileDiscarded"
+const PATTERN_SETTLED := "PatternSettled"
 
 var event_type: String
 var data: Dictionary
