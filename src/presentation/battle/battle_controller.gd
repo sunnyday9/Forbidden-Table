@@ -3,10 +3,8 @@ extends RefCounted
 
 signal presentation_changed
 
-const BattleCommandResultScript = preload("res://src/presentation/battle/battle_command_result.gd")
 const BattlePresentationStateScript = preload("res://src/presentation/battle/battle_presentation_state.gd")
-const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
-const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
+const BattleDomainScript = preload("res://src/domain/battle/battle_domain.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
@@ -35,54 +33,34 @@ var conversion_resolver
 var conversion_profile
 var combat_state
 var combat_resolver
+var domain
 var presentation
-var _settlement_submitted := false
 
 func _init() -> void:
 	presentation = BattlePresentationStateScript.new()
 	_build_default_fixture()
+	domain = BattleDomainScript.new(
+		zones,
+		draw_wall,
+		tile_actions,
+		settlement_window,
+		settlement_turn,
+		score_resolver,
+		conversion_resolver,
+		conversion_profile,
+		combat_state,
+		combat_resolver,
+	)
 	presentation.sync(_snapshot())
 	presentation.status = "Draw to find a Pattern."
 
 func submit(command) -> RefCounted:
-	if command is DrawCommandScript:
-		return _submit_draw(command)
-	if command is SettlePatternCommandScript:
-		return _submit_settlement(command)
-	return BattleCommandResultScript.new(false, "UNKNOWN_COMMAND", [], "Unsupported battle command.")
+	var result = domain.execute(command)
+	_consume_events(result.events)
+	return result
 
 func can_settle() -> bool:
-	return not _settlement_submitted and combat_state != null and combat_state.is_active() and settlement_window != null and settlement_window.is_open() and not settlement_window.candidates().is_empty()
-
-func _submit_draw(_command) -> RefCounted:
-	if not combat_state.is_active():
-		return BattleCommandResultScript.new(false, "BATTLE_TERMINAL", [], "The battle is already over.")
-	var draw_result = tile_actions.draw()
-	var events: Array = draw_result.events
-	if draw_result.is_accepted():
-		settlement_window.open()
-	_consume_events(events)
-	return BattleCommandResultScript.new(draw_result.is_accepted(), draw_result.status, events)
-
-func _submit_settlement(command) -> RefCounted:
-	if not can_settle():
-		return BattleCommandResultScript.new(false, "SETTLEMENT_UNAVAILABLE", [], "No highlighted Pattern can be settled.")
-	var turn_result = settlement_turn.resolve_partial_settlement(command.instance_ids)
-	var settlement_result = turn_result.settlement_result
-	if settlement_result == null or not settlement_result.is_accepted():
-		return BattleCommandResultScript.new(false, turn_result.status, [], "The selected Pattern was rejected.")
-
-	var events: Array = settlement_result.events
-	for replacement_draw in turn_result.replacement_draws:
-		events.append_array(replacement_draw.events)
-
-	var score_result = score_resolver.resolve(settlement_result.settled_pattern)
-	var combat_output = conversion_resolver.resolve(score_result, conversion_profile, combat_state.to_dictionary())
-	var combat_result = combat_resolver.resolve_combat_conversion(combat_state, combat_output)
-	events.append_array(combat_result.events)
-	_settlement_submitted = true
-	_consume_events(events)
-	return BattleCommandResultScript.new(true, turn_result.status, events)
+	return domain.can_settle()
 
 func _consume_events(events: Array) -> void:
 	for event in events:

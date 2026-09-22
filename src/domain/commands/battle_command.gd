@@ -1,16 +1,13 @@
 class_name BattleCommand
-extends RefCounted
+extends "res://src/domain/commands/domain_command.gd"
 
-var command_id: String
-
-func _init(identifier: String) -> void:
-	command_id = identifier
+func _init(
+	identifier: String = "battle.command",
+	actor_identifier: String = "",
+	target_identifier: String = "",
+	preview_command: bool = false,
+) -> void:
+	super(identifier, actor_identifier, target_identifier, preview_command)
 
 func command_type() -> String:
 	return "BattleCommand"
-
-func to_dictionary() -> Dictionary:
-	return {
-		"command_id": command_id,
-		"command_type": command_type(),
-	}

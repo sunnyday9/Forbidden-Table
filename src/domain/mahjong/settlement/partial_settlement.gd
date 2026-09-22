@@ -15,31 +15,11 @@ func resolve(candidates: Array, selected_instance_ids: Array, settled_instance_i
 	if _zones == null:
 		return PartialSettlementResultScript.new(PartialSettlementResultScript.TRANSFER_FAILED)
 
-	var duplicate_ids: Dictionary = {}
-	for instance_id in selected_instance_ids:
-		if not instance_id is String or instance_id.is_empty():
-			return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
-		if duplicate_ids.has(instance_id):
-			return PartialSettlementResultScript.new(PartialSettlementResultScript.DUPLICATE_SELECTION)
-		duplicate_ids[instance_id] = true
+	var validation_result = validate(candidates, selected_instance_ids, settled_instance_ids)
+	if not validation_result.is_accepted():
+		return validation_result
 
-	for instance_id in selected_instance_ids:
-		if settled_instance_ids.has(instance_id):
-			return PartialSettlementResultScript.new(PartialSettlementResultScript.TILE_ALREADY_SETTLED)
-		if not _zones.contains(instance_id):
-			return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
-		if not _zones.contains_in_zone(instance_id, TileZoneScript.HAND):
-			return PartialSettlementResultScript.new(PartialSettlementResultScript.STALE_SELECTION)
-
-	var matching_candidate = null
-	var matching_count := 0
-	for candidate in candidates:
-		if _same_instance_ids(candidate.tile_instances, selected_instance_ids):
-			matching_candidate = candidate
-			matching_count += 1
-	if matching_count != 1:
-		return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
-
+	var matching_candidate = _matching_candidate(candidates, selected_instance_ids)
 	var transferred_ids: Array[String] = []
 	for tile_instance in matching_candidate.tile_instances:
 		if not _zones.transfer(tile_instance.instance_id, TileZoneScript.HAND, TileZoneScript.DISCARD):
@@ -61,6 +41,41 @@ func resolve(candidates: Array, selected_instance_ids: Array, settled_instance_i
 		settled_pattern,
 		[event],
 	)
+
+func validate(candidates: Array, selected_instance_ids: Array, settled_instance_ids: Dictionary):
+	if _zones == null:
+		return PartialSettlementResultScript.new(PartialSettlementResultScript.TRANSFER_FAILED)
+
+	var duplicate_ids: Dictionary = {}
+	for instance_id in selected_instance_ids:
+		if not instance_id is String or instance_id.is_empty():
+			return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
+		if duplicate_ids.has(instance_id):
+			return PartialSettlementResultScript.new(PartialSettlementResultScript.DUPLICATE_SELECTION)
+		duplicate_ids[instance_id] = true
+
+	for instance_id in selected_instance_ids:
+		if settled_instance_ids.has(instance_id):
+			return PartialSettlementResultScript.new(PartialSettlementResultScript.TILE_ALREADY_SETTLED)
+		if not _zones.contains(instance_id):
+			return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
+		if not _zones.contains_in_zone(instance_id, TileZoneScript.HAND):
+			return PartialSettlementResultScript.new(PartialSettlementResultScript.STALE_SELECTION)
+
+	if _matching_candidate(candidates, selected_instance_ids) == null:
+		return PartialSettlementResultScript.new(PartialSettlementResultScript.INVALID_SELECTION)
+	return PartialSettlementResultScript.new(PartialSettlementResultScript.ACCEPTED)
+
+func _matching_candidate(candidates: Array, selected_instance_ids: Array):
+	var matching_candidate = null
+	var matching_count := 0
+	for candidate in candidates:
+		if _same_instance_ids(candidate.tile_instances, selected_instance_ids):
+			matching_candidate = candidate
+			matching_count += 1
+	if matching_count != 1:
+		return null
+	return matching_candidate
 
 func _same_instance_ids(candidate_tiles: Array, selected_instance_ids: Array) -> bool:
 	if candidate_tiles.size() != selected_instance_ids.size():

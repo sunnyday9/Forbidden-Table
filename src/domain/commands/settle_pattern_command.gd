@@ -7,8 +7,14 @@ var instance_ids: Array[String]:
 	get:
 		return _instance_ids.duplicate()
 
-func _init(identifier: String, selected_instance_ids: Array) -> void:
-	super(identifier)
+func _init(
+	identifier: String,
+	selected_instance_ids: Array,
+	actor_identifier: String = "",
+	target_identifier: String = "",
+	preview_command: bool = false,
+) -> void:
+	super(identifier, actor_identifier, target_identifier, preview_command)
 	_instance_ids = []
 	for instance_id in selected_instance_ids:
 		if instance_id is String:
@@ -17,7 +23,13 @@ func _init(identifier: String, selected_instance_ids: Array) -> void:
 func command_type() -> String:
 	return "SettlePattern"
 
-func to_dictionary() -> Dictionary:
-	var result := super()
-	result["instance_ids"] = instance_ids
-	return result
+func _payload_dictionary() -> Dictionary:
+	var serialized_ids: Array[String] = instance_ids
+	serialized_ids.sort()
+	return {"instance_ids": serialized_ids}
+
+func validate(context) -> RefCounted:
+	return context.validate_settlement(instance_ids)
+
+func _execute_authoritatively(context) -> Dictionary:
+	return context.execute_settlement(instance_ids)

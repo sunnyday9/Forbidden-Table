@@ -18,3 +18,9 @@ var data: Dictionary
 func _init(type: String, event_data: Dictionary = {}) -> void:
 	event_type = type
 	data = event_data.duplicate(true)
+
+func to_dictionary() -> Dictionary:
+	return {
+		"event_type": event_type,
+		"data": data.duplicate(true),
+	}
