@@ -44,6 +44,11 @@ const COMPLETE_HAND_REBUILD_STARTED := "CompleteHandRebuildStarted"
 const RECOVERY_STARTED := "RecoveryStarted"
 const RECOVERY_TURN_ELAPSED := "RecoveryTurnElapsed"
 const RECOVERY_ENDED := "RecoveryEnded"
+const CHARACTER_SELECTED := "CharacterSelected"
+const CONTRACT_SELECTED := "ContractSelected"
+const RUN_PHASE_CHANGED := "RunPhaseChanged"
+const RUN_SUMMARY_REACHED := "RunSummaryReached"
+const RUN_COMPLETED := "RunCompleted"
 
 var event_type: String
 var data: Dictionary
