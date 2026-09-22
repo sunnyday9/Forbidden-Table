@@ -33,6 +33,7 @@ const EventsTest = preload("res://tests/events_test.gd")
 const ContaminationTest = preload("res://tests/contamination_test.gd")
 const ContentCatalogTest = preload("res://tests/content_catalog_test.gd")
 const PersistenceTest = preload("res://tests/persistence_test.gd")
+const Stage2ExitReviewTest = preload("res://tests/stage2_exit_review_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -71,11 +72,12 @@ func _init() -> void:
 	var persistence_only := "--persistence" in OS.get_cmdline_args()
 	var presentation_only := "--presentation" in OS.get_cmdline_args()
 	var onboarding_only := "--onboarding" in OS.get_cmdline_args()
+	var stage2_exit_review_only := "--stage2-exit-review" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -148,6 +150,8 @@ func _init() -> void:
 		failures.append_array(ContentCatalogTest.new().run())
 	if not focused_test_requested or persistence_only:
 		failures.append_array(PersistenceTest.new().run())
+	if stage2_exit_review_only:
+		failures.append_array(Stage2ExitReviewTest.new().run())
 	if not focused_test_requested or presentation_only or onboarding_only:
 		var presentation_test_script = load("res://tests/run_presentation_test.gd")
 		if presentation_test_script == null or not presentation_test_script.can_instantiate():
@@ -231,6 +235,8 @@ func _init() -> void:
 			print("PASS: run presentation tests")
 		elif onboarding_only:
 			print("PASS: onboarding tests")
+		elif stage2_exit_review_only:
+			print("PASS: Stage 2 exit review evidence")
 		else:
 			print("PASS: full domain, presentation, and Intent Graph test suite")
 		quit(0)
