@@ -47,6 +47,12 @@ func _init(
 	local_score = definition_local_score.duplicate(true)
 	complete_score = definition_complete_score.duplicate(true)
 
+func definition_type_name() -> String:
+	return "YakuDefinition"
+
+func expected_id_families() -> Array[String]:
+	return ["yaku"]
+
 func validate():
 	var report = super.validate()
 	if not VALID_SCOPES.has(scope):
@@ -59,6 +65,6 @@ func validate():
 		report.add_issue(_issue("missing_yaku_name", "YakuDefinition must declare a display name."))
 	return report
 
-func _issue(code: String, message: String):
+func _issue(code: String, message: String, reference_id: String = ""):
 	const ContentValidationIssueScript = preload("res://src/content/validation/content_validation_issue.gd")
-	return ContentValidationIssueScript.new(code, content_id, message)
+	return ContentValidationIssueScript.new(code, content_id, message, reference_id)

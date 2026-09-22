@@ -6,15 +6,30 @@ const SNAPSHOT_VERSION := 1
 const COMBAT_STREAM_ID := "combat"
 const DRAW_WALL_STREAM_ID := "draw_wall"
 const ENEMY_STREAM_ID := "enemy"
+const MAP_STREAM_ID := "map"
+const REWARD_STREAM_ID := "reward"
+const SHOP_STREAM_ID := "shop"
+const EVENT_STREAM_ID := "event"
+const COSMETIC_STREAM_ID := "cosmetic"
 
 var combat
 var draw_wall
 var enemy
+var map
+var reward
+var shop
+var event
+var cosmetic
 
 func _init(root_seed: int) -> void:
 	combat = DeterministicRngStreamScript.new(root_seed, COMBAT_STREAM_ID)
 	draw_wall = DeterministicRngStreamScript.new(root_seed, DRAW_WALL_STREAM_ID)
 	enemy = DeterministicRngStreamScript.new(root_seed, ENEMY_STREAM_ID)
+	map = DeterministicRngStreamScript.new(root_seed, MAP_STREAM_ID)
+	reward = DeterministicRngStreamScript.new(root_seed, REWARD_STREAM_ID)
+	shop = DeterministicRngStreamScript.new(root_seed, SHOP_STREAM_ID)
+	event = DeterministicRngStreamScript.new(root_seed, EVENT_STREAM_ID)
+	cosmetic = DeterministicRngStreamScript.new(root_seed, COSMETIC_STREAM_ID)
 
 func snapshot() -> Dictionary:
 	return {
@@ -23,6 +38,11 @@ func snapshot() -> Dictionary:
 			COMBAT_STREAM_ID: combat.snapshot(),
 			DRAW_WALL_STREAM_ID: draw_wall.snapshot(),
 			ENEMY_STREAM_ID: enemy.snapshot(),
+			MAP_STREAM_ID: map.snapshot(),
+			REWARD_STREAM_ID: reward.snapshot(),
+			SHOP_STREAM_ID: shop.snapshot(),
+			EVENT_STREAM_ID: event.snapshot(),
+			COSMETIC_STREAM_ID: cosmetic.snapshot(),
 		},
 	}
 
@@ -48,11 +68,31 @@ func _restore_streams(stream_states: Dictionary) -> bool:
 		return false
 	if not stream_states.has(ENEMY_STREAM_ID):
 		return false
+	if not stream_states.has(MAP_STREAM_ID):
+		return false
+	if not stream_states.has(REWARD_STREAM_ID):
+		return false
+	if not stream_states.has(SHOP_STREAM_ID):
+		return false
+	if not stream_states.has(EVENT_STREAM_ID):
+		return false
+	if not stream_states.has(COSMETIC_STREAM_ID):
+		return false
 	if typeof(stream_states[COMBAT_STREAM_ID]) != TYPE_DICTIONARY:
 		return false
 	if typeof(stream_states[DRAW_WALL_STREAM_ID]) != TYPE_DICTIONARY:
 		return false
 	if typeof(stream_states[ENEMY_STREAM_ID]) != TYPE_DICTIONARY:
+		return false
+	if typeof(stream_states[MAP_STREAM_ID]) != TYPE_DICTIONARY:
+		return false
+	if typeof(stream_states[REWARD_STREAM_ID]) != TYPE_DICTIONARY:
+		return false
+	if typeof(stream_states[SHOP_STREAM_ID]) != TYPE_DICTIONARY:
+		return false
+	if typeof(stream_states[EVENT_STREAM_ID]) != TYPE_DICTIONARY:
+		return false
+	if typeof(stream_states[COSMETIC_STREAM_ID]) != TYPE_DICTIONARY:
 		return false
 
 	if not combat.restore(stream_states[COMBAT_STREAM_ID]):
@@ -60,5 +100,15 @@ func _restore_streams(stream_states: Dictionary) -> bool:
 	if not draw_wall.restore(stream_states[DRAW_WALL_STREAM_ID]):
 		return false
 	if not enemy.restore(stream_states[ENEMY_STREAM_ID]):
+		return false
+	if not map.restore(stream_states[MAP_STREAM_ID]):
+		return false
+	if not reward.restore(stream_states[REWARD_STREAM_ID]):
+		return false
+	if not shop.restore(stream_states[SHOP_STREAM_ID]):
+		return false
+	if not event.restore(stream_states[EVENT_STREAM_ID]):
+		return false
+	if not cosmetic.restore(stream_states[COSMETIC_STREAM_ID]):
 		return false
 	return true

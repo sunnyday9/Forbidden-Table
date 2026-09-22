@@ -3,16 +3,18 @@ extends RefCounted
 
 const ContentValidationIssueScript = preload("res://src/content/validation/content_validation_issue.gd")
 const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
+const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
+const CONTENT_VERSION := "content.slice.v1"
 
 var _definitions: Dictionary = {}
 
 func register(definition):
 	var report = ContentValidationReportScript.new()
-	if definition == null:
+	if definition == null or not definition is ContentDefinitionScript:
 		report.add_issue(ContentValidationIssueScript.new(
 			"invalid_definition",
 			"",
-			"Cannot register a null ContentDefinition."
+			"Cannot register a value that is not a ContentDefinition."
 		))
 		return report
 
@@ -23,9 +25,15 @@ func register(definition):
 			"Content ID is already registered."
 		))
 		return report
+	var definition_report = definition.validate()
+	if not definition_report.is_valid():
+		return definition_report
 
 	_definitions[definition.content_id] = definition
 	return report
+
+func content_version() -> String:
+	return CONTENT_VERSION
 
 func resolve(definition_id: String):
 	return _definitions.get(definition_id)
@@ -55,6 +63,22 @@ func validate():
 					"missing_reference",
 					definition.content_id,
 					"Definition references an unregistered Content ID.",
+					reference_id
+				))
+
+		for requirement in definition.reference_requirements():
+			var reference_id: String = requirement.get("reference_id", "")
+			if reference_id.is_empty() or not _definitions.has(reference_id):
+				continue
+			var expected_types: Array = requirement.get("expected_types", [])
+			if expected_types.is_empty():
+				continue
+			var referenced_definition = _definitions[reference_id]
+			if referenced_definition.definition_type_name() not in expected_types:
+				report.add_issue(ContentValidationIssueScript.new(
+					"invalid_reference_type",
+					definition.content_id,
+					"Definition reference has the wrong typed content definition.",
 					reference_id
 				))
 

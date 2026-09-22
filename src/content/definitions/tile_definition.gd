@@ -11,6 +11,12 @@ func _init(definition_id: String = "", tile_suit: String = "", tile_rank: int = 
 	suit = tile_suit
 	rank = tile_rank
 
+func definition_type_name() -> String:
+	return "TileDefinition"
+
+func expected_id_families() -> Array[String]:
+	return ["tile"]
+
 func validate():
 	var report = super.validate()
 	var valid_suits := ["characters", "bamboo", "dots", "honors"]
