@@ -3,6 +3,7 @@ extends RefCounted
 
 const CommandResultScript = preload("res://src/domain/commands/command_result.gd")
 const CommandValidationScript = preload("res://src/domain/commands/command_validation.gd")
+const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 
 var command_id: String
 var actor_id: String
@@ -114,7 +115,7 @@ func to_dictionary() -> Dictionary:
 	return result
 
 func serialize() -> String:
-	return JSON.stringify(to_dictionary())
+	return DeterministicSerializerScript.serialize_command(to_dictionary())
 
 func _payload_dictionary() -> Dictionary:
 	return {}

@@ -25,6 +25,8 @@ const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const CompleteHandEvaluatorScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_evaluator.gd")
+const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
+const ReplayVerifierScript = preload("res://src/infrastructure/replay/replay_verifier.gd")
 
 var zones
 var draw_wall
@@ -39,8 +41,14 @@ var combat_resolver
 var complete_hand_evaluator
 var domain
 var presentation
+var run_seed: int
+var content_version: String
+var replay_record
+var _rng_streams
 
-func _init() -> void:
+func _init(initial_run_seed: int = 13, initial_content_version: String = "content.prototype.v1") -> void:
+	run_seed = initial_run_seed
+	content_version = initial_content_version
 	presentation = BattlePresentationStateScript.new()
 	_build_default_fixture()
 	domain = BattleDomainScript.new(
@@ -60,14 +68,25 @@ func _init() -> void:
 		3,
 		1,
 		TileZoneScript.DISCARD,
+		null,
+		_rng_streams,
 	)
 	presentation.sync(_snapshot())
 	presentation.status = "Draw to find a Pattern."
+	replay_record = ReplayRecordScript.new(run_seed, content_version)
+	replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), combat_state.terminal_outcome)
 
 func submit(command) -> RefCounted:
 	var result = domain.execute(command)
 	_consume_events(result.events)
+	if result != null and result.has_method("is_replayable") and result.is_replayable():
+		replay_record.record_command(command.to_dictionary(), result.state_checkpoint, domain.rng_snapshot(), combat_state.terminal_outcome)
 	return result
+
+func verify_replay(record = replay_record):
+	var replay_factory := func(replay_seed: int, replay_content_version: String):
+		return BattleController.new(replay_seed, replay_content_version)
+	return ReplayVerifierScript.verify(record, replay_factory, content_version)
 
 func can_settle() -> bool:
 	return domain.can_settle()
@@ -93,13 +112,13 @@ func _build_default_fixture() -> void:
 	var wall_tiles: Array = []
 	for rank in range(3, 9):
 		wall_tiles.append(_add_tile(zones, "run.battle.wall.%d" % rank, rank, TileZoneScript.TILE_POOL))
-	var rng_streams := DomainRngStreamsScript.new(13)
-	draw_wall = DrawWallScript.new(zones, rng_streams.draw_wall)
+	_rng_streams = DomainRngStreamsScript.new(run_seed)
+	draw_wall = DrawWallScript.new(zones, _rng_streams.draw_wall)
 	draw_wall.initialize()
 	zones.reorder(TileZoneScript.DRAW_WALL, _tile_ids(wall_tiles))
 	tile_actions = TileActionServiceScript.new(draw_wall, zones)
 	var evaluator := PatternEvaluatorScript.new(registry)
-	combat_state = CombatStateScript.new(30, 10, 0, [], 0, 0, 3, 2, 3, 0, null, rng_streams.enemy)
+	combat_state = CombatStateScript.new(30, 10, 0, [], 0, 0, 3, 2, 3, 0, null, _rng_streams.enemy)
 	settlement_window = SettlementWindowScript.new(evaluator, zones, SettlementCapacityScript.new(combat_state.settlement_capacity))
 	var settlement_trigger_context := EffectContextScript.new(combat_state, zones, draw_wall, tile_actions.reserve_service)
 	settlement_turn = SettlementTurnScript.new(settlement_window, tile_actions, zones, 3, null, settlement_trigger_context)

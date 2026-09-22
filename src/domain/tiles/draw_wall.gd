@@ -36,6 +36,11 @@ func contents() -> Array:
 func size() -> int:
 	return contents().size()
 
+func rng_snapshot() -> Dictionary:
+	if _draw_wall_rng == null or not _draw_wall_rng.has_method("snapshot"):
+		return {}
+	return _draw_wall_rng.snapshot()
+
 func draw_one():
 	if not _initialized or size() == 0:
 		return null

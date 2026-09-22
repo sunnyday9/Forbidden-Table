@@ -23,6 +23,7 @@ const CompleteHandSettlementTest = preload("res://tests/complete_hand_settlement
 const YakuProgressTest = preload("res://tests/yaku_progress_test.gd")
 const DrawResolverTest = preload("res://tests/draw_resolver_test.gd")
 const IntentGraphTest = preload("res://tests/intent_graph_test.gd")
+const ReplayTest = preload("res://tests/replay_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -47,11 +48,12 @@ func _init() -> void:
 	var yaku_progress_only := "--yaku-progress" in OS.get_cmdline_args()
 	var draw_resolver_only := "--draw-resolver" in OS.get_cmdline_args()
 	var intent_graph_only := "--intent-graph" in OS.get_cmdline_args()
+	var replay_only := "--replay" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -100,6 +102,8 @@ func _init() -> void:
 		failures.append_array(DrawResolverTest.new().run())
 	if not focused_test_requested or intent_graph_only:
 		failures.append_array(IntentGraphTest.new().run())
+	if not focused_test_requested or replay_only:
+		failures.append_array(ReplayTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -149,6 +153,8 @@ func _init() -> void:
 			print("PASS: Draw Resolver tests")
 		elif intent_graph_only:
 			print("PASS: Intent Graph tests")
+		elif replay_only:
+			print("PASS: replay tests")
 		else:
 			print("PASS: full domain, presentation, and Intent Graph test suite")
 		quit(0)

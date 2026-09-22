@@ -30,6 +30,7 @@ var local_yaku_resolver
 var recovery_state
 var complete_hand_destination: String
 var _complete_hand_conversion_profile
+var _rng_streams
 
 func _init(
 	domain_zones,
@@ -49,6 +50,7 @@ func _init(
 	domain_recovery_baseline: int = 10,
 	domain_complete_hand_destination: String = TileZoneScript.DISCARD,
 	domain_local_yaku_resolver = null,
+	domain_rng_streams = null,
 ) -> void:
 	zones = domain_zones
 	draw_wall = domain_draw_wall
@@ -65,6 +67,7 @@ func _init(
 	hand_yaku_resolver = domain_hand_yaku_resolver
 	local_yaku_resolver = domain_local_yaku_resolver
 	complete_hand_destination = domain_complete_hand_destination
+	_rng_streams = domain_rng_streams
 	recovery_state = RecoveryStateScript.new(domain_normal_hand_baseline, domain_recovery_baseline)
 	_complete_hand_conversion_profile = _build_complete_hand_conversion_profile()
 	if reserve_service == null and tile_actions != null:
@@ -386,6 +389,16 @@ func checkpoint() -> Dictionary:
 		},
 		"recovery": recovery_state.to_dictionary() if recovery_state != null else {},
 	}
+
+func rng_snapshot() -> Dictionary:
+	if _rng_streams != null and _rng_streams.has_method("snapshot"):
+		return _rng_streams.snapshot()
+	var streams := {}
+	if draw_wall != null and draw_wall.has_method("rng_snapshot"):
+		streams["draw_wall"] = draw_wall.rng_snapshot()
+	if combat_state != null and combat_state.intent_rng != null and combat_state.intent_rng.has_method("snapshot"):
+		streams["enemy"] = combat_state.intent_rng.snapshot()
+	return {"version": 1, "streams": streams}
 
 func _complete_hand_by_id(interpretation_id: String):
 	for interpretation in complete_hand_interpretations():
