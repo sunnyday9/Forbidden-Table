@@ -11,6 +11,8 @@ const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
+const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
+const ReplayVerifierScript = preload("res://src/infrastructure/replay/replay_verifier.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const EncounterFactoryScript = preload("res://src/domain/battle/encounter_factory.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
@@ -39,6 +41,9 @@ const TileModifierDefinitionScript = preload("res://src/content/definitions/tile
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
+const ELITE_REWARD_CONTINUE_ID := "reward.elite.continue"
+const BOSS_REWARD_CONTINUE_ID := "reward.boss.continue"
+
 var state
 var content_registry
 var rng_streams
@@ -48,6 +53,7 @@ var reward_draft_selector
 var economy
 var current_battle
 var shop_offer_selector
+var replay_record
 
 func _init(
 	initial_run_id: String = "run.1",
@@ -68,10 +74,13 @@ func _init(
 	shop_offer_selector = ShopOfferSelectorScript.new()
 	current_battle = null
 	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version)
+	replay_record = ReplayRecordScript.new(initial_seed, resolved_content_version, initial_run_id)
+	replay_record.record_initial_checkpoint(checkpoint(), rng_snapshot(), _terminal_outcome())
 
 func execute(command) -> RefCounted:
+	var result: RefCounted
 	if command == null or not command.has_method("execute"):
-		return CommandResultScript.new(
+		result = CommandResultScript.new(
 			"",
 			"UnknownCommand",
 			"",
@@ -80,9 +89,21 @@ func execute(command) -> RefCounted:
 			CommandResultScript.REJECTED,
 			CommandValidationScript.new(false, "UNKNOWN_COMMAND", "Unsupported run command."),
 		)
-	if command is BattleCommandScript:
-		return execute_battle(command)
-	return command.execute(self)
+	elif command is BattleCommandScript:
+		result = execute_battle(command)
+	else:
+		result = command.execute(self)
+	if result != null and result.has_method("is_replayable") and result.is_replayable():
+		replay_record.record_command(command.to_dictionary(), result.state_checkpoint, rng_snapshot(), _terminal_outcome(), result.events)
+	return result
+
+func verify_replay(record = replay_record, resume_factory: Callable = Callable()):
+	var replay_factory := func(replay_seed: int, replay_content_version: String):
+		var replay_run_id: String = state.run_id
+		if record != null and not record.run_id.is_empty():
+			replay_run_id = record.run_id
+		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version)
+	return ReplayVerifierScript.verify(record, replay_factory, state.content_version, resume_factory)
 
 func validate_choose_character(selected_character_id: String) -> RefCounted:
 	if state.character_id == selected_character_id and not selected_character_id.is_empty():
@@ -1050,6 +1071,13 @@ func apply_battle_outcome() -> Array:
 	return events
 
 func validate_choose_reward(selected_draft_id: String, selected_option_id: String) -> RefCounted:
+	if state.phase == RunPhaseScript.ELITE_REWARD or state.phase == RunPhaseScript.BOSS_REWARD:
+		var expected_option_id := BOSS_REWARD_CONTINUE_ID if state.phase == RunPhaseScript.BOSS_REWARD else ELITE_REWARD_CONTINUE_ID
+		if not selected_draft_id.is_empty():
+			return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "Elite and Boss rewards do not use a normal reward draft.")
+		if selected_option_id != expected_option_id:
+			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected special reward option is not legal for this reward phase.", {"expected_option_id": expected_option_id})
+		return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"option_id": expected_option_id, "reward_phase": state.phase})
 	if state.phase != RunPhaseScript.REWARD_CHOICE:
 		return _invalid_phase(RunPhaseScript.REWARD_CHOICE)
 	if state.reward_draft == null:
@@ -1066,6 +1094,31 @@ func validate_choose_reward(selected_draft_id: String, selected_option_id: Strin
 	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": draft_id, "option_id": selected_option_id})
 
 func execute_choose_reward(selected_draft_id: String, selected_option_id: String) -> Dictionary:
+	if state.phase == RunPhaseScript.ELITE_REWARD or state.phase == RunPhaseScript.BOSS_REWARD:
+		var previous_phase: String = state.phase
+		var expected_option_id := BOSS_REWARD_CONTINUE_ID if previous_phase == RunPhaseScript.BOSS_REWARD else ELITE_REWARD_CONTINUE_ID
+		var events: Array = [DomainEventScript.new(DomainEventScript.REWARD_SELECTED, {
+			"run_id": state.run_id,
+			"option_id": expected_option_id,
+			"reward_phase": previous_phase,
+		})]
+		var data := {
+			"option_id": expected_option_id,
+			"reward_phase": previous_phase,
+		}
+		if previous_phase == RunPhaseScript.BOSS_REWARD:
+			events.append_array(enter_run_summary("VICTORY", "BOSS_DEFEATED", {"reward_option_id": expected_option_id}))
+		else:
+			state.phase = RunPhaseScript.MAP_CHOICE
+			events.append(_run_phase_event(previous_phase, state.phase))
+		data["phase"] = state.phase
+		state.map_state.last_events = events
+		return {
+			"accepted": true,
+			"status": CommandResultScript.ACCEPTED,
+			"events": events,
+			"data": data,
+		}
 	var draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
 	var option = state.reward_draft.option_by_id(selected_option_id) if state.reward_draft != null else null
 	if option == null:
@@ -1356,6 +1409,9 @@ func checkpoint() -> Dictionary:
 
 func rng_snapshot() -> Dictionary:
 	return rng_streams.snapshot() if rng_streams != null else {}
+
+func _terminal_outcome() -> String:
+	return str(state.terminal_summary.outcome) if state != null and state.terminal_summary != null else "ONGOING"
 
 func _invalid_phase(expected_phase: String) -> RefCounted:
 	return CommandValidationScript.new(

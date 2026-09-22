@@ -6,7 +6,7 @@ const ReplayCheckpointScript = preload("res://src/infrastructure/replay/replay_c
 const ReplayCommandFactoryScript = preload("res://src/infrastructure/replay/replay_command_factory.gd")
 const ReplayDivergenceReportScript = preload("res://src/infrastructure/replay/replay_divergence_report.gd")
 
-static func verify(record, replay_factory: Callable, expected_content_version: String = ""):
+static func verify(record, replay_factory: Callable, expected_content_version: String = "", resume_factory: Callable = Callable()):
 	if record == null:
 		return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "MISSING_RECORD")
 	if not expected_content_version.is_empty() and record.content_version != expected_content_version:
@@ -22,6 +22,8 @@ static func verify(record, replay_factory: Callable, expected_content_version: S
 		return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "CHECKPOINT_SEQUENCE_INVALID")
 
 	var controller = replay_factory.call(record.run_seed, record.content_version)
+	if controller == null:
+		return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "REPLAY_FACTORY_FAILED")
 	var initial_report = _compare_checkpoint(record.checkpoints[0], _checkpoint_for(controller, 0, 0), 0, 0)
 	if initial_report != null:
 		return initial_report
@@ -43,16 +45,20 @@ static func verify(record, replay_factory: Callable, expected_content_version: S
 		var command = ReplayCommandFactoryScript.from_record(command_record)
 		if command == null:
 			return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "COMMAND_TYPE_UNSUPPORTED", index + 1, index, command_record.command_type, null)
-		var result = controller.submit(command)
+		var result = _submit(controller, command)
 		if result == null or not result.is_accepted():
 			return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "COMMAND_REJECTED", index + 1, index, command_record.to_dictionary(), result.to_dictionary() if result != null else null)
 
 		var actual_checkpoint = _checkpoint_for(controller, index + 1, index + 1)
+		actual_checkpoint.domain_events = _event_data(result.events)
 		var checkpoint_report = _compare_checkpoint(record.checkpoints[index + 1], actual_checkpoint, index + 1, index)
 		if checkpoint_report != null:
 			return checkpoint_report
+		controller = _resume_if_requested(controller, resume_factory)
+		if controller == null:
+			return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "RESUME_FAILED", index + 1, index)
 
-	var terminal_outcome := str(controller.combat_state.terminal_outcome) if controller != null and controller.combat_state != null else ""
+	var terminal_outcome := _terminal_outcome(controller)
 	if terminal_outcome != record.terminal_outcome:
 		return ReplayDivergenceReportScript.new(
 			ReplayDivergenceReportScript.DIVERGED,
@@ -66,13 +72,47 @@ static func verify(record, replay_factory: Callable, expected_content_version: S
 	return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.MATCH, "MATCH", -1, -1, null, null, terminal_outcome)
 
 static func _checkpoint_for(controller, sequence_index: int, command_index: int):
+	var domain = controller
+	if controller.has_method("submit"):
+		domain = controller.get("domain")
 	return ReplayCheckpointScript.new(
 		sequence_index,
 		command_index,
-		controller.domain.checkpoint(),
-		controller.domain.rng_snapshot(),
-		controller.combat_state.terminal_outcome,
+		domain.checkpoint(),
+		domain.rng_snapshot(),
+		_terminal_outcome(controller),
 	)
+
+static func _submit(controller, command):
+	return controller.submit(command) if controller.has_method("submit") else controller.execute(command)
+
+static func _terminal_outcome(controller) -> String:
+	if controller == null:
+		return ""
+	var state = controller.get("state")
+	if state != null and state.terminal_summary != null:
+		return str(state.terminal_summary.outcome)
+	var combat_state = controller.get("combat_state")
+	if combat_state != null:
+		return str(combat_state.terminal_outcome)
+	var domain = controller.get("domain")
+	if domain != null:
+		combat_state = domain.get("combat_state")
+		if combat_state != null:
+			return str(combat_state.terminal_outcome)
+	return ""
+
+static func _event_data(events: Array) -> Array:
+	var result: Array = []
+	for event in events:
+		if event != null and event.has_method("to_dictionary"):
+			result.append(event.to_dictionary())
+		elif event is Dictionary:
+			result.append(event.duplicate(true))
+	return result
+
+static func _resume_if_requested(controller, resume_factory: Callable):
+	return resume_factory.call(controller) if resume_factory.is_valid() else controller
 
 static func _compare_checkpoint(expected, actual, checkpoint_index: int, command_index: int):
 	if expected.domain_state_hash != actual.domain_state_hash:
@@ -101,5 +141,14 @@ static func _compare_checkpoint(expected, actual, checkpoint_index: int, command
 			command_index,
 			expected.terminal_outcome,
 			actual.terminal_outcome,
+		)
+	if expected.domain_events != actual.domain_events:
+		return ReplayDivergenceReportScript.new(
+			ReplayDivergenceReportScript.DIVERGED,
+			"DOMAIN_EVENTS_MISMATCH",
+			checkpoint_index,
+			command_index,
+			expected.domain_events,
+			actual.domain_events,
 		)
 	return null

@@ -80,7 +80,7 @@ func submit(command) -> RefCounted:
 	var result = domain.execute(command)
 	_consume_events(result.events)
 	if result != null and result.has_method("is_replayable") and result.is_replayable():
-		replay_record.record_command(command.to_dictionary(), result.state_checkpoint, domain.rng_snapshot(), combat_state.terminal_outcome)
+		replay_record.record_command(command.to_dictionary(), result.state_checkpoint, domain.rng_snapshot(), combat_state.terminal_outcome, result.events)
 	return result
 
 func verify_replay(record = replay_record):

@@ -9,29 +9,31 @@ const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_recor
 
 var schema_version: int
 var run_seed: int
+var run_id: String
 var content_version: String
 var commands: Array
 var checkpoints: Array
 var terminal_outcome: String
 
-func _init(replay_seed: int, replay_content_version: String) -> void:
+func _init(replay_seed: int, replay_content_version: String, replay_run_id: String = "") -> void:
 	schema_version = SCHEMA_VERSION
 	run_seed = replay_seed
+	run_id = replay_run_id
 	content_version = replay_content_version
 	commands = []
 	checkpoints = []
 	terminal_outcome = "ONGOING"
 
-func record_initial_checkpoint(domain_checkpoint: Dictionary, rng_state: Dictionary, outcome: String) -> void:
+func record_initial_checkpoint(domain_checkpoint: Dictionary, rng_state: Dictionary, outcome: String, domain_events: Array = []) -> void:
 	if not checkpoints.is_empty():
 		return
-	checkpoints.append(ReplayCheckpointScript.new(0, 0, domain_checkpoint, rng_state, outcome))
+	checkpoints.append(ReplayCheckpointScript.new(0, 0, domain_checkpoint, rng_state, outcome, _event_data(domain_events)))
 	terminal_outcome = outcome
 
-func record_command(command_data: Dictionary, domain_checkpoint: Dictionary, rng_state: Dictionary, outcome: String) -> void:
+func record_command(command_data: Dictionary, domain_checkpoint: Dictionary, rng_state: Dictionary, outcome: String, domain_events: Array = []) -> void:
 	var command := ReplayCommandRecordScript.new(command_data)
 	commands.append(command)
-	checkpoints.append(ReplayCheckpointScript.new(checkpoints.size(), commands.size(), domain_checkpoint, rng_state, outcome))
+	checkpoints.append(ReplayCheckpointScript.new(checkpoints.size(), commands.size(), domain_checkpoint, rng_state, outcome, _event_data(domain_events)))
 	terminal_outcome = outcome
 
 func to_dictionary() -> Dictionary:
@@ -44,6 +46,7 @@ func to_dictionary() -> Dictionary:
 	return {
 		"schema_version": schema_version,
 		"run_seed": run_seed,
+		"run_id": run_id,
 		"content_version": content_version,
 		"commands": command_data,
 		"checkpoints": checkpoint_data,
@@ -54,7 +57,7 @@ func serialize() -> String:
 	return DeterministicSerializerScript.serialize(to_dictionary())
 
 static func from_dictionary(record_data: Dictionary):
-	var record := ReplayRecordScript.new(int(record_data.get("run_seed", 0)), str(record_data.get("content_version", "")))
+	var record := ReplayRecordScript.new(int(record_data.get("run_seed", 0)), str(record_data.get("content_version", "")), str(record_data.get("run_id", "")))
 	record.schema_version = int(record_data.get("schema_version", SCHEMA_VERSION))
 	for command_data in record_data.get("commands", []):
 		record.commands.append(ReplayCommandRecordScript.from_dictionary(command_data))
@@ -62,3 +65,12 @@ static func from_dictionary(record_data: Dictionary):
 		record.checkpoints.append(ReplayCheckpointScript.from_dictionary(checkpoint_data))
 	record.terminal_outcome = str(record_data.get("terminal_outcome", "ONGOING"))
 	return record
+
+static func _event_data(events: Array) -> Array:
+	var result: Array = []
+	for event in events:
+		if event != null and event.has_method("to_dictionary"):
+			result.append(event.to_dictionary())
+		elif event is Dictionary:
+			result.append(event.duplicate(true))
+	return result

@@ -58,6 +58,7 @@ func _init() -> void:
 	var draw_resolver_only := "--draw-resolver" in OS.get_cmdline_args()
 	var intent_graph_only := "--intent-graph" in OS.get_cmdline_args()
 	var replay_only := "--replay" in OS.get_cmdline_args()
+	var run_replay_only := "--run-replay" in OS.get_cmdline_args() or "--replay-run" in OS.get_cmdline_args()
 	var phase_2_foundations_only := "--phase-2-foundations" in OS.get_cmdline_args() or "--foundations" in OS.get_cmdline_args()
 	var run_domain_only := "--run-domain" in OS.get_cmdline_args()
 	var map_only := "--map" in OS.get_cmdline_args()
@@ -72,7 +73,7 @@ func _init() -> void:
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -123,6 +124,8 @@ func _init() -> void:
 		failures.append_array(IntentGraphTest.new().run())
 	if not focused_test_requested or replay_only:
 		failures.append_array(ReplayTest.new().run())
+	if run_replay_only:
+		failures.append_array(ReplayTest.new().run_run_replay())
 	if not focused_test_requested or phase_2_foundations_only:
 		failures.append_array(Phase2FoundationsTest.new().run())
 	if not focused_test_requested or run_domain_only:
@@ -194,6 +197,8 @@ func _init() -> void:
 			print("PASS: Intent Graph tests")
 		elif replay_only:
 			print("PASS: replay tests")
+		elif run_replay_only:
+			print("PASS: RunDomain replay tests")
 		elif phase_2_foundations_only:
 			print("PASS: Phase 2 foundations tests")
 		elif run_domain_only:
