@@ -1,0 +1,12 @@
+class_name IntegrityCause
+extends RefCounted
+
+const NATURAL_DECAY := "NATURAL_DECAY"
+const ACTIVE_MANIPULATION_WEAR := "ACTIVE_MANIPULATION_WEAR"
+const ACTIVE_MANIPULATION := ACTIVE_MANIPULATION_WEAR
+const ENEMY_DAMAGE := "ENEMY_DAMAGE"
+const EXPLICIT_REPAIR := "EXPLICIT_REPAIR"
+const ALL: Array[String] = [NATURAL_DECAY, ACTIVE_MANIPULATION_WEAR, ENEMY_DAMAGE, EXPLICIT_REPAIR]
+
+static func is_valid(cause: String) -> bool:
+	return ALL.has(cause)

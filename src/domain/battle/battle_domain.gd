@@ -3,6 +3,8 @@ extends RefCounted
 
 const CommandResultScript = preload("res://src/domain/commands/command_result.gd")
 const CommandValidationScript = preload("res://src/domain/commands/command_validation.gd")
+const ReserveActionResultScript = preload("res://src/domain/tiles/reserve_action_result.gd")
+const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
 var zones
@@ -15,6 +17,7 @@ var conversion_resolver
 var conversion_profile
 var combat_state
 var combat_resolver
+var reserve_service
 var _settlement_submitted := false
 
 func _init(
@@ -28,6 +31,7 @@ func _init(
 	domain_conversion_profile,
 	domain_combat_state,
 	domain_combat_resolver,
+	domain_reserve_service = null,
 ) -> void:
 	zones = domain_zones
 	draw_wall = domain_draw_wall
@@ -39,6 +43,15 @@ func _init(
 	conversion_profile = domain_conversion_profile
 	combat_state = domain_combat_state
 	combat_resolver = domain_combat_resolver
+	reserve_service = domain_reserve_service
+	if reserve_service == null and tile_actions != null:
+		reserve_service = tile_actions.reserve_service
+	if reserve_service == null:
+		reserve_service = ReserveServiceScript.new(zones, combat_state.reserve_capacity if combat_state != null else 3)
+	if combat_state != null:
+		combat_state.zones = zones
+		combat_state.draw_wall = draw_wall
+		reserve_service.set_capacity(combat_state.reserve_capacity)
 
 func execute(command):
 	if command == null or not command.has_method("execute"):
@@ -66,14 +79,43 @@ func execute_draw() -> Dictionary:
 	var draw_result = tile_actions.draw()
 	var events: Array = draw_result.events if draw_result.is_accepted() else []
 	if draw_result.is_accepted():
-		settlement_window.open()
+		if settlement_window != null:
+			settlement_window.open()
 	return {
 		"accepted": draw_result.is_accepted(),
 		"status": draw_result.status,
 		"events": events,
 	}
 
+func validate_store_tile(instance_id: String) -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if tile_actions == null or zones == null or not zones.contains_in_zone(instance_id, TileZoneScript.HAND):
+		return CommandValidationScript.new(false, ReserveActionResultScript.INVALID_TILE, "The selected TileInstance is not in Hand.")
+	if zones.size(TileZoneScript.RESERVE) >= combat_state.reserve_capacity:
+		return CommandValidationScript.new(false, ReserveActionResultScript.RESERVE_CAPACITY_REACHED, "Reserve is full.")
+	return CommandValidationScript.new(true)
+
+func execute_store_tile(instance_id: String) -> Dictionary:
+	var result = tile_actions.store_to_reserve(instance_id)
+	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
+
+func validate_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: String) -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if zones == null or not zones.contains_in_zone(hand_instance_id, TileZoneScript.HAND):
+		return CommandValidationScript.new(false, ReserveActionResultScript.INVALID_TILE, "The selected Hand TileInstance is invalid.")
+	if not zones.contains_in_zone(reserve_instance_id, TileZoneScript.RESERVE):
+		return CommandValidationScript.new(false, ReserveActionResultScript.INVALID_RESERVE_TILE, "The selected Reserve TileInstance is invalid.")
+	return CommandValidationScript.new(true)
+
+func execute_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: String) -> Dictionary:
+	var result = tile_actions.swap_with_reserve(hand_instance_id, reserve_instance_id)
+	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
+
 func can_settle() -> bool:
+	if settlement_window != null and settlement_window.is_open():
+		settlement_window.refresh()
 	return (
 		not _settlement_submitted
 		and combat_state != null
@@ -84,6 +126,8 @@ func can_settle() -> bool:
 	)
 
 func validate_settlement(selected_instance_ids: Array) -> RefCounted:
+	if settlement_window != null and settlement_window.is_open():
+		settlement_window.refresh()
 	if not can_settle():
 		return CommandValidationScript.new(
 			false,
@@ -130,6 +174,20 @@ func execute_settlement(selected_instance_ids: Array) -> Dictionary:
 		},
 	}
 
+func resolve_enemy_intent():
+	if combat_resolver == null:
+		return {"accepted": false, "status": "COMBAT_RESOLVER_NOT_READY", "events": []}
+	var result = combat_resolver.resolve_enemy_intent(combat_state)
+	var events: Array = result.events.duplicate()
+	if result.is_resolved() and reserve_service != null and combat_state.is_active():
+		events.append_array(reserve_service.natural_decay())
+	return {"accepted": result.is_resolved(), "status": result.status, "events": events}
+
+func end_battle(preserve_run_level: bool = false, preserved_instance_ids: Array = []) -> Array:
+	if reserve_service == null:
+		return []
+	return reserve_service.end_battle(preserve_run_level, preserved_instance_ids)
+
 func checkpoint() -> Dictionary:
 	var zone_checkpoint: Dictionary = {}
 	if zones != null:
@@ -143,6 +201,8 @@ func checkpoint() -> Dictionary:
 		"schema_version": 1,
 		"zones": zone_checkpoint,
 		"draw_wall": _tile_ids(draw_wall.contents()) if draw_wall != null else [],
+		"reserve": _tile_ids(zones.contents(TileZoneScript.RESERVE)) if zones != null else [],
+		"integrity": _integrity_snapshot(),
 		"combat_state": combat_state.to_dictionary() if combat_state != null else {},
 		"settlement": {
 			"submitted": _settlement_submitted,
@@ -157,3 +217,14 @@ func _tile_ids(tiles: Array) -> Array[String]:
 	for tile_instance in tiles:
 		ids.append(tile_instance.instance_id)
 	return ids
+
+func _integrity_snapshot() -> Array:
+	var snapshot: Array = []
+	if zones == null:
+		return snapshot
+	for zone in TileZoneScript.all():
+		for tile_instance in zones.contents(zone):
+			if tile_instance.integrity_initialized():
+				snapshot.append({"instance_id": tile_instance.instance_id, "integrity": tile_instance.integrity, "max_integrity": tile_instance.max_integrity})
+	snapshot.sort_custom(func(left, right): return left.instance_id < right.instance_id)
+	return snapshot

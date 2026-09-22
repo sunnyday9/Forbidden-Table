@@ -6,8 +6,10 @@ const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 
 var _contents: Dictionary = {}
 var _locations: Dictionary = {}
+var reserve_capacity: int
 
-func _init() -> void:
+func _init(initial_reserve_capacity: int = 3) -> void:
+	reserve_capacity = maxi(0, initial_reserve_capacity)
 	for zone in TileZoneScript.all():
 		_contents[zone] = []
 
@@ -18,9 +20,13 @@ func add(tile_instance, zone: String) -> bool:
 		return false
 	if _locations.has(tile_instance.instance_id):
 		return false
+	if zone == TileZoneScript.RESERVE and _contents[zone].size() >= reserve_capacity:
+		return false
 
 	_contents[zone].append(tile_instance)
 	_locations[tile_instance.instance_id] = zone
+	if zone == TileZoneScript.RESERVE:
+		tile_instance.initialize_integrity()
 	return true
 
 func transfer(instance_id: String, source_zone: String, target_zone: String) -> bool:
@@ -29,6 +35,8 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 	if source_zone == target_zone:
 		return false
 	if not _locations.has(instance_id) or _locations[instance_id] != source_zone:
+		return false
+	if target_zone == TileZoneScript.RESERVE and _contents[target_zone].size() >= reserve_capacity:
 		return false
 
 	var source_contents: Array = _contents[source_zone]
@@ -43,6 +51,39 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 	source_contents.remove_at(source_index)
 	_contents[target_zone].append(tile_instance)
 	_locations[instance_id] = target_zone
+	if target_zone == TileZoneScript.RESERVE:
+		tile_instance.initialize_integrity()
+	return true
+
+func swap(hand_instance_id: String, reserve_instance_id: String) -> bool:
+	if not _locations.has(hand_instance_id) or not _locations.has(reserve_instance_id):
+		return false
+	if _locations[hand_instance_id] != TileZoneScript.HAND or _locations[reserve_instance_id] != TileZoneScript.RESERVE:
+		return false
+	if hand_instance_id == reserve_instance_id:
+		return false
+
+	var hand_contents: Array = _contents[TileZoneScript.HAND]
+	var reserve_contents: Array = _contents[TileZoneScript.RESERVE]
+	var hand_index := _find_instance_index(hand_contents, hand_instance_id)
+	var reserve_index := _find_instance_index(reserve_contents, reserve_instance_id)
+	if hand_index < 0 or reserve_index < 0:
+		return false
+
+	var hand_tile = hand_contents[hand_index]
+	var reserve_tile = reserve_contents[reserve_index]
+	hand_contents[hand_index] = reserve_tile
+	reserve_contents[reserve_index] = hand_tile
+	_locations[hand_instance_id] = TileZoneScript.RESERVE
+	_locations[reserve_instance_id] = TileZoneScript.HAND
+	hand_tile.initialize_integrity()
+	return true
+
+func set_reserve_capacity(new_capacity: int) -> bool:
+	var bounded_capacity := maxi(0, new_capacity)
+	if bounded_capacity < _contents[TileZoneScript.RESERVE].size():
+		return false
+	reserve_capacity = bounded_capacity
 	return true
 
 func reorder(zone: String, ordered_instance_ids: Array[String]) -> bool:

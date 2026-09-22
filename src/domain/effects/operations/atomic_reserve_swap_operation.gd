@@ -21,12 +21,9 @@ func validate(context, _targets: Dictionary) -> String:
 	return ""
 
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
-	if not context.zones.transfer(hand_instance_id, TileZoneScript.HAND, TileZoneScript.RESERVE):
+	if not context.zones.swap(hand_instance_id, reserve_instance_id):
 		return []
-	if not context.zones.transfer(reserve_instance_id, TileZoneScript.RESERVE, TileZoneScript.HAND):
-		context.zones.transfer(hand_instance_id, TileZoneScript.RESERVE, TileZoneScript.HAND)
-		return []
-	return [_event("TileMoved", {"effect_id": effect_id, "operation": operation_id, "hand_instance_id": hand_instance_id, "reserve_instance_id": reserve_instance_id, "sequence_index": sequence_index})]
+	return [_event("ReserveSwapped", {"effect_id": effect_id, "operation": operation_id, "hand_instance_id": hand_instance_id, "reserve_instance_id": reserve_instance_id, "sequence_index": sequence_index})]
 
 func to_dictionary() -> Dictionary:
 	return {"operation_id": operation_id, "hand_instance_id": hand_instance_id, "reserve_instance_id": reserve_instance_id}
