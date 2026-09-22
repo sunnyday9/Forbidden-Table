@@ -80,7 +80,7 @@ func test_insufficient_draw_is_explicit_and_atomic(failures: Array[String]) -> v
 
 	assert_true(result.status == DrawActionResult.INSUFFICIENT_TILES, "an empty Draw Wall returns an explicit insufficient result", failures)
 	assert_true(result.requested == 1 and result.drawn == 0 and result.shortfall == 1, "an insufficient draw reports its shortfall", failures)
-	assert_true(result.events.is_empty(), "an insufficient draw emits no accepted-action event", failures)
+	assert_true(result.events.size() >= 1, "a Starvation draw emits a causal state event", failures)
 	assert_true(zones.size(TileZone.HAND) == 1, "an insufficient draw leaves Hand unchanged", failures)
 	assert_true(zones.size(TileZone.DRAW_WALL) == 0, "an insufficient draw leaves Draw Wall unchanged", failures)
 

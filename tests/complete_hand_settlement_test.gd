@@ -82,8 +82,8 @@ func test_rebuild_shortfall_is_deterministic_and_exhaust_persists(failures: Arra
 	var first_result = first["domain"].execute(SettleCompleteHandCommand.new("stage1.shortfall", first_interpretation.interpretation_id))
 	var second_result = second["domain"].execute(SettleCompleteHandCommand.new("stage1.shortfall", second_interpretation.interpretation_id))
 
-	assert_true(first_result.accepted and first_result.status == "COMPLETED_WITH_REBUILD_SHORTFALL", "a rebuild shortfall is explicit while completion remains accepted", failures)
-	assert_true(first["zones"].size(TileZone.HAND) == 0, "a rebuild shortfall does not invent missing tiles", failures)
+	assert_true(first_result.accepted and first_result.status == "COMPLETED", "a rebuild can recycle Discard while completion remains accepted", failures)
+	assert_true(first["zones"].size(TileZone.HAND) == 3, "a rebuild restores the configured Recovery Baseline from Discard", failures)
 	assert_true(first["zones"].size(TileZone.EXHAUST) == 1, "Exhaust is not automatically recovered", failures)
 	assert_true(first_result.to_dictionary() == second_result.to_dictionary(), "rebuild shortfall results are deterministic", failures)
 

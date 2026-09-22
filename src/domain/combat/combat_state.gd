@@ -3,6 +3,7 @@ extends RefCounted
 
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const EnemyIntentScript = preload("res://src/domain/combat/enemy_intent.gd")
+const DrawEscalationPolicyScript = preload("res://src/domain/tiles/draw_escalation_policy.gd")
 
 const ONGOING := "ONGOING"
 const VICTORY := "VICTORY"
@@ -12,6 +13,9 @@ var enemy_hp: int
 var enemy_max_hp: int
 var pressure: int
 var pressure_limit: int
+var fatigue: int
+var starvation_count: int
+var starvation_active: bool
 var current_intent
 var intent_index: int
 var pending_death: bool
@@ -45,11 +49,15 @@ func _init(
 	initial_draw_capacity: int = 3,
 	initial_settlement_capacity: int = 2,
 	initial_reserve_capacity: int = 3,
+	initial_fatigue: int = 0,
 ) -> void:
 	enemy_max_hp = maxi(0, initial_enemy_hp)
 	enemy_hp = enemy_max_hp
 	pressure_limit = maxi(1, initial_pressure_limit)
 	pressure = clampi(initial_pressure, 0, pressure_limit)
+	fatigue = maxi(0, initial_fatigue)
+	starvation_count = 0
+	starvation_active = false
 	_intent_loop = _validated_intent_loop(initial_intent_loop)
 	intent_index = 0
 	current_intent = _intent_loop[intent_index]
@@ -91,6 +99,9 @@ func to_dictionary() -> Dictionary:
 		"enemy_max_hp": enemy_max_hp,
 		"pressure": pressure,
 		"pressure_limit": pressure_limit,
+		"fatigue": fatigue,
+		"starvation_count": starvation_count,
+		"starvation_active": starvation_active,
 		"current_intent": current_intent.to_dictionary(),
 		"intent_index": intent_index,
 		"pending_death": pending_death,
@@ -112,6 +123,42 @@ func to_dictionary() -> Dictionary:
 
 func has_pending_terminal() -> bool:
 	return pending_death or pending_defeat
+
+func increment_fatigue(source_id: String = "", sequence_index: int = -1) -> Array:
+	var previous_fatigue := fatigue
+	fatigue += 1
+	var event_sequence := sequence_index if sequence_index >= 0 else _next_effect_sequence_index()
+	return [DomainEventScript.new(DomainEventScript.FATIGUE_CHANGED, {
+		"source": source_id,
+		"previous_fatigue": previous_fatigue,
+		"fatigue": fatigue,
+		"amount": fatigue - previous_fatigue,
+		"sequence_index": event_sequence,
+	})]
+
+func enter_starvation(
+	requested: int,
+	shortfall: int,
+	source_id: String = "",
+	sequence_index: int = -1,
+	policy = null,
+) -> Array:
+	starvation_count += 1
+	starvation_active = true
+	var event_sequence := sequence_index if sequence_index >= 0 else _next_effect_sequence_index()
+	var escalation_policy = policy if policy != null else DrawEscalationPolicyScript.new()
+	var pressure_amount: int = escalation_policy.pressure_for_starvation(starvation_count) + escalation_policy.pressure_for_fatigue(fatigue)
+	var event_type := DomainEventScript.STARVATION_ENTERED if starvation_count == 1 else DomainEventScript.STARVATION_ESCALATED
+	var events: Array = [DomainEventScript.new(event_type, {
+		"source": source_id,
+		"requested": requested,
+		"shortfall": shortfall,
+		"starvation_count": starvation_count,
+		"pressure_amount": pressure_amount,
+		"sequence_index": event_sequence,
+	})]
+	events.append_array(_apply_pressure(pressure_amount, "draw.starvation", event_sequence))
+	return events
 
 func is_queue_active() -> bool:
 	return _queue_active

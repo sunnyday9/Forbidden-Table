@@ -2,6 +2,10 @@ class_name DomainEvent
 extends RefCounted
 
 const TILE_DRAWN := "TileDrawn"
+const DRAW_WALL_RESHUFFLED := "DrawWallReshuffled"
+const FATIGUE_CHANGED := "FatigueChanged"
+const STARVATION_ENTERED := "StarvationEntered"
+const STARVATION_ESCALATED := "StarvationEscalated"
 const TILE_DISCARDED := "TileDiscarded"
 const TILE_MOVED := "TileMoved"
 const TILE_EXHAUSTED := "TileExhausted"

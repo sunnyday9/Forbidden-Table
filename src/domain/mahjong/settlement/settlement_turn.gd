@@ -76,7 +76,7 @@ func _finish_settlement(settlement_result, combat_output):
 	for _draw_index in range(replacement_requested):
 		var draw_result = _tile_actions.draw(DrawSourceScript.SETTLEMENT_REPLACEMENT)
 		replacement_draws.append(draw_result)
-		if not draw_result.is_accepted():
+		if draw_result.shortfall > 0:
 			break
 
 	var replacement_drawn := replacement_requested - _replacement_shortfall(replacement_requested, replacement_draws)

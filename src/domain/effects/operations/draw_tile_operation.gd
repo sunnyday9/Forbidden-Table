@@ -10,17 +10,18 @@ func _init(draw_source: String = DrawSourceScript.EFFECT) -> void:
 	source = draw_source
 
 func validate(context, _targets: Dictionary) -> String:
-	if context == null or context.draw_wall == null:
+	if context == null or context.draw_wall == null or not context.draw_wall.is_initialized() or context.resolve_draw_resolver() == null:
 		return "DRAW_WALL_NOT_READY"
-	if not context.draw_wall.is_initialized() or context.draw_wall.size() == 0:
-		return "INSUFFICIENT_TILES"
 	return "" if DrawSourceScript.is_valid(source) else "INVALID_SOURCE"
 
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
-	var tile_instance = context.draw_wall.draw_one()
-	if tile_instance == null:
-		return []
-	return [_event("TileDrawn", {"effect_id": effect_id, "instance_id": tile_instance.instance_id, "definition_id": tile_instance.definition_id, "source": source, "sequence_index": sequence_index})]
+	var result = context.resolve_draw_resolver().draw(1, source, sequence_index)
+	var events: Array = []
+	for event in result.events:
+		var data: Dictionary = event.data.duplicate(true)
+		data["effect_id"] = effect_id
+		events.append(_event(event.event_type, data))
+	return events
 
 func to_dictionary() -> Dictionary:
 	return {"operation_id": operation_id, "source": source}

@@ -74,6 +74,8 @@ func _init(
 	if combat_state != null:
 		combat_state.zones = zones
 		combat_state.draw_wall = draw_wall
+		if tile_actions != null and tile_actions.has_method("set_combat_state"):
+			tile_actions.set_combat_state(combat_state)
 		reserve_service.set_capacity(combat_state.reserve_capacity)
 
 func execute(command):
@@ -94,13 +96,11 @@ func validate_draw() -> RefCounted:
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
 	if tile_actions == null or draw_wall == null or not draw_wall.is_initialized():
 		return CommandValidationScript.new(false, "DRAW_WALL_NOT_READY", "The Draw Wall is not ready.")
-	if draw_wall.size() == 0:
-		return CommandValidationScript.new(false, "INSUFFICIENT_TILES", "The Draw Wall has no available tiles.")
 	return CommandValidationScript.new(true)
 
 func execute_draw() -> Dictionary:
 	var draw_result = tile_actions.draw()
-	var events: Array = draw_result.events if draw_result.is_accepted() else []
+	var events: Array = draw_result.events
 	if draw_result.is_accepted():
 		if settlement_window != null:
 			settlement_window.open()
@@ -108,6 +108,7 @@ func execute_draw() -> Dictionary:
 		"accepted": draw_result.is_accepted(),
 		"status": draw_result.status,
 		"events": events,
+		"data": draw_result.to_dictionary(),
 	}
 
 func validate_end_turn() -> RefCounted:
@@ -268,7 +269,7 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 		var draw_result = tile_actions.draw(DrawSourceScript.COMPLETE_HAND_REBUILD)
 		rebuild_draws.append(draw_result)
 		events.append_array(draw_result.events)
-		if not draw_result.is_accepted():
+		if draw_result.shortfall > 0:
 			break
 	recovery_state.start()
 	events.append(DomainEventScript.new(DomainEventScript.RECOVERY_STARTED, recovery_state.to_dictionary()))
