@@ -9,8 +9,12 @@ var reserve_service
 
 func _init(effect_state, effect_zones = null, effect_draw_wall = null, effect_reserve_service = null) -> void:
 	state = effect_state
-	zones = effect_zones if effect_zones != null else (effect_state.zones if effect_state != null else null)
-	draw_wall = effect_draw_wall if effect_draw_wall != null else (effect_state.draw_wall if effect_state != null else null)
+	zones = effect_zones
+	draw_wall = effect_draw_wall
+	if zones == null and effect_state != null:
+		zones = effect_state.get("zones")
+	if draw_wall == null and effect_state != null:
+		draw_wall = effect_state.get("draw_wall")
 	reserve_service = effect_reserve_service
 
 func resolve_draw_resolver():

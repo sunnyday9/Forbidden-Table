@@ -11,6 +11,8 @@ const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state
 const RunTutorialStateScript = preload("res://src/domain/run/run_tutorial_state.gd")
 const ShopStateScript = preload("res://src/domain/run/shop_state.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
+const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
+const EventStateScript = preload("res://src/domain/run/event_state.gd")
 
 var run_id: String
 var seed: int
@@ -22,6 +24,8 @@ var map_state: RunMapState
 var tile_pool: RunTilePoolState
 var shop_state
 var workshop_state
+var event_state
+var active_effects: Dictionary
 var gold: int
 var refinement_tokens: int
 var reward_draft: RefCounted
@@ -49,6 +53,8 @@ func _init(
 	tile_pool = initial_tile_pool if initial_tile_pool != null and initial_tile_pool is RunTilePoolStateScript else RunTilePoolStateScript.new()
 	shop_state = ShopStateScript.new()
 	workshop_state = WorkshopStateScript.new()
+	event_state = EventStateScript.new()
+	active_effects = {}
 	gold = 0
 	refinement_tokens = 0
 	reward_draft = null
@@ -71,6 +77,8 @@ func to_dictionary() -> Dictionary:
 		"tile_pool": tile_pool.to_dictionary(),
 		"shop_state": shop_state.to_dictionary(),
 		"workshop_state": workshop_state.to_dictionary(),
+		"event_state": event_state.to_dictionary(),
+		"active_effects": _active_effect_details(),
 		"gold": gold,
 		"refinement_tokens": refinement_tokens,
 		"reward_draft": reward_draft.to_dictionary() if reward_draft != null and reward_draft is RewardDraftScript else {},
@@ -81,3 +89,25 @@ func to_dictionary() -> Dictionary:
 		"terminal_summary": terminal_summary.to_dictionary(),
 		"current_battle_snapshot": current_battle_snapshot.to_dictionary() if current_battle_snapshot != null else {},
 	}
+
+func active_modifier(modifier_id: String):
+	for effect_key in _sorted_effect_keys():
+		var effect = active_effects[effect_key]
+		if effect is ActiveEffectInstanceScript and effect.runtime_parameters.get("modifier_id", "") == modifier_id:
+			return effect
+	return null
+
+func _sorted_effect_keys() -> Array:
+	var keys: Array = active_effects.keys()
+	keys.sort()
+	return keys
+
+func _active_effect_details() -> Array:
+	var details: Array = []
+	for effect_key in _sorted_effect_keys():
+		var effect = active_effects[effect_key]
+		if effect != null and effect.has_method("to_dictionary"):
+			details.append(effect.to_dictionary())
+		else:
+			details.append({"instance_id": str(effect_key)})
+	return details

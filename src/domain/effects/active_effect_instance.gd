@@ -14,6 +14,7 @@ var stack_policy: String
 var max_stacks: int
 var uses_remaining: int
 var charges_remaining: int
+var runtime_parameters: Dictionary
 
 func _init(
 	identifier: String,
@@ -25,6 +26,7 @@ func _init(
 	initial_charges: int = -1,
 	instance_identifier: String = "",
 	stack_limit: int = 0,
+	initial_runtime_parameters: Dictionary = {},
 ) -> void:
 	instance_id = instance_identifier if not instance_identifier.is_empty() else identifier
 	definition_id = identifier
@@ -39,6 +41,7 @@ func _init(
 		stacks = mini(stacks, max_stacks)
 	uses_remaining = initial_uses if initial_uses >= 0 else (duration_spec.amount if duration_spec.scope == DurationSpecScript.USES else -1)
 	charges_remaining = initial_charges if initial_charges >= 0 else (duration_spec.amount if duration_spec.scope == DurationSpecScript.CHARGES else -1)
+	runtime_parameters = initial_runtime_parameters.duplicate(true)
 
 func is_active() -> bool:
 	return remaining != 0 and uses_remaining != 0 and charges_remaining != 0
@@ -79,4 +82,5 @@ func to_dictionary() -> Dictionary:
 		"max_stacks": max_stacks,
 		"uses_remaining": uses_remaining,
 		"charges_remaining": charges_remaining,
+		"runtime_parameters": runtime_parameters.duplicate(true),
 	}

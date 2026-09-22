@@ -46,31 +46,42 @@ func resolve(queue, state, sequence_index: int):
 	return resolve_in_context(context, sequence_index)
 
 func resolve_in_context(context, sequence_index: int):
+	var validation := validate_in_context(context)
+	if not bool(validation.get("valid", false)):
+		return _rejected(
+			str(validation.get("status", EffectResolutionResultScript.REJECTED_OPERATION)),
+			str(validation.get("reason", "EFFECT_VALIDATION_FAILED")),
+			sequence_index,
+		)
+	var resolved_targets: Dictionary = validation.get("resolved_targets", {})
+	var events: Array = []
+	for operation in operations:
+		events.append_array(operation.apply(context, resolved_targets, sequence_index, effect_id))
+	return EffectResolutionResultScript.new(EffectResolutionResultScript.RESOLVED, effect_id, trigger.trigger_id, "", events)
+
+func validate_in_context(context) -> Dictionary:
 	var resolved_targets: Dictionary = {}
 	for target in targets:
 		if not target is EffectTargetScript:
-			return _rejected(EffectResolutionResultScript.REJECTED_TARGET, "INVALID_TARGET_DECLARATION", sequence_index)
+			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_TARGET, "reason": "INVALID_TARGET_DECLARATION"}
 		var resolved: Dictionary = target.resolve(context)
 		if not bool(resolved.get("valid", false)):
-			return _rejected(EffectResolutionResultScript.REJECTED_TARGET, str(resolved.get("reason", "INVALID_TARGET")), sequence_index)
+			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_TARGET, "reason": str(resolved.get("reason", "INVALID_TARGET"))}
 		resolved_targets[target.key] = resolved
 
 	for condition in conditions:
 		if not condition is EffectConditionScript or not condition.evaluate(context, resolved_targets):
 			var condition_reason: String = condition.failure_reason() if condition is EffectConditionScript else "INVALID_CONDITION_DECLARATION"
-			return _rejected(EffectResolutionResultScript.REJECTED_CONDITION, condition_reason, sequence_index)
+			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_CONDITION, "reason": condition_reason}
 
 	for operation in operations:
 		if not operation is EffectOperationScript:
-			return _rejected(EffectResolutionResultScript.REJECTED_OPERATION, "INVALID_OPERATION_DECLARATION", sequence_index)
+			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_OPERATION, "reason": "INVALID_OPERATION_DECLARATION"}
 		var validation_reason: String = operation.validate(context, resolved_targets)
 		if not validation_reason.is_empty():
-			return _rejected(EffectResolutionResultScript.REJECTED_OPERATION, validation_reason, sequence_index)
+			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_OPERATION, "reason": validation_reason}
 
-	var events: Array = []
-	for operation in operations:
-		events.append_array(operation.apply(context, resolved_targets, sequence_index, effect_id))
-	return EffectResolutionResultScript.new(EffectResolutionResultScript.RESOLVED, effect_id, trigger.trigger_id, "", events)
+	return {"valid": true, "resolved_targets": resolved_targets}
 
 func _rejected(status: String, reason: String, sequence_index: int):
 	return EffectResolutionResultScript.new(

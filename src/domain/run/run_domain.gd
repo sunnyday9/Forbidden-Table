@@ -13,6 +13,14 @@ const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const EncounterFactoryScript = preload("res://src/domain/battle/encounter_factory.gd")
+const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
+const EffectScript = preload("res://src/domain/effects/effect.gd")
+const ApplyRunModifierOperationScript = preload("res://src/domain/effects/operations/apply_run_modifier_operation.gd")
+const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
+const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
+const EventDefinitionScript = preload("res://src/content/definitions/event_definition.gd")
+const EventStateScript = preload("res://src/domain/run/event_state.gd")
+const LifecycleResolverScript = preload("res://src/domain/effects/lifecycle_resolver.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
 const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
@@ -20,10 +28,12 @@ const RewardDraftSelectorScript = preload("res://src/domain/run/reward_draft_sel
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
+const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
 const ShopOfferSelectorScript = preload("res://src/domain/run/shop_offer_selector.gd")
+const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
@@ -189,6 +199,360 @@ func execute_select_map_node(selected_node_id: String) -> Dictionary:
 			"encounter_id": encounter_id,
 		},
 	}
+
+func validate_enter_event(selected_event_id: String = "") -> RefCounted:
+	if state.phase != RunPhaseScript.MAP_CHOICE:
+		return _invalid_phase(RunPhaseScript.MAP_CHOICE)
+	var node_id: String = state.map_state.current_node_id
+	var node = map_definition.node_definition(node_id)
+	if node == null or node.node_kind != "EVENT":
+		return CommandValidationScript.new(false, "INVALID_EVENT_NODE", "Event entry requires the current Map Node to be an Event.")
+	if state.event_state.active:
+		return CommandValidationScript.new(false, "EVENT_ALREADY_ACTIVE", "An Event is already active.")
+	if state.event_state.has_completed_node(node_id):
+		return CommandValidationScript.new(false, "EVENT_COMPLETED", "This Event node has already been completed.")
+	var authored_event_id := _event_id_for_node(node_id)
+	var event_id := selected_event_id if not selected_event_id.is_empty() else authored_event_id
+	if event_id.is_empty() or (not authored_event_id.is_empty() and event_id != authored_event_id):
+		return CommandValidationScript.new(false, "INVALID_EVENT_ID", "The selected Event ID is not the current authored Event.")
+	var definition = content_registry.resolve(event_id)
+	if not definition is EventDefinitionScript:
+		return CommandValidationScript.new(false, "INVALID_EVENT_DEFINITION", "The current Event ID is not a registered EventDefinition.")
+	var definition_validation = definition.validate()
+	if definition_validation == null or not definition_validation.is_valid():
+		return CommandValidationScript.new(false, "INVALID_EVENT_DEFINITION", "The current EventDefinition is invalid.")
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"event_id": event_id})
+
+func execute_enter_event(selected_event_id: String = "") -> Dictionary:
+	var node_id: String = state.map_state.current_node_id
+	var event_id := selected_event_id if not selected_event_id.is_empty() else _event_id_for_node(node_id)
+	var definition = content_registry.resolve(event_id)
+	var entry_id := "event.%s.%d" % [state.run_id, state.event_state.entry_sequence + 1]
+	if not state.event_state.begin(node_id, entry_id, definition, rng_streams.event.snapshot()):
+		return {"accepted": false, "status": "INVALID_EVENT_DEFINITION", "message": "The EventState could not begin the selected Event."}
+	var previous_phase: String = state.phase
+	state.phase = RunPhaseScript.EVENT
+	var events: Array = [
+		DomainEventScript.new(DomainEventScript.EVENT_ENTERED, {
+			"run_id": state.run_id,
+			"node_id": node_id,
+			"entry_id": entry_id,
+			"event_id": event_id,
+			"option_ids": state.event_state.legal_choice_ids(),
+			"event_rng_state": state.event_state.event_rng_state.duplicate(true),
+		}),
+		_run_phase_event(previous_phase, state.phase),
+	]
+	state.map_state.last_events = events
+	return {
+		"accepted": true,
+		"status": CommandResultScript.ACCEPTED,
+		"events": events,
+		"data": {
+			"node_id": node_id,
+			"entry_id": entry_id,
+			"event_id": event_id,
+			"option_ids": state.event_state.legal_choice_ids(),
+			"phase": state.phase,
+		},
+	}
+
+func validate_choose_event_option(selected_event_id: String, selected_entry_id: String, selected_option_id: String) -> RefCounted:
+	if state.phase != RunPhaseScript.EVENT or not state.event_state.active:
+		return _invalid_phase(RunPhaseScript.EVENT)
+	if not selected_event_id.is_empty() and selected_event_id != state.event_state.event_id:
+		return CommandValidationScript.new(false, "INVALID_EVENT_ID", "The selected Event ID is not active.")
+	if not selected_entry_id.is_empty() and selected_entry_id != state.event_state.entry_id:
+		return CommandValidationScript.new(false, "INVALID_EVENT_ENTRY", "The selected Event entry is not active.")
+	var choice = state.event_state.choice_by_id(selected_option_id)
+	if choice == null:
+		return CommandValidationScript.new(false, "INVALID_EVENT_OPTION", "The selected Event option ID is not legal for the active Event.")
+	var effects_validation := _validate_event_choice_effects(choice)
+	if not effects_validation.get("accepted", false):
+		return CommandValidationScript.new(false, effects_validation.get("status", "INVALID_EVENT_EFFECT"), effects_validation.get("message", "The selected Event option cannot be resolved."), effects_validation.get("details", {}))
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {
+		"event_id": state.event_state.event_id,
+		"entry_id": state.event_state.entry_id,
+		"option_id": selected_option_id,
+	})
+
+func execute_choose_event_option(selected_event_id: String, selected_entry_id: String, selected_option_id: String) -> Dictionary:
+	var choice = state.event_state.choice_by_id(selected_option_id)
+	if choice == null:
+		return {"accepted": false, "status": "INVALID_EVENT_OPTION", "message": "The selected Event option ID is not legal for the active Event."}
+	var resolution_rng_state: Dictionary = rng_streams.snapshot()
+	var resolution_state: Dictionary = _event_resolution_snapshot()
+	var alternative := _select_event_alternative(choice)
+	var events: Array = [DomainEventScript.new(DomainEventScript.EVENT_OPTION_CHOSEN, {
+		"run_id": state.run_id,
+		"event_id": state.event_state.event_id,
+		"entry_id": state.event_state.entry_id if selected_entry_id.is_empty() else selected_entry_id,
+		"option_id": selected_option_id,
+	})]
+	var alternative_id := str(alternative.get("alternative_id", ""))
+	if not alternative_id.is_empty():
+		events.append(DomainEventScript.new(DomainEventScript.EVENT_ALTERNATIVE_RESOLVED, {
+			"run_id": state.run_id,
+			"event_id": state.event_state.event_id,
+			"entry_id": state.event_state.entry_id,
+			"option_id": selected_option_id,
+			"alternative_id": alternative_id,
+			"roll": alternative.get("roll", 0),
+			"total_weight": alternative.get("total_weight", 0),
+		}))
+	var effects: Array = choice.get("effects", []).duplicate(true) if choice is Dictionary else []
+	effects.append_array(alternative.get("effects", []).duplicate(true))
+	var effects_result := _resolve_event_effects(effects)
+	if not effects_result.get("accepted", false):
+		_restore_event_resolution_snapshot(resolution_state)
+		rng_streams.restore(resolution_rng_state)
+		return effects_result
+	events.append_array(effects_result.get("events", []))
+	state.event_state.event_rng_state = rng_streams.event.snapshot()
+	state.event_state.mark_completed(selected_option_id, alternative_id)
+	var previous_phase: String = state.phase
+	state.phase = RunPhaseScript.MAP_CHOICE
+	var resolution_data := {
+		"run_id": state.run_id,
+		"event_id": state.event_state.event_id,
+		"entry_id": state.event_state.entry_id,
+		"node_id": state.event_state.node_id,
+		"option_id": selected_option_id,
+		"alternative_id": alternative_id,
+		"event_rng_state": state.event_state.event_rng_state.duplicate(true),
+		"phase": state.phase,
+	}
+	events.append(DomainEventScript.new(DomainEventScript.EVENT_RESOLVED, resolution_data.duplicate(true)))
+	events.append(DomainEventScript.new(DomainEventScript.EVENT_EXITED, resolution_data.duplicate(true)))
+	events.append(_run_phase_event(previous_phase, state.phase))
+	state.map_state.last_events = events
+	return {
+		"accepted": true,
+		"status": CommandResultScript.ACCEPTED,
+		"events": events,
+		"data": resolution_data,
+	}
+
+func advance_run_boundary(boundary: String) -> Array:
+	return LifecycleResolverScript.new().advance(state, boundary)
+
+func _validate_event_choice_effects(choice: Dictionary) -> Dictionary:
+	var effects = choice.get("effects", [])
+	if not effects is Array:
+		return {"accepted": false, "status": "INVALID_EVENT_EFFECTS", "message": "Event choice effects must be an Array."}
+	var alternatives = choice.get("alternatives", [])
+	if not alternatives is Array:
+		return {"accepted": false, "status": "INVALID_EVENT_ALTERNATIVES", "message": "Event alternatives must be an Array."}
+	var all_effect_sets: Array = [effects]
+	for alternative in alternatives:
+		if not alternative is Dictionary:
+			return {"accepted": false, "status": "INVALID_EVENT_ALTERNATIVE", "message": "Event alternatives must be dictionaries."}
+		var alternative_effects = alternative.get("effects", [])
+		if not alternative_effects is Array:
+			return {"accepted": false, "status": "INVALID_EVENT_EFFECTS", "message": "Event alternative effects must be an Array."}
+		var combined_effects: Array = effects.duplicate(true)
+		combined_effects.append_array(alternative_effects.duplicate(true))
+		all_effect_sets.append(combined_effects)
+	for effect_set in all_effect_sets:
+		var projected_gold: int = state.gold
+		var projected_tokens: int = state.refinement_tokens
+		for effect in effect_set:
+			if effect is EffectScript:
+				var effect_validation: Dictionary = effect.validate_in_context(EffectContextScript.new(state))
+				if not effect_validation.get("valid", false):
+					return {"accepted": false, "status": "INVALID_EVENT_EFFECT", "message": "An Event Effect cannot be resolved.", "details": effect_validation}
+				for operation in effect.operations:
+					if operation.has_method("to_dictionary"):
+						var operation_data: Dictionary = operation.to_dictionary()
+						if operation_data.get("operation_id", "") == "ModifyRunCurrency":
+							var amount := int(operation_data.get("amount", 0))
+							if operation_data.get("currency", "") == RunEconomyScript.GOLD:
+								projected_gold += amount
+								if projected_gold < 0:
+									return {"accepted": false, "status": "INSUFFICIENT_GOLD", "message": "The Event choice requires more Gold than the run owns."}
+							elif operation_data.get("currency", "") == RunEconomyScript.REFINEMENT_TOKENS:
+								projected_tokens += amount
+								if projected_tokens < 0:
+									return {"accepted": false, "status": "INSUFFICIENT_REFINEMENT_TOKENS", "message": "The Event choice requires more Refinement Tokens than the run owns."}
+			elif effect is Dictionary:
+				var dictionary_validation := _validate_declarative_event_effect(effect)
+				if not dictionary_validation.get("accepted", false):
+					return dictionary_validation
+				var declarative_kind := str(effect.get("kind", effect.get("type", effect.get("effect_type", ""))))
+				if declarative_kind in ["GOLD", "GOLD_DELTA", "REFINEMENT_TOKENS", "REFINEMENT_TOKENS_DELTA"]:
+					var declarative_currency := RunEconomyScript.GOLD if declarative_kind.begins_with("GOLD") else RunEconomyScript.REFINEMENT_TOKENS
+					var declarative_amount := int(effect.get("amount", effect.get("delta", 0)))
+					if declarative_currency == RunEconomyScript.GOLD:
+						projected_gold += declarative_amount
+						if projected_gold < 0:
+							return {"accepted": false, "status": "INSUFFICIENT_GOLD", "message": "The Event choice requires more Gold than the run owns."}
+					else:
+						projected_tokens += declarative_amount
+						if projected_tokens < 0:
+							return {"accepted": false, "status": "INSUFFICIENT_REFINEMENT_TOKENS", "message": "The Event choice requires more Refinement Tokens than the run owns."}
+			else:
+				return {"accepted": false, "status": "INVALID_EVENT_EFFECT", "message": "Event choices require typed declarative Effects."}
+	return {"accepted": true}
+
+func _event_resolution_snapshot() -> Dictionary:
+	var active_effect_objects: Dictionary = {}
+	var active_effect_data: Dictionary = {}
+	for effect_key in state.active_effects.keys():
+		var effect = state.active_effects[effect_key]
+		active_effect_objects[effect_key] = effect
+		if effect is ActiveEffectInstanceScript:
+			active_effect_data[effect_key] = effect.to_dictionary()
+	return {
+		"gold": state.gold,
+		"refinement_tokens": state.refinement_tokens,
+		"phase": state.phase,
+		"knowledge_state": state.map_state.knowledge_state.duplicate(true),
+		"last_events": state.map_state.last_events.duplicate(true),
+		"event_rng_state": state.event_state.event_rng_state.duplicate(true),
+		"active_effect_objects": active_effect_objects,
+		"active_effect_data": active_effect_data,
+	}
+
+func _restore_event_resolution_snapshot(snapshot: Dictionary) -> void:
+	state.gold = int(snapshot.get("gold", state.gold))
+	state.refinement_tokens = int(snapshot.get("refinement_tokens", state.refinement_tokens))
+	state.phase = str(snapshot.get("phase", state.phase))
+	state.map_state.knowledge_state.clear()
+	for node_id in snapshot.get("knowledge_state", {}).keys():
+		state.map_state.knowledge_state[node_id] = snapshot["knowledge_state"][node_id]
+	state.map_state.last_events = snapshot.get("last_events", []).duplicate(true)
+	state.event_state.event_rng_state = snapshot.get("event_rng_state", {}).duplicate(true)
+	state.active_effects.clear()
+	var active_effect_objects: Dictionary = snapshot.get("active_effect_objects", {})
+	var active_effect_data: Dictionary = snapshot.get("active_effect_data", {})
+	for effect_key in active_effect_objects.keys():
+		var effect = active_effect_objects[effect_key]
+		var effect_data: Dictionary = active_effect_data.get(effect_key, {})
+		if effect is ActiveEffectInstanceScript and not effect_data.is_empty():
+			effect.instance_id = str(effect_data.get("instance_id", effect.instance_id))
+			effect.definition_id = str(effect_data.get("definition_id", effect.definition_id))
+			effect.source_id = str(effect_data.get("source_id", effect.source_id))
+			var duration_data: Dictionary = effect_data.get("duration", {})
+			effect.duration_scope = str(duration_data.get("scope", effect.duration_scope))
+			effect.remaining = int(duration_data.get("remaining", effect.remaining))
+			effect.stacks = int(effect_data.get("stacks", effect.stacks))
+			effect.stack_policy = str(effect_data.get("stack_policy", effect.stack_policy))
+			effect.max_stacks = int(effect_data.get("max_stacks", effect.max_stacks))
+			effect.uses_remaining = int(effect_data.get("uses_remaining", effect.uses_remaining))
+			effect.charges_remaining = int(effect_data.get("charges_remaining", effect.charges_remaining))
+			effect.runtime_parameters = effect_data.get("runtime_parameters", {}).duplicate(true)
+		state.active_effects[effect_key] = effect
+
+func _resolve_event_effects(effects: Array) -> Dictionary:
+	var events: Array = []
+	var sequence_index := 0
+	for effect in effects:
+		if effect is EffectScript:
+			var result = effect.resolve_in_context(EffectContextScript.new(state), sequence_index)
+			if result == null or not result.is_resolved():
+				return {"accepted": false, "status": "EVENT_EFFECT_REJECTED", "message": "An Event Effect was rejected during resolution."}
+			events.append_array(result.events)
+		elif effect is Dictionary:
+			var dictionary_result := _resolve_declarative_event_effect(effect, sequence_index)
+			if not dictionary_result.get("accepted", false):
+				return dictionary_result
+			events.append_array(dictionary_result.get("events", []))
+		else:
+			return {"accepted": false, "status": "INVALID_EVENT_EFFECT", "message": "Event choices require typed declarative Effects."}
+		sequence_index += 1
+	return {"accepted": true, "events": events}
+
+func _select_event_alternative(choice: Dictionary) -> Dictionary:
+	var alternatives = choice.get("alternatives", [])
+	if not alternatives is Array or alternatives.is_empty():
+		return {}
+	var total_weight := 0
+	for alternative in alternatives:
+		if alternative is Dictionary:
+			total_weight += maxi(0, int(alternative.get("weight", 0)))
+	if total_weight <= 0:
+		return {}
+	var roll: int = rng_streams.event.next_int(1, total_weight)
+	var cumulative := 0
+	for alternative in alternatives:
+		if not alternative is Dictionary:
+			continue
+		cumulative += maxi(0, int(alternative.get("weight", 0)))
+		if roll <= cumulative:
+			var selected: Dictionary = alternative.duplicate(true)
+			selected["roll"] = roll
+			selected["total_weight"] = total_weight
+			return selected
+	return {}
+
+func _validate_declarative_event_effect(effect: Dictionary) -> Dictionary:
+	var kind := str(effect.get("kind", effect.get("type", effect.get("effect_type", ""))))
+	if kind in ["GOLD", "GOLD_DELTA", "REFINEMENT_TOKENS", "REFINEMENT_TOKENS_DELTA"]:
+		var currency := RunEconomyScript.GOLD if kind.begins_with("GOLD") else RunEconomyScript.REFINEMENT_TOKENS
+		var amount := int(effect.get("amount", effect.get("delta", 0)))
+		var current: int = state.gold if currency == RunEconomyScript.GOLD else state.refinement_tokens
+		if current + amount < 0:
+			return {"accepted": false, "status": "INSUFFICIENT_%s" % currency, "message": "The Event choice requires more currency than the run owns."}
+		return {"accepted": true}
+	if kind == "RUN_MODIFIER":
+		var modifier_id := str(effect.get("modifier_id", ""))
+		var scope := str(effect.get("scope", ""))
+		var duration_amount := int(effect.get("duration_amount", effect.get("amount", 1)))
+		var stack_policy := str(effect.get("stack_policy", StackPolicyScript.REPLACE))
+		if modifier_id.is_empty() or scope.is_empty() or scope == DurationSpecScript.PERMANENT:
+			return {"accepted": false, "status": "INVALID_MODIFIER_SCOPE", "message": "Run modifiers require a stable ID and explicit scope."}
+		if not [DurationSpecScript.ACTION, DurationSpecScript.WINDOW, DurationSpecScript.SETTLEMENT_WINDOW, DurationSpecScript.TURN, DurationSpecScript.BATTLE, DurationSpecScript.BOSS_PHASE, DurationSpecScript.ACT, DurationSpecScript.RUN].has(scope) or duration_amount <= 0:
+			return {"accepted": false, "status": "INVALID_MODIFIER_SCOPE", "message": "Run modifiers require a positive supported DurationSpec boundary."}
+		if not [StackPolicyScript.REPLACE, StackPolicyScript.REFRESH_DURATION, StackPolicyScript.ADD_STACKS, StackPolicyScript.ADD_DURATION, StackPolicyScript.INDEPENDENT_INSTANCES, StackPolicyScript.UNIQUE].has(stack_policy):
+			return {"accepted": false, "status": "INVALID_MODIFIER_STACK_POLICY", "message": "Run modifiers require a supported StackPolicy."}
+		return {"accepted": true}
+	if kind == "MAP_REVEAL":
+		if not effect.get("node_ids", []) is Array:
+			return {"accepted": false, "status": "INVALID_MAP_REVEAL", "message": "Map reveal effects require stable node IDs."}
+		return {"accepted": true}
+	return {"accepted": false, "status": "INVALID_EVENT_EFFECT", "message": "The Event declarative Effect kind is unsupported."}
+
+func _resolve_declarative_event_effect(effect: Dictionary, sequence_index: int) -> Dictionary:
+	var kind := str(effect.get("kind", effect.get("type", effect.get("effect_type", ""))))
+	if kind in ["GOLD", "GOLD_DELTA", "REFINEMENT_TOKENS", "REFINEMENT_TOKENS_DELTA"]:
+		var currency := RunEconomyScript.GOLD if kind.begins_with("GOLD") else RunEconomyScript.REFINEMENT_TOKENS
+		var amount := int(effect.get("amount", effect.get("delta", 0)))
+		var transaction: Dictionary = economy.apply_source(state, currency, amount, RunEconomyScript.SOURCE_HIGH_RISK_CONTENT) if amount >= 0 else economy.apply_sink(state, currency, -amount, RunEconomyScript.SINK_EVENT_TRADE)
+		if transaction.is_empty():
+			return {"accepted": false, "status": "EVENT_EFFECT_REJECTED", "message": "The Event currency effect was rejected."}
+		transaction["sequence_index"] = sequence_index
+		var event_type := DomainEventScript.GOLD_CHANGED if currency == RunEconomyScript.GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
+		return {"accepted": true, "events": [DomainEventScript.new(event_type, transaction)]}
+	if kind == "MAP_REVEAL":
+		var revealed: Array[String] = []
+		for node_id in effect.get("node_ids", []):
+			var node_id_text := str(node_id)
+			if map_definition.node_ids.has(node_id_text):
+				state.map_state.knowledge_state[node_id_text] = RunMapStateScript.EXACT
+				revealed.append(node_id_text)
+		return {"accepted": true, "events": [DomainEventScript.new(DomainEventScript.MAP_REVEALED, {"run_id": state.run_id, "node_ids": revealed, "sequence_index": sequence_index})]}
+	if kind == "RUN_MODIFIER":
+		var modifier_id := str(effect.get("modifier_id", ""))
+		var scope := str(effect.get("scope", ""))
+		var duration_amount := int(effect.get("duration_amount", effect.get("amount", 1)))
+		var duration := DurationSpecScript.new(scope, duration_amount)
+		var stack_policy := str(effect.get("stack_policy", StackPolicyScript.REPLACE))
+		var source_id := str(effect.get("source_id", state.contract_id))
+		var parameters: Dictionary = effect.get("parameters", {}) if effect.get("parameters", {}) is Dictionary else {}
+		var operation := ApplyRunModifierOperationScript.new(
+			modifier_id,
+			int(effect.get("value", 1)),
+			duration,
+			stack_policy,
+			source_id,
+			parameters,
+		)
+		var typed_effect := EffectScript.new("event.modifier.%s.%d" % [modifier_id, sequence_index], null, [], [], [operation], duration, stack_policy, source_id)
+		var result = typed_effect.resolve_in_context(EffectContextScript.new(state), sequence_index)
+		if result == null or not result.is_resolved():
+			return {"accepted": false, "status": "EVENT_EFFECT_REJECTED", "message": "The Event run modifier was rejected."}
+		return {"accepted": true, "events": result.events}
+	return {"accepted": false, "status": "INVALID_EVENT_EFFECT", "message": "The Event declarative Effect kind is unsupported."}
 
 func validate_enter_shop() -> RefCounted:
 	var phase_validation := _validate_service_entry_phase(RunPhaseScript.SHOP)
@@ -901,6 +1265,17 @@ func _encounter_id_for_node(node_id: String) -> String:
 		return node.content_reference_id
 	return ""
 
+func _event_id_for_node(node_id: String) -> String:
+	var node = map_definition.node_definition(node_id)
+	if node == null:
+		return ""
+	var payload_id: String = state.map_state.payload_ids.get(node_id, "")
+	if content_registry.resolve(payload_id) is EventDefinitionScript:
+		return payload_id
+	if content_registry.resolve(node.content_reference_id) is EventDefinitionScript:
+		return node.content_reference_id
+	return ""
+
 func _is_battle_node(node) -> bool:
 	return node != null and node.node_kind in ["BATTLE", "ELITE", "BOSS"]
 
@@ -930,7 +1305,8 @@ func enter_run_summary(outcome: String, reason: String = "", summary_data: Dicti
 	state.terminal_summary.reason = reason
 	state.terminal_summary.summary_data = summary_data.duplicate(true)
 	state.phase = RunPhaseScript.RUN_SUMMARY
-	return [
+	var events := LifecycleResolverScript.new().advance(state, LifecycleResolverScript.RUN)
+	events.append_array([
 		DomainEventScript.new(DomainEventScript.RUN_SUMMARY_REACHED, {
 			"run_id": state.run_id,
 			"outcome": outcome,
@@ -938,7 +1314,8 @@ func enter_run_summary(outcome: String, reason: String = "", summary_data: Dicti
 			"summary_data": summary_data.duplicate(true),
 		}),
 		_run_phase_event(previous_phase, state.phase),
-	]
+	])
+	return events
 
 func validate_acknowledge_run_summary() -> RefCounted:
 	if state.phase != RunPhaseScript.RUN_SUMMARY:
@@ -967,6 +1344,7 @@ func checkpoint() -> Dictionary:
 		"schema_version": 1,
 		"run_state": run_state_checkpoint,
 		"rng_state": rng_snapshot(),
+		"stable_boundary": _stable_checkpoint_boundary(),
 		"state_hash": DeterministicSerializerScript.hash(run_state_checkpoint),
 	}
 
@@ -980,6 +1358,22 @@ func _invalid_phase(expected_phase: String) -> RefCounted:
 		"The command is only legal during %s." % expected_phase,
 		{"expected_phase": expected_phase, "actual_phase": state.phase},
 	)
+
+func _stable_checkpoint_boundary() -> String:
+	match state.phase:
+		RunPhaseScript.EVENT:
+			return "EVENT_CHOICE_BEFORE" if state.event_state.active else "MAP_NODE"
+		RunPhaseScript.SHOP:
+			return "SHOP"
+		RunPhaseScript.WORKSHOP:
+			return "WORKSHOP"
+		RunPhaseScript.BATTLE:
+			return "BATTLE"
+		RunPhaseScript.MAP_CHOICE:
+			return "MAP_NODE"
+		RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD:
+			return "REWARD"
+	return state.phase
 
 func _run_phase_event(previous_phase: String, next_phase: String):
 	return DomainEventScript.new(DomainEventScript.RUN_PHASE_CHANGED, {
