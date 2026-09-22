@@ -9,6 +9,8 @@ const RewardDraftScript = preload("res://src/domain/run/reward_draft.gd")
 const RunTerminalSummaryScript = preload("res://src/domain/run/run_terminal_summary.gd")
 const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
 const RunTutorialStateScript = preload("res://src/domain/run/run_tutorial_state.gd")
+const ShopStateScript = preload("res://src/domain/run/shop_state.gd")
+const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
 var run_id: String
 var seed: int
@@ -18,6 +20,8 @@ var character_id: String
 var contract_id: String
 var map_state: RunMapState
 var tile_pool: RunTilePoolState
+var shop_state
+var workshop_state
 var gold: int
 var refinement_tokens: int
 var reward_draft: RefCounted
@@ -43,6 +47,8 @@ func _init(
 	contract_id = ""
 	map_state = RunMapStateScript.new()
 	tile_pool = initial_tile_pool if initial_tile_pool != null and initial_tile_pool is RunTilePoolStateScript else RunTilePoolStateScript.new()
+	shop_state = ShopStateScript.new()
+	workshop_state = WorkshopStateScript.new()
 	gold = 0
 	refinement_tokens = 0
 	reward_draft = null
@@ -63,6 +69,8 @@ func to_dictionary() -> Dictionary:
 		"contract_id": contract_id,
 		"map_state": map_state.to_dictionary(),
 		"tile_pool": tile_pool.to_dictionary(),
+		"shop_state": shop_state.to_dictionary(),
+		"workshop_state": workshop_state.to_dictionary(),
 		"gold": gold,
 		"refinement_tokens": refinement_tokens,
 		"reward_draft": reward_draft.to_dictionary() if reward_draft != null and reward_draft is RewardDraftScript else {},

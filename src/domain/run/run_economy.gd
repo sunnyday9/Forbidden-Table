@@ -8,6 +8,7 @@ const SOURCE_NORMAL_REWARD_SKIP := "NORMAL_REWARD_SKIP"
 const SOURCE_ELITE_REWARD := "ELITE_REWARD"
 const SOURCE_BOSS_REWARD := "BOSS_REWARD"
 const SOURCE_HIGH_RISK_CONTENT := "HIGH_RISK_CONTENT"
+const SOURCE_SHOP_SPECIAL := "SHOP_SPECIAL"
 
 const SINK_SHOP_PURCHASE := "SHOP_PURCHASE"
 const SINK_WORKSHOP_SERVICE := "WORKSHOP_SERVICE"
@@ -15,11 +16,58 @@ const SINK_EVENT_TRADE := "EVENT_TRADE"
 const SINK_RULE_BREAKER_REFINEMENT := "RULE_BREAKER_REFINEMENT"
 
 const DEFAULT_NORMAL_SKIP_GOLD := 5
+const DEFAULT_SHOP_OFFER_COUNT := 5
+const DEFAULT_SHOP_BASE_REFRESH_ALLOWANCE := 1
+const DEFAULT_SHOP_RELIC_PRICE := 10
+const DEFAULT_SHOP_TECHNIQUE_PRICE := 12
+const DEFAULT_SHOP_SPECIAL_PRICE := 15
+const DEFAULT_WORKSHOP_REMOVE_PRICE := 8
+const DEFAULT_WORKSHOP_TRANSFORM_PRICE := 10
+const DEFAULT_WORKSHOP_MODIFIER_PRICE := 7
+const DEFAULT_WORKSHOP_DUPLICATE_PRICE := 12
+const DEFAULT_WORKSHOP_REFINEMENT_PRICE := 15
+const DEFAULT_WORKSHOP_MINIMUM_POOL_SIZE := 1
+const DEFAULT_TILE_COPY_LIMIT := 4
 
 var normal_skip_gold: int
+var shop_offer_count: int
+var shop_base_refresh_allowance: int
+var shop_relic_price: int
+var shop_technique_price: int
+var shop_special_price: int
+var shop_special_prices: Dictionary
+var workshop_remove_price: int
+var workshop_transform_price: int
+var workshop_modifier_price: int
+var workshop_duplicate_price: int
+var workshop_refinement_price: int
+var workshop_minimum_pool_size: int
+var tile_copy_limit: int
 
-func _init(configured_normal_skip_gold: int = DEFAULT_NORMAL_SKIP_GOLD) -> void:
+func _init(
+	configured_normal_skip_gold: int = DEFAULT_NORMAL_SKIP_GOLD,
+	configured_shop_base_refresh_allowance: int = DEFAULT_SHOP_BASE_REFRESH_ALLOWANCE,
+) -> void:
 	normal_skip_gold = maxi(0, configured_normal_skip_gold)
+	shop_offer_count = DEFAULT_SHOP_OFFER_COUNT
+	shop_base_refresh_allowance = maxi(0, configured_shop_base_refresh_allowance)
+	shop_relic_price = DEFAULT_SHOP_RELIC_PRICE
+	shop_technique_price = DEFAULT_SHOP_TECHNIQUE_PRICE
+	shop_special_price = DEFAULT_SHOP_SPECIAL_PRICE
+	shop_special_prices = {
+		"base.special.refinement_token": 20,
+		"base.special.gold_cache": 8,
+		"base.special.workshop_coupon": 7,
+		"base.special.copy_license": 15,
+		"base.special.ritual_salve": 6,
+	}
+	workshop_remove_price = DEFAULT_WORKSHOP_REMOVE_PRICE
+	workshop_transform_price = DEFAULT_WORKSHOP_TRANSFORM_PRICE
+	workshop_modifier_price = DEFAULT_WORKSHOP_MODIFIER_PRICE
+	workshop_duplicate_price = DEFAULT_WORKSHOP_DUPLICATE_PRICE
+	workshop_refinement_price = DEFAULT_WORKSHOP_REFINEMENT_PRICE
+	workshop_minimum_pool_size = DEFAULT_WORKSHOP_MINIMUM_POOL_SIZE
+	tile_copy_limit = DEFAULT_TILE_COPY_LIMIT
 
 func apply_source(run_state, currency: String, amount: int, source_id: String) -> Dictionary:
 	if run_state == null or amount < 0 or source_id.is_empty() or not _is_currency(currency):
