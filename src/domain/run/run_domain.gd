@@ -14,15 +14,23 @@ const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const EncounterFactoryScript = preload("res://src/domain/battle/encounter_factory.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
+const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
+const RewardDraftSelectorScript = preload("res://src/domain/run/reward_draft_selector.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
+const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
+const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
+const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
+const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 
 var state
 var content_registry
 var rng_streams
 var map_definition
 var encounter_factory
+var reward_draft_selector
+var economy
 var current_battle
 
 func _init(
@@ -39,6 +47,8 @@ func _init(
 	rng_streams = domain_rng_streams if domain_rng_streams != null else DomainRngStreamsScript.new(initial_seed)
 	map_definition = MiniActMapCatalogScript.definition()
 	encounter_factory = EncounterFactoryScript.new(content_registry)
+	reward_draft_selector = RewardDraftSelectorScript.new()
+	economy = RunEconomyScript.new()
 	current_battle = null
 	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version)
 
@@ -231,11 +241,150 @@ func apply_battle_outcome() -> Array:
 	state.current_battle_snapshot = null
 	if outcome == CombatStateScript.DEFEAT:
 		events.append_array(enter_run_summary("DEFEAT", "BATTLE_DEFEAT", {"encounter_id": encounter_id_before}))
+		state.map_state.last_events = events
 		return events
 	var previous_phase: String = state.phase
 	state.phase = _reward_phase_for_encounter(encounter_kind_before)
+	if encounter_kind_before == EncounterDefinitionScript.NORMAL:
+		var draft_index: int = state.reward_draft_sequence
+		state.reward_draft_sequence += 1
+		state.reward_draft = reward_draft_selector.create_normal_draft(
+			state,
+			content_registry,
+			rng_streams.reward,
+			encounter_id_before,
+			draft_index,
+			economy.normal_skip_gold,
+		)
+		events.append(DomainEventScript.new(DomainEventScript.REWARD_DRAFT_CREATED, {
+			"run_id": state.run_id,
+			"draft": state.reward_draft.to_dictionary(),
+		}))
 	events.append(_run_phase_event(previous_phase, state.phase))
+	state.map_state.last_events = events
 	return events
+
+func validate_choose_reward(selected_draft_id: String, selected_option_id: String) -> RefCounted:
+	if state.phase != RunPhaseScript.REWARD_CHOICE:
+		return _invalid_phase(RunPhaseScript.REWARD_CHOICE)
+	if state.reward_draft == null:
+		return CommandValidationScript.new(false, "NO_REWARD_DRAFT", "There is no active reward draft.")
+	var draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
+	if draft_id != state.reward_draft.draft_id:
+		return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "The selected reward draft is not active.")
+	var option = state.reward_draft.option_by_id(selected_option_id)
+	if option == null:
+		return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected reward option is not in the active draft.")
+	var option_validation := _validate_reward_option(option)
+	if not option_validation.get("accepted", false):
+		return CommandValidationScript.new(false, option_validation.get("status", "INVALID_REWARD_OPTION"), option_validation.get("message", "The selected reward option is invalid."), option_validation.get("details", {}))
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": draft_id, "option_id": selected_option_id})
+
+func execute_choose_reward(selected_draft_id: String, selected_option_id: String) -> Dictionary:
+	var draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
+	var option = state.reward_draft.option_by_id(selected_option_id) if state.reward_draft != null else null
+	if option == null:
+		return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option is not in the active draft."}
+	var events: Array = []
+	var data: Dictionary = {
+		"draft_id": draft_id,
+		"option_id": option.option_id,
+		"kind": option.kind,
+		"content_id": option.content_id,
+		"tile_id": option.tile_id,
+		"modifier_id": option.modifier_id,
+	}
+	var currency_transactions: Array = []
+	if option.kind == RewardOptionScript.ADD_TILE:
+		var tile_instance_result := _add_reward_tile(option)
+		if not tile_instance_result.get("accepted", false):
+			return tile_instance_result
+		data["tile_instance_id"] = tile_instance_result["instance_id"]
+	elif option.kind == RewardOptionScript.MODIFIED_TILE:
+		var modifier_result := _apply_reward_modifier(option)
+		if not modifier_result.get("accepted", false):
+			return modifier_result
+	elif option.kind == RewardOptionScript.SKIP:
+		var skip_transaction: Dictionary = economy.apply_source(state, RunEconomyScript.GOLD, option.gold_delta, RunEconomyScript.SOURCE_NORMAL_REWARD_SKIP)
+		if skip_transaction.is_empty():
+			return {"accepted": false, "status": "CURRENCY_SOURCE_REJECTED", "message": "The configured Skip compensation could not be applied."}
+		currency_transactions.append(skip_transaction)
+		_events_for_currency_transaction(events, skip_transaction)
+	else:
+		return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option has an unsupported kind."}
+
+	state.reward_draft = null
+	var previous_phase: String = state.phase
+	state.phase = RunPhaseScript.MAP_CHOICE
+	data["currency_transactions"] = currency_transactions.duplicate(true)
+	data["phase"] = state.phase
+	events.append(DomainEventScript.new(DomainEventScript.REWARD_SELECTED, data.duplicate(true)))
+	events.append(_run_phase_event(previous_phase, state.phase))
+	state.map_state.last_events = events
+	return {
+		"accepted": true,
+		"status": CommandResultScript.ACCEPTED,
+		"events": events,
+		"data": data,
+	}
+
+func _validate_reward_option(option) -> Dictionary:
+	if option.kind == RewardOptionScript.SKIP:
+		return {"accepted": true}
+	if option.kind == RewardOptionScript.ADD_TILE:
+		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
+			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Add Tile content ID is not registered."}
+		return {"accepted": true}
+	if option.kind == RewardOptionScript.MODIFIED_TILE:
+		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
+			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Modified Tile target content ID is not registered."}
+		var modifier = content_registry.resolve(option.modifier_id)
+		if not modifier is TileModifierDefinitionScript:
+			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Modified Tile modifier ID is not registered."}
+		if not _tile_instance_exists(option.target_instance_id):
+			return {"accepted": false, "status": "INVALID_REWARD_TARGET", "message": "The Modified Tile target is not owned by the run."}
+		var modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(option.target_instance_id, [])
+		if modifiers.has(option.modifier_id) and modifiers.count(option.modifier_id) >= modifier.max_per_tile:
+			return {"accepted": false, "status": "MODIFIER_LIMIT_REACHED", "message": "The target TileInstance already has the maximum copies of this modifier."}
+		return {"accepted": true}
+	return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option has an unsupported kind."}
+
+func _add_reward_tile(option) -> Dictionary:
+	var tile_instance_result := _next_tile_instance_id()
+	var tile_instance := RunTileInstanceRecordScript.new(
+		tile_instance_result["instance_id"],
+		option.tile_id,
+		"RUN",
+		"RUN",
+	)
+	if not state.tile_pool.add_tile_instance(tile_instance):
+		return {"accepted": false, "status": "REWARD_APPLICATION_REJECTED", "message": "The Add Tile could not be added to the Run Tile Pool."}
+	state.tile_instance_sequence = tile_instance_result["sequence"]
+	return {"accepted": true, "instance_id": tile_instance.instance_id}
+
+func _apply_reward_modifier(option) -> Dictionary:
+	var modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(option.target_instance_id, []).duplicate()
+	modifiers.append(option.modifier_id)
+	state.build_ownership.persistent_tile_modifier_state[option.target_instance_id] = modifiers
+	return {"accepted": true}
+
+func _next_tile_instance_id() -> Dictionary:
+	var sequence: int = state.tile_instance_sequence
+	var instance_id := ""
+	while instance_id.is_empty() or _tile_instance_exists(instance_id):
+		sequence += 1
+		instance_id = "run.tile.%d" % sequence
+	return {"sequence": sequence, "instance_id": instance_id}
+
+func _tile_instance_exists(instance_id: String) -> bool:
+	for tile_instance in state.tile_pool.tile_instances:
+		if tile_instance.instance_id == instance_id:
+			return true
+	return false
+
+func _events_for_currency_transaction(events: Array, transaction: Dictionary) -> void:
+	var event_type := DomainEventScript.GOLD_CHANGED if transaction.currency == RunEconomyScript.GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
+	events.append(DomainEventScript.new(event_type, transaction))
 
 func _validate_node_encounter(node_id: String) -> Dictionary:
 	var node = map_definition.node_definition(node_id)

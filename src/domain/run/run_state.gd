@@ -5,6 +5,7 @@ const RunBuildStateScript = preload("res://src/domain/run/run_build_state.gd")
 const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
 const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const RewardDraftScript = preload("res://src/domain/run/reward_draft.gd")
 const RunTerminalSummaryScript = preload("res://src/domain/run/run_terminal_summary.gd")
 const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
 const RunTutorialStateScript = preload("res://src/domain/run/run_tutorial_state.gd")
@@ -19,6 +20,9 @@ var map_state: RunMapState
 var tile_pool: RunTilePoolState
 var gold: int
 var refinement_tokens: int
+var reward_draft: RefCounted
+var reward_draft_sequence: int
+var tile_instance_sequence: int
 var build_ownership: RunBuildState
 var tutorial_state: RunTutorialState
 var terminal_summary: RunTerminalSummary
@@ -41,6 +45,9 @@ func _init(
 	tile_pool = initial_tile_pool if initial_tile_pool != null and initial_tile_pool is RunTilePoolStateScript else RunTilePoolStateScript.new()
 	gold = 0
 	refinement_tokens = 0
+	reward_draft = null
+	reward_draft_sequence = 0
+	tile_instance_sequence = 0
 	build_ownership = RunBuildStateScript.new()
 	tutorial_state = RunTutorialStateScript.new()
 	terminal_summary = RunTerminalSummaryScript.new()
@@ -58,6 +65,9 @@ func to_dictionary() -> Dictionary:
 		"tile_pool": tile_pool.to_dictionary(),
 		"gold": gold,
 		"refinement_tokens": refinement_tokens,
+		"reward_draft": reward_draft.to_dictionary() if reward_draft != null and reward_draft is RewardDraftScript else {},
+		"reward_draft_sequence": reward_draft_sequence,
+		"tile_instance_sequence": tile_instance_sequence,
 		"build_ownership": build_ownership.to_dictionary(),
 		"tutorial_state": tutorial_state.to_dictionary(),
 		"terminal_summary": terminal_summary.to_dictionary(),
