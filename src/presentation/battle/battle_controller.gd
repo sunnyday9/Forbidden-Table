@@ -99,7 +99,7 @@ func _build_default_fixture() -> void:
 	zones.reorder(TileZoneScript.DRAW_WALL, _tile_ids(wall_tiles))
 	tile_actions = TileActionServiceScript.new(draw_wall, zones)
 	var evaluator := PatternEvaluatorScript.new(registry)
-	combat_state = CombatStateScript.new(30, 10)
+	combat_state = CombatStateScript.new(30, 10, 0, [], 0, 0, 3, 2, 3, 0, null, rng_streams.enemy)
 	settlement_window = SettlementWindowScript.new(evaluator, zones, SettlementCapacityScript.new(combat_state.settlement_capacity))
 	var settlement_trigger_context := EffectContextScript.new(combat_state, zones, draw_wall, tile_actions.reserve_service)
 	settlement_turn = SettlementTurnScript.new(settlement_window, tile_actions, zones, 3, null, settlement_trigger_context)

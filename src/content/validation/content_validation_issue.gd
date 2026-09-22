@@ -11,3 +11,11 @@ func _init(issue_code: String, issue_content_id: String, issue_message: String, 
 	content_id = issue_content_id
 	reference_id = issue_reference_id
 	message = issue_message
+
+func to_dictionary() -> Dictionary:
+	return {
+		"code": code,
+		"content_id": content_id,
+		"reference_id": reference_id,
+		"message": message,
+	}

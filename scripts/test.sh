@@ -91,9 +91,14 @@ if [[ "${godot_binary,,}" == *.exe ]]; then
 fi
 
 set +e
-timeout "$test_timeout_seconds" "$godot_binary" --headless --path "$project_path" --script res://tests/run_tests.gd "$@"
+test_output="$(timeout "$test_timeout_seconds" "$godot_binary" --headless --path "$project_path" --script res://tests/run_tests.gd "$@" 2>&1)"
 test_status=$?
 set -e
+printf '%s\n' "$test_output"
+if printf '%s\n' "$test_output" | grep -Eq 'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script'; then
+  echo "ERROR: Godot reported a script or load error." >&2
+  test_status=1
+fi
 if [[ "$test_status" -eq 124 ]]; then
   echo "ERROR: headless Godot tests exceeded ${test_timeout_seconds}s." >&2
 fi

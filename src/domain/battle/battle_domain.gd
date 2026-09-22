@@ -114,26 +114,39 @@ func execute_draw() -> Dictionary:
 func validate_end_turn() -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	return validate_enemy_intent()
+
+func validate_enemy_intent() -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if combat_resolver == null:
+		return CommandValidationScript.new(false, "COMBAT_RESOLVER_NOT_READY", "The CombatResolver is not ready.")
+	if combat_state.intent_graph == null or not combat_state.intent_graph.validation().is_valid():
+		return CommandValidationScript.new(false, "INVALID_INTENT_GRAPH", "The enemy Intent Graph is invalid.", _intent_graph_issues())
 	return CommandValidationScript.new(true)
 
 func execute_end_turn() -> Dictionary:
 	var events: Array = []
+	var recovery_ended := false
 	if recovery_state != null and recovery_state.is_recovering():
 		events.append(DomainEventScript.new(DomainEventScript.RECOVERY_TURN_ELAPSED, {
 			"turns_elapsed": recovery_state.turns_elapsed + 1,
 			"hand_size": zones.size(TileZoneScript.HAND),
 		}))
 		if recovery_state.advance_turn(zones.size(TileZoneScript.HAND)):
+			recovery_ended = true
 			events.append(DomainEventScript.new(DomainEventScript.RECOVERY_ENDED, {
 				"turns_elapsed": recovery_state.turns_elapsed,
 				"hand_size": zones.size(TileZoneScript.HAND),
 				"normal_hand_baseline": recovery_state.normal_hand_baseline,
 			}))
+	var intent_result = resolve_enemy_intent()
+	events.append_array(intent_result.events)
 	return {
 		"accepted": true,
-		"status": "RECOVERY_ENDED" if not recovery_state.is_recovering() and not events.is_empty() and events[-1].event_type == DomainEventScript.RECOVERY_ENDED else "TURN_ENDED",
+		"status": "RECOVERY_ENDED" if recovery_ended else "TURN_ENDED",
 		"events": events,
-		"data": {"recovery": recovery_state.to_dictionary()},
+		"data": {"recovery": recovery_state.to_dictionary(), "intent": intent_result},
 	}
 
 func validate_store_tile(instance_id: String) -> RefCounted:
@@ -334,7 +347,10 @@ func resolve_enemy_intent():
 	var events: Array = result.events.duplicate()
 	if result.is_resolved() and reserve_service != null and combat_state.is_active():
 		events.append_array(reserve_service.natural_decay())
-	return {"accepted": result.is_resolved(), "status": result.status, "events": events}
+	return {"accepted": result.is_resolved(), "status": result.status, "events": events, "data": result.to_dictionary()}
+
+func execute_enemy_intent() -> Dictionary:
+	return resolve_enemy_intent()
 
 func end_battle(preserve_run_level: bool = false, preserved_instance_ids: Array = []) -> Array:
 	if reserve_service == null:
@@ -385,6 +401,9 @@ func _interpretation_checkpoints() -> Array:
 	for interpretation in complete_hand_interpretations():
 		result.append(interpretation.to_dictionary())
 	return result
+
+func _intent_graph_issues() -> Dictionary:
+	return {"issues": combat_state.intent_graph.validation_issues() if combat_state != null and combat_state.intent_graph != null else []}
 
 func _build_complete_hand_conversion_profile():
 	if conversion_profile is CombatConversionProfileScript:

@@ -3,6 +3,9 @@ extends RefCounted
 
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const EnemyIntentScript = preload("res://src/domain/combat/enemy_intent.gd")
+const IntentGraphScript = preload("res://src/domain/combat/intent_graph.gd")
+const IntentTransitionScript = preload("res://src/domain/combat/intent_transition.gd")
+const IntentTransitionSelectionScript = preload("res://src/domain/combat/intent_transition_selection.gd")
 const DrawEscalationPolicyScript = preload("res://src/domain/tiles/draw_escalation_policy.gd")
 
 const ONGOING := "ONGOING"
@@ -18,6 +21,8 @@ var starvation_count: int
 var starvation_active: bool
 var current_intent
 var intent_index: int
+var intent_graph
+var intent_rng
 var pending_death: bool
 var pending_defeat: bool
 var pending_death_sequence_index: int
@@ -35,7 +40,6 @@ var active_effects: Dictionary
 var zones
 var draw_wall
 
-var _intent_loop: Array
 var _next_sequence_index: int
 var _queue_active: bool
 
@@ -50,6 +54,8 @@ func _init(
 	initial_settlement_capacity: int = 2,
 	initial_reserve_capacity: int = 3,
 	initial_fatigue: int = 0,
+	initial_intent_graph = null,
+	initial_intent_rng = null,
 ) -> void:
 	enemy_max_hp = maxi(0, initial_enemy_hp)
 	enemy_hp = enemy_max_hp
@@ -58,9 +64,10 @@ func _init(
 	fatigue = maxi(0, initial_fatigue)
 	starvation_count = 0
 	starvation_active = false
-	_intent_loop = _validated_intent_loop(initial_intent_loop)
+	intent_graph = _build_intent_graph(initial_intent_loop, initial_intent_graph)
 	intent_index = 0
-	current_intent = _intent_loop[intent_index]
+	current_intent = intent_graph.intent(intent_graph.start_intent_id)
+	intent_rng = initial_intent_rng
 	pending_death = false
 	pending_defeat = false
 	pending_death_sequence_index = -1
@@ -84,14 +91,57 @@ func is_active() -> bool:
 	return terminal_outcome == ONGOING
 
 func intent_loop() -> Array:
-	return _intent_loop.duplicate()
+	return intent_graph.intents()
 
 func peek_next_intent():
-	return _intent_loop[(intent_index + 1) % _intent_loop.size()]
+	if current_intent == null:
+		return null
+	var selection = select_next_intent()
+	return intent_graph.intent(selection.target_intent_id) if selection.is_selected() else current_intent
 
-func advance_intent() -> void:
-	intent_index = (intent_index + 1) % _intent_loop.size()
-	current_intent = _intent_loop[intent_index]
+func advance_intent(target_intent_id: String = "") -> bool:
+	var target = intent_graph.intent(target_intent_id) if not target_intent_id.is_empty() else peek_next_intent()
+	if target == null:
+		return false
+	current_intent = target
+	intent_index += 1
+	return true
+
+func set_intent_graph(graph) -> void:
+	if graph is IntentGraphScript:
+		intent_graph = graph
+		current_intent = graph.intent(graph.start_intent_id)
+		intent_index = 0
+
+func set_intent_rng(rng) -> void:
+	intent_rng = rng
+
+func select_next_intent():
+	if intent_graph == null:
+		return IntentTransitionSelectionScript.new(IntentTransitionSelectionScript.INVALID_GRAPH, "", "", "CombatState has no Intent Graph.")
+	return intent_graph.select_next_intent(
+		current_intent.intent_id if current_intent != null else "",
+		public_battle_state(),
+		intent_rng,
+	)
+
+func public_battle_state() -> Dictionary:
+	return {
+		"enemy_hp": enemy_hp,
+		"enemy_max_hp": enemy_max_hp,
+		"pressure": pressure,
+		"pressure_limit": pressure_limit,
+		"fatigue": fatigue,
+		"starvation_count": starvation_count,
+		"starvation_active": starvation_active,
+		"tp": tp,
+		"stability": stability,
+		"draw_capacity": draw_capacity,
+		"settlement_capacity": settlement_capacity,
+		"reserve_capacity": reserve_capacity,
+		"terminal_outcome": terminal_outcome,
+		"current_intent_id": current_intent.intent_id if current_intent != null else "",
+	}
 
 func to_dictionary() -> Dictionary:
 	return {
@@ -102,8 +152,10 @@ func to_dictionary() -> Dictionary:
 		"fatigue": fatigue,
 		"starvation_count": starvation_count,
 		"starvation_active": starvation_active,
-		"current_intent": current_intent.to_dictionary(),
+		"current_intent": current_intent.to_dictionary() if current_intent != null else {},
 		"intent_index": intent_index,
+		"intent_graph": intent_graph.to_dictionary() if intent_graph != null else {},
+		"intent_rng": intent_rng.snapshot() if intent_rng != null and intent_rng.has_method("snapshot") else {},
 		"pending_death": pending_death,
 		"pending_defeat": pending_defeat,
 		"pending_death_sequence_index": pending_death_sequence_index,
@@ -163,15 +215,23 @@ func enter_starvation(
 func is_queue_active() -> bool:
 	return _queue_active
 
-func _validated_intent_loop(candidate_loop: Array) -> Array:
+func _build_intent_graph(candidate_loop: Array, candidate_graph):
+	if candidate_graph is IntentGraphScript:
+		return candidate_graph
 	var intents: Array = []
 	for intent in candidate_loop:
 		if intent is EnemyIntentScript:
 			intents.append(intent)
-	if intents.is_empty():
-		intents.append(EnemyIntentScript.new("pressure_rise", "Pressure Rise", 2))
-		intents.append(EnemyIntentScript.new("pressure_surge", "Pressure Surge", 3))
-	return intents
+	if not intents.is_empty():
+		return IntentGraphScript.from_intent_loop(intents)
+	return IntentGraphScript.new("pressure_rise", [
+		EnemyIntentScript.new("pressure_rise", "Pressure Rise", 2, EnemyIntentScript.PRESSURE, [
+			IntentTransitionScript.fixed("pressure_rise.to.surge", "pressure_surge"),
+		]),
+		EnemyIntentScript.new("pressure_surge", "Pressure Surge", 3, EnemyIntentScript.PRESSURE, [
+			IntentTransitionScript.fixed("pressure_surge.to.rise", "pressure_rise"),
+		]),
+	])
 
 func _start_queue() -> bool:
 	if _queue_active or not is_active():

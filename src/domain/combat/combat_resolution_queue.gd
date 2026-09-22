@@ -27,6 +27,7 @@ var _result
 var _operation_limit: int
 var _processed_item_count := 0
 var _loop_guard_triggered := false
+var _failure_status := ""
 
 func _init(state, operation_limit: int = DEFAULT_OPERATION_LIMIT, context = null, lifecycle_boundary: String = LifecycleResolverScript.ACTION) -> void:
 	_state = state
@@ -65,6 +66,16 @@ func add_event(event) -> bool:
 	if _drained or not _accepted or event == null:
 		return false
 	_events.append(event)
+	return true
+
+func fail(status: String, diagnostic: Dictionary = {}, event = null) -> bool:
+	if _drained or not _accepted or status.is_empty():
+		return false
+	_failure_status = status
+	if not diagnostic.is_empty():
+		_diagnostics.append(diagnostic.duplicate(true))
+	if event != null:
+		_events.append(event)
 	return true
 
 func open_reaction_window(window) -> bool:
@@ -160,7 +171,7 @@ func drain(boundary: String = ""):
 		var lifecycle_sequence: int = _state._next_effect_sequence_index() if lifecycle_resolver.has_boundary_effect(_state, _lifecycle_boundary) else -1
 		_events.append_array(lifecycle_resolver.advance(_state, _lifecycle_boundary, lifecycle_sequence))
 	_events.append_array(_state._finish_queue())
-	_result = _make_result(CombatResolutionResultScript.RESOLVED)
+	_result = _make_result(_failure_status if not _failure_status.is_empty() else CombatResolutionResultScript.RESOLVED)
 	_drained = true
 	return _result
 
