@@ -28,8 +28,8 @@ func test_tile_instances_keep_unique_stable_ids(failures: Array[String]) -> void
 
 func test_zone_vocabulary_matches_domain_language(failures: Array[String]) -> void:
 	assert_true(
-		TileZone.all() == [TileZone.TILE_POOL, TileZone.DRAW_WALL, TileZone.HAND, TileZone.DISCARD],
-		"the zone vocabulary contains Tile Pool, Draw Wall, Hand, and Discard",
+		TileZone.all() == [TileZone.TILE_POOL, TileZone.DRAW_WALL, TileZone.HAND, TileZone.DISCARD, TileZone.RESERVE, TileZone.EXHAUST],
+		"the zone vocabulary contains circulation, Reserve, and Exhaust zones",
 		failures
 	)
 
@@ -90,7 +90,7 @@ func test_invalid_tiles_and_zones_are_rejected(failures: Array[String]) -> void:
 
 	assert_true(not zones.add(missing_instance_id, TileZone.TILE_POOL), "a TileInstance without an instance ID is rejected", failures)
 	assert_true(not zones.add(missing_definition_id, TileZone.TILE_POOL), "a TileInstance without a definition ID is rejected", failures)
-	assert_true(not zones.add(valid_tile, "Reserve"), "adding to an unknown zone is rejected", failures)
+	assert_true(not zones.add(valid_tile, "Unknown Zone"), "adding to an unknown zone is rejected", failures)
 	assert_true(zones.size(TileZone.TILE_POOL) == 0, "rejected additions leave all zone contents unchanged", failures)
 
 func test_invalid_transfers_leave_zone_contents_unchanged(failures: Array[String]) -> void:
@@ -99,7 +99,7 @@ func test_invalid_transfers_leave_zone_contents_unchanged(failures: Array[String
 	zones.add(tile, TileZone.HAND)
 
 	var wrong_source: bool = zones.transfer("run.tile.invalid", TileZone.DRAW_WALL, TileZone.DISCARD)
-	var invalid_target: bool = zones.transfer("run.tile.invalid", TileZone.HAND, "Reserve")
+	var invalid_target: bool = zones.transfer("run.tile.invalid", TileZone.HAND, "Unknown Zone")
 	var unknown_tile: bool = zones.transfer("run.tile.missing", TileZone.HAND, TileZone.DISCARD)
 
 	assert_true(not wrong_source, "a transfer with invalid source membership is rejected", failures)

@@ -17,7 +17,7 @@ func _init(
 func resolution_kind() -> String:
 	return "EFFECT"
 
-func resolve(queue, state, sequence_index: int) -> Array:
+func resolve(queue, state, sequence_index: int):
 	if _resolver.is_valid():
 		var result = _resolver.call(queue, state, sequence_index)
 		return result if result is Array else []

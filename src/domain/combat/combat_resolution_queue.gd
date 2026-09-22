@@ -6,15 +6,19 @@ const CombatResolutionStepScript = preload("res://src/domain/combat/combat_resol
 const CombatResolutionEffectScript = preload("res://src/domain/combat/combat_resolution_effect.gd")
 const CombatReactionWindowScript = preload("res://src/domain/combat/combat_reaction_window.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
+const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
 
 const DEFAULT_OPERATION_LIMIT := 256
 
 var _state
+var _context
 var _events: Array = []
 var _pending_effects: Array = []
 var _pending_triggers: Array = []
 var _open_reaction_windows: Dictionary = {}
 var _diagnostics: Array = []
+var _effect_results: Array = []
 var _drained := false
 var _accepted := false
 var _result
@@ -22,8 +26,9 @@ var _operation_limit: int
 var _processed_item_count := 0
 var _loop_guard_triggered := false
 
-func _init(state, operation_limit: int = DEFAULT_OPERATION_LIMIT) -> void:
+func _init(state, operation_limit: int = DEFAULT_OPERATION_LIMIT, context = null) -> void:
 	_state = state
+	_context = context if context != null else EffectContextScript.new(state)
 	_operation_limit = maxi(1, operation_limit)
 	_accepted = _state != null and _state._start_queue()
 
@@ -98,6 +103,9 @@ func set_operation_limit(operation_limit: int) -> void:
 func pending_item_count() -> int:
 	return _pending_effects.size() + _pending_triggers.size()
 
+func effect_context():
+	return _context
+
 func open_reaction_window_ids() -> Array:
 	var ids: Array = _open_reaction_windows.keys()
 	ids.sort()
@@ -148,7 +156,12 @@ func _apply_item(item) -> bool:
 	var sequence_index: int = _state._next_effect_sequence_index()
 	var item_events: Array = []
 	if item is CombatResolutionEffectScript:
-		item_events = item.resolve(self, _state, sequence_index)
+		var resolution = item.resolve(self, _state, sequence_index)
+		if resolution is EffectResolutionResultScript:
+			_effect_results.append(resolution)
+			item_events = resolution.events
+		elif resolution is Array:
+			item_events = resolution
 	else:
 		item_events = _state._apply_step(item, sequence_index)
 	if item_events is Array:
@@ -197,4 +210,5 @@ func _make_result(result_status: String):
 		_diagnostics,
 		_processed_item_count,
 		pending_item_count(),
+		_effect_results,
 	)

@@ -14,6 +14,7 @@ var state_snapshot: Dictionary
 var diagnostics: Array
 var processed_item_count: int
 var remaining_item_count: int
+var _effect_results: Array
 
 var events: Array:
 	get:
@@ -28,6 +29,7 @@ func _init(
 	result_diagnostics: Array = [],
 	result_processed_item_count: int = 0,
 	result_remaining_item_count: int = 0,
+	result_effect_results: Array = [],
 ) -> void:
 	status = result_status
 	queue_index = result_queue_index
@@ -37,6 +39,11 @@ func _init(
 	diagnostics = result_diagnostics.duplicate(true)
 	processed_item_count = result_processed_item_count
 	remaining_item_count = result_remaining_item_count
+	_effect_results = result_effect_results.duplicate()
+
+var effect_results: Array:
+	get:
+		return _effect_results.duplicate()
 
 func is_resolved() -> bool:
 	return status == RESOLVED
@@ -62,4 +69,11 @@ func to_dictionary() -> Dictionary:
 		"diagnostics": diagnostics.duplicate(true),
 		"processed_item_count": processed_item_count,
 		"remaining_item_count": remaining_item_count,
+		"effect_results": _effect_result_data(),
 	}
+
+func _effect_result_data() -> Array:
+	var result: Array = []
+	for effect_result in _effect_results:
+		result.append(effect_result.to_dictionary())
+	return result

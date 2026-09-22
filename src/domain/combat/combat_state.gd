@@ -22,6 +22,14 @@ var terminal_sequence_index: int
 var terminal_outcome: String
 var queue_index: int
 var state_based_check_count: int
+var tp: int
+var stability: int
+var draw_capacity: int
+var settlement_capacity: int
+var reserve_capacity: int
+var active_effects: Dictionary
+var zones
+var draw_wall
 
 var _intent_loop: Array
 var _next_sequence_index: int
@@ -32,6 +40,11 @@ func _init(
 	initial_pressure_limit: int,
 	initial_pressure: int = 0,
 	initial_intent_loop: Array = [],
+	initial_tp: int = 0,
+	initial_stability: int = 0,
+	initial_draw_capacity: int = 3,
+	initial_settlement_capacity: int = 1,
+	initial_reserve_capacity: int = 3,
 ) -> void:
 	enemy_max_hp = maxi(0, initial_enemy_hp)
 	enemy_hp = enemy_max_hp
@@ -48,6 +61,14 @@ func _init(
 	terminal_outcome = ONGOING
 	queue_index = 0
 	state_based_check_count = 0
+	tp = maxi(0, initial_tp)
+	stability = maxi(0, initial_stability)
+	draw_capacity = maxi(0, initial_draw_capacity)
+	settlement_capacity = maxi(0, initial_settlement_capacity)
+	reserve_capacity = maxi(0, initial_reserve_capacity)
+	active_effects = {}
+	zones = null
+	draw_wall = null
 	_next_sequence_index = 0
 	_queue_active = false
 
@@ -80,6 +101,12 @@ func to_dictionary() -> Dictionary:
 		"terminal_outcome": terminal_outcome,
 		"queue_index": queue_index,
 		"state_based_check_count": state_based_check_count,
+		"tp": tp,
+		"stability": stability,
+		"draw_capacity": draw_capacity,
+		"settlement_capacity": settlement_capacity,
+		"reserve_capacity": reserve_capacity,
+		"active_effects": _sorted_effect_ids(),
 	}
 
 func has_pending_terminal() -> bool:
@@ -118,6 +145,11 @@ func _apply_step(step, sequence_index: int) -> Array:
 	if step.pressure_delta != 0:
 		events.append_array(_apply_pressure(step.pressure_delta, step.source_id, sequence_index))
 	return events
+
+func _sorted_effect_ids() -> Array:
+	var ids: Array = active_effects.keys()
+	ids.sort()
+	return ids
 
 func _apply_damage(amount: int, source_id: String, sequence_index: int) -> Array:
 	var events: Array = []
