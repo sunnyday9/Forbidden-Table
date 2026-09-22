@@ -8,6 +8,7 @@ const DUPLICATE_SELECTION := "DUPLICATE_SELECTION"
 const STALE_SELECTION := "STALE_SELECTION"
 const TILE_ALREADY_SETTLED := "TILE_ALREADY_SETTLED"
 const TRANSFER_FAILED := "TRANSFER_FAILED"
+const CAPACITY_EXHAUSTED := "CAPACITY_EXHAUSTED"
 
 var status: String
 var settled_pattern
@@ -24,3 +25,6 @@ func _init(
 
 func is_accepted() -> bool:
 	return status == ACCEPTED
+
+func is_capacity_exhausted() -> bool:
+	return status == CAPACITY_EXHAUSTED

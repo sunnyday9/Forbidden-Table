@@ -17,11 +17,13 @@ const PatternEvaluatorScript = preload("res://src/domain/mahjong/pattern/pattern
 const PatternCandidateScript = preload("res://src/domain/mahjong/pattern/pattern_candidate.gd")
 const SettlementWindowScript = preload("res://src/domain/mahjong/settlement/settlement_window.gd")
 const SettlementTurnScript = preload("res://src/domain/mahjong/settlement/settlement_turn.gd")
+const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const MahjongScoreResolverScript = preload("res://src/domain/mahjong/scoring/mahjong_score_resolver.gd")
 const CombatConversionProfileScript = preload("res://src/domain/combat/combat_conversion_profile.gd")
 const CombatConversionResolverScript = preload("res://src/domain/combat/combat_conversion_resolver.gd")
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd")
+const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 
 var zones
 var draw_wall
@@ -89,8 +91,10 @@ func _build_default_fixture() -> void:
 	zones.reorder(TileZoneScript.DRAW_WALL, _tile_ids(wall_tiles))
 	tile_actions = TileActionServiceScript.new(draw_wall, zones)
 	var evaluator := PatternEvaluatorScript.new(registry)
-	settlement_window = SettlementWindowScript.new(evaluator, zones)
-	settlement_turn = SettlementTurnScript.new(settlement_window, tile_actions, zones, 3)
+	combat_state = CombatStateScript.new(30, 10)
+	settlement_window = SettlementWindowScript.new(evaluator, zones, SettlementCapacityScript.new(combat_state.settlement_capacity))
+	var settlement_trigger_context := EffectContextScript.new(combat_state, zones, draw_wall, tile_actions.reserve_service)
+	settlement_turn = SettlementTurnScript.new(settlement_window, tile_actions, zones, 3, null, settlement_trigger_context)
 	score_resolver = MahjongScoreResolverScript.new({
 		PatternCandidateScript.SEQUENCE: {"source_id": "pattern.sequence", "amount": 10},
 		PatternCandidateScript.TRIPLET: {"source_id": "pattern.triplet", "amount": 12},
@@ -102,7 +106,6 @@ func _build_default_fixture() -> void:
 		"stability_curve": {"mode": "linear", "multiplier": 0.0},
 	})
 	conversion_resolver = CombatConversionResolverScript.new()
-	combat_state = CombatStateScript.new(30, 10)
 	combat_resolver = CombatResolverScript.new()
 
 func _add_tile(target_zones, instance_id: String, rank: int, zone: String):
@@ -141,6 +144,7 @@ func _pattern_data(candidates: Array) -> Array:
 		for tile in candidate.tile_instances:
 			instance_ids.append(tile.instance_id)
 		result.append({
+			"candidate_id": candidate.candidate_id,
 			"pattern_type": candidate.pattern_type,
 			"instance_ids": instance_ids,
 			"labels": _tile_labels(candidate.tile_instances),

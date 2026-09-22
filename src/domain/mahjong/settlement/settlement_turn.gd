@@ -2,7 +2,10 @@ class_name SettlementTurn
 extends RefCounted
 
 const DrawSourceScript = preload("res://src/domain/tiles/draw_source.gd")
-const PartialSettlementResultScript = preload("res://src/domain/mahjong/settlement/partial_settlement_result.gd")
+const CombatResolutionTriggerScript = preload("res://src/domain/combat/combat_resolution_trigger.gd")
+const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd")
+const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
 const SettlementTurnResultScript = preload("res://src/domain/mahjong/settlement/settlement_turn_result.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
@@ -11,16 +14,27 @@ var _tile_actions
 var _zones
 var _hand_baseline: int
 var _settled_instance_ids: Dictionary = {}
-var _settlement_resolved := false
 var _ended := false
 var _last_result
 var _end_result
+var _settlement_trigger_context
+var _settlement_trigger_data: Dictionary = {}
 
-func _init(settlement_window, tile_actions, zones, hand_baseline: int) -> void:
+func _init(
+	settlement_window,
+	tile_actions,
+	zones,
+	hand_baseline: int,
+	settlement_capacity = null,
+	settlement_trigger_context = null,
+) -> void:
 	_settlement_window = settlement_window
 	_tile_actions = tile_actions
 	_zones = zones
 	_hand_baseline = maxi(0, hand_baseline)
+	_settlement_trigger_context = settlement_trigger_context
+	if settlement_capacity != null and _settlement_window != null:
+		_settlement_window.set_settlement_capacity(settlement_capacity)
 
 func resolve_partial_settlement(selected_instance_ids: Array, combat_output = null):
 	if _ended:
@@ -33,23 +47,30 @@ func resolve_partial_settlement(selected_instance_ids: Array, combat_output = nu
 			0,
 			combat_output,
 		)
-
-	for instance_id in selected_instance_ids:
-		if _settled_instance_ids.has(instance_id):
-			var already_settled = PartialSettlementResultScript.new(PartialSettlementResultScript.TILE_ALREADY_SETTLED)
-			return _result(SettlementTurnResultScript.SETTLEMENT_REJECTED, already_settled, [], 0, 0, 0, combat_output)
-	if _settlement_resolved:
-		return _result(SettlementTurnResultScript.SETTLEMENT_ALREADY_RESOLVED, null, [], 0, 0, 0, combat_output)
+	if combat_output == null and _last_result != null:
+		combat_output = _last_result.combat_output
 
 	var settlement_result = _settlement_window.resolve(selected_instance_ids)
+	return _finish_settlement(settlement_result, combat_output)
+
+func resolve_partial_settlement_candidate(candidate_id: String, combat_output = null):
+	if _ended:
+		return _result(SettlementTurnResultScript.TURN_ENDED, null, [], 0, 0, 0, combat_output)
+	if combat_output == null and _last_result != null:
+		combat_output = _last_result.combat_output
+	var settlement_result = _settlement_window.resolve_candidate(candidate_id)
+	return _finish_settlement(settlement_result, combat_output)
+
+func _finish_settlement(settlement_result, combat_output):
 	if not settlement_result.is_accepted():
-		_last_result = _result(SettlementTurnResultScript.SETTLEMENT_REJECTED, settlement_result, [], 0, 0, 0, combat_output)
+		var result_status := SettlementTurnResultScript.SETTLEMENT_REJECTED
+		if settlement_result.is_capacity_exhausted():
+			result_status = SettlementTurnResultScript.CAPACITY_EXHAUSTED
+		_last_result = _result(result_status, settlement_result, [], 0, 0, 0, combat_output)
 		return _last_result
 
-	for instance_id in settlement_result.settled_pattern.tile_instance_ids:
-		_settled_instance_ids[instance_id] = true
-	_settlement_resolved = true
-
+	var events: Array = settlement_result.events
+	events.append_array(_resolve_settlement_triggers(settlement_result.settled_pattern))
 	var replacement_requested := maxi(0, _hand_baseline - _zones.size(TileZoneScript.HAND))
 	var replacement_draws: Array = []
 	for _draw_index in range(replacement_requested):
@@ -62,8 +83,13 @@ func resolve_partial_settlement(selected_instance_ids: Array, combat_output = nu
 	var replacement_shortfall := replacement_requested - replacement_drawn
 	_settlement_window.refresh()
 	var result_status := SettlementTurnResultScript.COMPLETED
-	if replacement_shortfall > 0:
+	if _settlement_window.settlement_capacity().remaining == 0:
+		result_status = SettlementTurnResultScript.CAPACITY_EXHAUSTED
+	elif replacement_shortfall > 0:
 		result_status = SettlementTurnResultScript.DRAW_EXHAUSTED
+	_settled_instance_ids = _settled_ids_from_window()
+	for replacement_draw in replacement_draws:
+		events.append_array(replacement_draw.events)
 	_last_result = _result(
 		result_status,
 		settlement_result,
@@ -72,8 +98,42 @@ func resolve_partial_settlement(selected_instance_ids: Array, combat_output = nu
 		replacement_drawn,
 		replacement_shortfall,
 		combat_output,
+		events,
 	)
 	return _last_result
+
+func _resolve_settlement_triggers(settled_pattern) -> Array:
+	var trigger_data := {
+		"pattern_type": settled_pattern.pattern_type,
+		"instance_ids": settled_pattern.tile_instance_ids,
+	}
+	if _settlement_trigger_context == null or _settlement_trigger_context.state == null:
+		return [DomainEventScript.new(DomainEventScript.SETTLEMENT_TRIGGERS_RESOLVED, trigger_data)]
+
+	_settlement_trigger_data = trigger_data
+	var queue = CombatResolverScript.new().begin_queue(
+		_settlement_trigger_context.state,
+		256,
+		_settlement_trigger_context,
+		"",
+	)
+	var trigger := CombatResolutionTriggerScript.new(
+		EffectTriggerScript.SETTLEMENT,
+		Callable(self, "_resolve_settlement_trigger"),
+	)
+	if not queue.enqueue_trigger(trigger):
+		_settlement_trigger_data = {}
+		return [DomainEventScript.new(DomainEventScript.SETTLEMENT_TRIGGERS_RESOLVED, trigger_data)]
+	var trigger_result = queue.drain()
+	_settlement_trigger_data = {}
+	if trigger_result.is_resolved() and not trigger_result.events.is_empty():
+		return trigger_result.events
+	return [DomainEventScript.new(DomainEventScript.SETTLEMENT_TRIGGERS_RESOLVED, trigger_data)]
+
+func _resolve_settlement_trigger(_queue, _state, sequence_index: int) -> Array:
+	var event_data := _settlement_trigger_data.duplicate(true)
+	event_data["sequence_index"] = sequence_index
+	return [DomainEventScript.new(DomainEventScript.SETTLEMENT_TRIGGERS_RESOLVED, event_data)]
 
 func end_turn(combat_output = null):
 	if _ended:
@@ -81,6 +141,7 @@ func end_turn(combat_output = null):
 	_ended = true
 	if _settlement_window != null:
 		_settlement_window.refresh()
+		_settlement_window.close()
 	var prior_settlement = null
 	var prior_draws: Array = []
 	var prior_requested := 0
@@ -103,6 +164,7 @@ func end_turn(combat_output = null):
 		prior_drawn,
 		prior_shortfall,
 		prior_combat_output,
+		_last_result.events if _last_result != null else [],
 	)
 	return _end_result
 
@@ -127,6 +189,7 @@ func _result(
 	replacement_drawn: int,
 	replacement_shortfall: int,
 	combat_output = null,
+	events: Array = [],
 ):
 	var candidates: Array = []
 	if _settlement_window != null:
@@ -142,4 +205,15 @@ func _result(
 		settled_instance_ids(),
 		combat_output,
 		true,
+		events,
+		_settlement_window.settlement_capacity().maximum if _settlement_window != null else 0,
+		_settlement_window.settlement_capacity().remaining if _settlement_window != null else 0,
 	)
+
+func _settled_ids_from_window() -> Dictionary:
+	var ids: Dictionary = {}
+	if _settlement_window == null:
+		return ids
+	for instance_id in _settlement_window.settled_instance_ids():
+		ids[instance_id] = true
+	return ids

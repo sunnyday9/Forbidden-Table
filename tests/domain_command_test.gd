@@ -13,6 +13,7 @@ func run() -> Array[String]:
 	test_rejected_command_is_atomic(failures)
 	test_accepted_command_returns_events_and_checkpoint(failures)
 	test_settlement_uses_the_shared_result_contract(failures)
+	test_candidate_id_settlement_command_continues_the_chain(failures)
 	test_preview_command_is_not_replayable(failures)
 	return failures
 
@@ -83,6 +84,22 @@ func test_settlement_uses_the_shared_result_contract(failures: Array[String]) ->
 	assert_true(result.status == "COMPLETED", "Settlement preserves its Stage 0 completion status", failures)
 	assert_true(_has_event(result.events, DomainEvent.PATTERN_SETTLED), "Settlement returns its DomainEvents", failures)
 	assert_true(result.replayable, "accepted Settlement commands are replayable", failures)
+
+func test_candidate_id_settlement_command_continues_the_chain(failures: Array[String]) -> void:
+	var controller := BattleController.new()
+	controller.submit(DrawCommand.new("stage1.candidate.draw"))
+	var pattern = controller.presentation.pattern_highlights[0]
+	var result = controller.submit(SettlePatternCommand.new(
+		"stage1.candidate.settlement",
+		[],
+		"player.1",
+		"battle.hand",
+		false,
+		pattern["candidate_id"],
+	))
+
+	assert_true(result.accepted, "an explicit candidate-ID Settlement command is accepted", failures)
+	assert_true(result.data["settlement"]["settled_instance_ids"].size() == 3, "the candidate command settles exactly its selected Pattern", failures)
 
 func _has_event(events: Array, event_type: String) -> bool:
 	for event in events:

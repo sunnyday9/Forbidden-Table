@@ -2,6 +2,7 @@ class_name SettlementTest
 extends RefCounted
 
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
+const SettlementCapacity = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const PartialSettlementResult = preload("res://src/domain/mahjong/settlement/partial_settlement_result.gd")
 const PatternCandidate = preload("res://src/domain/mahjong/pattern/pattern_candidate.gd")
 const PatternEvaluator = preload("res://src/domain/mahjong/pattern/pattern_evaluator.gd")
@@ -26,6 +27,9 @@ func run() -> Array[String]:
 	test_triplet_and_quad_are_settleable(failures)
 	test_settlement_emits_auditable_event(failures)
 	test_settled_tile_cannot_be_reused_in_same_window(failures)
+	test_shared_capacity_has_a_two_pattern_baseline(failures)
+	test_candidate_command_selects_an_ambiguous_pattern_atomically(failures)
+	test_stale_candidate_selection_is_rejected_atomically(failures)
 	return failures
 
 func test_window_refuses_hand_without_candidate(failures: Array[String]) -> void:
@@ -223,6 +227,53 @@ func test_settled_tile_cannot_be_reused_in_same_window(failures: Array[String]) 
 	assert_true(reuse_result.status == PartialSettlementResult.TILE_ALREADY_SETTLED, "a TileInstance cannot be reused in the same Settlement Window", failures)
 	assert_true(zones.contains_in_zone("run.tile.reuse.4", TileZone.HAND), "the rejected reuse leaves the unselected TileInstance in Hand", failures)
 	assert_true(reuse_result.events.is_empty(), "a rejected reuse emits no event", failures)
+
+func test_shared_capacity_has_a_two_pattern_baseline(failures: Array[String]) -> void:
+	var capacity := SettlementCapacity.new()
+	assert_true(capacity.maximum == 2, "Settlement Capacity has a baseline of two patterns", failures)
+	assert_true(capacity.remaining == 2, "a new Settlement Capacity starts unspent", failures)
+	assert_true(capacity.consume(), "Settlement Capacity can be spent by one settlement", failures)
+	assert_true(capacity.remaining == 1, "spending capacity leaves one shared budget unit", failures)
+	capacity.reset()
+	assert_true(capacity.remaining == 2, "capacity reset is explicit and deterministic", failures)
+
+func test_candidate_command_selects_an_ambiguous_pattern_atomically(failures: Array[String]) -> void:
+	var definition_id := "base.tile.characters.5"
+	var registry = _registry([[definition_id, "characters", 5]])
+	var zones := TileZoneContainer.new()
+	for index in range(4):
+		zones.add(TileInstance.new("run.tile.ambiguous.%d" % index, definition_id), TileZone.HAND)
+	var window := SettlementWindow.new(PatternEvaluator.new(registry), zones)
+	assert_true(window.open(), "an ambiguous Hand opens a Settlement Window", failures)
+	var triplet = null
+	for candidate in window.candidates():
+		if candidate.pattern_type == PatternCandidate.TRIPLET:
+			triplet = candidate
+			break
+	if triplet == null:
+		return
+	var invalid = window.resolve_candidate("missing.candidate")
+	assert_true(invalid.status == PartialSettlementResult.INVALID_SELECTION, "an invalid candidate ID is rejected", failures)
+	assert_true(zones.size(TileZone.HAND) == 4, "an invalid candidate leaves Hand unchanged", failures)
+	var result = window.resolve_candidate(triplet.candidate_id)
+	assert_true(result.is_accepted(), "an explicit candidate ID settles the selected ambiguous interpretation", failures)
+	assert_true(zones.size(TileZone.DISCARD) == 3, "the explicit candidate moves only its selected TileInstances", failures)
+
+func test_stale_candidate_selection_is_rejected_atomically(failures: Array[String]) -> void:
+	var registry = _sequence_registry()
+	var zones = _hand_zones([
+		["run.tile.stale_candidate.1", "base.tile.characters.1"],
+		["run.tile.stale_candidate.2", "base.tile.characters.2"],
+		["run.tile.stale_candidate.3", "base.tile.characters.3"],
+	])
+	var window := SettlementWindow.new(PatternEvaluator.new(registry), zones)
+	assert_true(window.open(), "the stale-candidate fixture opens", failures)
+	var candidate = window.candidates()[0]
+	zones.transfer("run.tile.stale_candidate.1", TileZone.HAND, TileZone.DISCARD)
+	var result = window.resolve_candidate(candidate.candidate_id)
+	assert_true(result.status == PartialSettlementResult.STALE_SELECTION, "a candidate made stale by a tile move is rejected", failures)
+	assert_true(zones.size(TileZone.HAND) == 2, "a stale candidate rejection leaves the remaining Hand unchanged", failures)
+	assert_true(zones.size(TileZone.DISCARD) == 1, "a stale candidate rejection preserves the pre-existing move", failures)
 
 func _sequence_registry():
 	return _registry([

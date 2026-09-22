@@ -2,10 +2,13 @@ class_name SettlementTurnTest
 extends RefCounted
 
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
+const CombatState = preload("res://src/domain/combat/combat_state.gd")
 const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
 const DrawWall = preload("res://src/domain/tiles/draw_wall.gd")
+const EffectContext = preload("res://src/domain/effects/effect_context.gd")
 const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const PatternEvaluator = preload("res://src/domain/mahjong/pattern/pattern_evaluator.gd")
+const SettlementCapacity = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const SettlementTurn = preload("res://src/domain/mahjong/settlement/settlement_turn.gd")
 const SettlementWindow = preload("res://src/domain/mahjong/settlement/settlement_window.gd")
 const TileActionService = preload("res://src/domain/tiles/tile_action_service.gd")
@@ -19,6 +22,7 @@ func run() -> Array[String]:
 	test_replacement_draw_uses_source_and_updates_zones(failures)
 	test_settled_tile_cannot_be_consumed_again(failures)
 	test_exhaustion_is_explicit_and_end_turn_is_idempotent(failures)
+	test_capacity_exhaustion_defers_remaining_patterns_to_a_later_window(failures)
 	return failures
 
 func test_replacement_draw_uses_source_and_updates_zones(failures: Array[String]) -> void:
@@ -31,7 +35,9 @@ func test_replacement_draw_uses_source_and_updates_zones(failures: Array[String]
 	zones.reorder(TileZone.DRAW_WALL, _tile_ids(replacement_tiles))
 	var actions := TileActionService.new(wall, zones)
 	var window := SettlementWindow.new(PatternEvaluator.new(registry), zones)
-	var turn = SettlementTurn.new(window, actions, zones, 4)
+	var trigger_state := CombatState.new(30, 10)
+	var trigger_context := EffectContext.new(trigger_state, zones, wall, actions.reserve_service)
+	var turn = SettlementTurn.new(window, actions, zones, 4, null, trigger_context)
 	window.open()
 
 	var combat_output := {"damage": 20, "stability": 3}
@@ -41,6 +47,12 @@ func test_replacement_draw_uses_source_and_updates_zones(failures: Array[String]
 	assert_true(result.replacement_requested == 3, "replacement draw requests the consumed Hand shortfall", failures)
 	assert_true(result.replacement_drawn == 3, "replacement draw reports every available replacement", failures)
 	assert_true(result.replacement_shortfall == 0, "available replacements report no shortfall", failures)
+	assert_true(result.capacity_maximum == 2 and result.capacity_remaining == 1, "replacement draws do not refresh shared Settlement Capacity", failures)
+	assert_true(result.events.size() == 5, "the settlement result preserves settlement, trigger, and three replacement events", failures)
+	if result.events.size() >= 3:
+		assert_true(result.events[0].event_type == "PatternSettled", "PatternSettled precedes Replacement Draw events", failures)
+		assert_true(result.events[1].event_type == "SettlementTriggersResolved", "settlement triggers resolve after PatternSettled", failures)
+		assert_true(result.events[2].event_type == "TileDrawn", "the first Replacement Draw follows settlement triggers", failures)
 	assert_true(zones.size(TileZone.HAND) == 4, "replacement draws restore Hand to the baseline", failures)
 	assert_true(zones.size(TileZone.DISCARD) == 3, "settled tiles remain in Discard", failures)
 	for tile_instance in replacement_tiles:
@@ -52,8 +64,10 @@ func test_replacement_draw_uses_source_and_updates_zones(failures: Array[String]
 	assert_true(_has_candidate(result.candidates, ["run.tile.replacement.7", "run.tile.replacement.8", "run.tile.replacement.9"]), "Hand is re-evaluated and exposes a candidate formed by replacement tiles", failures)
 	assert_true(result.combat_output == combat_output, "the turn result preserves Combat Output", failures)
 	var chain_result = turn.resolve_partial_settlement(["run.tile.replacement.7", "run.tile.replacement.8", "run.tile.replacement.9"])
-	assert_true(chain_result.status == "SETTLEMENT_ALREADY_RESOLVED", "the minimal turn seam does not add settlement chaining", failures)
-	assert_true(chain_result.replacement_drawn == 0, "a blocked chain does not perform replacement draws", failures)
+	assert_true(chain_result.status == "CAPACITY_EXHAUSTED", "the shared window capacity ends the settlement chain", failures)
+	assert_true(chain_result.settlement_result.is_accepted(), "the second chained Pattern is still resolved before capacity is reported", failures)
+	assert_true(chain_result.replacement_drawn == 0, "the exhausted chain performs no unavailable replacement draws", failures)
+	assert_true(chain_result.events[0].event_type == "PatternSettled", "the chained settlement event is emitted first", failures)
 	var end_result = turn.end_turn()
 	assert_true(end_result.combat_output == combat_output, "stable End Turn preserves Combat Output", failures)
 	assert_true(end_result.to_dictionary()["combat_output"] == combat_output, "stable End Turn serializes Combat Output", failures)
@@ -101,6 +115,28 @@ func test_exhaustion_is_explicit_and_end_turn_is_idempotent(failures: Array[Stri
 	assert_true(zones.size(TileZone.DISCARD) == 3, "exhaustion leaves settled tiles in Discard", failures)
 	assert_true(end_result.status == "END_TURN" and end_result.is_stable(), "End Turn reports a stable domain state", failures)
 	assert_true(end_result.to_dictionary() == repeated_end_result.to_dictionary(), "repeated End Turn is idempotent", failures)
+
+func test_capacity_exhaustion_defers_remaining_patterns_to_a_later_window(failures: Array[String]) -> void:
+	var registry = _registry([1, 2, 3, 4, 5, 6])
+	var zones := TileZoneContainer.new()
+	var tiles := _add_hand_tiles(zones, [1, 2, 3, 4, 5, 6], "run.tile.capacity")
+	var wall := DrawWall.new(zones, DomainRngStreams.new(14).draw_wall)
+	wall.initialize()
+	var actions := TileActionService.new(wall, zones)
+	var window := SettlementWindow.new(PatternEvaluator.new(registry), zones, SettlementCapacity.new(1))
+	var first_turn = SettlementTurn.new(window, actions, zones, 6)
+	window.open()
+	var first = first_turn.resolve_partial_settlement(_tile_ids(tiles.slice(0, 3)))
+
+	assert_true(first.status == "CAPACITY_EXHAUSTED", "capacity exhaustion is a structured turn result", failures)
+	assert_true(first.candidates.size() > 0, "remaining Patterns stay visible after capacity exhaustion", failures)
+	var candidates_before: int = first.candidates.size()
+	first_turn.end_turn()
+	var later_turn = SettlementTurn.new(window, actions, zones, 3)
+	assert_true(window.open(), "a later legal window can reopen the remaining Patterns", failures)
+	var later = later_turn.resolve_partial_settlement(_tile_ids(window.candidates()[0].tile_instances))
+	assert_true(later.settlement_result != null and later.settlement_result.is_accepted(), "a later window can settle a previously deferred Pattern", failures)
+	assert_true(candidates_before > 0, "the exhaustion fixture retains an observable deferred candidate", failures)
 
 func _has_candidate(candidates: Array, expected_ids: Array[String]) -> bool:
 	for candidate in candidates:

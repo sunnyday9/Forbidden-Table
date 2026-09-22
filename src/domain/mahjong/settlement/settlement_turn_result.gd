@@ -5,6 +5,7 @@ const SETTLEMENT_REJECTED := "SETTLEMENT_REJECTED"
 const SETTLEMENT_ALREADY_RESOLVED := "SETTLEMENT_ALREADY_RESOLVED"
 const COMPLETED := "COMPLETED"
 const DRAW_EXHAUSTED := "DRAW_EXHAUSTED"
+const CAPACITY_EXHAUSTED := "CAPACITY_EXHAUSTED"
 const END_TURN := "END_TURN"
 const TURN_ENDED := "TURN_ENDED"
 
@@ -18,6 +19,9 @@ var _candidates: Array
 var _settled_instance_ids: Array[String]
 var combat_output
 var stable: bool
+var _events: Array
+var capacity_maximum: int
+var capacity_remaining: int
 
 var replacement_draws: Array:
 	get:
@@ -31,6 +35,10 @@ var settled_instance_ids: Array[String]:
 	get:
 		return _settled_instance_ids.duplicate()
 
+var events: Array:
+	get:
+		return _events.duplicate()
+
 func _init(
 	result_status: String,
 	result_settlement = null,
@@ -42,6 +50,9 @@ func _init(
 	result_settled_instance_ids: Array[String] = [],
 	result_combat_output = null,
 	result_stable: bool = true,
+	result_events: Array = [],
+	result_capacity_maximum: int = 0,
+	result_capacity_remaining: int = 0,
 ) -> void:
 	status = result_status
 	settlement_result = result_settlement
@@ -53,9 +64,15 @@ func _init(
 	_settled_instance_ids = result_settled_instance_ids.duplicate()
 	combat_output = result_combat_output
 	stable = result_stable
+	_events = result_events.duplicate()
+	capacity_maximum = result_capacity_maximum
+	capacity_remaining = result_capacity_remaining
 
 func is_completed() -> bool:
-	return status == COMPLETED
+	return status == COMPLETED or status == CAPACITY_EXHAUSTED
+
+func is_capacity_exhausted() -> bool:
+	return status == CAPACITY_EXHAUSTED
 
 func is_exhausted() -> bool:
 	return status == DRAW_EXHAUSTED
@@ -77,6 +94,9 @@ func to_dictionary() -> Dictionary:
 		"replacement_shortfall": replacement_shortfall,
 		"settled_instance_ids": settled_instance_ids,
 		"candidate_count": candidates.size(),
+		"event_count": events.size(),
+		"capacity_maximum": capacity_maximum,
+		"capacity_remaining": capacity_remaining,
 		"combat_output": combat_output_data,
 		"stable": stable,
 	}

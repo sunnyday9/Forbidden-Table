@@ -43,7 +43,7 @@ func _init(
 	initial_tp: int = 0,
 	initial_stability: int = 0,
 	initial_draw_capacity: int = 3,
-	initial_settlement_capacity: int = 1,
+	initial_settlement_capacity: int = 2,
 	initial_reserve_capacity: int = 3,
 ) -> void:
 	enemy_max_hp = maxi(0, initial_enemy_hp)

@@ -18,7 +18,6 @@ var conversion_profile
 var combat_state
 var combat_resolver
 var reserve_service
-var _settlement_submitted := false
 
 func _init(
 	domain_zones,
@@ -117,11 +116,10 @@ func can_settle() -> bool:
 	if settlement_window != null and settlement_window.is_open():
 		settlement_window.refresh()
 	return (
-		not _settlement_submitted
-		and combat_state != null
+		combat_state != null
 		and combat_state.is_active()
 		and settlement_window != null
-		and settlement_window.is_open()
+		and settlement_window.has_capacity()
 		and not settlement_window.candidates().is_empty()
 	)
 
@@ -144,8 +142,32 @@ func validate_settlement(selected_instance_ids: Array) -> RefCounted:
 		)
 	return CommandValidationScript.new(true)
 
+func validate_settlement_candidate(candidate_id: String) -> RefCounted:
+	if not can_settle():
+		return CommandValidationScript.new(
+			false,
+			"SETTLEMENT_UNAVAILABLE",
+			"No highlighted Pattern can be settled.",
+		)
+	var selection_result = settlement_window.validate_candidate(candidate_id)
+	if selection_result == null or not selection_result.is_accepted():
+		return CommandValidationScript.new(
+			false,
+			"SETTLEMENT_REJECTED",
+			"The selected Pattern was rejected.",
+			{"reason": selection_result.status if selection_result != null else "INVALID_SELECTION"},
+		)
+	return CommandValidationScript.new(true)
+
 func execute_settlement(selected_instance_ids: Array) -> Dictionary:
 	var turn_result = settlement_turn.resolve_partial_settlement(selected_instance_ids)
+	return _execute_settlement_result(turn_result)
+
+func execute_settlement_candidate(candidate_id: String) -> Dictionary:
+	var turn_result = settlement_turn.resolve_partial_settlement_candidate(candidate_id)
+	return _execute_settlement_result(turn_result)
+
+func _execute_settlement_result(turn_result) -> Dictionary:
 	var settlement_result = turn_result.settlement_result
 	if settlement_result == null or not settlement_result.is_accepted():
 		return {
@@ -154,15 +176,12 @@ func execute_settlement(selected_instance_ids: Array) -> Dictionary:
 			"message": "The selected Pattern was rejected.",
 		}
 
-	var events: Array = settlement_result.events
-	for replacement_draw in turn_result.replacement_draws:
-		events.append_array(replacement_draw.events)
+	var events: Array = turn_result.events
 
 	var score_result = score_resolver.resolve(settlement_result.settled_pattern)
 	var combat_output = conversion_resolver.resolve(score_result, conversion_profile, combat_state.to_dictionary())
 	var combat_result = combat_resolver.resolve_combat_conversion(combat_state, combat_output)
 	events.append_array(combat_result.events)
-	_settlement_submitted = true
 	return {
 		"accepted": true,
 		"status": turn_result.status,
@@ -205,10 +224,11 @@ func checkpoint() -> Dictionary:
 		"integrity": _integrity_snapshot(),
 		"combat_state": combat_state.to_dictionary() if combat_state != null else {},
 		"settlement": {
-			"submitted": _settlement_submitted,
+			"submitted": settlement_turn != null and not settlement_turn.settled_instance_ids().is_empty(),
 			"window_open": settlement_window.is_open() if settlement_window != null else false,
 			"candidates": candidate_checkpoint,
 			"settled_instance_ids": settlement_turn.settled_instance_ids() if settlement_turn != null else [],
+			"capacity": settlement_window.settlement_capacity().to_dictionary() if settlement_window != null else {},
 		},
 	}
 
