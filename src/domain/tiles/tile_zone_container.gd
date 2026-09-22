@@ -12,6 +12,7 @@ func _init(initial_reserve_capacity: int = 3) -> void:
 	reserve_capacity = maxi(0, initial_reserve_capacity)
 	for zone in TileZoneScript.all():
 		_contents[zone] = []
+	_contents[TileZoneScript.PURGED] = []
 
 func add(tile_instance, zone: String) -> bool:
 	if tile_instance == null or not (tile_instance is TileInstanceScript) or not tile_instance.is_valid():
@@ -34,6 +35,8 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 		return false
 	if source_zone == target_zone:
 		return false
+	if not TileZoneScript.is_active(source_zone):
+		return false
 	if not _locations.has(instance_id) or _locations[instance_id] != source_zone:
 		return false
 	if target_zone == TileZoneScript.RESERVE and _contents[target_zone].size() >= reserve_capacity:
@@ -54,6 +57,12 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 	if target_zone == TileZoneScript.RESERVE:
 		tile_instance.initialize_integrity()
 	return true
+
+func purge(instance_id: String) -> bool:
+	if not _locations.has(instance_id):
+		return false
+	var source_zone: String = _locations[instance_id]
+	return TileZoneScript.is_active(source_zone) and transfer(instance_id, source_zone, TileZoneScript.PURGED)
 
 func swap(hand_instance_id: String, reserve_instance_id: String) -> bool:
 	if not _locations.has(hand_instance_id) or not _locations.has(reserve_instance_id):

@@ -21,6 +21,8 @@ const SettlementTurnScript = preload("res://src/domain/mahjong/settlement/settle
 const SettlementWindowScript = preload("res://src/domain/mahjong/settlement/settlement_window.gd")
 const TileActionServiceScript = preload("res://src/domain/tiles/tile_action_service.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
+const TileOriginScript = preload("res://src/domain/tiles/tile_origin.gd")
+const TileLifetimeScript = preload("res://src/domain/tiles/tile_lifetime.gd")
 const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const CompleteHandEvaluatorScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_evaluator.gd")
@@ -96,7 +98,9 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	)
 	var zones := TileZoneContainerScript.new(int(values.get("reserve_capacity", 3)))
 	for record in tile_pool:
-		zones.add(TileInstanceScript.new(str(record["instance_id"]), str(record["definition_id"])), TileZoneScript.TILE_POOL)
+		var origin := str(record.get("origin", TileOriginScript.RUN_POOL))
+		var lifetime := str(record.get("lifetime", record.get("lifetime_scope", TileLifetimeScript.RUN)))
+		zones.add(TileInstanceScript.new(str(record["instance_id"]), str(record["definition_id"]), origin, lifetime), TileZoneScript.TILE_POOL)
 	var draw_wall := DrawWallScript.new(zones, domain_rng_streams.draw_wall)
 	if not draw_wall.initialize():
 		last_error = _error("DRAW_WALL_INIT_FAILED", "The BattleDomain Draw Wall could not be initialized.")

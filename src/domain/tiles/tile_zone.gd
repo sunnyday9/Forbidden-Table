@@ -7,9 +7,13 @@ const HAND := "Hand"
 const DISCARD := "Discard"
 const RESERVE := "Reserve"
 const EXHAUST := "Exhaust"
+const PURGED := "Purged"
 const ALL_ZONES: Array[String] = [TILE_POOL, DRAW_WALL, HAND, DISCARD, RESERVE, EXHAUST]
 
 static func is_valid(zone: String) -> bool:
+	return ALL_ZONES.has(zone) or zone == PURGED
+
+static func is_active(zone: String) -> bool:
 	return ALL_ZONES.has(zone)
 
 static func all() -> Array[String]:

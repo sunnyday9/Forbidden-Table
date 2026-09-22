@@ -7,6 +7,7 @@ const IntentGraphScript = preload("res://src/domain/combat/intent_graph.gd")
 const IntentTransitionScript = preload("res://src/domain/combat/intent_transition.gd")
 const IntentTransitionSelectionScript = preload("res://src/domain/combat/intent_transition_selection.gd")
 const DrawEscalationPolicyScript = preload("res://src/domain/tiles/draw_escalation_policy.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
 const ONGOING := "ONGOING"
 const VICTORY := "VICTORY"
@@ -43,6 +44,8 @@ var reserve_capacity: int
 var active_effects: Dictionary
 var zones
 var draw_wall
+var contamination_service
+var battle_end_cleanup_done: bool
 
 var _next_sequence_index: int
 var _queue_active: bool
@@ -92,6 +95,8 @@ func _init(
 	active_effects = {}
 	zones = null
 	draw_wall = null
+	contamination_service = null
+	battle_end_cleanup_done = false
 	_next_sequence_index = 0
 	_queue_active = false
 
@@ -181,6 +186,7 @@ func public_battle_state() -> Dictionary:
 		"boss_phase_id": boss_phase_id,
 		"boss_phase_count": boss_phase_count,
 		"current_intent_id": current_intent.intent_id if current_intent != null else "",
+		"battle_end_cleanup_done": battle_end_cleanup_done,
 	}
 
 func to_dictionary() -> Dictionary:
@@ -215,7 +221,27 @@ func to_dictionary() -> Dictionary:
 		"reserve_capacity": reserve_capacity,
 		"active_effects": _sorted_effect_ids(),
 		"active_effect_details": _sorted_effect_details(),
+		"battle_end_cleanup_done": battle_end_cleanup_done,
+		"contamination": _contamination_snapshot(),
 	}
+
+func set_contamination_service(service) -> void:
+	contamination_service = service
+
+func _contamination_snapshot() -> Array:
+	var snapshot: Array = []
+	if zones == null:
+		return snapshot
+	var zones_to_snapshot: Array = TileZoneScript.all()
+	zones_to_snapshot.append(TileZoneScript.PURGED)
+	for zone in zones_to_snapshot:
+		for tile in zones.contents(zone):
+			if tile != null and tile.has_method("to_dictionary"):
+				var tile_data: Dictionary = tile.to_dictionary()
+				tile_data["zone"] = zone
+				snapshot.append(tile_data)
+	snapshot.sort_custom(func(left, right): return left.get("instance_id", "") < right.get("instance_id", ""))
+	return snapshot
 
 func has_pending_terminal() -> bool:
 	return pending_death or pending_defeat

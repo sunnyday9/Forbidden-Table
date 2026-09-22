@@ -12,6 +12,7 @@ const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd"
 const RecoveryStateScript = preload("res://src/domain/recovery/recovery_state.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
 
 var zones
 var draw_wall
@@ -37,6 +38,8 @@ var encounter_definition
 var enemy_definition
 var enemy_definitions: Array
 var context
+var contamination_service
+var _battle_end_cleaned := false
 
 func _init(
 	domain_zones,
@@ -92,6 +95,12 @@ func _init(
 		if tile_actions != null and tile_actions.has_method("set_combat_state"):
 			tile_actions.set_combat_state(combat_state)
 		reserve_service.set_capacity(combat_state.reserve_capacity)
+	var tile_action_contamination = tile_actions.get("contamination_service") if tile_actions != null else null
+	contamination_service = tile_action_contamination if tile_action_contamination != null else ContaminationServiceScript.new(zones, combat_state)
+	if tile_actions != null and tile_actions.has_method("set_contamination_service"):
+		tile_actions.set_contamination_service(contamination_service)
+	if combat_state != null and combat_state.has_method("set_contamination_service"):
+		combat_state.set_contamination_service(contamination_service)
 
 func execute(command):
 	if command == null or not command.has_method("execute"):
@@ -394,15 +403,26 @@ func execute_enemy_intent() -> Dictionary:
 	return resolve_enemy_intent()
 
 func end_battle(preserve_run_level: bool = false, preserved_instance_ids: Array = []) -> Array:
-	if reserve_service == null:
+	if _battle_end_cleaned:
 		return []
-	return reserve_service.end_battle(preserve_run_level, preserved_instance_ids)
+	if combat_state != null and combat_state.is_active():
+		return []
+	var events: Array = []
+	if contamination_service != null:
+		events.append_array(contamination_service.cleanup_battle())
+	if reserve_service != null:
+		events.append_array(reserve_service.end_battle(preserve_run_level, preserved_instance_ids))
+	_battle_end_cleaned = true
+	if combat_state != null:
+		combat_state.battle_end_cleanup_done = true
+	return events
 
 func checkpoint() -> Dictionary:
 	var zone_checkpoint: Dictionary = {}
 	if zones != null:
 		for zone in TileZoneScript.all():
 			zone_checkpoint[zone] = _tile_ids(zones.contents(zone))
+		zone_checkpoint[TileZoneScript.PURGED] = _tile_ids(zones.contents(TileZoneScript.PURGED))
 	var candidate_checkpoint: Array = []
 	if settlement_window != null:
 		for candidate in settlement_window.candidates():
@@ -426,6 +446,7 @@ func checkpoint() -> Dictionary:
 			"destination": complete_hand_destination,
 		},
 		"recovery": recovery_state.to_dictionary() if recovery_state != null else {},
+		"tile_instances": _tile_checkpoints(),
 	}
 
 func rng_snapshot() -> Dictionary:
@@ -487,6 +508,22 @@ func _integrity_snapshot() -> Array:
 				snapshot.append({"instance_id": tile_instance.instance_id, "integrity": tile_instance.integrity, "max_integrity": tile_instance.max_integrity})
 	snapshot.sort_custom(func(left, right): return left.instance_id < right.instance_id)
 	return snapshot
+
+func _tile_checkpoints() -> Array:
+	var result: Array = []
+	if zones == null:
+		return result
+	var zones_to_snapshot: Array = TileZoneScript.all()
+	zones_to_snapshot.append(TileZoneScript.PURGED)
+	for zone in zones_to_snapshot:
+		for tile_instance in zones.contents(zone):
+			if tile_instance == null or not tile_instance.has_method("to_dictionary"):
+				continue
+			var tile_data: Dictionary = tile_instance.to_dictionary()
+			tile_data["zone"] = zone
+			result.append(tile_data)
+	result.sort_custom(func(left, right): return left.get("instance_id", "") < right.get("instance_id", ""))
+	return result
 
 func _yaku_state() -> Dictionary:
 	return {

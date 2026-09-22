@@ -5,6 +5,8 @@ const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const DrawEscalationPolicyScript = preload("res://src/domain/tiles/draw_escalation_policy.gd")
 const DrawResultScript = preload("res://src/domain/tiles/draw_result.gd")
 const DrawSourceScript = preload("res://src/domain/tiles/draw_source.gd")
+const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
 var draw_wall
 var zones
@@ -13,15 +15,42 @@ var policy
 var fatigue := 0
 var starvation_count := 0
 var starvation_active := false
+var contamination_service
 
 func _init(domain_draw_wall, domain_zones, domain_combat_state = null, escalation_policy = null) -> void:
 	draw_wall = domain_draw_wall
 	zones = domain_zones
 	combat_state = domain_combat_state
 	policy = escalation_policy if escalation_policy != null else DrawEscalationPolicyScript.new()
+	contamination_service = ContaminationServiceScript.new(domain_zones, domain_combat_state) if domain_zones != null else null
 
 func set_combat_state(state) -> void:
 	combat_state = state
+
+func set_contamination_service(service) -> void:
+	contamination_service = service
+
+func apply_contamination(instance_id: String, contamination, sequence_index: int = -1):
+	if contamination_service == null:
+		return null
+	return contamination_service.apply_contamination(instance_id, contamination, sequence_index)
+
+func inject_contamination(
+	instance_id: String,
+	tile_definition_or_contamination,
+	contamination = null,
+	target_zone: String = TileZoneScript.DRAW_WALL,
+	sequence_index: int = -1,
+):
+	if contamination_service == null:
+		return null
+	if contamination == null or contamination is int:
+		var resolved_sequence: int = int(contamination) if contamination is int else sequence_index
+		return contamination_service.apply_contamination(instance_id, tile_definition_or_contamination, resolved_sequence)
+	return contamination_service.inject_contamination(instance_id, str(tile_definition_or_contamination), contamination, target_zone, sequence_index)
+
+func cleanup_battle_contamination(sequence_index: int = -1) -> Array:
+	return contamination_service.cleanup_battle(sequence_index) if contamination_service != null else []
 
 func draw(requested_count = 1, source: String = DrawSourceScript.NORMAL_ACTION, sequence_index: int = -1):
 	if requested_count is String:

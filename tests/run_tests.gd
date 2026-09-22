@@ -30,6 +30,7 @@ const BattleIntegrationTest = preload("res://tests/battle_integration_test.gd")
 const RewardEconomyTest = preload("res://tests/reward_economy_test.gd")
 const ShopWorkshopTest = preload("res://tests/shop_workshop_test.gd")
 const EventsTest = preload("res://tests/events_test.gd")
+const ContaminationTest = preload("res://tests/contamination_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -62,11 +63,12 @@ func _init() -> void:
 	var reward_economy_only := "--reward-economy" in OS.get_cmdline_args()
 	var shop_workshop_only := "--shop-workshop" in OS.get_cmdline_args()
 	var events_only := "--events" in OS.get_cmdline_args()
+	var contamination_only := "--contamination" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -131,6 +133,8 @@ func _init() -> void:
 		failures.append_array(ShopWorkshopTest.new().run())
 	if not focused_test_requested or events_only:
 		failures.append_array(EventsTest.new().run())
+	if not focused_test_requested or contamination_only:
+		failures.append_array(ContaminationTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -196,6 +200,8 @@ func _init() -> void:
 			print("PASS: shop and workshop tests")
 		elif events_only:
 			print("PASS: Event tests")
+		elif contamination_only:
+			print("PASS: Contamination tests")
 		else:
 			print("PASS: full domain, presentation, and Intent Graph test suite")
 		quit(0)

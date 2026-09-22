@@ -8,12 +8,14 @@ const DrawResolverScript = preload("res://src/domain/tiles/draw_resolver.gd")
 const DrawSourceScript = preload("res://src/domain/tiles/draw_source.gd")
 const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
+const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
 
 var _draw_wall
 var _zones
 var reserve_service
 var _settlement_window
 var draw_resolver
+var contamination_service
 
 func _init(draw_wall, zones, settlement_window = null, combat_state = null) -> void:
 	_draw_wall = draw_wall
@@ -21,6 +23,8 @@ func _init(draw_wall, zones, settlement_window = null, combat_state = null) -> v
 	_settlement_window = settlement_window
 	reserve_service = ReserveServiceScript.new(zones)
 	draw_resolver = DrawResolverScript.new(draw_wall, zones, combat_state)
+	contamination_service = ContaminationServiceScript.new(zones, combat_state)
+	draw_resolver.set_contamination_service(contamination_service)
 
 func set_settlement_window(settlement_window) -> void:
 	_settlement_window = settlement_window
@@ -28,6 +32,26 @@ func set_settlement_window(settlement_window) -> void:
 func set_combat_state(combat_state) -> void:
 	if draw_resolver != null:
 		draw_resolver.set_combat_state(combat_state)
+
+func set_contamination_service(service) -> void:
+	contamination_service = service
+	if draw_resolver != null:
+		draw_resolver.set_contamination_service(service)
+
+func apply_contamination(instance_id: String, contamination, sequence_index: int = -1):
+	return contamination_service.apply_contamination(instance_id, contamination, sequence_index) if contamination_service != null else null
+
+func inject_contamination(instance_id: String, tile_definition_id: String, contamination, target_zone: String = TileZoneScript.DRAW_WALL, sequence_index: int = -1):
+	return contamination_service.inject_contamination(instance_id, tile_definition_id, contamination, target_zone, sequence_index) if contamination_service != null else null
+
+func exhaust_contamination(instance_id: String, sequence_index: int = -1):
+	return contamination_service.exhaust_contamination(instance_id, sequence_index) if contamination_service != null else null
+
+func purge_contamination(instance_id: String, sequence_index: int = -1):
+	return contamination_service.purge_contamination(instance_id, sequence_index) if contamination_service != null else null
+
+func cleanup_battle_contamination(sequence_index: int = -1) -> Array:
+	return contamination_service.cleanup_battle(sequence_index) if contamination_service != null else []
 
 func store_to_reserve(instance_id: String):
 	var result = reserve_service.store_to_reserve(instance_id)

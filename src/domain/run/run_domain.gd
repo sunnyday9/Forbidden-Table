@@ -927,6 +927,12 @@ func execute_use_workshop_service(
 	_events_for_currency_transaction(events, gold_transaction)
 	if not token_transaction.is_empty():
 		_events_for_currency_transaction(events, token_transaction)
+	if service_key == WorkshopStateScript.REMOVE:
+		events.append(DomainEventScript.new(DomainEventScript.TILE_REMOVED, {
+			"instance_id": instance_id,
+			"scope": "RUN_TILE_POOL",
+			"permanent": true,
+		}))
 	data["phase"] = state.phase
 	events.append(DomainEventScript.new(DomainEventScript.WORKSHOP_SERVICE_USED, data.duplicate(true)))
 	state.map_state.last_events = events
