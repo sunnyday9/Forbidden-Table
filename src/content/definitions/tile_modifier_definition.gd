@@ -28,4 +28,5 @@ func validate():
 	_required_string(report, modifier_kind, "missing_modifier_kind", "Modifier kind")
 	if max_per_tile < 1:
 		report.add_issue(_issue("invalid_modifier_limit", "Tile Modifier maximum per TileInstance must be at least one."))
+	_validate_typed_effects(report, effects, "effects")
 	return report

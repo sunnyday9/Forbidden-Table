@@ -51,8 +51,8 @@ func validate():
 	return report
 
 func _validate_boss_phases(report) -> void:
-	if boss_phases.size() < 2:
-		report.add_issue(_issue("invalid_boss_phases", "Boss EnemyDefinition must declare at least two phases."))
+	if boss_phases.size() < 3:
+		report.add_issue(_issue("invalid_boss_phases", "Boss EnemyDefinition must declare at least three public phases."))
 		return
 	var phase_ids: Dictionary = {}
 	for phase in boss_phases:

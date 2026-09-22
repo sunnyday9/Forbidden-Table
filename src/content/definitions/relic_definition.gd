@@ -14,3 +14,8 @@ func definition_type_name() -> String:
 
 func expected_id_families() -> Array[String]:
 	return ["relic"]
+
+func validate():
+	var report = super.validate()
+	_validate_typed_effects(report, effects, "effects")
+	return report

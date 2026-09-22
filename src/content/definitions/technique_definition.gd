@@ -3,9 +3,10 @@ extends "res://src/content/definitions/content_definition.gd"
 
 const ACTIVE := "ACTIVE"
 const PASSIVE := "PASSIVE"
+const SETTLEMENT := "SETTLEMENT"
 const REACTION := "REACTION"
 const CORE := "CORE"
-const VALID_KINDS := [ACTIVE, PASSIVE, REACTION, CORE]
+const VALID_KINDS := [ACTIVE, PASSIVE, SETTLEMENT, REACTION, CORE]
 
 @export var technique_kind: String
 @export var tp_cost: int
@@ -35,4 +36,5 @@ func validate():
 		report.add_issue(_issue("invalid_technique_kind", "TechniqueDefinition must declare a supported kind."))
 	if tp_cost < 0:
 		report.add_issue(_issue("invalid_technique_cost", "TechniqueDefinition TP cost cannot be negative."))
+	_validate_typed_effects(report, effects, "effects")
 	return report

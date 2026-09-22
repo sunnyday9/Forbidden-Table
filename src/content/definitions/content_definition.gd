@@ -64,6 +64,12 @@ func _reference_requirement(reference_id: String, expected_types: Array[String],
 		"field_name": field_name,
 	}
 
+func _validate_typed_effects(report, effects: Array, field_name: String) -> void:
+	const EffectScript = preload("res://src/domain/effects/effect.gd")
+	for index in effects.size():
+		if not effects[index] is EffectScript:
+			report.add_issue(_issue("invalid_typed_effect", "%s[%d] must be a typed Effect." % [field_name, index]))
+
 func _is_namespaced_id(definition_id: String) -> bool:
 	if definition_id.is_empty():
 		return false

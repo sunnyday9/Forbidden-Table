@@ -75,6 +75,8 @@ func validate():
 		var choice_effects = choice.get("effects", [])
 		if not choice_effects is Array:
 			report.add_issue(_issue("invalid_event_effects", "EventDefinition choice effects must be an Array.", choice_id))
+		else:
+			_validate_event_effects(report, choice_effects, choice_id)
 		var alternatives = choice.get("alternatives", [])
 		if not alternatives is Array:
 			report.add_issue(_issue("invalid_event_alternatives", "EventDefinition choice alternatives must be an Array.", choice_id))
@@ -90,6 +92,18 @@ func validate():
 			alternative_ids[alternative_id] = true
 			if not alternative.get("effects", []) is Array:
 				report.add_issue(_issue("invalid_event_effects", "EventDefinition alternative effects must be an Array.", alternative_id))
+			else:
+				_validate_event_effects(report, alternative.get("effects", []), alternative_id)
 	if choices.size() < 2 and not has_explicit_leave:
 		report.add_issue(_issue("insufficient_event_choices", "EventDefinition must declare at least two legal choices or an explicit Skip/Leave choice."))
 	return report
+
+func _validate_event_effects(report, effects: Array, choice_id: String) -> void:
+	const EffectScript = preload("res://src/domain/effects/effect.gd")
+	for index in effects.size():
+		var effect = effects[index]
+		if effect is EffectScript:
+			continue
+		if effect is Dictionary and not str(effect.get("kind", effect.get("type", effect.get("effect_type", "")))).is_empty():
+			continue
+		report.add_issue(_issue("invalid_event_effect", "Event effects must use typed Effects or explicit declarative kinds.", "%s.%d" % [choice_id, index]))
