@@ -21,6 +21,7 @@ var pending_defeat_sequence_index: int
 var terminal_sequence_index: int
 var terminal_outcome: String
 var queue_index: int
+var state_based_check_count: int
 
 var _intent_loop: Array
 var _next_sequence_index: int
@@ -46,6 +47,7 @@ func _init(
 	terminal_sequence_index = -1
 	terminal_outcome = ONGOING
 	queue_index = 0
+	state_based_check_count = 0
 	_next_sequence_index = 0
 	_queue_active = false
 
@@ -77,7 +79,14 @@ func to_dictionary() -> Dictionary:
 		"terminal_sequence_index": terminal_sequence_index,
 		"terminal_outcome": terminal_outcome,
 		"queue_index": queue_index,
+		"state_based_check_count": state_based_check_count,
 	}
+
+func has_pending_terminal() -> bool:
+	return pending_death or pending_defeat
+
+func is_queue_active() -> bool:
+	return _queue_active
 
 func _validated_intent_loop(candidate_loop: Array) -> Array:
 	var intents: Array = []
@@ -94,6 +103,9 @@ func _start_queue() -> bool:
 		return false
 	_queue_active = true
 	return true
+
+func _abort_queue_without_boundary() -> void:
+	_queue_active = false
 
 func _next_effect_sequence_index() -> int:
 	_next_sequence_index += 1
@@ -153,6 +165,10 @@ func _apply_pressure(amount: int, source_id: String, sequence_index: int) -> Arr
 func _finish_queue() -> Array:
 	_queue_active = false
 	queue_index += 1
+	return _run_state_based_checks()
+
+func _run_state_based_checks() -> Array:
+	state_based_check_count += 1
 	var events: Array = []
 	if terminal_outcome != ONGOING:
 		return events

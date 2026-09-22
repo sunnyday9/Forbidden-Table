@@ -4,12 +4,16 @@ extends RefCounted
 const RESOLVED := "RESOLVED"
 const BATTLE_ALREADY_TERMINAL := "BATTLE_ALREADY_TERMINAL"
 const QUEUE_REJECTED := "QUEUE_REJECTED"
+const LOOP_GUARD_TRIGGERED := "LOOP_GUARD_TRIGGERED"
 
 var status: String
 var queue_index: int
 var terminal_outcome: String
 var _events: Array
 var state_snapshot: Dictionary
+var diagnostics: Array
+var processed_item_count: int
+var remaining_item_count: int
 
 var events: Array:
 	get:
@@ -21,12 +25,18 @@ func _init(
 	result_terminal_outcome: String,
 	result_events: Array,
 	result_state_snapshot: Dictionary,
+	result_diagnostics: Array = [],
+	result_processed_item_count: int = 0,
+	result_remaining_item_count: int = 0,
 ) -> void:
 	status = result_status
 	queue_index = result_queue_index
 	terminal_outcome = result_terminal_outcome
 	_events = result_events.duplicate()
 	state_snapshot = result_state_snapshot.duplicate(true)
+	diagnostics = result_diagnostics.duplicate(true)
+	processed_item_count = result_processed_item_count
+	remaining_item_count = result_remaining_item_count
 
 func is_resolved() -> bool:
 	return status == RESOLVED
@@ -49,4 +59,7 @@ func to_dictionary() -> Dictionary:
 		"terminal_outcome": terminal_outcome,
 		"events": event_data,
 		"state": state_snapshot.duplicate(true),
+		"diagnostics": diagnostics.duplicate(true),
+		"processed_item_count": processed_item_count,
+		"remaining_item_count": remaining_item_count,
 	}

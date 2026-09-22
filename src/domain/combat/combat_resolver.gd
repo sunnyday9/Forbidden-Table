@@ -7,13 +7,13 @@ const CombatResolutionStepScript = preload("res://src/domain/combat/combat_resol
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 
-func begin_queue(state):
-	return CombatResolutionQueueScript.new(state)
+func begin_queue(state, operation_limit: int = CombatResolutionQueueScript.DEFAULT_OPERATION_LIMIT):
+	return CombatResolutionQueueScript.new(state, operation_limit)
 
 func resolve_atomic_queue(state, steps: Array):
 	var queue = begin_queue(state)
 	for step in steps:
-		queue.add_step(step)
+		queue.enqueue_effect(step)
 	return queue.drain()
 
 func resolve_player_action(state, damage_amount: int, pressure_delta: int = 0):
@@ -39,7 +39,7 @@ func resolve_enemy_intent(state):
 		return _terminal_result(state)
 	var intent = state.current_intent
 	var queue = begin_queue(state)
-	queue.add_step(CombatResolutionStepScript.new(intent.intent_id, 0, intent.pressure_amount))
+	queue.enqueue_effect(CombatResolutionStepScript.new(intent.intent_id, 0, intent.pressure_amount))
 	queue.add_event(DomainEventScript.new(DomainEventScript.ENEMY_INTENT_RESOLVED, {
 		"intent_id": intent.intent_id,
 		"display_name": intent.display_name,

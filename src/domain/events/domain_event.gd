@@ -11,6 +11,9 @@ const PENDING_DEFEAT := "PendingDefeat"
 const PENDING_DEATH := "PendingDeath"
 const BATTLE_WON := "BattleWon"
 const BATTLE_LOST := "BattleLost"
+const REACTION_WINDOW_OPENED := "ReactionWindowOpened"
+const REACTION_WINDOW_CLOSED := "ReactionWindowClosed"
+const INFINITE_LOOP_GUARD := "InfiniteLoopGuard"
 
 var event_type: String
 var data: Dictionary
