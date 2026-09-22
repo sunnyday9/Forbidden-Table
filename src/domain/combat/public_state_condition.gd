@@ -22,6 +22,9 @@ const PUBLIC_STATE_KEYS := {
 	"reserve_capacity": true,
 	"terminal_outcome": true,
 	"current_intent_id": true,
+	"boss_phase_index": true,
+	"boss_phase_id": true,
+	"boss_phase_count": true,
 }
 
 var state_key: String

@@ -8,11 +8,21 @@ const VALID_KINDS := [NORMAL, ELITE, BOSS]
 
 @export var enemy_ids: Array[String]
 @export var encounter_kind: String
+@export var battle_values: Dictionary
+@export var contamination_config: Dictionary
 
-func _init(definition_id: String = "", enemies: Array[String] = [], kind: String = NORMAL) -> void:
+func _init(
+	definition_id: String = "",
+	enemies: Array[String] = [],
+	kind: String = NORMAL,
+	configured_battle_values: Dictionary = {},
+	configured_contamination_config: Dictionary = {},
+) -> void:
 	super(definition_id, enemies)
 	enemy_ids = enemies.duplicate()
 	encounter_kind = kind
+	battle_values = configured_battle_values.duplicate(true)
+	contamination_config = configured_contamination_config.duplicate(true)
 
 func definition_type_name() -> String:
 	return "EncounterDefinition"

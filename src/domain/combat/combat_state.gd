@@ -23,6 +23,10 @@ var current_intent
 var intent_index: int
 var intent_graph
 var intent_rng
+var boss_phases: Array
+var boss_phase_index: int
+var boss_phase_id: String
+var boss_phase_count: int
 var pending_death: bool
 var pending_defeat: bool
 var pending_death_sequence_index: int
@@ -68,6 +72,10 @@ func _init(
 	intent_index = 0
 	current_intent = intent_graph.intent(intent_graph.start_intent_id)
 	intent_rng = initial_intent_rng
+	boss_phases = []
+	boss_phase_index = -1
+	boss_phase_id = ""
+	boss_phase_count = 0
 	pending_death = false
 	pending_defeat = false
 	pending_death_sequence_index = -1
@@ -116,6 +124,35 @@ func set_intent_graph(graph) -> void:
 func set_intent_rng(rng) -> void:
 	intent_rng = rng
 
+func configure_boss_phases(phase_definitions: Array) -> bool:
+	if phase_definitions.size() < 2:
+		return false
+	var normalized_phases: Array = []
+	for phase in phase_definitions:
+		if not phase is Dictionary:
+			return false
+		var phase_id := str(phase.get("phase_id", ""))
+		var phase_graph = phase.get("intent_graph")
+		var phase_max_hp := int(phase.get("max_hp", 0))
+		var phase_pressure_limit := int(phase.get("pressure_limit", 0))
+		if phase_id.is_empty() or phase_graph == null or not phase_graph.has_method("validation") or not phase_graph.validation().is_valid():
+			return false
+		if phase_max_hp < 1 or phase_pressure_limit < 1:
+			return false
+		normalized_phases.append({
+			"phase_id": phase_id,
+			"intent_graph": phase_graph,
+			"max_hp": phase_max_hp,
+			"pressure_limit": phase_pressure_limit,
+			"pressure_relief": maxi(0, int(phase.get("pressure_relief", 0))),
+			"battle_values": phase.get("battle_values", {}).duplicate(true) if phase.get("battle_values", {}) is Dictionary else {},
+		})
+	boss_phases = normalized_phases
+	boss_phase_index = 0
+	boss_phase_count = normalized_phases.size()
+	_activate_boss_phase(0, false)
+	return true
+
 func select_next_intent():
 	if intent_graph == null:
 		return IntentTransitionSelectionScript.new(IntentTransitionSelectionScript.INVALID_GRAPH, "", "", "CombatState has no Intent Graph.")
@@ -140,6 +177,9 @@ func public_battle_state() -> Dictionary:
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
 		"terminal_outcome": terminal_outcome,
+		"boss_phase_index": boss_phase_index,
+		"boss_phase_id": boss_phase_id,
+		"boss_phase_count": boss_phase_count,
 		"current_intent_id": current_intent.intent_id if current_intent != null else "",
 	}
 
@@ -156,6 +196,10 @@ func to_dictionary() -> Dictionary:
 		"intent_index": intent_index,
 		"intent_graph": intent_graph.to_dictionary() if intent_graph != null else {},
 		"intent_rng": intent_rng.snapshot() if intent_rng != null and intent_rng.has_method("snapshot") else {},
+		"boss_phases": _boss_phase_data(),
+		"boss_phase_index": boss_phase_index,
+		"boss_phase_id": boss_phase_id,
+		"boss_phase_count": boss_phase_count,
 		"pending_death": pending_death,
 		"pending_defeat": pending_defeat,
 		"pending_death_sequence_index": pending_death_sequence_index,
@@ -319,19 +363,18 @@ func _run_state_based_checks() -> Array:
 	var events: Array = []
 	if terminal_outcome != ONGOING:
 		return events
-	if pending_death and pending_defeat:
-		if pending_death_sequence_index < pending_defeat_sequence_index:
-			terminal_outcome = VICTORY
-			terminal_sequence_index = pending_death_sequence_index
-		else:
-			terminal_outcome = DEFEAT
-			terminal_sequence_index = pending_defeat_sequence_index
-	elif pending_death:
-		terminal_outcome = VICTORY
-		terminal_sequence_index = pending_death_sequence_index
-	elif pending_defeat:
+	var death_is_first := pending_death and (
+		not pending_defeat or pending_death_sequence_index < pending_defeat_sequence_index
+	)
+	if pending_defeat and not death_is_first:
 		terminal_outcome = DEFEAT
 		terminal_sequence_index = pending_defeat_sequence_index
+	elif pending_death:
+		if _has_next_boss_phase():
+			events.append(_advance_boss_phase())
+			return events
+		terminal_outcome = VICTORY
+		terminal_sequence_index = pending_death_sequence_index
 
 	if terminal_outcome == VICTORY:
 		events.append(DomainEventScript.new(DomainEventScript.BATTLE_WON, {
@@ -344,3 +387,65 @@ func _run_state_based_checks() -> Array:
 			"terminal_sequence_index": terminal_sequence_index,
 		}))
 	return events
+
+func _has_next_boss_phase() -> bool:
+	return boss_phase_count > 0 and boss_phase_index + 1 < boss_phase_count
+
+func _advance_boss_phase():
+	var previous_phase_index := boss_phase_index
+	var previous_phase_id := boss_phase_id
+	var previous_pressure := pressure
+	var previous_max_hp := enemy_max_hp
+	boss_phase_index += 1
+	_activate_boss_phase(boss_phase_index, true)
+	return DomainEventScript.new(DomainEventScript.BOSS_PHASE_CHANGED, {
+		"queue_index": queue_index,
+		"previous_phase_index": previous_phase_index,
+		"previous_phase_id": previous_phase_id,
+		"phase_index": boss_phase_index,
+		"phase_id": boss_phase_id,
+		"previous_enemy_max_hp": previous_max_hp,
+		"enemy_max_hp": enemy_max_hp,
+		"previous_pressure": previous_pressure,
+		"pressure": pressure,
+		"pressure_relief": previous_pressure - pressure,
+	})
+
+func _activate_boss_phase(index: int, apply_pressure_relief: bool) -> void:
+	var phase: Dictionary = boss_phases[index]
+	var phase_values: Dictionary = phase.get("battle_values", {}) if phase.get("battle_values", {}) is Dictionary else {}
+	var previous_pressure := pressure
+	enemy_max_hp = int(phase_values.get("max_hp", phase["max_hp"]))
+	enemy_hp = enemy_max_hp
+	pressure_limit = maxi(1, int(phase_values.get("pressure_limit", phase["pressure_limit"])))
+	if apply_pressure_relief:
+		pressure = clampi(previous_pressure - int(phase_values.get("pressure_relief", phase.get("pressure_relief", 0))), 0, pressure_limit)
+	else:
+		pressure = clampi(previous_pressure, 0, pressure_limit)
+	if phase_values.has("tp"):
+		tp = maxi(0, int(phase_values["tp"]))
+	if phase_values.has("stability"):
+		stability = maxi(0, int(phase_values["stability"]))
+	if phase_values.has("draw_capacity"):
+		draw_capacity = maxi(0, int(phase_values["draw_capacity"]))
+	if phase_values.has("settlement_capacity"):
+		settlement_capacity = maxi(0, int(phase_values["settlement_capacity"]))
+	set_intent_graph(phase["intent_graph"])
+	boss_phase_id = str(phase["phase_id"])
+	pending_death = false
+	pending_defeat = false
+	pending_death_sequence_index = -1
+	pending_defeat_sequence_index = -1
+
+func _boss_phase_data() -> Array:
+	var phases: Array = []
+	for phase in boss_phases:
+		phases.append({
+			"phase_id": phase.get("phase_id", ""),
+			"max_hp": phase.get("max_hp", 0),
+			"pressure_limit": phase.get("pressure_limit", 0),
+			"pressure_relief": phase.get("pressure_relief", 0),
+			"battle_values": phase.get("battle_values", {}).duplicate(true) if phase.get("battle_values", {}) is Dictionary else {},
+			"intent_graph": phase["intent_graph"].to_dictionary() if phase.get("intent_graph") != null and phase["intent_graph"].has_method("to_dictionary") else {},
+		})
+	return phases

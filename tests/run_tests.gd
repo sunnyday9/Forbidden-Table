@@ -12,7 +12,6 @@ const MahjongScoreResolverTest = preload("res://tests/mahjong_score_resolver_tes
 const CombatConversionTest = preload("res://tests/combat_conversion_test.gd")
 const SettlementTurnTest = preload("res://tests/settlement_turn_test.gd")
 const CombatStateTest = preload("res://tests/combat_state_test.gd")
-const BattleSceneTest = preload("res://tests/battle_scene_test.gd")
 const Stage0ExitReviewTest = preload("res://tests/stage0_exit_review_test.gd")
 const DomainCommandTest = preload("res://tests/domain_command_test.gd")
 const ResolutionQueueTest = preload("res://tests/resolution_queue_test.gd")
@@ -27,6 +26,7 @@ const ReplayTest = preload("res://tests/replay_test.gd")
 const Phase2FoundationsTest = preload("res://tests/phase_2_foundations_test.gd")
 const RunDomainTest = preload("res://tests/run_domain_test.gd")
 const MapNavigationTest = preload("res://tests/map_navigation_test.gd")
+const BattleIntegrationTest = preload("res://tests/battle_integration_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -55,11 +55,12 @@ func _init() -> void:
 	var phase_2_foundations_only := "--phase-2-foundations" in OS.get_cmdline_args() or "--foundations" in OS.get_cmdline_args()
 	var run_domain_only := "--run-domain" in OS.get_cmdline_args()
 	var map_only := "--map" in OS.get_cmdline_args()
+	var battle_integration_only := "--battle-integration" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or phase_2_foundations_only or run_domain_only or map_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -87,7 +88,7 @@ func _init() -> void:
 	if not focused_test_requested or combat_state_only:
 		failures.append_array(CombatStateTest.new().run())
 	if not focused_test_requested or battle_scene_only:
-		failures.append_array(BattleSceneTest.new().run())
+		failures.append_array(_run_test("res://tests/battle_scene_test.gd"))
 	if not focused_test_requested or stage0_exit_review_only:
 		failures.append_array(Stage0ExitReviewTest.new().run())
 	if not focused_test_requested or domain_commands_only:
@@ -116,6 +117,8 @@ func _init() -> void:
 		failures.append_array(RunDomainTest.new().run())
 	if not focused_test_requested or map_only:
 		failures.append_array(MapNavigationTest.new().run())
+	if not focused_test_requested or battle_integration_only:
+		failures.append_array(BattleIntegrationTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -173,6 +176,8 @@ func _init() -> void:
 			print("PASS: Run domain tests")
 		elif map_only:
 			print("PASS: map navigation tests")
+		elif battle_integration_only:
+			print("PASS: battle integration tests")
 		else:
 			print("PASS: full domain, presentation, and Intent Graph test suite")
 		quit(0)
@@ -181,3 +186,7 @@ func _init() -> void:
 	for failure in failures:
 		print("FAIL: " + failure)
 	quit(1)
+
+func _run_test(script_path: String) -> Array[String]:
+	var test_script = load(script_path)
+	return test_script.new().run()

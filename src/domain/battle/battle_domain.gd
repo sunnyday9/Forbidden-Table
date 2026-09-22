@@ -31,6 +31,12 @@ var recovery_state
 var complete_hand_destination: String
 var _complete_hand_conversion_profile
 var _rng_streams
+var encounter_id: String
+var encounter_kind: String
+var encounter_definition
+var enemy_definition
+var enemy_definitions: Array
+var context
 
 func _init(
 	domain_zones,
@@ -68,6 +74,12 @@ func _init(
 	local_yaku_resolver = domain_local_yaku_resolver
 	complete_hand_destination = domain_complete_hand_destination
 	_rng_streams = domain_rng_streams
+	encounter_id = ""
+	encounter_kind = ""
+	encounter_definition = null
+	enemy_definition = null
+	enemy_definitions = []
+	context = null
 	recovery_state = RecoveryStateScript.new(domain_normal_hand_baseline, domain_recovery_baseline)
 	_complete_hand_conversion_profile = _build_complete_hand_conversion_profile()
 	if reserve_service == null and tile_actions != null:
@@ -93,6 +105,32 @@ func execute(command):
 			CommandValidationScript.new(false, "UNKNOWN_COMMAND", "Unsupported domain command."),
 		)
 	return command.execute(self)
+
+func outcome() -> String:
+	return combat_state.terminal_outcome if combat_state != null else ""
+
+func is_terminal() -> bool:
+	return combat_state != null and not combat_state.is_active()
+
+func public_state() -> Dictionary:
+	var state: Dictionary = combat_state.public_battle_state() if combat_state != null else {}
+	state["encounter_id"] = encounter_id
+	state["encounter_kind"] = encounter_kind
+	state["enemy_ids"] = enemy_definition_ids()
+	state["enemy_identity"] = enemy_definition.enemy_identity if enemy_definition != null else ""
+	state["intent_graph"] = (
+		combat_state.intent_graph.to_dictionary()
+		if combat_state != null and combat_state.intent_graph != null and combat_state.intent_graph.has_method("to_dictionary")
+		else {}
+	)
+	return state
+
+func enemy_definition_ids() -> Array:
+	var ids: Array = []
+	for definition in enemy_definitions:
+		if definition != null:
+			ids.append(definition.content_id)
+	return ids
 
 func validate_draw() -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
