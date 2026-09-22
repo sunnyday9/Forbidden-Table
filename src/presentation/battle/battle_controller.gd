@@ -24,6 +24,7 @@ const CombatConversionResolverScript = preload("res://src/domain/combat/combat_c
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
+const CompleteHandEvaluatorScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_evaluator.gd")
 
 var zones
 var draw_wall
@@ -35,6 +36,7 @@ var conversion_resolver
 var conversion_profile
 var combat_state
 var combat_resolver
+var complete_hand_evaluator
 var domain
 var presentation
 
@@ -52,6 +54,12 @@ func _init() -> void:
 		conversion_profile,
 		combat_state,
 		combat_resolver,
+		null,
+		complete_hand_evaluator,
+		null,
+		3,
+		1,
+		TileZoneScript.DISCARD,
 	)
 	presentation.sync(_snapshot())
 	presentation.status = "Draw to find a Pattern."
@@ -107,6 +115,7 @@ func _build_default_fixture() -> void:
 	})
 	conversion_resolver = CombatConversionResolverScript.new()
 	combat_resolver = CombatResolverScript.new()
+	complete_hand_evaluator = CompleteHandEvaluatorScript.new(registry)
 
 func _add_tile(target_zones, instance_id: String, rank: int, zone: String):
 	var tile := TileInstanceScript.new(instance_id, "base.tile.characters.%d" % rank)

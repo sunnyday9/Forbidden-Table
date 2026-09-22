@@ -2,6 +2,7 @@ class_name MahjongScoreResolver
 extends RefCounted
 
 const SettledPatternScript = preload("res://src/domain/mahjong/settlement/settled_pattern.gd")
+const CompleteHandInterpretationScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_interpretation.gd")
 const ScoreContributionScript = preload("res://src/domain/mahjong/scoring/score_contribution.gd")
 const MahjongScoreResultScript = preload("res://src/domain/mahjong/scoring/mahjong_score_result.gd")
 
@@ -11,6 +12,8 @@ func _init(pattern_rules: Dictionary = {}) -> void:
 	_pattern_rules = pattern_rules.duplicate(true)
 
 func resolve(settled_pattern):
+	if settled_pattern is CompleteHandInterpretationScript:
+		return resolve_complete_hand(settled_pattern)
 	var contributions: Array = []
 	if settled_pattern is SettledPatternScript:
 		var rule = _pattern_rules.get(settled_pattern.pattern_type)
@@ -31,6 +34,42 @@ func resolve(settled_pattern):
 	for contribution in contributions:
 		total += contribution.amount
 	return MahjongScoreResultScript.new(contributions, [], [], [], total, total, [])
+
+func resolve_complete_hand(interpretation, hand_yaku_resolver = null):
+	if not interpretation is CompleteHandInterpretationScript:
+		return MahjongScoreResultScript.new()
+	var base_amount := 120 if interpretation.hand_type == CompleteHandInterpretationScript.SEVEN_PAIRS else 100
+	var contributions: Array = [ScoreContributionScript.new(
+		"complete_hand.%s" % interpretation.hand_type.to_lower().replace(" ", "_"),
+		base_amount,
+		["COMPLETE_HAND"],
+		{"interpretation_id": interpretation.interpretation_id, "hand_type": interpretation.hand_type},
+	)]
+	if hand_yaku_resolver != null and hand_yaku_resolver.has_method("resolve"):
+		for contribution in hand_yaku_resolver.resolve(interpretation):
+			var normalized = _normalize_contribution(contribution)
+			if normalized != null:
+				contributions.append(normalized)
+	var total := 0
+	for contribution in contributions:
+		total += contribution.amount
+	return MahjongScoreResultScript.new(contributions, [], [], [], total, total, ["COMPLETE_HAND"])
+
+func _normalize_contribution(contribution):
+	if contribution is ScoreContributionScript:
+		return contribution
+	if contribution is Dictionary:
+		var source_id := str(contribution.get("source_id", ""))
+		if source_id.is_empty():
+			return null
+		return ScoreContributionScript.new(
+			source_id,
+			int(contribution.get("amount", 0)),
+			contribution.get("tags", ["HAND_YAKU"]),
+			contribution.get("metadata", {}),
+			contribution.get("conversion_modifiers", {}),
+		)
+	return null
 
 func _ordered_contribution_specs(rule: Dictionary) -> Array:
 	var raw_specs: Array = []

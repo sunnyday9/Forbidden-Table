@@ -34,6 +34,11 @@ const BATTLE_LOST := "BattleLost"
 const REACTION_WINDOW_OPENED := "ReactionWindowOpened"
 const REACTION_WINDOW_CLOSED := "ReactionWindowClosed"
 const INFINITE_LOOP_GUARD := "InfiniteLoopGuard"
+const COMPLETE_HAND_SETTLED := "CompleteHandSettled"
+const COMPLETE_HAND_REBUILD_STARTED := "CompleteHandRebuildStarted"
+const RECOVERY_STARTED := "RecoveryStarted"
+const RECOVERY_TURN_ELAPSED := "RecoveryTurnElapsed"
+const RECOVERY_ENDED := "RecoveryEnded"
 
 var event_type: String
 var data: Dictionary

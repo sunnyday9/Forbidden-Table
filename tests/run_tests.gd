@@ -19,6 +19,7 @@ const ResolutionQueueTest = preload("res://tests/resolution_queue_test.gd")
 const EffectFrameworkTest = preload("res://tests/effect_framework_test.gd")
 const EffectLifecycleTest = preload("res://tests/effect_lifecycle_test.gd")
 const ReserveIntegrityTest = preload("res://tests/reserve_integrity_test.gd")
+const CompleteHandSettlementTest = preload("res://tests/complete_hand_settlement_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -39,11 +40,12 @@ func _init() -> void:
 	var effects_only := "--effects" in OS.get_cmdline_args()
 	var lifecycle_only := "--effect-lifecycle" in OS.get_cmdline_args()
 	var reserve_integrity_only := "--reserve-integrity" in OS.get_cmdline_args()
+	var complete_hand_settlement_only := "--complete-hand-settlement" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -84,6 +86,8 @@ func _init() -> void:
 		failures.append_array(EffectLifecycleTest.new().run())
 	if not focused_test_requested or reserve_integrity_only:
 		failures.append_array(ReserveIntegrityTest.new().run())
+	if not focused_test_requested or complete_hand_settlement_only:
+		failures.append_array(CompleteHandSettlementTest.new().run())
 	if "--fail" in OS.get_cmdline_args():
 		failures.append("ASSERTION FAILED: forced failure probe")
 		push_error("ASSERTION FAILED: forced failure probe")
@@ -125,6 +129,8 @@ func _init() -> void:
 			print("PASS: Effect lifecycle tests")
 		elif reserve_integrity_only:
 			print("PASS: Reserve and Integrity tests")
+		elif complete_hand_settlement_only:
+			print("PASS: Complete Hand settlement and Recovery tests")
 		else:
 			print("PASS: domain smoke scenario, content registry, RNG stream, tile zone, draw action, pattern evaluator, complete hand evaluator, settlement, Mahjong score resolver, CombatConversion, settlement turn, combat state, battle scene, and Stage 0 exit review tests")
 		quit(0)
