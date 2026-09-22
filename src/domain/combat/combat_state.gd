@@ -107,6 +107,7 @@ func to_dictionary() -> Dictionary:
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
 		"active_effects": _sorted_effect_ids(),
+		"active_effect_details": _sorted_effect_details(),
 	}
 
 func has_pending_terminal() -> bool:
@@ -150,6 +151,13 @@ func _sorted_effect_ids() -> Array:
 	var ids: Array = active_effects.keys()
 	ids.sort()
 	return ids
+
+func _sorted_effect_details() -> Array:
+	var details: Array = []
+	for effect_id in _sorted_effect_ids():
+		var effect = active_effects[effect_id]
+		details.append(effect.to_dictionary() if effect is Object and effect.has_method("to_dictionary") else {"instance_id": str(effect_id)})
+	return details
 
 func _apply_damage(amount: int, source_id: String, sequence_index: int) -> Array:
 	var events: Array = []

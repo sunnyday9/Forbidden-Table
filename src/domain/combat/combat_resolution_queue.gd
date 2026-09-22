@@ -8,11 +8,13 @@ const CombatReactionWindowScript = preload("res://src/domain/combat/combat_react
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
+const LifecycleResolverScript = preload("res://src/domain/effects/lifecycle_resolver.gd")
 
 const DEFAULT_OPERATION_LIMIT := 256
 
 var _state
 var _context
+var _lifecycle_boundary: String
 var _events: Array = []
 var _pending_effects: Array = []
 var _pending_triggers: Array = []
@@ -26,9 +28,10 @@ var _operation_limit: int
 var _processed_item_count := 0
 var _loop_guard_triggered := false
 
-func _init(state, operation_limit: int = DEFAULT_OPERATION_LIMIT, context = null) -> void:
+func _init(state, operation_limit: int = DEFAULT_OPERATION_LIMIT, context = null, lifecycle_boundary: String = LifecycleResolverScript.ACTION) -> void:
 	_state = state
 	_context = context if context != null else EffectContextScript.new(state)
+	_lifecycle_boundary = lifecycle_boundary
 	_operation_limit = maxi(1, operation_limit)
 	_accepted = _state != null and _state._start_queue()
 
@@ -100,6 +103,20 @@ func close_reaction_window(window_id: String) -> bool:
 func set_operation_limit(operation_limit: int) -> void:
 	_operation_limit = maxi(1, operation_limit)
 
+func set_lifecycle_boundary(boundary: String) -> void:
+	_lifecycle_boundary = boundary
+
+func lifecycle_boundary() -> String:
+	return _lifecycle_boundary
+
+func consume_effect(effect_id: String, uses: int = 0, charges: int = 0) -> bool:
+	if _drained or not _accepted:
+		return false
+	var sequence_index: int = _state._next_effect_sequence_index()
+	var lifecycle_events := LifecycleResolverScript.new().consume_effect(_state, effect_id, uses, charges, sequence_index)
+	_events.append_array(lifecycle_events)
+	return not lifecycle_events.is_empty() and lifecycle_events[0].event_type == DomainEventScript.EFFECT_CONSUMED
+
 func pending_item_count() -> int:
 	return _pending_effects.size() + _pending_triggers.size()
 
@@ -114,9 +131,11 @@ func open_reaction_window_ids() -> Array:
 func is_loop_guarded() -> bool:
 	return _loop_guard_triggered
 
-func drain():
+func drain(boundary: String = ""):
 	if _result != null:
 		return _result
+	if not boundary.is_empty():
+		_lifecycle_boundary = boundary
 	if not _accepted:
 		_drained = true
 		_result = CombatResolutionResultScript.new(
@@ -136,6 +155,10 @@ func drain():
 		return _result
 
 	_close_remaining_reaction_windows()
+	if not _lifecycle_boundary.is_empty():
+		var lifecycle_resolver := LifecycleResolverScript.new()
+		var lifecycle_sequence: int = _state._next_effect_sequence_index() if lifecycle_resolver.has_boundary_effect(_state, _lifecycle_boundary) else -1
+		_events.append_array(lifecycle_resolver.advance(_state, _lifecycle_boundary, lifecycle_sequence))
 	_events.append_array(_state._finish_queue())
 	_result = _make_result(CombatResolutionResultScript.RESOLVED)
 	_drained = true

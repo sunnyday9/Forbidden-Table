@@ -6,12 +6,13 @@ const CombatResolutionResultScript = preload("res://src/domain/combat/combat_res
 const CombatResolutionStepScript = preload("res://src/domain/combat/combat_resolution_step.gd")
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const LifecycleResolverScript = preload("res://src/domain/effects/lifecycle_resolver.gd")
 
-func begin_queue(state, operation_limit: int = CombatResolutionQueueScript.DEFAULT_OPERATION_LIMIT, context = null):
-	return CombatResolutionQueueScript.new(state, operation_limit, context)
+func begin_queue(state, operation_limit: int = CombatResolutionQueueScript.DEFAULT_OPERATION_LIMIT, context = null, lifecycle_boundary: String = LifecycleResolverScript.ACTION):
+	return CombatResolutionQueueScript.new(state, operation_limit, context, lifecycle_boundary)
 
-func resolve_atomic_queue(state, steps: Array, context = null):
-	var queue = begin_queue(state, CombatResolutionQueueScript.DEFAULT_OPERATION_LIMIT, context)
+func resolve_atomic_queue(state, steps: Array, context = null, lifecycle_boundary: String = LifecycleResolverScript.ACTION):
+	var queue = begin_queue(state, CombatResolutionQueueScript.DEFAULT_OPERATION_LIMIT, context, lifecycle_boundary)
 	for step in steps:
 		queue.enqueue_effect(step)
 	return queue.drain()

@@ -8,11 +8,16 @@ const EffectConditionScript = preload("res://src/domain/effects/effect_condition
 const EffectOperationScript = preload("res://src/domain/effects/effect_operation.gd")
 const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
+const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 
 var trigger
 var conditions: Array
 var targets: Array
 var operations: Array
+var duration_spec
+var stack_policy: String
+var max_stacks: int
 
 func _init(
 	effect_identifier: String,
@@ -20,6 +25,10 @@ func _init(
 	effect_conditions: Array = [],
 	effect_targets: Array = [],
 	effect_operations: Array = [],
+	effect_duration = null,
+	effect_stack_policy = StackPolicyScript.REPLACE,
+	effect_source_id: String = "",
+	effect_max_stacks: int = 0,
 ) -> void:
 	super(effect_identifier)
 	effect_id = effect_identifier
@@ -27,6 +36,10 @@ func _init(
 	conditions = effect_conditions.duplicate()
 	targets = effect_targets.duplicate()
 	operations = effect_operations.duplicate()
+	duration_spec = effect_duration if effect_duration is DurationSpecScript else DurationSpecScript.new()
+	stack_policy = effect_stack_policy.policy_id if effect_stack_policy is StackPolicyScript else str(effect_stack_policy)
+	max_stacks = effect_max_stacks if effect_max_stacks > 0 else (effect_stack_policy.max_stacks if effect_stack_policy is StackPolicyScript else 0)
+	source_id = effect_source_id if not effect_source_id.is_empty() else effect_identifier
 
 func resolve(queue, state, sequence_index: int):
 	var context = queue.effect_context() if queue != null and queue.has_method("effect_context") else EffectContextScript.new(state)
@@ -90,5 +103,9 @@ func to_dictionary() -> Dictionary:
 		"conditions": condition_data,
 		"targets": target_data,
 		"operations": operation_data,
+		"duration": duration_spec.to_dictionary(),
+		"stack_policy": stack_policy,
+		"max_stacks": max_stacks,
+		"source_id": source_id,
 		"resolution_kind": "DECLARATIVE_EFFECT",
 	}
