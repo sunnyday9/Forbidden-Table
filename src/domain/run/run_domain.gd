@@ -9,12 +9,14 @@ const ContractDefinitionScript = preload("res://src/content/definitions/contract
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
+const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 
 var state
 var content_registry
 var rng_streams
+var map_definition
 
 func _init(
 	initial_run_id: String = "run.1",
@@ -28,6 +30,7 @@ func _init(
 	if resolved_content_version.is_empty() and content_registry.has_method("content_version"):
 		resolved_content_version = content_registry.content_version()
 	rng_streams = domain_rng_streams if domain_rng_streams != null else DomainRngStreamsScript.new(initial_seed)
+	map_definition = MiniActMapCatalogScript.definition()
 	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version)
 
 func execute(command) -> RefCounted:
@@ -83,6 +86,7 @@ func validate_choose_contract(selected_contract_id: String) -> RefCounted:
 func execute_choose_contract(selected_contract_id: String) -> Dictionary:
 	var previous_phase: String = state.phase
 	state.contract_id = selected_contract_id
+	state.map_state.initialize(map_definition, rng_streams.map)
 	state.phase = RunPhaseScript.MAP_CHOICE
 	return {
 		"accepted": true,
@@ -95,6 +99,44 @@ func execute_choose_contract(selected_contract_id: String) -> Dictionary:
 			_run_phase_event(previous_phase, state.phase),
 		],
 		"data": {"contract_id": selected_contract_id, "phase": state.phase},
+	}
+
+func validate_select_map_node(selected_node_id: String) -> RefCounted:
+	if state.phase != RunPhaseScript.MAP_CHOICE:
+		return _invalid_phase(RunPhaseScript.MAP_CHOICE)
+	if not state.map_state.is_initialized() or map_definition.graph_issues().size() > 0:
+		return CommandValidationScript.new(false, "INVALID_MAP_DEFINITION", "The authored Mini-Act map is not navigable.")
+	if not map_definition.node_ids.has(selected_node_id) or map_definition.node_definition(selected_node_id) == null:
+		return CommandValidationScript.new(false, "INVALID_MAP_NODE_ID", "The selected Map Node ID is not authored.")
+	if state.map_state.is_terminal():
+		return CommandValidationScript.new(false, "TERMINAL_NODE", "The Boss is terminal and cannot be selected again.")
+	if state.map_state.is_visited(selected_node_id):
+		return CommandValidationScript.new(false, "VISITED_NODE", "The selected Map Node has already been visited.")
+	if not state.map_state.is_adjacent(selected_node_id, map_definition):
+		return CommandValidationScript.new(false, "NON_ADJACENT_NODE", "The selected Map Node is not adjacent to the current node.")
+	return CommandValidationScript.new(true)
+
+func execute_select_map_node(selected_node_id: String) -> Dictionary:
+	var edge_id: String = state.map_state.select_node(selected_node_id, map_definition)
+	var payload_id: String = state.map_state.payload_ids[selected_node_id]
+	var event := DomainEventScript.new(DomainEventScript.MAP_NODE_SELECTED, {
+		"run_id": state.run_id,
+		"map_definition_id": state.map_state.map_definition_id,
+		"node_id": selected_node_id,
+		"edge_id": edge_id,
+		"payload_id": payload_id,
+	})
+	state.map_state.last_events = [event]
+	return {
+		"accepted": true,
+		"status": CommandResultScript.ACCEPTED,
+		"events": [event],
+		"data": {
+			"node_id": selected_node_id,
+			"edge_id": edge_id,
+			"payload_id": payload_id,
+			"phase": state.phase,
+		},
 	}
 
 func enter_run_summary(outcome: String, reason: String = "", summary_data: Dictionary = {}) -> Array:

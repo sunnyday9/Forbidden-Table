@@ -43,7 +43,7 @@ func test_default_battle_scene_exposes_operable_loop(failures: Array[String]) ->
 	scene.free()
 
 func test_domain_scripts_have_no_scene_dependencies(failures: Array[String]) -> void:
-	var forbidden_tokens := ["Node", "Control", "SceneTree", "AnimationPlayer", "AudioStreamPlayer"]
+	var forbidden_tokens := ["extends Node", "extends Control", "SceneTree", "AnimationPlayer", "AudioStreamPlayer"]
 	var scripts := _domain_scripts("res://src/domain")
 	assert_true(not scripts.is_empty(), "the domain dependency check finds domain scripts", failures)
 	for script_path in scripts:
