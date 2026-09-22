@@ -11,9 +11,9 @@ var _pattern_rules: Dictionary
 func _init(pattern_rules: Dictionary = {}) -> void:
 	_pattern_rules = pattern_rules.duplicate(true)
 
-func resolve(settled_pattern):
+func resolve(settled_pattern, local_yaku_resolver = null, state = {}) -> MahjongScoreResultScript:
 	if settled_pattern is CompleteHandInterpretationScript:
-		return resolve_complete_hand(settled_pattern)
+		return resolve_complete_hand(settled_pattern, local_yaku_resolver, state)
 	var contributions: Array = []
 	if settled_pattern is SettledPatternScript:
 		var rule = _pattern_rules.get(settled_pattern.pattern_type)
@@ -29,13 +29,16 @@ func resolve(settled_pattern):
 					contribution_spec.get("metadata", {}),
 					contribution_spec.get("conversion_modifiers", {}),
 				))
+	if local_yaku_resolver != null:
+		var local_yaku_contributions = _hook_contributions(local_yaku_resolver, "resolve_local", settled_pattern, state)
+		contributions.append_array(local_yaku_contributions)
 
 	var total := 0
 	for contribution in contributions:
 		total += contribution.amount
 	return MahjongScoreResultScript.new(contributions, [], [], [], total, total, [])
 
-func resolve_complete_hand(interpretation, hand_yaku_resolver = null):
+func resolve_complete_hand(interpretation, hand_yaku_resolver = null, state = {}) -> MahjongScoreResultScript:
 	if not interpretation is CompleteHandInterpretationScript:
 		return MahjongScoreResultScript.new()
 	var base_amount := 120 if interpretation.hand_type == CompleteHandInterpretationScript.SEVEN_PAIRS else 100
@@ -45,8 +48,11 @@ func resolve_complete_hand(interpretation, hand_yaku_resolver = null):
 		["COMPLETE_HAND"],
 		{"interpretation_id": interpretation.interpretation_id, "hand_type": interpretation.hand_type},
 	)]
-	if hand_yaku_resolver != null and hand_yaku_resolver.has_method("resolve"):
-		for contribution in hand_yaku_resolver.resolve(interpretation):
+	if hand_yaku_resolver != null:
+		var hand_yaku_contributions = _hook_contributions(hand_yaku_resolver, "resolve_complete", interpretation, state)
+		if hand_yaku_contributions.is_empty() and hand_yaku_resolver.has_method("resolve"):
+			hand_yaku_contributions = _normalize_contributions(hand_yaku_resolver.resolve(interpretation))
+		for contribution in hand_yaku_contributions:
 			var normalized = _normalize_contribution(contribution)
 			if normalized != null:
 				contributions.append(normalized)
@@ -54,6 +60,22 @@ func resolve_complete_hand(interpretation, hand_yaku_resolver = null):
 	for contribution in contributions:
 		total += contribution.amount
 	return MahjongScoreResultScript.new(contributions, [], [], [], total, total, ["COMPLETE_HAND"])
+
+func _hook_contributions(resolver, method_name: String, subject, state) -> Array:
+	if not resolver.has_method(method_name):
+		return []
+	var contributions = resolver.call(method_name, subject, state)
+	return _normalize_contributions(contributions)
+
+func _normalize_contributions(contributions) -> Array:
+	var normalized: Array = []
+	if not contributions is Array:
+		return normalized
+	for contribution in contributions:
+		var normalized_contribution = _normalize_contribution(contribution)
+		if normalized_contribution != null:
+			normalized.append(normalized_contribution)
+	return normalized
 
 func _normalize_contribution(contribution):
 	if contribution is ScoreContributionScript:

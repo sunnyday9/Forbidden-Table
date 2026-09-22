@@ -26,6 +26,7 @@ var combat_resolver
 var reserve_service
 var complete_hand_evaluator
 var hand_yaku_resolver
+var local_yaku_resolver
 var recovery_state
 var complete_hand_destination: String
 var _complete_hand_conversion_profile
@@ -47,6 +48,7 @@ func _init(
 	domain_normal_hand_baseline: int = 13,
 	domain_recovery_baseline: int = 10,
 	domain_complete_hand_destination: String = TileZoneScript.DISCARD,
+	domain_local_yaku_resolver = null,
 ) -> void:
 	zones = domain_zones
 	draw_wall = domain_draw_wall
@@ -61,6 +63,7 @@ func _init(
 	reserve_service = domain_reserve_service
 	complete_hand_evaluator = domain_complete_hand_evaluator
 	hand_yaku_resolver = domain_hand_yaku_resolver
+	local_yaku_resolver = domain_local_yaku_resolver
 	complete_hand_destination = domain_complete_hand_destination
 	recovery_state = RecoveryStateScript.new(domain_normal_hand_baseline, domain_recovery_baseline)
 	_complete_hand_conversion_profile = _build_complete_hand_conversion_profile()
@@ -243,7 +246,7 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 			return {"accepted": false, "status": CompleteHandSettlementResultScript.TRANSFER_FAILED}
 		settled_ids.append(tile_instance.instance_id)
 
-	var score_result = score_resolver.resolve_complete_hand(interpretation, hand_yaku_resolver) if score_resolver != null and score_resolver.has_method("resolve_complete_hand") else score_resolver.resolve(interpretation)
+	var score_result = score_resolver.resolve_complete_hand(interpretation, hand_yaku_resolver, _yaku_state()) if score_resolver != null and score_resolver.has_method("resolve_complete_hand") else score_resolver.resolve(interpretation)
 	var combat_output = conversion_resolver.resolve(score_result, _complete_hand_conversion_profile, combat_state.to_dictionary())
 	var combat_result = combat_resolver.resolve_combat_conversion(combat_state, combat_output)
 	var events: Array = [DomainEventScript.new(DomainEventScript.COMPLETE_HAND_SETTLED, {
@@ -308,7 +311,7 @@ func _execute_settlement_result(turn_result) -> Dictionary:
 
 	var events: Array = turn_result.events
 
-	var score_result = score_resolver.resolve(settlement_result.settled_pattern)
+	var score_result = score_resolver.resolve(settlement_result.settled_pattern, local_yaku_resolver, _yaku_state())
 	var combat_output = conversion_resolver.resolve(score_result, conversion_profile, combat_state.to_dictionary())
 	var combat_result = combat_resolver.resolve_combat_conversion(combat_state, combat_output)
 	events.append_array(combat_result.events)
@@ -413,3 +416,9 @@ func _integrity_snapshot() -> Array:
 				snapshot.append({"instance_id": tile_instance.instance_id, "integrity": tile_instance.integrity, "max_integrity": tile_instance.max_integrity})
 	snapshot.sort_custom(func(left, right): return left.instance_id < right.instance_id)
 	return snapshot
+
+func _yaku_state() -> Dictionary:
+	return {
+		"hand": zones.contents(TileZoneScript.HAND) if zones != null else [],
+		"reserve": zones.contents(TileZoneScript.RESERVE) if zones != null else [],
+	}
