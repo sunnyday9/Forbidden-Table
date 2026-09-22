@@ -1374,7 +1374,7 @@ func _stable_checkpoint_boundary() -> String:
 		RunPhaseScript.WORKSHOP:
 			return "WORKSHOP"
 		RunPhaseScript.BATTLE:
-			return "BATTLE"
+			return "BATTLE_START"
 		RunPhaseScript.MAP_CHOICE:
 			return "MAP_NODE"
 		RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD:

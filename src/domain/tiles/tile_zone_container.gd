@@ -10,6 +10,11 @@ var reserve_capacity: int
 
 func _init(initial_reserve_capacity: int = 3) -> void:
 	reserve_capacity = maxi(0, initial_reserve_capacity)
+	clear()
+
+func clear() -> void:
+	_contents = {}
+	_locations = {}
 	for zone in TileZoneScript.all():
 		_contents[zone] = []
 	_contents[TileZoneScript.PURGED] = []

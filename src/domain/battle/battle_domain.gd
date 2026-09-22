@@ -11,8 +11,13 @@ const ReserveActionResultScript = preload("res://src/domain/tiles/reserve_action
 const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd")
 const RecoveryStateScript = preload("res://src/domain/recovery/recovery_state.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
+const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
+const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
+const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
+const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
+const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 
 var zones
 var draw_wall
@@ -458,6 +463,158 @@ func rng_snapshot() -> Dictionary:
 	if combat_state != null and combat_state.intent_rng != null and combat_state.intent_rng.has_method("snapshot"):
 		streams["enemy"] = combat_state.intent_rng.snapshot()
 	return {"version": 1, "streams": streams}
+
+func restore_checkpoint(snapshot: Dictionary) -> bool:
+	if int(snapshot.get("schema_version", -1)) != 2:
+		return false
+	var tile_checkpoints = snapshot.get("tile_instances", [])
+	var combat_checkpoint = snapshot.get("combat_state", {})
+	if not tile_checkpoints is Array or not combat_checkpoint is Dictionary:
+		return false
+	if zones == null or not zones.has_method("clear"):
+		return false
+	var settled_instance_ids = snapshot.get("settlement", {}).get("settled_instance_ids", []) if snapshot.get("settlement", {}) is Dictionary else null
+	if not settled_instance_ids is Array:
+		return false
+	var requested_reserve_capacity := int(combat_checkpoint.get("reserve_capacity", zones.reserve_capacity))
+	zones.clear()
+	if not zones.set_reserve_capacity(requested_reserve_capacity):
+		return false
+	var restored_ids: Dictionary = {}
+	for tile_data in tile_checkpoints:
+		if not tile_data is Dictionary:
+			return false
+		var instance_id := str(tile_data.get("instance_id", ""))
+		var zone := str(tile_data.get("zone", ""))
+		if instance_id.is_empty() or restored_ids.has(instance_id) or not TileZoneScript.is_valid(zone):
+			return false
+		var tile = TileInstanceScript.from_checkpoint(tile_data)
+		if tile == null or not zones.add(tile, zone):
+			return false
+		restored_ids[instance_id] = true
+	var zone_checkpoints = snapshot.get("zones", null)
+	if not _restore_zone_orders(zone_checkpoints):
+		return false
+	if not _restore_combat_checkpoint(combat_checkpoint):
+		return false
+	if not _restore_settlement_checkpoint(snapshot.get("settlement", {})):
+		return false
+	var complete_hand = snapshot.get("complete_hand", {})
+	if not complete_hand is Dictionary:
+		return false
+	complete_hand_destination = str(complete_hand.get("destination", complete_hand_destination))
+	if not _valid_complete_hand_destination():
+		return false
+	var recovery = snapshot.get("recovery", {})
+	if not recovery is Dictionary:
+		return false
+	if recovery_state != null:
+		recovery_state.normal_hand_baseline = int(recovery.get("normal_hand_baseline", recovery_state.normal_hand_baseline))
+		recovery_state.recovery_baseline = int(recovery.get("recovery_baseline", recovery_state.recovery_baseline))
+		recovery_state.minimum_recovery_turns = int(recovery.get("minimum_recovery_turns", recovery_state.minimum_recovery_turns))
+		recovery_state.turns_elapsed = int(recovery.get("turns_elapsed", 0))
+		recovery_state.active = bool(recovery.get("active", false))
+	return true
+
+func _restore_zone_orders(zone_checkpoints) -> bool:
+	if not zone_checkpoints is Dictionary:
+		return false
+	var expected_zones: Array[String] = TileZoneScript.all()
+	expected_zones.append(TileZoneScript.PURGED)
+	if zone_checkpoints.size() != expected_zones.size():
+		return false
+	for zone in zone_checkpoints.keys():
+		if not expected_zones.has(str(zone)):
+			return false
+	for zone in expected_zones:
+		if not zone_checkpoints.has(zone) or not zone_checkpoints[zone] is Array:
+			return false
+		var ordered_instance_ids: Array[String] = []
+		var seen_ids: Dictionary = {}
+		for serialized_id in zone_checkpoints[zone]:
+			if typeof(serialized_id) != TYPE_STRING or str(serialized_id).is_empty() or seen_ids.has(serialized_id):
+				return false
+			if not zones.contains_in_zone(str(serialized_id), zone):
+				return false
+			seen_ids[serialized_id] = true
+			ordered_instance_ids.append(str(serialized_id))
+		if not zones.reorder(zone, ordered_instance_ids):
+			return false
+	return true
+
+func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
+	if combat_state == null:
+		return false
+	for field in [
+		"enemy_hp", "enemy_max_hp", "pressure", "pressure_limit", "fatigue", "starvation_count",
+		"starvation_active", "intent_index", "boss_phase_index", "boss_phase_id", "boss_phase_count",
+		"pending_death", "pending_defeat", "pending_death_sequence_index", "pending_defeat_sequence_index",
+		"terminal_sequence_index", "terminal_outcome", "queue_index", "state_based_check_count", "tp",
+		"stability", "draw_capacity", "settlement_capacity", "reserve_capacity", "battle_end_cleanup_done",
+	]:
+		if snapshot.has(field):
+			combat_state.set(field, snapshot[field])
+	if combat_state.intent_rng != null and snapshot.get("intent_rng", {}) is Dictionary:
+		if not combat_state.intent_rng.restore(snapshot.get("intent_rng", {})):
+			return false
+	var graph = combat_state.intent_graph
+	var phase_index := int(snapshot.get("boss_phase_index", -1))
+	if phase_index >= 0 and phase_index < combat_state.boss_phases.size():
+		graph = combat_state.boss_phases[phase_index].get("intent_graph")
+	if graph == null:
+		return false
+	combat_state.intent_graph = graph
+	var intent_data = snapshot.get("current_intent", {})
+	if not intent_data is Dictionary:
+		return false
+	var current_intent_id := str(intent_data.get("intent_id", ""))
+	combat_state.current_intent = graph.intent(current_intent_id)
+	if combat_state.current_intent == null:
+		return false
+	var active_effect_details = snapshot.get("active_effect_details", [])
+	if not active_effect_details is Array:
+		return false
+	combat_state.active_effects = _effects_from_checkpoint(active_effect_details)
+	return true
+
+func _restore_settlement_checkpoint(snapshot: Dictionary) -> bool:
+	if not snapshot is Dictionary or settlement_window == null or settlement_turn == null:
+		return false
+	var capacity_data = snapshot.get("capacity", {})
+	if not capacity_data is Dictionary:
+		return false
+	var settled_instance_ids = snapshot.get("settled_instance_ids", [])
+	if not settled_instance_ids is Array:
+		return false
+	settlement_window.close()
+	settlement_window.set_settlement_capacity(SettlementCapacityScript.new(capacity_data))
+	settlement_turn._settled_instance_ids = {}
+	for instance_id in snapshot.get("settled_instance_ids", []):
+		settlement_turn._settled_instance_ids[str(instance_id)] = true
+	if bool(snapshot.get("window_open", false)) and not settlement_window.open():
+		return false
+	settlement_window.settlement_capacity()._remaining = int(capacity_data.get("remaining", settlement_window.settlement_capacity().maximum))
+	for instance_id in snapshot.get("settled_instance_ids", []):
+		settlement_window._settled_instance_ids[str(instance_id)] = true
+	if bool(snapshot.get("window_open", false)):
+		settlement_window.refresh()
+	return true
+
+func _effects_from_checkpoint(values: Array) -> Dictionary:
+	var result: Dictionary = {}
+	for value in values:
+		if not value is Dictionary:
+			return {}
+		var duration: Dictionary = value.get("duration", {})
+		var effect := ActiveEffectInstanceScript.new(
+			str(value.get("definition_id", "")),
+			DurationSpecScript.new(str(duration.get("scope", DurationSpecScript.PERMANENT)), int(duration.get("remaining", 0))),
+			StackPolicyScript.new(str(value.get("stack_policy", StackPolicyScript.REPLACE)), int(value.get("max_stacks", 0))),
+			str(value.get("source_id", "")), int(value.get("stacks", 1)), int(value.get("uses_remaining", -1)),
+			int(value.get("charges_remaining", -1)), str(value.get("instance_id", "")), int(value.get("max_stacks", 0)), value.get("runtime_parameters", {})
+		)
+		result[effect.instance_id] = effect
+	return result
 
 func _complete_hand_by_id(interpretation_id: String):
 	for interpretation in complete_hand_interpretations():
