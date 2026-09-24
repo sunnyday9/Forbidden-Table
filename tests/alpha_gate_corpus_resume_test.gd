@@ -37,6 +37,28 @@ func test_resume_rejects_an_unverified_repeat_claim(failures: Array[String]) -> 
 	}
 	var valid_result: Dictionary = ResumeVerifierScript.validate_record(record, expected_case, "test-manifest", 1)
 	assert_true(valid_result.get("valid", false), "a complete stored attempt pair with its comparison can be resumed", failures)
+	var serialized_record := JSON.stringify(record)
+	var parsed_record = JSON.parse_string(serialized_record)
+	assert_true(parsed_record is Dictionary, "a stored case survives its JSONL serialization round-trip", failures)
+	if parsed_record is Dictionary:
+		var round_trip_result: Dictionary = ResumeVerifierScript.validate_record(parsed_record, expected_case, "test-manifest", 1)
+		assert_true(
+			round_trip_result.get("valid", false),
+			"a complete JSONL case remains resumable after JSON numeric decoding (%s)" % str(round_trip_result.get("errors", [])),
+			failures,
+		)
+		var string_seed_record: Dictionary = parsed_record.duplicate(true)
+		string_seed_record["repeat_attempt_summary"]["seed"] = "57000"
+		var string_seed_result: Dictionary = ResumeVerifierScript.validate_record(string_seed_record, expected_case, "test-manifest", 1)
+		assert_true(not string_seed_result.get("valid", true), "resume rejects numeric summary fields encoded as strings", failures)
+		var fractional_seed_record: Dictionary = parsed_record.duplicate(true)
+		fractional_seed_record["repeat_attempt_summary"]["seed"] = 57000.5
+		var fractional_seed_result: Dictionary = ResumeVerifierScript.validate_record(fractional_seed_record, expected_case, "test-manifest", 1)
+		assert_true(not fractional_seed_result.get("valid", true), "resume rejects fractional summary fields", failures)
+		var extra_summary_record: Dictionary = parsed_record.duplicate(true)
+		extra_summary_record["repeat_attempt_summary"]["unexpected"] = "value"
+		var extra_summary_result: Dictionary = ResumeVerifierScript.validate_record(extra_summary_record, expected_case, "test-manifest", 1)
+		assert_true(not extra_summary_result.get("valid", true), "resume rejects unexpected summary fields", failures)
 
 	record["repeat_comparison"] = {"matches": true}
 	var forged_result: Dictionary = ResumeVerifierScript.validate_record(record, expected_case, "test-manifest", 1)

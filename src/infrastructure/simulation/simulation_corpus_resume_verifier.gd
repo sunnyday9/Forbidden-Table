@@ -54,13 +54,46 @@ static func validate_record(
 			errors.append("repeat comparison does not match the stored attempt pair")
 		var expected_summary := summarize_attempt(repeat_attempt)
 		var summary_value = record.get("repeat_attempt_summary", {})
-		if not summary_value is Dictionary or summary_value != expected_summary:
+		if not summary_value is Dictionary or not _summary_matches(expected_summary, summary_value):
 			errors.append("repeat attempt summary does not match the stored repeat attempt")
 
 	return {
 		"valid": errors.is_empty(),
 		"errors": errors,
 	}
+
+static func _summary_matches(expected: Dictionary, actual: Dictionary) -> bool:
+	if actual.size() != expected.size():
+		return false
+	for key in expected:
+		if not actual.has(key):
+			return false
+		var expected_value = expected[key]
+		var actual_value = actual[key]
+		if typeof(expected_value) == TYPE_INT:
+			if not _matches_json_integer(actual_value, int(expected_value)):
+				return false
+		elif typeof(expected_value) == TYPE_BOOL:
+			if typeof(actual_value) != TYPE_BOOL or actual_value != expected_value:
+				return false
+		elif typeof(expected_value) == TYPE_STRING:
+			if typeof(actual_value) != TYPE_STRING or actual_value != expected_value:
+				return false
+		else:
+			return false
+	return true
+
+static func _matches_json_integer(value: Variant, expected: int) -> bool:
+	if typeof(value) == TYPE_INT:
+		return int(value) == expected
+	if typeof(value) != TYPE_FLOAT:
+		return false
+	var number := float(value)
+	if not is_finite(number) or floor(number) != number:
+		return false
+	if number < -9223372036854775808.0 or number >= 9223372036854775808.0:
+		return false
+	return int(number) == expected
 
 static func _append_attempt_identity_errors(
 	attempt: Dictionary,
