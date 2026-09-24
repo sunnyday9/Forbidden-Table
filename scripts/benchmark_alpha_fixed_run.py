@@ -93,7 +93,7 @@ def read_json_result(stdout: str, repetition: int) -> dict[str, Any]:
 
 
 def validate_attempt(record: dict[str, Any], repetition: int) -> tuple[dict[str, Any], dict[str, Any]]:
-    if record.get("benchmark_id") != "alpha.fixed-complete-run.v1":
+    if record.get("benchmark_id") != "alpha.fixed-complete-run.v2":
         fail(f"Godot repetition {repetition} returned an unexpected benchmark ID.")
     workload = record.get("workload")
     attempt = record.get("attempt")
@@ -104,11 +104,11 @@ def validate_attempt(record: dict[str, Any], repetition: int) -> tuple[dict[str,
 
     expected = {
         "gate_id": "hardening",
-        "seed": 8803,
-        "policy_id": "Hybrid",
-        "character_id": "base.character.sequence",
-        "contract_id": "base.contract.pressure",
-        "route_id": "EVENT",
+        "seed": 57028,
+        "policy_id": "Complete",
+        "character_id": "base.character.reserve",
+        "contract_id": "base.contract.pool_bias",
+        "route_id": "SERVICE",
         "command_limit": 1024,
     }
     for key, value in expected.items():
@@ -136,18 +136,30 @@ def validate_attempt(record: dict[str, Any], repetition: int) -> tuple[dict[str,
         fail(f"Godot repetition {repetition} did not produce a terminal result under the configured two-Act profile.")
     if attempt.get("configured_act_count") != 2:
         fail(f"Godot repetition {repetition} did not record the configured two-Act profile.")
-    act_reached = attempt.get("act_reached")
-    if not isinstance(act_reached, int) or act_reached not in (1, 2):
-        fail(f"Godot repetition {repetition} omitted its actual reached Act.")
-    expected_progress = "TERMINAL_AFTER_FINAL_ACT" if act_reached == 2 else "TERMINAL_BEFORE_FINAL_ACT"
-    if attempt.get("progress_status") != expected_progress:
-        fail(f"Godot repetition {repetition} misreported its actual Act progress.")
-    if attempt.get("outcome") not in ("VICTORY", "DEFEAT"):
-        fail(f"Godot repetition {repetition} has no valid terminal gameplay outcome.")
+    if attempt.get("act_reached") != 2:
+        fail(f"Godot repetition {repetition} did not reach the final Act.")
+    if attempt.get("progress_status") != "TERMINAL_AFTER_FINAL_ACT":
+        fail(f"Godot repetition {repetition} did not terminate after the final Act.")
+    if attempt.get("outcome") != "VICTORY":
+        fail(f"Godot repetition {repetition} did not reach the real two-Act ending.")
     if attempt.get("failure_classification") != "NONE" or attempt.get("replay_status") != "MATCH":
         fail(f"Godot repetition {repetition} reported a harness failure or replay divergence.")
-    if not isinstance(attempt.get("events"), list) or not attempt["events"]:
+    events = attempt.get("events")
+    if not isinstance(events, list) or not events:
         fail(f"Godot repetition {repetition} omitted Domain events.")
+    reached_act_two = any(
+        isinstance(event, dict)
+        and event.get("event_type") == "ActTransitioned"
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("to_act") == 2
+        for event in events
+    )
+    reached_summary = any(
+        isinstance(event, dict) and event.get("event_type") == "RunSummaryReached"
+        for event in events
+    )
+    if not reached_act_two or not reached_summary:
+        fail(f"Godot repetition {repetition} omitted the authoritative Act 2 transition or Run Summary.")
     return workload, attempt
 
 
@@ -282,7 +294,7 @@ def main() -> int:
         fail("The benchmark did not produce all five measured repetitions.")
 
     report = {
-        "benchmark_id": "alpha.fixed-complete-run.v1",
+        "benchmark_id": "alpha.fixed-complete-run.v2",
         "repetition_count": REPETITIONS,
         "workload": reference_workload,
         "build": {

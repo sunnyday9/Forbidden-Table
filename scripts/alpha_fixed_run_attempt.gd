@@ -4,13 +4,13 @@ const SimulationManifestScript = preload("res://src/infrastructure/simulation/si
 const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation/alpha_simulation_runner.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
-const BENCHMARK_ID := "alpha.fixed-complete-run.v1"
+const BENCHMARK_ID := "alpha.fixed-complete-run.v2"
 const GATE_ID := "hardening"
-const SEED := 8803
-const POLICY_ID := "Hybrid"
-const CHARACTER_ID := "base.character.sequence"
-const CONTRACT_ID := "base.contract.pressure"
-const ROUTE_ID := "EVENT"
+const SEED := 57028
+const POLICY_ID := "Complete"
+const CHARACTER_ID := "base.character.reserve"
+const CONTRACT_ID := "base.contract.pool_bias"
+const ROUTE_ID := "SERVICE"
 const COMMAND_LIMIT := 1024
 const RESULT_PREFIX := "ALPHA_FIXED_RUN_RESULT "
 
