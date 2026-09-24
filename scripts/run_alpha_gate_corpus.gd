@@ -3,11 +3,12 @@ extends SceneTree
 const SimulationManifestScript = preload("res://src/infrastructure/simulation/simulation_manifest.gd")
 const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation/alpha_simulation_runner.gd")
 const AlphaAttemptComparatorScript = preload("res://src/infrastructure/simulation/alpha_attempt_comparator.gd")
+const ResumeVerifierScript = preload("res://src/infrastructure/simulation/simulation_corpus_resume_verifier.gd")
 const SimulationGateRunnerScript = preload("res://src/infrastructure/simulation/simulation_gate_runner.gd")
 const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructure/simulation/alpha_simulation_starting_pool_fixture.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
-const REPORT_SCHEMA := "alpha.gate-corpus-jsonl.v1"
+const REPORT_SCHEMA := "alpha.gate-corpus-jsonl.v2"
 const BASELINE_CONTENT_VERSION := "content.slice.v2"
 const BASELINE_SEED_START := 57000
 const COMMAND_LIMIT := 1024
@@ -85,7 +86,7 @@ func _initialize() -> void:
 	var header_record := {
 		"record_type": "header",
 		"schema": REPORT_SCHEMA,
-		"record_format": "JSON Lines; a final summary record marks completion.",
+		"record_format": "JSON Lines; each case includes both attempts and a final summary record marks completion.",
 		"run_state": "IN_PROGRESS",
 		"report_scope": "SEEDED_SIMULATION_SUBGATE_ONLY",
 		"evidence_class": "SMOKE_NON_GATE_EVIDENCE" if smoke_mode else "FULL_BASELINE_GATE_CORPUS",
@@ -141,28 +142,19 @@ func _initialize() -> void:
 				_fail("The resume source contains an unexpected record or more cases than its manifest.", 2)
 				return
 			var expected_case: Dictionary = cases[resumed_case_count]
-			var attempt_case: Dictionary = source_record.get("attempt_case", {})
-			var attempt: Dictionary = source_record.get("attempt", {})
-			var comparison: Dictionary = source_record.get("repeat_comparison", {})
-			var case_errors: Array[String] = []
-			if int(source_record.get("case_number", 0)) != resumed_case_count + 1:
-				case_errors.append("nonsequential case number")
-			if not _case_matches_manifest_case(attempt_case, expected_case):
-				case_errors.append("case fields differ from the manifest")
-			if int(attempt.get("seed", -1)) != int(expected_case.get("seed", -2)):
-				case_errors.append("attempt seed differs from the manifest")
-			for key in ["policy_id", "character_id", "contract_id", "route_id", "attempt_id"]:
-				if str(attempt.get(key, "")) != str(expected_case.get(key, "")):
-					case_errors.append("attempt %s differs from the manifest" % key)
-			if str(attempt.get("manifest_hash", "")) != manifest_hash:
-				case_errors.append("attempt manifest hash differs")
-			if comparison.is_empty():
-				case_errors.append("repeat comparison is missing")
-			if not case_errors.is_empty():
+			var validation: Dictionary = ResumeVerifierScript.validate_record(
+				source_record,
+				expected_case,
+				manifest_hash,
+				resumed_case_count + 1,
+			)
+			if not bool(validation.get("valid", false)):
 				resume_file.close()
 				report_file.close()
-				_fail("Resume case %d failed validation: %s." % [resumed_case_count + 1, ", ".join(case_errors)], 2)
+				_fail("Resume case %d failed validation: %s." % [resumed_case_count + 1, ", ".join(validation.get("errors", []))], 2)
 				return
+			var attempt: Dictionary = source_record.get("attempt", {})
+			var comparison: Dictionary = source_record.get("repeat_comparison", {})
 			aggregate_attempts.append(attempt)
 			if bool(comparison.get("matches", false)):
 				repeat_match_count += 1
@@ -207,7 +199,8 @@ func _initialize() -> void:
 			"case_number": index + 1,
 			"attempt_case": attempt_case.duplicate(true),
 			"attempt": attempt,
-			"repeat_attempt_summary": _attempt_summary(repeated_attempt),
+			"repeat_attempt": repeated_attempt,
+			"repeat_attempt_summary": ResumeVerifierScript.summarize_attempt(repeated_attempt),
 			"repeat_comparison": comparison,
 		}
 		write_error = _write_jsonl_record(report_file, case_record)
@@ -331,6 +324,7 @@ func _read_resume_header(path: String, gate_id: String, manifest_hash: String, e
 	var execution: Dictionary = header.get("execution", {})
 	if (
 		str(header.get("record_type", "")) != "header"
+		or str(header.get("schema", "")) != REPORT_SCHEMA
 		or str(header.get("run_state", "")) != "IN_PROGRESS"
 		or str(header.get("gate_id", "")) != gate_id
 		or str(header.get("manifest_hash", "")) != manifest_hash
@@ -416,20 +410,6 @@ func _requirement_status(coverage_detail: Dictionary, requirement_id: String) ->
 		if status_value is Dictionary and str(status_value.get("id", "")) == requirement_id:
 			return status_value
 	return {}
-
-func _attempt_summary(attempt: Dictionary) -> Dictionary:
-	return {
-		"attempt_id": str(attempt.get("attempt_id", "")),
-		"seed": int(attempt.get("seed", 0)),
-		"policy_id": str(attempt.get("policy_id", "")),
-		"act_reached": int(attempt.get("act_reached", 0)),
-		"terminal": bool(attempt.get("terminal", false)),
-		"outcome": str(attempt.get("outcome", "")),
-		"accepted_command_count": int(attempt.get("accepted_command_count", 0)),
-		"checkpoint_count": attempt.get("checkpoints", []).size(),
-		"replay_status": str(attempt.get("replay_status", "")),
-		"failure_classification": str(attempt.get("failure_classification", "")),
-	}
 
 func _write_jsonl_record(file: FileAccess, record: Dictionary) -> Error:
 	file.store_string(JSON.stringify(record, "", true, true) + "\n")
