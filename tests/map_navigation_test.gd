@@ -4,10 +4,22 @@ extends RefCounted
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
+const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
+const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const ChooseCharacterCommand = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommand = preload("res://src/domain/commands/choose_contract_command.gd")
+const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_command.gd")
+const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
+const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
+const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
+const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
+const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
+const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
+const StackPolicy = preload("res://src/domain/effects/stack_policy.gd")
+const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const CharacterDefinition = preload("res://src/content/definitions/character_definition.gd")
 const ContentDefinition = preload("res://src/content/definitions/content_definition.gd")
@@ -30,13 +42,247 @@ const BOSS := "base.map_node.boss"
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_authored_graph_is_bounded_and_route_safe(failures)
+	test_act_two_authored_graph_meets_the_same_topology_contract(failures)
 	test_contract_choice_initializes_visible_deterministic_map(failures)
 	test_valid_route_reaches_boss_and_records_stable_edge_path(failures)
 	test_every_authored_route_reaches_boss(failures)
 	test_invalid_map_selection_is_atomic_and_does_not_consume_map_rng(failures)
 	test_same_seed_and_accepted_map_commands_reproduce_checkpoint(failures)
 	test_map_command_serializes_stable_node_id(failures)
+	test_act_one_boss_reward_starts_a_fresh_act_two_map(failures)
+	test_act_transition_carries_run_effects_and_clears_act_interactions(failures)
+	test_act_two_map_identity_round_trips_at_stable_boundary(failures)
+	test_act_two_boss_reward_selection_ends_run_without_act_three(failures)
 	return failures
+
+func test_act_one_boss_reward_starts_a_fresh_act_two_map(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var v1_snapshot = Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot()
+	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(v1_snapshot, registry)
+	if not migrated.accepted:
+		assert_true(false, "the archived stable Boss boundary migrates through the public load pipeline", failures)
+		return
+	migrated.domain.state.act_count = 2
+	migrated.domain.state.tile_pool.add_tile_instance(RunTileInstanceRecord.new(
+		"map.act-boundary.tile-1",
+		"base.tile.characters.1",
+		"RUN",
+		"RUN",
+	))
+	migrated.domain.state.build_ownership.owned_relic_ids.append("base.relic.open_hand")
+	migrated.domain.state.build_ownership.run_technique_ids.append("base.technique.draw_surge")
+	var stable_save = SaveCoordinator.new().save(migrated.domain)
+	if not stable_save.accepted:
+		assert_true(false, "the Boss reward fixture is saved through the public stable-save seam", failures)
+		return
+	var resumed = SaveMapper.load_into_domain(stable_save.snapshot.to_dictionary(), registry)
+	if not resumed.accepted:
+		assert_true(false, "the stable Boss reward snapshot resumes through the public load pipeline", failures)
+		return
+	var domain = resumed.domain
+	var run_id: String = domain.state.run_id
+	var seed: int = domain.state.seed
+	var content_version: String = domain.state.content_version
+	var character_id: String = domain.state.character_id
+	var contract_id: String = domain.state.contract_id
+	var act_one_map_id: String = domain.map_definition.content_id
+	var draft = domain.state.reward_draft
+	var tile_pool_before: Dictionary = domain.state.tile_pool.to_dictionary()
+	var build_before: Dictionary = domain.state.build_ownership.to_dictionary()
+	assert_true(domain.state.act_index == 1 and domain.state.phase == RunPhase.BOSS_REWARD, "the pending Act 1 Boss reward cannot transition before selection", failures)
+	if draft == null or draft.options.is_empty():
+		assert_true(false, "Act 1 Boss victory creates a selectable reward", failures)
+		return
+	domain.replay_record = ReplayRecord.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
+	domain.replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), domain.state.terminal_summary.outcome)
+	var result = domain.execute(ChooseRewardCommand.new(
+		"map.act-boundary.reward",
+		draft.options[0].option_id,
+		draft.draft_id,
+	))
+
+	assert_true(result.accepted, "applying the Act 1 Boss reward is accepted", failures)
+	assert_true(domain.state.run_id == run_id and domain.state.seed == seed, "the Act transition stays in the same seeded Run", failures)
+	assert_true(domain.state.content_version == content_version and domain.state.character_id == character_id and domain.state.contract_id == contract_id, "the Act transition carries the Run's version, Character, and Contract", failures)
+	assert_true(domain.state.act_index == 2, "the existing RunState advances to Act 2", failures)
+	assert_true(domain.state.tile_pool.to_dictionary() == tile_pool_before, "the Run-owned Tile Pool carries unchanged across the Act boundary", failures)
+	assert_true(domain.state.build_ownership.owned_relic_ids == build_before.owned_relic_ids, "owned Relics carry unchanged across the Act boundary", failures)
+	assert_true(domain.state.build_ownership.run_technique_ids == build_before.run_technique_ids, "owned Run Techniques carry unchanged across the Act boundary", failures)
+	assert_true(domain.state.build_ownership.acquired_rule_breaker_ids.size() == 1 and domain.state.build_ownership.acquired_rule_breaker_ids[0] == draft.options[0].content_id, "the selected Act 1 Boss Rule Breaker remains owned in Act 2", failures)
+	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "applying the Act 1 Boss reward enters Act 2 instead of Run Summary", failures)
+	assert_true(domain.map_definition.content_id == "base.map.act_two" and domain.map_definition.content_id != act_one_map_id, "the Act transition selects a distinct Act 2 map definition", failures)
+	assert_true(domain.state.map_state.map_definition_id == "base.map.act_two", "the Run map state records the fresh Act 2 map", failures)
+	assert_true(domain.state.map_state.current_node_id == "base.map_node.act_two.intro" and domain.state.map_state.ordered_path == ["base.map_node.act_two.intro"], "the Act 2 map starts at its own mandatory entry node", failures)
+	var replay_factory: Callable = func(replay_seed: int, replay_content_version: String):
+		if replay_seed != seed or replay_content_version != content_version:
+			return null
+		var replayed = SaveMapper.load_into_domain(stable_save.snapshot.to_dictionary(), registry)
+		return replayed.domain if replayed.accepted else null
+	var replay_report = ReplayVerifier.verify(domain.replay_record, replay_factory, content_version)
+	assert_true(replay_report.is_match(), "replaying the Act 1 Boss reward transition reproduces the fresh Act 2 map", failures)
+
+func test_act_transition_carries_run_effects_and_clears_act_interactions(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(
+		Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot(),
+		registry,
+	)
+	if not migrated.accepted:
+		assert_true(false, "the effect-scope fixture starts from the archived stable Boss boundary", failures)
+		return
+	var source = migrated.domain
+	source.state.act_count = 2
+	source.economy.apply_source(source.state, RunEconomy.REFINEMENT_TOKENS, 7, RunEconomy.SOURCE_BOSS_REWARD)
+	source.state.tutorial_state.active_step_id = "tutorial.act_one.complete"
+	source.state.tutorial_state.completed_step_ids.append("tutorial.first_run")
+	var run_effect := ActiveEffectInstance.new("fixture.effect.run", DurationSpec.new(DurationSpec.RUN, 3), StackPolicy.new(StackPolicy.UNIQUE), "fixture")
+	var battle_effect := ActiveEffectInstance.new("fixture.effect.battle", DurationSpec.new(DurationSpec.BATTLE, 2), StackPolicy.new(StackPolicy.UNIQUE), "fixture")
+	var act_effect := ActiveEffectInstance.new("fixture.effect.act", DurationSpec.new(DurationSpec.ACT, 2), StackPolicy.new(StackPolicy.UNIQUE), "fixture")
+	source.state.active_effects = {
+		run_effect.instance_id: run_effect,
+		battle_effect.instance_id: battle_effect,
+		act_effect.instance_id: act_effect,
+	}
+	source.state.shop_state.begin("base.map_node.shop", "fixture.shop", [], 1, {})
+	source.state.workshop_state.begin("base.map_node.workshop", "fixture.workshop")
+	var event_definition = registry.resolve("base.event.risk_bargain")
+	source.state.event_state.begin("base.map_node.event.left", "fixture.event", event_definition, source.rng_streams.event.snapshot())
+	var stable_save = SaveCoordinator.new().save(source)
+	if not stable_save.accepted:
+		assert_true(false, "the configured state is saved at the stable Boss reward boundary", failures)
+		return
+	var resumed = SaveMapper.load_into_domain(stable_save.snapshot.to_dictionary(), registry)
+	if not resumed.accepted:
+		assert_true(false, "the fixture resumes before the Act transition", failures)
+		return
+	var domain = resumed.domain
+	var active_reward = domain.state.reward_draft
+	var carried_run_effect = domain.state.active_effects[run_effect.instance_id].to_dictionary()
+	var result = domain.execute(ChooseRewardCommand.new(
+		"map.act-boundary.effects.reward",
+		active_reward.options[0].option_id,
+		active_reward.draft_id,
+	))
+
+	assert_true(result.accepted, "the Boss reward applies through the public command seam", failures)
+	assert_true(domain.state.gold == 10 and domain.state.refinement_tokens == 7, "Gold and Refinement Tokens carry unchanged", failures)
+	assert_true(domain.state.tutorial_state.to_dictionary() == {
+		"active_step_id": "tutorial.act_one.complete",
+		"completed_step_ids": ["tutorial.first_run"],
+	}, "tutorial progress carries unchanged", failures)
+	assert_true(domain.state.active_effects.keys() == [run_effect.instance_id], "only the Run-scoped effect remains active after the Act boundary", failures)
+	assert_true(domain.state.active_effects[run_effect.instance_id].to_dictionary() == carried_run_effect, "the Run-scoped effect's exact duration and runtime state carry unchanged", failures)
+	assert_true(not domain.state.shop_state.active and domain.state.shop_state.node_id.is_empty(), "the prior Shop interaction is discarded", failures)
+	assert_true(not domain.state.workshop_state.active and domain.state.workshop_state.node_id.is_empty(), "the prior Workshop interaction is discarded", failures)
+	assert_true(not domain.state.event_state.active and domain.state.event_state.event_id.is_empty(), "the prior Event interaction is discarded", failures)
+	assert_true(domain.state.current_battle_snapshot == null and domain.current_battle == null, "no prior battle snapshot or BattleDomain crosses the Act boundary", failures)
+
+func test_act_two_map_identity_round_trips_at_stable_boundary(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(
+		Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot(),
+		registry,
+	)
+	if not migrated.accepted:
+		assert_true(false, "the resume fixture reaches an Act 1 Boss reward from the archived save", failures)
+		return
+	var domain = migrated.domain
+	domain.state.act_count = 2
+	var source_save = SaveCoordinator.new().save(domain)
+	if not source_save.accepted:
+		assert_true(false, "the Act 1 Boss reward is captured at a stable boundary", failures)
+		return
+	var source_resume = SaveMapper.load_into_domain(source_save.snapshot.to_dictionary(), registry)
+	if not source_resume.accepted:
+		assert_true(false, "the Act 1 Boss reward resumes before selection", failures)
+		return
+	domain = source_resume.domain
+	var draft = domain.state.reward_draft
+	var selected = domain.execute(ChooseRewardCommand.new(
+		"map.act-two-resume.reward",
+		draft.options[0].option_id,
+		draft.draft_id,
+	))
+	if not selected.accepted:
+		assert_true(false, "the Act 1 Boss reward applies before the Act 2 save boundary", failures)
+		return
+	var act_two_save = SaveCoordinator.new().save(domain)
+	if not act_two_save.accepted:
+		assert_true(false, "the fresh Act 2 map is a stable Suspend boundary", failures)
+		return
+	var act_two_resume = SaveMapper.load_into_domain(act_two_save.snapshot.to_dictionary(), registry)
+	if not act_two_resume.accepted:
+		assert_true(false, "an Act 2 map checkpoint resumes through the normal SaveMapper pipeline", failures)
+		return
+	var resumed_domain = act_two_resume.domain
+	assert_true(resumed_domain.state.act_index == 2, "Suspend/Resume preserves the Act 2 index", failures)
+	assert_true(resumed_domain.map_definition.content_id == "base.map.act_two", "Suspend/Resume reconstructs the Act 2 MapDefinition", failures)
+	assert_true(resumed_domain.state.map_state.map_definition_id == "base.map.act_two", "Suspend/Resume preserves the Act 2 path identity", failures)
+	assert_true(resumed_domain.state.map_state.current_node_id == "base.map_node.act_two.intro", "Suspend/Resume preserves the mandatory Act 2 entry node", failures)
+	var next_node = resumed_domain.execute(SelectMapNodeCommand.new("map.act-two-resume.next", "base.map_node.act_two.normal.left"))
+	assert_true(next_node.accepted and resumed_domain.state.phase == RunPhase.BATTLE, "the resumed Act 2 MapDefinition accepts an adjacent Act 2 route", failures)
+
+func test_act_two_boss_reward_selection_ends_run_without_act_three(failures: Array[String]) -> void:
+	var domain = _act_two_boss_reward_boundary()
+	if domain == null:
+		assert_true(false, "the Act 2 Boss reward fixture resumes at a stable boundary", failures)
+		return
+	var draft = domain.state.reward_draft
+	assert_true(domain.state.act_index == 2 and domain.state.phase == RunPhase.BOSS_REWARD, "the Act 2 Boss reward remains pending before selection", failures)
+	assert_true(domain.state.map_state.current_node_id == "base.map_node.act_two.boss", "the pending reward belongs to the terminal Act 2 Boss", failures)
+	if draft == null or draft.options.is_empty():
+		assert_true(false, "the pending Act 2 Boss has a selectable reward", failures)
+		return
+	var pending_checkpoint: Dictionary = domain.checkpoint()
+	var invalid = domain.execute(ChooseRewardCommand.new(
+		"map.act-two-boss.invalid",
+		"reward.missing",
+		draft.draft_id,
+	))
+	assert_true(not invalid.accepted and domain.checkpoint() == pending_checkpoint, "an invalid choice leaves the Act 2 Boss reward pending without transitioning", failures)
+	var selected = domain.execute(ChooseRewardCommand.new(
+		"map.act-two-boss.selected",
+		draft.options[0].option_id,
+		draft.draft_id,
+	))
+	assert_true(selected.accepted, "the Act 2 Boss reward applies through ChooseRewardCommand", failures)
+	assert_true(domain.state.phase == RunPhase.RUN_SUMMARY, "the selected Act 2 Boss reward reaches Normal Ending and Run Summary", failures)
+	assert_true(domain.state.terminal_summary.outcome == "VICTORY" and domain.state.terminal_summary.reason == "BOSS_DEFEATED", "the Act 2 Boss outcome is a normal Run victory", failures)
+	assert_true(domain.state.terminal_summary.summary_data.get("act_index", 0) == 2 and domain.state.act_index == 2, "the ending records Act 2 without advancing to an optional Act 3", failures)
+	assert_true(domain.map_definition.content_id == "base.map.act_two" and domain.state.map_state.map_definition_id == "base.map.act_two", "Run Summary retains the completed Act 2 context and creates no Act 3 map", failures)
+	assert_true(domain.state.reward_draft == null, "the selected Boss reward is consumed before the ending", failures)
+
+func _act_two_boss_reward_boundary():
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(
+		Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot(),
+		registry,
+	)
+	if not migrated.accepted:
+		return null
+	var domain = migrated.domain
+	domain.state.act_count = 2
+	domain.state.act_index = 2
+	domain.map_definition = MiniActMapCatalog.definition_for_act(2)
+	domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
+	for node_id in [
+		"base.map_node.act_two.normal.left",
+		"base.map_node.act_two.shop",
+		"base.map_node.act_two.workshop",
+		"base.map_node.act_two.normal.mid",
+		"base.map_node.act_two.elite",
+		"base.map_node.act_two.boss",
+	]:
+		domain.state.map_state.select_node(node_id, domain.map_definition)
+	var save = SaveCoordinator.new().save(domain)
+	if not save.accepted:
+		return null
+	var resumed = SaveMapper.load_into_domain(save.snapshot.to_dictionary(), registry)
+	return resumed.domain if resumed.accepted else null
 
 func test_authored_graph_is_bounded_and_route_safe(failures: Array[String]) -> void:
 	var definition = MiniActMapCatalog.definition()
@@ -52,6 +298,26 @@ func test_authored_graph_is_bounded_and_route_safe(failures: Array[String]) -> v
 	assert_true(definition.start_node_id == INTRO, "the graph starts at the mandatory introductory Normal", failures)
 	assert_true(definition.branch_decision_count_before(ELITE) >= 2, "at least two branch decisions precede the Elite", failures)
 	assert_true(definition.has_route_through([SHOP, WORKSHOP], BOSS), "a valid route exposes both Shop and Workshop", failures)
+
+func test_act_two_authored_graph_meets_the_same_topology_contract(failures: Array[String]) -> void:
+	var definition = MiniActMapCatalog.definition_for_act(2)
+	var act_one = MiniActMapCatalog.definition_for_act(1)
+	assert_true(definition != null, "Act 2 has an authored MapDefinition", failures)
+	if definition == null:
+		return
+	assert_true(definition.content_id == "base.map.act_two", "Act 2 uses its own stable map identity", failures)
+	assert_true(definition.graph_issues().is_empty(), "every Act 2 node is reachable and every route can reach its terminal Boss", failures)
+	assert_true(definition.node_ids.size() == 10, "Act 2 has the ten-node planning baseline", failures)
+	assert_true(definition.count_nodes_of_kind("BATTLE") == 4, "Act 2 has four Normal nodes including its mandatory first battle", failures)
+	assert_true(definition.count_nodes_of_kind("ELITE") == 1, "Act 2 has one Elite", failures)
+	assert_true(definition.count_nodes_of_kind("SHOP") == 1, "Act 2 has one Shop", failures)
+	assert_true(definition.count_nodes_of_kind("WORKSHOP") == 1, "Act 2 has one Workshop", failures)
+	assert_true(definition.count_nodes_of_kind("EVENT") >= 2, "Act 2 has at least two Event opportunities", failures)
+	assert_true(definition.count_nodes_of_kind("BOSS") == 1, "Act 2 has one terminal Boss", failures)
+	assert_true(definition.start_node_id == "base.map_node.act_two.intro", "Act 2 starts at its own mandatory Normal node", failures)
+	assert_true(definition.branch_decision_count_before("base.map_node.act_two.elite") >= 2, "Act 2 has meaningful branches before the Elite", failures)
+	assert_true(definition.has_route_through(["base.map_node.act_two.shop", "base.map_node.act_two.workshop"], "base.map_node.act_two.boss"), "an Act 2 route exposes both services before the Boss", failures)
+	assert_true(definition.node_ids.filter(func(node_id: String): return act_one.node_ids.has(node_id)).is_empty(), "Act 2 node IDs are distinct from the preserved Act 1 topology", failures)
 
 func test_contract_choice_initializes_visible_deterministic_map(failures: Array[String]) -> void:
 	var domain := _prepared_domain("map.visibility", 101)

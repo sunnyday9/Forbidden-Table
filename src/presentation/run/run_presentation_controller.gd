@@ -214,10 +214,24 @@ func _reward_actions() -> Array:
 	if domain.state.phase == RunPhaseScript.REWARD_CHOICE and domain.state.reward_draft != null:
 		for option in domain.state.reward_draft.options:
 			actions.append({"id": ACTION_PREFIX_REWARD + option.option_id, "kind": "REWARD", "target_id": option.option_id, "draft_id": domain.state.reward_draft.draft_id, "details": option.to_dictionary()})
-	elif domain.state.phase == RunPhaseScript.ELITE_REWARD:
-		actions.append({"id": ACTION_PREFIX_REWARD + RunDomainScript.ELITE_REWARD_CONTINUE_ID, "kind": "ELITE_REWARD", "target_id": RunDomainScript.ELITE_REWARD_CONTINUE_ID})
-	elif domain.state.phase == RunPhaseScript.BOSS_REWARD:
-		actions.append({"id": ACTION_PREFIX_REWARD + RunDomainScript.BOSS_REWARD_CONTINUE_ID, "kind": "BOSS_REWARD", "target_id": RunDomainScript.BOSS_REWARD_CONTINUE_ID})
+	elif domain.state.phase == RunPhaseScript.ELITE_REWARD and domain.state.reward_draft != null:
+		for option in domain.state.reward_draft.options:
+			actions.append({"id": ACTION_PREFIX_REWARD + option.option_id, "kind": "ELITE_REWARD", "target_id": option.option_id, "draft_id": domain.state.reward_draft.draft_id, "details": option.to_dictionary()})
+	elif domain.state.phase == RunPhaseScript.BOSS_REWARD and domain.state.reward_draft != null:
+		for option in domain.state.reward_draft.options:
+			var details: Dictionary = option.to_dictionary()
+			var definition = domain.content_registry.resolve(option.content_id)
+			if definition != null:
+				details["rule_key"] = str(definition.get("rule_key"))
+				details["permission_level"] = int(definition.get("permission_level"))
+			actions.append({
+				"id": ACTION_PREFIX_REWARD + option.option_id,
+				"kind": "BOSS_REWARD",
+				"target_id": option.option_id,
+				"draft_id": domain.state.reward_draft.draft_id,
+				"content_id": option.content_id,
+				"details": details,
+			})
 	return actions
 
 func _shop_actions() -> Array:

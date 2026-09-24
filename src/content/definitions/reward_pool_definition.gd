@@ -22,7 +22,7 @@ func definition_type_name() -> String:
 	return "RewardPoolDefinition"
 
 func expected_id_families() -> Array[String]:
-	return ["reward_pool", "shop_pool", "workshop_pool"]
+	return ["reward_pool", "shop_pool", "workshop_pool", "act_two"]
 
 func validate():
 	var report = super.validate()
@@ -31,12 +31,15 @@ func validate():
 	if not VALID_POOL_KINDS.has(pool_kind):
 		report.add_issue(_issue("invalid_pool_kind", "Content pools must declare a supported pool kind."))
 	var family: String = content_id.get_slice(".", 1)
-	var expected_family: String = {
-		REWARD: "reward_pool",
-		SHOP: "shop_pool",
-		WORKSHOP: "workshop_pool",
-	}.get(pool_kind, "")
-	if not expected_family.is_empty() and family != expected_family:
+	var expected_families: Array = {
+		REWARD: ["reward_pool", "act_two"],
+		SHOP: ["shop_pool"],
+		WORKSHOP: ["workshop_pool"],
+	}.get(pool_kind, [])
+	var valid_family := expected_families.is_empty() or family in expected_families
+	if family == "act_two":
+		valid_family = pool_kind == REWARD and content_id.get_slice(".", 0) == "alpha"
+	if not valid_family:
 		report.add_issue(_issue("invalid_pool_family", "Pool ID family must match its declared pool kind."))
 	var entry_ids: Dictionary = {}
 	for entry in entries:

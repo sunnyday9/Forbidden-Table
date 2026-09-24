@@ -5,14 +5,34 @@ const DeterministicSerializerScript = preload("res://src/infrastructure/serializ
 const ReplayCheckpointScript = preload("res://src/infrastructure/replay/replay_checkpoint.gd")
 const ReplayCommandFactoryScript = preload("res://src/infrastructure/replay/replay_command_factory.gd")
 const ReplayDivergenceReportScript = preload("res://src/infrastructure/replay/replay_divergence_report.gd")
+const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
+const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot_dto.gd")
 
 static func verify(record, replay_factory: Callable, expected_content_version: String = "", resume_factory: Callable = Callable()):
 	if record == null:
 		return ReplayDivergenceReportScript.new(ReplayDivergenceReportScript.DIVERGED, "MISSING_RECORD")
+	if record.schema_version != ReplayRecordScript.SCHEMA_VERSION:
+		return ReplayDivergenceReportScript.new(
+			ReplayDivergenceReportScript.UNAVAILABLE,
+			"REPLAY_SCHEMA_VERSION_UNAVAILABLE",
+			-1,
+			-1,
+			ReplayRecordScript.SCHEMA_VERSION,
+			record.schema_version,
+		)
+	if record.game_version != SnapshotDtoScript.GAME_VERSION:
+		return ReplayDivergenceReportScript.new(
+			ReplayDivergenceReportScript.UNAVAILABLE,
+			"GAME_VERSION_UNAVAILABLE",
+			-1,
+			-1,
+			SnapshotDtoScript.GAME_VERSION,
+			record.game_version,
+		)
 	if not expected_content_version.is_empty() and record.content_version != expected_content_version:
 		return ReplayDivergenceReportScript.new(
-			ReplayDivergenceReportScript.DIVERGED,
-			"CONTENT_VERSION_MISMATCH",
+			ReplayDivergenceReportScript.UNAVAILABLE,
+			"CONTENT_VERSION_UNAVAILABLE",
 			-1,
 			-1,
 			expected_content_version,

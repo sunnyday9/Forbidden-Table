@@ -5,10 +5,177 @@ const CharacterDefinitionScript = preload("res://src/content/definitions/charact
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
 const RewardDraftScript = preload("res://src/domain/run/reward_draft.gd")
 const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
+const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
+const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
+const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 
 const NORMAL := "NORMAL"
+const BOSS_RULE_BREAKER := RewardDraftScript.BOSS_RULE_BREAKER
+const ELITE_BUILD := RewardDraftScript.ELITE_BUILD
+
+func create_elite_build_draft(
+	run_state,
+	content_registry,
+	reward_rng,
+	encounter_id: String,
+	draft_index: int,
+	pool_id: String,
+	configured_skip_gold: int = 10,
+) -> RewardDraftScript:
+	var pool = content_registry.resolve(pool_id) if content_registry != null else null
+	if not pool is RewardPoolDefinitionScript:
+		return null
+	var owned_relics: Dictionary = {}
+	var owned_techniques: Dictionary = {}
+	if run_state != null and run_state.build_ownership != null:
+		for content_id in run_state.build_ownership.owned_relic_ids:
+			owned_relics[str(content_id)] = true
+		for content_id in run_state.build_ownership.run_technique_ids:
+			owned_techniques[str(content_id)] = true
+	var relic_candidates: Array = []
+	var technique_candidates: Array = []
+	for entry in pool.entries:
+		if not entry is Dictionary:
+			continue
+		var content_id := str(entry.get("content_id", ""))
+		var weight := int(entry.get("weight", 0))
+		if content_id.is_empty() or weight <= 0:
+			continue
+		var definition = content_registry.resolve(content_id)
+		if definition is RelicDefinitionScript and not owned_relics.has(content_id):
+			relic_candidates.append({"definition": definition, "weight": weight, "kind": RewardOptionScript.RELIC})
+		elif definition is TechniqueDefinitionScript and definition.technique_kind != TechniqueDefinitionScript.CORE and not owned_techniques.has(content_id):
+			technique_candidates.append({"definition": definition, "weight": weight, "kind": RewardOptionScript.RUN_TECHNIQUE})
+	relic_candidates.sort_custom(_candidate_order)
+	technique_candidates.sort_custom(_candidate_order)
+	if relic_candidates.is_empty() or technique_candidates.is_empty() or relic_candidates.size() + technique_candidates.size() < 3:
+		return null
+	var selected_candidates: Array = [
+		_take_weighted_candidate(relic_candidates, reward_rng),
+		_take_weighted_candidate(technique_candidates, reward_rng),
+	]
+	var remaining_candidates: Array = []
+	remaining_candidates.append_array(relic_candidates)
+	remaining_candidates.append_array(technique_candidates)
+	remaining_candidates.sort_custom(_candidate_order)
+	selected_candidates.append(_take_weighted_candidate(remaining_candidates, reward_rng))
+	if selected_candidates.has(null):
+		return null
+	var draft_id := "reward.elite.%s.%d" % [encounter_id, draft_index]
+	var options: Array = []
+	for candidate in selected_candidates:
+		var definition = candidate.definition
+		options.append(RewardOptionScript.new(
+			"%s.option.%d" % [draft_id, options.size()],
+			str(candidate.kind),
+			definition.content_id,
+		))
+	options.append(RewardOptionScript.new(
+		"%s.option.%d" % [draft_id, options.size()],
+		RewardOptionScript.SKIP,
+		RewardOptionScript.SKIP_CONTENT_ID,
+		"",
+		"",
+		"",
+		RewardOptionScript.NEUTRAL,
+		configured_skip_gold,
+	))
+	var reward_rng_state: Dictionary = reward_rng.snapshot() if reward_rng != null and reward_rng.has_method("snapshot") else {}
+	return RewardDraftScript.new(draft_id, ELITE_BUILD, encounter_id, "ELITE", options, reward_rng_state)
+
+func _take_weighted_candidate(candidates: Array, reward_rng) -> Dictionary:
+	if candidates.is_empty():
+		return {}
+	var total_weight := 0
+	for candidate in candidates:
+		total_weight += int(candidate.weight)
+	var roll: int = reward_rng.next_int(1, total_weight) if reward_rng != null else 1
+	var cumulative_weight := 0
+	for index in candidates.size():
+		cumulative_weight += int(candidates[index].weight)
+		if roll <= cumulative_weight:
+			return candidates.pop_at(index)
+	return {}
+
+func _candidate_order(left: Dictionary, right: Dictionary) -> bool:
+	return left.definition.content_id < right.definition.content_id
+
+func create_boss_rule_breaker_draft(
+	run_state,
+	content_registry,
+	reward_rng,
+	encounter_id: String,
+	draft_index: int,
+	pool_id: String,
+) -> RewardDraftScript:
+	var pool = content_registry.resolve(pool_id) if content_registry != null else null
+	if not pool is RewardPoolDefinitionScript:
+		return null
+	var owned_ids: Dictionary = {}
+	if run_state != null and run_state.build_ownership != null:
+		for identifier in run_state.build_ownership.acquired_rule_breaker_ids:
+			owned_ids[str(identifier)] = true
+	var candidates: Array = []
+	for entry in pool.entries:
+		if not entry is Dictionary:
+			continue
+		var content_id := str(entry.get("content_id", ""))
+		var definition = content_registry.resolve(content_id)
+		var weight := int(entry.get("weight", 0))
+		if content_id.is_empty() or weight <= 0 or owned_ids.has(content_id) or not definition is RuleBreakerDefinitionScript:
+			continue
+		candidates.append({"definition": definition, "weight": weight})
+	candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return left.definition.content_id < right.definition.content_id
+	)
+	if candidates.size() < 3:
+		return null
+
+	var draft_id := "reward.boss.%s.%d" % [encounter_id, draft_index]
+	var options: Array = []
+	while options.size() < 3 and not candidates.is_empty():
+		var total_weight := 0
+		for candidate in candidates:
+			total_weight += int(candidate.weight)
+		var roll: int = reward_rng.next_int(1, total_weight) if reward_rng != null else 1
+		var selected_index := -1
+		var cumulative_weight := 0
+		for index in candidates.size():
+			cumulative_weight += int(candidates[index].weight)
+			if roll <= cumulative_weight:
+				selected_index = index
+				break
+		if selected_index < 0:
+			return null
+		var selected: Dictionary = candidates.pop_at(selected_index)
+		var definition = selected.definition
+		var option_index := options.size()
+		options.append(RewardOptionScript.new(
+			"%s.option.%d" % [draft_id, option_index],
+			RewardOptionScript.RULE_BREAKER,
+			definition.content_id,
+			"",
+			"",
+			"",
+			RewardOptionScript.NEUTRAL,
+			0,
+			0,
+			{"rule_key": definition.rule_key, "permission_level": definition.permission_level},
+		))
+	if options.size() != 3:
+		return null
+	var reward_rng_state: Dictionary = reward_rng.snapshot() if reward_rng != null and reward_rng.has_method("snapshot") else {}
+	return RewardDraftScript.new(
+		draft_id,
+		RewardDraftScript.BOSS_RULE_BREAKER,
+		encounter_id,
+		"BOSS",
+		options,
+		reward_rng_state,
+	)
 
 func create_normal_draft(
 	run_state,

@@ -7,6 +7,9 @@ const CommandResultScript = preload("res://src/domain/commands/command_result.gd
 const CommandValidationScript = preload("res://src/domain/commands/command_validation.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
@@ -35,14 +38,12 @@ const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_insta
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
 const ShopOfferSelectorScript = preload("res://src/domain/run/shop_offer_selector.gd")
+const ShopStateScript = preload("res://src/domain/run/shop_state.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
-
-const ELITE_REWARD_CONTINUE_ID := "reward.elite.continue"
-const BOSS_REWARD_CONTINUE_ID := "reward.boss.continue"
 
 var state
 var content_registry
@@ -61,6 +62,7 @@ func _init(
 	domain_content_registry = null,
 	initial_content_version: String = "",
 	domain_rng_streams = null,
+	initial_act_count: int = 1,
 ) -> void:
 	content_registry = domain_content_registry if domain_content_registry != null else ContentRegistryScript.new()
 	var resolved_content_version := initial_content_version
@@ -73,9 +75,18 @@ func _init(
 	economy = RunEconomyScript.new()
 	shop_offer_selector = ShopOfferSelectorScript.new()
 	current_battle = null
-	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version)
+	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version, null, null, initial_act_count)
 	replay_record = ReplayRecordScript.new(initial_seed, resolved_content_version, initial_run_id)
 	replay_record.record_initial_checkpoint(checkpoint(), rng_snapshot(), _terminal_outcome())
+
+static func new_alpha_run(
+	initial_run_id: String = "run.1",
+	initial_seed: int = 13,
+	domain_content_registry = null,
+	initial_content_version: String = "",
+	domain_rng_streams = null,
+):
+	return RunDomain.new(initial_run_id, initial_seed, domain_content_registry, initial_content_version, domain_rng_streams, 2)
 
 func execute(command) -> RefCounted:
 	var result: RefCounted
@@ -102,7 +113,7 @@ func verify_replay(record = replay_record, resume_factory: Callable = Callable()
 		var replay_run_id: String = state.run_id
 		if record != null and not record.run_id.is_empty():
 			replay_run_id = record.run_id
-		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version)
+		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count)
 	return ReplayVerifierScript.verify(record, replay_factory, state.content_version, resume_factory)
 
 func validate_choose_character(selected_character_id: String) -> RefCounted:
@@ -1066,18 +1077,89 @@ func apply_battle_outcome() -> Array:
 			"run_id": state.run_id,
 			"draft": state.reward_draft.to_dictionary(),
 		}))
+	elif encounter_kind_before == EncounterDefinitionScript.ELITE:
+		var draft_index: int = state.reward_draft_sequence
+		state.reward_draft_sequence += 1
+		state.reward_draft = reward_draft_selector.create_elite_build_draft(
+			state,
+			content_registry,
+			rng_streams.reward,
+			encounter_id_before,
+			draft_index,
+			Phase2CatalogScript.REWARD_POOL_ID,
+			economy.elite_skip_gold,
+		)
+		if state.reward_draft != null:
+			events.append(DomainEventScript.new(DomainEventScript.REWARD_DRAFT_CREATED, {
+				"run_id": state.run_id,
+				"draft": state.reward_draft.to_dictionary(),
+			}))
+	elif encounter_kind_before == EncounterDefinitionScript.BOSS:
+		var draft_index: int = state.reward_draft_sequence
+		state.reward_draft_sequence += 1
+		var boss_reward_pool_id: String = Phase2CatalogScript.BOSS_RULE_BREAKER_POOL_ID
+		if state.act_index >= 2:
+			boss_reward_pool_id = AlphaActTwoCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_POOL_ID
+		state.reward_draft = reward_draft_selector.create_boss_rule_breaker_draft(
+			state,
+			content_registry,
+			rng_streams.reward,
+			encounter_id_before,
+			draft_index,
+			boss_reward_pool_id,
+		)
+		if state.reward_draft != null:
+			events.append(DomainEventScript.new(DomainEventScript.REWARD_DRAFT_CREATED, {
+				"run_id": state.run_id,
+				"draft": state.reward_draft.to_dictionary(),
+			}))
 	events.append(_run_phase_event(previous_phase, state.phase))
 	state.map_state.last_events = events
 	return events
 
 func validate_choose_reward(selected_draft_id: String, selected_option_id: String) -> RefCounted:
-	if state.phase == RunPhaseScript.ELITE_REWARD or state.phase == RunPhaseScript.BOSS_REWARD:
-		var expected_option_id := BOSS_REWARD_CONTINUE_ID if state.phase == RunPhaseScript.BOSS_REWARD else ELITE_REWARD_CONTINUE_ID
-		if not selected_draft_id.is_empty():
-			return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "Elite and Boss rewards do not use a normal reward draft.")
-		if selected_option_id != expected_option_id:
-			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected special reward option is not legal for this reward phase.", {"expected_option_id": expected_option_id})
-		return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"option_id": expected_option_id, "reward_phase": state.phase})
+	if state.phase == RunPhaseScript.ELITE_REWARD:
+		if state.reward_draft == null or state.reward_draft.draft_kind != RewardDraftSelectorScript.ELITE_BUILD:
+			return CommandValidationScript.new(false, "NO_REWARD_DRAFT", "There is no active Elite build reward draft.")
+		if selected_draft_id.is_empty() or selected_draft_id != state.reward_draft.draft_id:
+			return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "The selected Elite reward draft is not active.")
+		var elite_option = state.reward_draft.option_by_id(selected_option_id)
+		if elite_option == null:
+			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected Elite reward option is not in the active draft.")
+		if elite_option.kind == RewardOptionScript.SKIP:
+			if elite_option.content_id != RewardOptionScript.SKIP_CONTENT_ID or elite_option.gold_delta != economy.elite_skip_gold or elite_option.refinement_token_delta != 0:
+				return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "Elite Skip must grant only its configured Gold compensation.")
+			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id})
+		if elite_option.kind == RewardOptionScript.RELIC:
+			var relic = content_registry.resolve(elite_option.content_id)
+			if not relic is RelicDefinitionScript:
+				return CommandValidationScript.new(false, "INVALID_REWARD_CONTENT", "The Elite Relic option is not a registered RelicDefinition.")
+			if state.build_ownership.owned_relic_ids.has(relic.content_id):
+				return CommandValidationScript.new(false, "DUPLICATE_RELIC", "The Run already owns this Relic.")
+			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id, "content_id": relic.content_id})
+		if elite_option.kind == RewardOptionScript.RUN_TECHNIQUE:
+			var technique = content_registry.resolve(elite_option.content_id)
+			if not technique is TechniqueDefinitionScript or technique.technique_kind == TechniqueDefinitionScript.CORE:
+				return CommandValidationScript.new(false, "INVALID_REWARD_CONTENT", "The Elite Technique option is not a registered Run Technique.")
+			if state.build_ownership.run_technique_ids.has(technique.content_id):
+				return CommandValidationScript.new(false, "DUPLICATE_RUN_TECHNIQUE", "The Run already owns this Run Technique.")
+			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id, "content_id": technique.content_id})
+		return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected option is not a legal Elite reward.")
+	if state.phase == RunPhaseScript.BOSS_REWARD:
+		if state.reward_draft == null or state.reward_draft.draft_kind != RewardDraftSelectorScript.BOSS_RULE_BREAKER:
+			return CommandValidationScript.new(false, "NO_REWARD_DRAFT", "There is no active Boss Rule Breaker draft.")
+		var draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
+		if draft_id != state.reward_draft.draft_id:
+			return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "The selected Boss reward draft is not active.")
+		var option = state.reward_draft.option_by_id(selected_option_id)
+		if option == null or option.kind != RewardOptionScript.RULE_BREAKER:
+			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected Rule Breaker is not in the active Boss draft.")
+		var definition = content_registry.resolve(option.content_id)
+		if not definition is RuleBreakerDefinitionScript:
+			return CommandValidationScript.new(false, "INVALID_REWARD_CONTENT", "The selected Boss reward is not a registered RuleBreakerDefinition.")
+		if state.build_ownership.acquired_rule_breaker_ids.has(definition.content_id):
+			return CommandValidationScript.new(false, "DUPLICATE_RULE_BREAKER", "The Run already owns this Rule Breaker.")
+		return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": draft_id, "option_id": selected_option_id, "rule_breaker_id": definition.content_id})
 	if state.phase != RunPhaseScript.REWARD_CHOICE:
 		return _invalid_phase(RunPhaseScript.REWARD_CHOICE)
 	if state.reward_draft == null:
@@ -1094,30 +1176,74 @@ func validate_choose_reward(selected_draft_id: String, selected_option_id: Strin
 	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": draft_id, "option_id": selected_option_id})
 
 func execute_choose_reward(selected_draft_id: String, selected_option_id: String) -> Dictionary:
-	if state.phase == RunPhaseScript.ELITE_REWARD or state.phase == RunPhaseScript.BOSS_REWARD:
+	if state.phase == RunPhaseScript.ELITE_REWARD:
+		var elite_draft = state.reward_draft
+		var option = elite_draft.option_by_id(selected_option_id)
 		var previous_phase: String = state.phase
-		var expected_option_id := BOSS_REWARD_CONTINUE_ID if previous_phase == RunPhaseScript.BOSS_REWARD else ELITE_REWARD_CONTINUE_ID
-		var events: Array = [DomainEventScript.new(DomainEventScript.REWARD_SELECTED, {
+		var events: Array = []
+		var currency_transactions: Array = []
+		if option.kind == RewardOptionScript.RELIC:
+			state.build_ownership.owned_relic_ids.append(option.content_id)
+		elif option.kind == RewardOptionScript.RUN_TECHNIQUE:
+			state.build_ownership.run_technique_ids.append(option.content_id)
+		elif option.kind == RewardOptionScript.SKIP:
+			var skip_transaction: Dictionary = economy.apply_source(state, RunEconomyScript.GOLD, option.gold_delta, RunEconomyScript.SOURCE_ELITE_REWARD)
+			if skip_transaction.is_empty():
+				return {"accepted": false, "status": "CURRENCY_SOURCE_REJECTED", "message": "The configured Elite Skip compensation could not be applied."}
+			currency_transactions.append(skip_transaction)
+			_events_for_currency_transaction(events, skip_transaction)
+		var reward_data := {
 			"run_id": state.run_id,
-			"option_id": expected_option_id,
+			"draft_id": elite_draft.draft_id,
+			"option_id": option.option_id,
+			"kind": option.kind,
+			"content_id": option.content_id,
 			"reward_phase": previous_phase,
-		})]
-		var data := {
-			"option_id": expected_option_id,
+			"currency_transactions": currency_transactions.duplicate(true),
+		}
+		state.reward_draft = null
+		state.phase = RunPhaseScript.MAP_CHOICE
+		reward_data["phase"] = state.phase
+		events.append(DomainEventScript.new(DomainEventScript.REWARD_SELECTED, reward_data.duplicate(true)))
+		events.append(_run_phase_event(previous_phase, state.phase))
+		state.map_state.last_events = events
+		return {"accepted": true, "status": CommandResultScript.ACCEPTED, "events": events, "data": reward_data}
+	if state.phase == RunPhaseScript.BOSS_REWARD:
+		var boss_draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
+		var selected_option = state.reward_draft.option_by_id(selected_option_id) if state.reward_draft != null else null
+		if selected_option == null or selected_option.kind != RewardOptionScript.RULE_BREAKER:
+			return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected Rule Breaker is not in the active Boss draft."}
+		var rule_breaker = content_registry.resolve(selected_option.content_id)
+		if not rule_breaker is RuleBreakerDefinitionScript or state.build_ownership.acquired_rule_breaker_ids.has(rule_breaker.content_id):
+			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The selected Boss Rule Breaker is unavailable."}
+		var previous_phase: String = state.phase
+		state.build_ownership.acquired_rule_breaker_ids.append(rule_breaker.content_id)
+		state.reward_draft = null
+		var reward_data := {
+			"run_id": state.run_id,
+			"draft_id": boss_draft_id,
+			"option_id": selected_option.option_id,
+			"kind": RewardOptionScript.RULE_BREAKER,
+			"content_id": rule_breaker.content_id,
+			"rule_key": rule_breaker.rule_key,
+			"permission_level": rule_breaker.permission_level,
 			"reward_phase": previous_phase,
 		}
-		if previous_phase == RunPhaseScript.BOSS_REWARD:
-			events.append_array(enter_run_summary("VICTORY", "BOSS_DEFEATED", {"reward_option_id": expected_option_id}))
+		var boss_events: Array = [DomainEventScript.new(DomainEventScript.REWARD_SELECTED, reward_data)]
+		if state.act_index < state.act_count:
+			boss_events.append_array(_transition_to_act_two(previous_phase))
 		else:
-			state.phase = RunPhaseScript.MAP_CHOICE
-			events.append(_run_phase_event(previous_phase, state.phase))
-		data["phase"] = state.phase
-		state.map_state.last_events = events
+			boss_events.append_array(enter_run_summary("VICTORY", "BOSS_DEFEATED", {
+				"act_index": state.act_index,
+				"reward_option_id": selected_option.option_id,
+				"rule_breaker_id": rule_breaker.content_id,
+			}))
+		state.map_state.last_events = boss_events
 		return {
 			"accepted": true,
 			"status": CommandResultScript.ACCEPTED,
-			"events": events,
-			"data": data,
+			"events": boss_events,
+			"data": reward_data.merged({"phase": state.phase}),
 		}
 	var draft_id: String = selected_draft_id if not selected_draft_id.is_empty() else state.reward_draft.draft_id
 	var option = state.reward_draft.option_by_id(selected_option_id) if state.reward_draft != null else null
@@ -1353,6 +1479,42 @@ func _reward_phase_for_encounter(encounter_kind: String) -> String:
 	if encounter_kind == EncounterDefinitionScript.BOSS:
 		return RunPhaseScript.BOSS_REWARD
 	return RunPhaseScript.REWARD_CHOICE
+
+func _transition_to_act_two(previous_phase: String) -> Array:
+	var events: Array = _clear_act_boundary_effects()
+	state.act_index = 2
+	map_definition = MiniActMapCatalogScript.act_two_definition()
+	state.map_state.initialize(map_definition, rng_streams.map)
+	state.current_battle_snapshot = null
+	current_battle = null
+	state.shop_state = ShopStateScript.new()
+	state.workshop_state = WorkshopStateScript.new()
+	state.event_state = EventStateScript.new()
+	state.phase = RunPhaseScript.MAP_CHOICE
+	events.append(DomainEventScript.new(DomainEventScript.ACT_TRANSITIONED, {
+		"run_id": state.run_id,
+		"from_act": 1,
+		"to_act": state.act_index,
+		"map_definition_id": map_definition.content_id,
+	}))
+	events.append(_run_phase_event(previous_phase, state.phase))
+	return events
+
+func _clear_act_boundary_effects() -> Array:
+	var events: Array = []
+	var effect_keys: Array = state.active_effects.keys()
+	effect_keys.sort()
+	for effect_key in effect_keys:
+		var effect = state.active_effects.get(effect_key)
+		if not effect is ActiveEffectInstanceScript or not [DurationSpecScript.BATTLE, DurationSpecScript.ACT].has(effect.duration_scope):
+			continue
+		state.active_effects.erase(effect_key)
+		events.append(DomainEventScript.new(DomainEventScript.EFFECT_REMOVED, {
+			"effect_id": effect.definition_id,
+			"removed_effect_id": effect.instance_id,
+			"reason": "act_transition",
+		}))
+	return events
 
 func enter_run_summary(outcome: String, reason: String = "", summary_data: Dictionary = {}) -> Array:
 	if state.phase == RunPhaseScript.RUN_SUMMARY or state.phase == RunPhaseScript.RUN_COMPLETE:

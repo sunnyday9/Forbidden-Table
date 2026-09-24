@@ -38,7 +38,9 @@ func run() -> Array[String]:
 	test_replay_excludes_rejected_and_preview_commands(failures)
 	test_identical_replay_reproduces_checkpoints_and_terminal_outcome(failures)
 	test_changed_command_is_structured_divergence(failures)
-	test_changed_content_version_is_structured_divergence(failures)
+	test_replay_game_and_schema_versions_are_validated(failures)
+	test_unavailable_content_version_is_structured(failures)
+	test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures)
 	test_rng_divergence_is_structured(failures)
 	test_run_domain_records_only_accepted_commands_and_events(failures)
 	test_run_replay_is_byte_stable_and_reproducible(failures)
@@ -108,13 +110,49 @@ func test_changed_command_is_structured_divergence(failures: Array[String]) -> v
 	assert_true(report.is_diverged(), "a changed command diverges", failures)
 	assert_true(report.reason == "COMMAND_MISMATCH", "command divergence has a structured reason", failures)
 
-func test_changed_content_version_is_structured_divergence(failures: Array[String]) -> void:
+func test_unavailable_content_version_is_structured(failures: Array[String]) -> void:
 	var controller := BattleController.new(13, "content.replay.test")
 	controller.replay_record.content_version = "content.replay.changed"
 	var report = controller.verify_replay()
 
-	assert_true(report.is_diverged(), "a changed content version diverges", failures)
-	assert_true(report.reason == "CONTENT_VERSION_MISMATCH", "content divergence has a structured reason", failures)
+	assert_true(report.is_unavailable(), "a missing matching content version makes replay unavailable", failures)
+	assert_true(report.reason == "CONTENT_VERSION_UNAVAILABLE", "unavailable replay has a distinct structured reason", failures)
+
+func test_replay_game_and_schema_versions_are_validated(failures: Array[String]) -> void:
+	var record := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture")
+	var record_data: Dictionary = record.to_dictionary()
+	assert_true(record_data.get("game_version", "") == "game.phase2.v1", "ReplayRecord stores the specified game version", failures)
+	var round_tripped = ReplayRecord.from_dictionary(record_data)
+	assert_true(round_tripped.to_dictionary() == record_data, "ReplayRecord game-version metadata round-trips", failures)
+
+	var unsupported_game := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture", "game.unavailable")
+	var unsupported_game_serialization := unsupported_game.serialize()
+	var game_report = ReplayVerifier.verify(unsupported_game, Callable())
+	assert_true(game_report.is_unavailable() and game_report.reason == "GAME_VERSION_UNAVAILABLE", "replay verification rejects an unavailable game version", failures)
+	assert_true(unsupported_game.serialize() == unsupported_game_serialization, "game-version rejection leaves the replay record unchanged", failures)
+
+	var missing_game_data: Dictionary = record_data.duplicate(true)
+	missing_game_data.erase("game_version")
+	var missing_game = ReplayRecord.from_dictionary(missing_game_data)
+	var missing_game_report = ReplayVerifier.verify(missing_game, Callable())
+	assert_true(missing_game.game_version.is_empty(), "a missing legacy game version is not silently defaulted", failures)
+	assert_true(missing_game_report.is_unavailable() and missing_game_report.reason == "GAME_VERSION_UNAVAILABLE", "a replay without a game version reports reproduction unavailable", failures)
+	assert_true(not missing_game_data.has("game_version"), "decoding an unversioned replay does not rewrite its source record", failures)
+
+	var unsupported_schema := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture")
+	unsupported_schema.schema_version = 99
+	var schema_report = ReplayVerifier.verify(unsupported_schema, Callable())
+	assert_true(schema_report.is_unavailable() and schema_report.reason == "REPLAY_SCHEMA_VERSION_UNAVAILABLE", "replay verification rejects an unavailable schema version", failures)
+
+func test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures: Array[String]) -> void:
+	var record := ReplayRecord.new(2039, "content.slice.v1", "phase2.v1.fixture")
+	var original_serialization := record.serialize()
+	var report = ReplayVerifier.verify(record, Callable(), "content.slice.v2")
+	assert_true(report.is_unavailable(), "a v1 replay cannot claim reproduction under the active v2 bundle", failures)
+	assert_true(report.status == "UNAVAILABLE", "a missing historical bundle has a distinct structured status", failures)
+	assert_true(report.reason == "CONTENT_VERSION_UNAVAILABLE", "an unavailable v1 replay bundle is not misreported as behavioral divergence", failures)
+	assert_true(record.content_version == "content.slice.v1", "verification does not relabel the original replay content version", failures)
+	assert_true(record.serialize() == original_serialization, "verification does not rewrite the old replay record", failures)
 
 func test_run_domain_records_only_accepted_commands_and_events(failures: Array[String]) -> void:
 	var domain := _run_domain("replay.run.accepted", 9001)

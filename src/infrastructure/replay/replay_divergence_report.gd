@@ -3,6 +3,7 @@ extends RefCounted
 
 const MATCH := "MATCH"
 const DIVERGED := "DIVERGED"
+const UNAVAILABLE := "UNAVAILABLE"
 
 var status: String
 var reason: String
@@ -34,6 +35,9 @@ func is_match() -> bool:
 
 func is_diverged() -> bool:
 	return status == DIVERGED
+
+func is_unavailable() -> bool:
+	return status == UNAVAILABLE
 
 func to_dictionary() -> Dictionary:
 	return {

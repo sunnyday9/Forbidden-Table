@@ -16,6 +16,7 @@ const SINK_EVENT_TRADE := "EVENT_TRADE"
 const SINK_RULE_BREAKER_REFINEMENT := "RULE_BREAKER_REFINEMENT"
 
 const DEFAULT_NORMAL_SKIP_GOLD := 5
+const DEFAULT_ELITE_SKIP_GOLD := 10
 const DEFAULT_SHOP_OFFER_COUNT := 5
 const DEFAULT_SHOP_BASE_REFRESH_ALLOWANCE := 1
 const DEFAULT_SHOP_RELIC_PRICE := 10
@@ -30,6 +31,7 @@ const DEFAULT_WORKSHOP_MINIMUM_POOL_SIZE := 1
 const DEFAULT_TILE_COPY_LIMIT := 4
 
 var normal_skip_gold: int
+var elite_skip_gold: int
 var shop_offer_count: int
 var shop_base_refresh_allowance: int
 var shop_relic_price: int
@@ -47,8 +49,10 @@ var tile_copy_limit: int
 func _init(
 	configured_normal_skip_gold: int = DEFAULT_NORMAL_SKIP_GOLD,
 	configured_shop_base_refresh_allowance: int = DEFAULT_SHOP_BASE_REFRESH_ALLOWANCE,
+	configured_elite_skip_gold: int = DEFAULT_ELITE_SKIP_GOLD,
 ) -> void:
 	normal_skip_gold = maxi(0, configured_normal_skip_gold)
+	elite_skip_gold = maxi(0, configured_elite_skip_gold)
 	shop_offer_count = DEFAULT_SHOP_OFFER_COUNT
 	shop_base_refresh_allowance = maxi(0, configured_shop_base_refresh_allowance)
 	shop_relic_price = DEFAULT_SHOP_RELIC_PRICE

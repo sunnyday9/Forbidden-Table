@@ -27,6 +27,8 @@ const Phase2FoundationsTest = preload("res://tests/phase_2_foundations_test.gd")
 const RunDomainTest = preload("res://tests/run_domain_test.gd")
 const MapNavigationTest = preload("res://tests/map_navigation_test.gd")
 const BattleIntegrationTest = preload("res://tests/battle_integration_test.gd")
+const BossRuleBreakerRewardTest = preload("res://tests/boss_rule_breaker_reward_test.gd")
+const EliteRewardTest = preload("res://tests/elite_reward_test.gd")
 const RewardEconomyTest = preload("res://tests/reward_economy_test.gd")
 const ShopWorkshopTest = preload("res://tests/shop_workshop_test.gd")
 const EventsTest = preload("res://tests/events_test.gd")
@@ -34,6 +36,9 @@ const ContaminationTest = preload("res://tests/contamination_test.gd")
 const ContentCatalogTest = preload("res://tests/content_catalog_test.gd")
 const PersistenceTest = preload("res://tests/persistence_test.gd")
 const Stage2ExitReviewTest = preload("res://tests/stage2_exit_review_test.gd")
+const AlphaSimulationTest = preload("res://tests/alpha_simulation_test.gd")
+const AlphaSimulationCoverageTest = preload("res://tests/alpha_simulation_coverage_test.gd")
+const AlphaFixedRunBenchmarkTest = preload("res://tests/alpha_fixed_run_benchmark_test.gd")
 
 func _init() -> void:
 	var content_registry_only := "--content-registry" in OS.get_cmdline_args()
@@ -64,6 +69,8 @@ func _init() -> void:
 	var run_domain_only := "--run-domain" in OS.get_cmdline_args()
 	var map_only := "--map" in OS.get_cmdline_args()
 	var battle_integration_only := "--battle-integration" in OS.get_cmdline_args()
+	var boss_rule_breaker_reward_only := "--boss-rule-breaker-reward" in OS.get_cmdline_args()
+	var elite_reward_only := "--elite-reward" in OS.get_cmdline_args()
 	var reward_economy_only := "--reward-economy" in OS.get_cmdline_args()
 	var shop_workshop_only := "--shop-workshop" in OS.get_cmdline_args()
 	var events_only := "--events" in OS.get_cmdline_args()
@@ -73,11 +80,13 @@ func _init() -> void:
 	var presentation_only := "--presentation" in OS.get_cmdline_args()
 	var onboarding_only := "--onboarding" in OS.get_cmdline_args()
 	var stage2_exit_review_only := "--stage2-exit-review" in OS.get_cmdline_args()
+	var alpha_simulation_only := "--alpha-simulation" in OS.get_cmdline_args()
+	var alpha_fixed_benchmark_only := "--alpha-fixed-run-benchmark" in OS.get_cmdline_args()
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_fixed_benchmark_only
 	)
 	var failures: Array[String] = []
 	if not focused_test_requested:
@@ -138,6 +147,10 @@ func _init() -> void:
 		failures.append_array(MapNavigationTest.new().run())
 	if not focused_test_requested or battle_integration_only:
 		failures.append_array(BattleIntegrationTest.new().run())
+	if not focused_test_requested or boss_rule_breaker_reward_only:
+		failures.append_array(BossRuleBreakerRewardTest.new().run())
+	if not focused_test_requested or elite_reward_only:
+		failures.append_array(EliteRewardTest.new().run())
 	if not focused_test_requested or reward_economy_only:
 		failures.append_array(RewardEconomyTest.new().run())
 	if not focused_test_requested or shop_workshop_only:
@@ -152,6 +165,11 @@ func _init() -> void:
 		failures.append_array(PersistenceTest.new().run())
 	if stage2_exit_review_only:
 		failures.append_array(Stage2ExitReviewTest.new().run())
+	if alpha_simulation_only:
+		failures.append_array(AlphaSimulationTest.new().run())
+		failures.append_array(AlphaSimulationCoverageTest.new().run())
+	if alpha_fixed_benchmark_only or not focused_test_requested:
+		failures.append_array(AlphaFixedRunBenchmarkTest.new().run())
 	if not focused_test_requested or presentation_only or onboarding_only:
 		var presentation_test_script = load("res://tests/run_presentation_test.gd")
 		if presentation_test_script == null or not presentation_test_script.can_instantiate():
@@ -219,6 +237,8 @@ func _init() -> void:
 			print("PASS: map navigation tests")
 		elif battle_integration_only:
 			print("PASS: battle integration tests")
+		elif elite_reward_only:
+			print("PASS: Elite reward tests")
 		elif reward_economy_only:
 			print("PASS: reward and economy tests")
 		elif shop_workshop_only:
@@ -237,6 +257,10 @@ func _init() -> void:
 			print("PASS: onboarding tests")
 		elif stage2_exit_review_only:
 			print("PASS: Stage 2 exit review evidence")
+		elif alpha_simulation_only:
+			print("PASS: deterministic Alpha simulation harness tests")
+		elif alpha_fixed_benchmark_only:
+			print("PASS: fixed Alpha complete-Run benchmark tests")
 		else:
 			print("PASS: full domain, presentation, and Intent Graph test suite")
 		quit(0)

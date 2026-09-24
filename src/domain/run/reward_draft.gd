@@ -1,6 +1,9 @@
 class_name RewardDraft
 extends RefCounted
 
+const BOSS_RULE_BREAKER := "BOSS_RULE_BREAKER"
+const ELITE_BUILD := "ELITE_BUILD"
+
 var draft_id: String
 var draft_kind: String
 var encounter_id: String

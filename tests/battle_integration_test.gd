@@ -14,6 +14,9 @@ const IntentGraph = preload("res://src/domain/combat/intent_graph.gd")
 const IntentTransition = preload("res://src/domain/combat/intent_transition.gd")
 const PublicStateCondition = preload("res://src/domain/combat/public_state_condition.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
+const RewardPoolDefinition = preload("res://src/content/definitions/reward_pool_definition.gd")
+const RuleBreakerDefinition = preload("res://src/content/definitions/rule_breaker_definition.gd")
+const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
@@ -158,6 +161,7 @@ func test_boss_phases_are_explicit_and_deterministic(failures: Array[String]) ->
 	assert_true(final_phase_result_2.terminal_outcome == CombatState.VICTORY, "only the final Boss phase produces Victory", failures)
 	first_domain.apply_battle_outcome()
 	assert_true(first_domain.state.phase == RunPhase.BOSS_REWARD, "Boss victory opens BOSS_REWARD", failures)
+	assert_true(first_domain.state.reward_draft != null and first_domain.state.reward_draft.options.size() == 3, "Boss victory creates a three-choice Rule Breaker draft", failures)
 
 func test_factory_rejects_invalid_enemy_without_mutation(failures: Array[String]) -> void:
 	var registry := _registry()
@@ -240,6 +244,17 @@ func _registry() -> ContentRegistry:
 		"base.encounter.boss",
 		["base.boss.table_breaker"],
 		EncounterDefinition.BOSS,
+	))
+	var boss_reward_entries: Array = []
+	for index in Phase2Catalog.BOSS_RULE_BREAKER_IDS.size():
+		var rule_breaker_id: String = Phase2Catalog.BOSS_RULE_BREAKER_IDS[index]
+		registry.register(RuleBreakerDefinition.new(rule_breaker_id, "TEST_RULE_%d" % index, 1))
+		boss_reward_entries.append({"content_id": rule_breaker_id, "weight": 1})
+	registry.register(RewardPoolDefinition.new(
+		Phase2Catalog.BOSS_RULE_BREAKER_POOL_ID,
+		boss_reward_entries,
+		[],
+		RewardPoolDefinition.REWARD,
 	))
 	return registry
 

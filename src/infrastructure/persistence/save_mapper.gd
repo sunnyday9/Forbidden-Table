@@ -4,9 +4,12 @@ extends RefCounted
 const SuspendSnapshotScript = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
 const RunRecordScript = preload("res://src/infrastructure/persistence/run_record.gd")
 const MigrationPipelineScript = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
+const ContentVersionMigrationScript = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const LoadValidatorScript = preload("res://src/infrastructure/persistence/load_validator.gd")
+const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
@@ -36,12 +39,18 @@ static func run_record(domain, checkpoint_metadata: Dictionary = {}):
 	return RunRecordScript.new(snapshot.content_version, snapshot.run_id, snapshot.run_seed, snapshot.authoritative_state, snapshot.rng_state, snapshot.checkpoint_metadata)
 
 static func load_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, false)
+
+static func load_phase2_v1_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, true)
+
+static func _load_into_domain(serialized, content_registry, allow_explicit_content_migration: bool) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
-		var json = JSON.parse_string(serialized)
-		if not json is Dictionary:
-			return _reject("PARSE_FAILED")
-		parsed = json
+		var json_parse := JsonIntegerCodecScript.parse(serialized)
+		if not json_parse.accepted or not json_parse.data is Dictionary:
+			return _reject(str(json_parse.get("code", "PARSE_FAILED")))
+		parsed = json_parse.data
 	elif serialized is Dictionary:
 		parsed = serialized.duplicate(true)
 	else:
@@ -51,20 +60,31 @@ static func load_into_domain(serialized, content_registry, _target_domain = null
 	if not migrated.accepted:
 		return migrated
 	var data: Dictionary = migrated.data
+	var pipeline: Array[String] = ["Parse", "Schema Migration"]
+	if allow_explicit_content_migration:
+		var content_migration := ContentVersionMigrationScript.migrate_phase2_v1_suspend_snapshot(data, content_registry)
+		if not content_migration.accepted:
+			return content_migration
+		data = content_migration.data
+		pipeline.append(content_migration.migration)
 	var validation := LoadValidatorScript.new().validate(data, content_registry)
 	if not validation.accepted:
-		return {"accepted": false, "code": "VALIDATION_FAILED", "errors": validation.errors}
+		return {"accepted": false, "code": "VALIDATION_FAILED", "errors": validation.errors, "pipeline": pipeline.duplicate()}
 	# Content IDs are resolved by the validator before any runtime object is constructed.
 	var state = _state_from_dictionary(data.get("authoritative_state", data.get("run_state", {})), data)
 	var domain := RunDomainScript.new(str(data.run_id), int(data.run_seed), content_registry, str(data.content_version))
 	domain.state = state
+	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index)
+	if domain.map_definition == null:
+		return _reject("INVALID_ACT_INDEX")
 	if state.phase == RunPhaseScript.BATTLE:
 		var battle_reconstruction := _reconstruct_battle(domain)
 		if not battle_reconstruction.accepted:
 			return battle_reconstruction
 	if not domain.rng_streams.restore(data.rng_state):
 		return _reject("INVALID_RNG_STATE")
-	return {"accepted": true, "domain": domain, "snapshot": SuspendSnapshotScript.from_dictionary(data), "pipeline": ["Parse", "Migrate", "Validate", "Resolve Content IDs", "Reconstruct"]}
+	pipeline.append_array(["Validate", "Resolve Content IDs", "Reconstruct"])
+	return {"accepted": true, "domain": domain, "snapshot": SuspendSnapshotScript.from_dictionary(data), "pipeline": pipeline}
 
 static func _reconstruct_battle(domain) -> Dictionary:
 	var node = domain.map_definition.node_definition(domain.state.map_state.current_node_id)
@@ -87,6 +107,8 @@ static func load(serialized, content_registry) -> Dictionary:
 static func _state_from_dictionary(data: Dictionary, envelope: Dictionary):
 	var state := RunStateScript.new(str(envelope.get("run_id", data.get("run_id", ""))), int(envelope.get("run_seed", data.get("seed", 0))), str(envelope.get("content_version", data.get("content_version", ""))))
 	state.phase = str(data.get("phase", state.phase))
+	state.act_index = int(data.get("act_index", 1))
+	state.act_count = int(data.get("act_count", 1))
 	state.character_id = str(data.get("character_id", ""))
 	state.contract_id = str(data.get("contract_id", ""))
 	state.gold = int(data.get("gold", 0))

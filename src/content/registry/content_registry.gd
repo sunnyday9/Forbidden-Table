@@ -4,7 +4,7 @@ extends RefCounted
 const ContentValidationIssueScript = preload("res://src/content/validation/content_validation_issue.gd")
 const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
-const CONTENT_VERSION := "content.slice.v1"
+const CONTENT_VERSION := "content.slice.v2"
 
 var _definitions: Dictionary = {}
 

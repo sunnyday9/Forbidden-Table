@@ -17,6 +17,8 @@ const EventStateScript = preload("res://src/domain/run/event_state.gd")
 var run_id: String
 var seed: int
 var content_version: String
+var act_index: int
+var act_count: int
 var phase: String
 var character_id: String
 var contract_id: String
@@ -42,10 +44,13 @@ func _init(
 	initial_content_version: String,
 	initial_tile_pool: RunTilePoolState = null,
 	initial_current_battle_snapshot: RefCounted = null,
+	initial_act_count: int = 1,
 ) -> void:
 	run_id = initial_run_id
 	seed = initial_seed
 	content_version = initial_content_version
+	act_index = 1
+	act_count = initial_act_count
 	phase = RunPhaseScript.CHARACTER_SELECT
 	character_id = ""
 	contract_id = ""
@@ -70,6 +75,8 @@ func to_dictionary() -> Dictionary:
 		"run_id": run_id,
 		"seed": seed,
 		"content_version": content_version,
+		"act_index": act_index,
+		"act_count": act_count,
 		"phase": phase,
 		"character_id": character_id,
 		"contract_id": contract_id,

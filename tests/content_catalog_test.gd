@@ -4,6 +4,7 @@ extends RefCounted
 const CharacterDefinition = preload("res://src/content/definitions/character_definition.gd")
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const Effect = preload("res://src/domain/effects/effect.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
@@ -13,6 +14,7 @@ const EnemyIntent = preload("res://src/domain/combat/enemy_intent.gd")
 const IntentTransition = preload("res://src/domain/combat/intent_transition.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
+const RuleBreakerDefinition = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const RewardPoolDefinition = preload("res://src/content/definitions/reward_pool_definition.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const TileModifierDefinition = preload("res://src/content/definitions/tile_modifier_definition.gd")
@@ -26,6 +28,8 @@ func run() -> Array[String]:
 	test_characters_and_contracts_expose_distinct_planning_paths(failures)
 	test_typed_content_and_data_driven_encounters_are_registered(failures)
 	test_boss_exposes_the_three_public_phases(failures)
+	test_boss_reward_rule_breakers_are_registered_and_typed(failures)
+	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
 	test_no_core_code_content_can_be_added_and_validated(failures)
@@ -37,7 +41,7 @@ func test_lower_bound_catalog_registers_and_validates(failures: Array[String]) -
 	assert_true(registration.is_valid(), "the lower-bound catalog registers every definition", failures)
 	var validation = registry.validate()
 	assert_true(validation.is_valid(), "the lower-bound catalog passes ContentRegistry validation", failures)
-	assert_true(registry.content_version() == "content.slice.v1", "the catalog uses the Phase 2 content version", failures)
+	assert_true(registry.content_version() == "content.slice.v2", "the catalog versions the Phase 2 Boss reward content", failures)
 
 func test_catalog_ids_and_roles_match_phase_2(failures: Array[String]) -> void:
 	assert_true(Phase2Catalog.CHARACTER_IDS == [
@@ -149,6 +153,65 @@ func test_boss_exposes_the_three_public_phases(failures: Array[String]) -> void:
 		phase_ids.append(str(phase.get("phase_id", "")))
 		assert_true(phase.get("intent_graph") is IntentGraph and phase["intent_graph"].validation().is_valid(), "Boss phase %s has a valid public Intent Graph" % phase.get("phase_id", ""), failures)
 	assert_true(phase_ids == ["tempo", "table_interference", "rule_breaker"], "Boss phase IDs expose the required public roles", failures)
+
+func test_boss_reward_rule_breakers_are_registered_and_typed(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	assert_true(Phase2Catalog.BOSS_RULE_BREAKER_IDS.size() == 3, "the Phase 2 Boss pool contains exactly three Rule Breaker choices", failures)
+	for identifier in Phase2Catalog.BOSS_RULE_BREAKER_IDS:
+		var definition = registry.resolve(identifier)
+		assert_true(definition is RuleBreakerDefinition, "%s resolves to a RuleBreakerDefinition" % identifier, failures)
+		if definition is RuleBreakerDefinition:
+			assert_true(not definition.rule_key.is_empty() and definition.permission_level > 0, "%s declares its table-rule dimension and permission" % identifier, failures)
+			assert_true(not definition.effects.is_empty(), "%s carries its configured typed rule effect" % identifier, failures)
+			_assert_all_typed_effects(definition.effects, identifier, failures)
+	var boss_pool = registry.resolve(Phase2Catalog.BOSS_RULE_BREAKER_POOL_ID)
+	assert_true(boss_pool is RewardPoolDefinition, "Boss Rule Breakers use the existing typed reward-pool architecture", failures)
+	if boss_pool is RewardPoolDefinition:
+		var expected_ids: Array = Phase2Catalog.BOSS_RULE_BREAKER_IDS.duplicate()
+		expected_ids.sort()
+		assert_true(boss_pool.entry_ids() == expected_ids, "the Boss reward pool exposes the three stable Rule Breaker IDs", failures)
+
+func test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var act_one_ids: Array = Phase2Catalog.BOSS_RULE_BREAKER_IDS.duplicate()
+	var first_act_two_membership: Dictionary = AlphaActTwoCatalog.pool_membership()
+	var second_act_two_membership: Dictionary = AlphaActTwoCatalog.pool_membership()
+	var registration = AlphaActTwoCatalog.register_all(registry)
+	assert_true(registration.is_valid(), "the Act 2 content catalog registers successfully", failures)
+	assert_true(registry.validate().is_valid(), "the combined Phase 2 and Act 2 catalogs pass typed content validation", failures)
+	assert_true(first_act_two_membership == second_act_two_membership, "Act 2 pool membership is stable across calls", failures)
+	assert_true(AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS == [
+		"alpha.rule_breaker.act_two.settlement_capacity",
+		"alpha.rule_breaker.act_two.reserve_capacity",
+		"alpha.rule_breaker.act_two.draw_actions",
+	], "the catalog registers exactly the three stable Act 2 Rule Breaker IDs", failures)
+	assert_true(AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.size() == 3, "the Act 2 content budget adds exactly three Rule Breaker definitions", failures)
+	assert_true(act_one_ids.size() + AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.size() == 6, "the two Boss pools define the six unique Alpha Rule Breakers", failures)
+	for identifier in AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS:
+		var definition = registry.resolve(identifier)
+		assert_true(definition is RuleBreakerDefinition, "%s resolves to a typed RuleBreakerDefinition" % identifier, failures)
+		if definition is RuleBreakerDefinition:
+			assert_true(not definition.effects.is_empty(), "%s has a typed Rule Breaker effect" % identifier, failures)
+			_assert_all_typed_effects(definition.effects, identifier, failures)
+		assert_true(not act_one_ids.has(identifier), "the Act 2 ID is distinct from the unchanged Phase 2 Act 1 pool", failures)
+	var act_two_pool = registry.resolve(AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_POOL_ID)
+	assert_true(act_two_pool is RewardPoolDefinition, "the Act 2 eligibility pool uses the existing typed RewardPoolDefinition", failures)
+	if act_two_pool is RewardPoolDefinition:
+		var expected_ids: Array = AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
+		expected_ids.sort()
+		assert_true(act_two_pool.entry_ids() == expected_ids, "the Act 2 pool contains exactly the three Act 2 Rule Breakers", failures)
+	var invalid_act_two_pool := RewardPoolDefinition.new(
+		"base.act_two.boss_rule_breaker_pool",
+		[{"content_id": AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS[0], "weight": 1}],
+		[],
+		RewardPoolDefinition.REWARD,
+	)
+	assert_true(invalid_act_two_pool.validate().has_code("invalid_pool_family"), "Act 2 pool IDs use the Alpha-specific typed namespace", failures)
+	var act_one_pool = registry.resolve(Phase2Catalog.BOSS_RULE_BREAKER_POOL_ID)
+	act_one_ids.sort()
+	assert_true(act_one_pool.entry_ids() == act_one_ids, "the Phase 2 Act 1 Boss pool contract remains unchanged", failures)
 
 func test_yaku_compatibility_and_new_typed_hooks(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

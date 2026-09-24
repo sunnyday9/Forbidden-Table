@@ -2,6 +2,8 @@ class_name Stage2ExitReviewTest
 extends RefCounted
 
 const BattleIntegrationTest = preload("res://tests/battle_integration_test.gd")
+const BossRuleBreakerRewardTest = preload("res://tests/boss_rule_breaker_reward_test.gd")
+const EliteRewardTest = preload("res://tests/elite_reward_test.gd")
 const ContentCatalogTest = preload("res://tests/content_catalog_test.gd")
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const CompleteHandSettlementTest = preload("res://tests/complete_hand_settlement_test.gd")
@@ -36,6 +38,8 @@ func run() -> Array[String]:
 	_record_evidence("rewards and Elite progression", RewardEconomyTest.new().run(), failures)
 	_record_evidence("Shop and Workshop Gold decisions", ShopWorkshopTest.new().run(), failures)
 	_record_evidence("data-driven battle and Boss progression", BattleIntegrationTest.new().run(), failures)
+	_record_evidence("three-choice Boss Rule Breaker reward, application, Suspend/Resume, and Replay", BossRuleBreakerRewardTest.new().run(), failures)
+	_record_evidence("Elite Relic/Run Technique reward, Skip compensation, Suspend/Resume, and Replay", EliteRewardTest.new().run(), failures)
 	_record_evidence("Suspend/Resume checkpoint evidence", PersistenceTest.new().run(), failures)
 	_record_evidence("run Replay no-divergence evidence", ReplayTest.new().run_run_replay(), failures)
 	return failures

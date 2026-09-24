@@ -5,6 +5,11 @@ const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
+const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
+const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
+const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
+const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 
 func validate(data: Dictionary, content_registry = null) -> Dictionary:
@@ -50,6 +55,14 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 	var phase := str(state.get("phase", ""))
 	if not RunPhaseScript.all().has(phase):
 		errors.append({"code": "INVALID_RUN_PHASE", "phase": phase})
+	var act_index = state.get("act_index", 1)
+	if typeof(act_index) != TYPE_INT or not [1, 2].has(int(act_index)):
+		errors.append({"code": "INVALID_ACT_INDEX", "act_index": act_index})
+	var act_count = state.get("act_count", 1)
+	if typeof(act_count) != TYPE_INT or not [1, 2].has(int(act_count)):
+		errors.append({"code": "INVALID_ACT_COUNT", "act_count": act_count})
+	elif typeof(act_index) == TYPE_INT and int(act_index) > int(act_count):
+		errors.append({"code": "INVALID_ACT_INDEX", "act_index": act_index, "act_count": act_count})
 	for currency in ["gold", "refinement_tokens"]:
 		if typeof(state.get(currency, null)) != TYPE_INT or int(state.get(currency, -1)) < 0:
 			errors.append({"code": "INVALID_CURRENCY", "field": currency})
@@ -76,7 +89,7 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 	if not map_state is Dictionary:
 		errors.append({"code": "INVALID_MAP_STATE"})
 	else:
-		_validate_map(map_state, errors)
+		_validate_map(map_state, int(act_index) if typeof(act_index) == TYPE_INT else 1, errors)
 	if not shop_state is Dictionary:
 		errors.append({"code": "INVALID_SHOP_PURCHASE_STATE"})
 	else:
@@ -110,11 +123,117 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 		return
 	for identifier in owned_relic_ids + run_technique_ids + special_offer_ids + rule_breaker_ids:
 		_require_content(content_registry, str(identifier), errors, "INVALID_CONTENT_ID")
+	var acquired_rule_breakers: Dictionary = {}
+	for identifier in rule_breaker_ids:
+		var rule_breaker_id := str(identifier)
+		if acquired_rule_breakers.has(rule_breaker_id):
+			errors.append({"code": "DUPLICATE_RULE_BREAKER", "content_id": rule_breaker_id})
+		acquired_rule_breakers[rule_breaker_id] = true
+		if content_registry != null and not content_registry.resolve(rule_breaker_id) is RuleBreakerDefinitionScript:
+			errors.append({"code": "INVALID_RULE_BREAKER_CONTENT", "content_id": rule_breaker_id})
+	_validate_boss_reward_draft(state.get("reward_draft", {}), phase, acquired_rule_breakers, content_registry, errors)
+	_validate_elite_reward_draft(state.get("reward_draft", {}), phase, owned_relic_ids, run_technique_ids, content_registry, errors)
 	for instance_id in build.get("persistent_tile_modifier_state", {}).keys():
 		if not tile_ids.has(str(instance_id)):
 			errors.append({"code": "INVALID_MODIFIER_TARGET", "instance_id": str(instance_id)})
 
-func _validate_map(map_state: Dictionary, errors: Array) -> void:
+func _validate_boss_reward_draft(draft, phase: String, acquired_ids: Dictionary, content_registry, errors: Array) -> void:
+	if phase != RunPhaseScript.BOSS_REWARD:
+		if draft is Dictionary and str(draft.get("draft_kind", "")) == "BOSS_RULE_BREAKER":
+			errors.append({"code": "BOSS_REWARD_PHASE_MISMATCH"})
+		return
+	if not draft is Dictionary or draft.is_empty():
+		errors.append({"code": "MISSING_BOSS_REWARD_DRAFT"})
+		return
+	if str(draft.get("draft_kind", "")) != "BOSS_RULE_BREAKER" or str(draft.get("encounter_kind", "")) != "BOSS" or str(draft.get("draft_id", "")).is_empty():
+		errors.append({"code": "INVALID_BOSS_REWARD_DRAFT"})
+	var options = draft.get("options", [])
+	if not options is Array or options.size() != 3:
+		errors.append({"code": "INVALID_BOSS_REWARD_CHOICES"})
+		return
+	var option_ids: Dictionary = {}
+	var content_ids: Dictionary = {}
+	for option in options:
+		if not option is Dictionary:
+			errors.append({"code": "INVALID_BOSS_REWARD_OPTION"})
+			continue
+		var option_id := str(option.get("option_id", ""))
+		var content_id := str(option.get("content_id", ""))
+		if option_id.is_empty() or option_ids.has(option_id):
+			errors.append({"code": "INVALID_BOSS_REWARD_OPTION_ID", "option_id": option_id})
+		option_ids[option_id] = true
+		if str(option.get("kind", "")) != RewardOptionScript.RULE_BREAKER or content_id.is_empty() or content_ids.has(content_id) or acquired_ids.has(content_id):
+			errors.append({"code": "INVALID_BOSS_REWARD_CONTENT", "content_id": content_id})
+		content_ids[content_id] = true
+		if content_registry == null:
+			errors.append({"code": "CONTENT_REGISTRY_REQUIRED", "content_id": content_id})
+		elif not content_registry.resolve(content_id) is RuleBreakerDefinitionScript:
+			errors.append({"code": "INVALID_BOSS_REWARD_CONTENT", "content_id": content_id})
+
+func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, owned_technique_ids: Array, content_registry, errors: Array) -> void:
+	if phase != RunPhaseScript.ELITE_REWARD:
+		if draft is Dictionary and str(draft.get("draft_kind", "")) == "ELITE_BUILD":
+			errors.append({"code": "ELITE_REWARD_PHASE_MISMATCH"})
+		return
+	if not draft is Dictionary or draft.is_empty():
+		errors.append({"code": "MISSING_ELITE_REWARD_DRAFT"})
+		return
+	if str(draft.get("draft_kind", "")) != "ELITE_BUILD" or str(draft.get("encounter_kind", "")) != "ELITE" or str(draft.get("draft_id", "")).is_empty():
+		errors.append({"code": "INVALID_ELITE_REWARD_DRAFT"})
+	var options = draft.get("options", [])
+	if not options is Array or options.size() != 4:
+		errors.append({"code": "INVALID_ELITE_REWARD_CHOICES"})
+		return
+	var option_ids: Dictionary = {}
+	var content_ids: Dictionary = {}
+	var relic_count := 0
+	var technique_count := 0
+	var skip_count := 0
+	for option in options:
+		if not option is Dictionary:
+			errors.append({"code": "INVALID_ELITE_REWARD_OPTION"})
+			continue
+		var option_id := str(option.get("option_id", ""))
+		var content_id := str(option.get("content_id", ""))
+		var kind := str(option.get("kind", ""))
+		if option_id.is_empty() or option_ids.has(option_id):
+			errors.append({"code": "INVALID_ELITE_REWARD_OPTION_ID", "option_id": option_id})
+		option_ids[option_id] = true
+		match kind:
+			RewardOptionScript.RELIC:
+				relic_count += 1
+				if content_id.is_empty() or content_ids.has(content_id) or owned_relic_ids.has(content_id):
+					errors.append({"code": "INVALID_ELITE_REWARD_RELIC", "content_id": content_id})
+				content_ids[content_id] = true
+				if content_registry == null:
+					errors.append({"code": "CONTENT_REGISTRY_REQUIRED", "content_id": content_id})
+				elif not content_registry.resolve(content_id) is RelicDefinitionScript:
+					errors.append({"code": "INVALID_ELITE_REWARD_RELIC", "content_id": content_id})
+				if int(option.get("gold_delta", 0)) != 0 or int(option.get("refinement_token_delta", 0)) != 0:
+					errors.append({"code": "INVALID_ELITE_REWARD_CURRENCY", "option_id": option_id})
+			RewardOptionScript.RUN_TECHNIQUE:
+				technique_count += 1
+				if content_id.is_empty() or content_ids.has(content_id) or owned_technique_ids.has(content_id):
+					errors.append({"code": "INVALID_ELITE_REWARD_TECHNIQUE", "content_id": content_id})
+				content_ids[content_id] = true
+				if content_registry == null:
+					errors.append({"code": "CONTENT_REGISTRY_REQUIRED", "content_id": content_id})
+				else:
+					var definition = content_registry.resolve(content_id)
+					if not definition is TechniqueDefinitionScript or definition.technique_kind == TechniqueDefinitionScript.CORE:
+						errors.append({"code": "INVALID_ELITE_REWARD_TECHNIQUE", "content_id": content_id})
+				if int(option.get("gold_delta", 0)) != 0 or int(option.get("refinement_token_delta", 0)) != 0:
+					errors.append({"code": "INVALID_ELITE_REWARD_CURRENCY", "option_id": option_id})
+			RewardOptionScript.SKIP:
+				skip_count += 1
+				if content_id != RewardOptionScript.SKIP_CONTENT_ID or int(option.get("gold_delta", -1)) != RunEconomyScript.DEFAULT_ELITE_SKIP_GOLD or int(option.get("refinement_token_delta", 0)) != 0:
+					errors.append({"code": "INVALID_ELITE_REWARD_SKIP", "option_id": option_id})
+			_:
+				errors.append({"code": "INVALID_ELITE_REWARD_OPTION", "option_id": option_id})
+	if relic_count < 1 or technique_count < 1 or skip_count != 1 or relic_count + technique_count != 3 or content_ids.size() != 3:
+		errors.append({"code": "INVALID_ELITE_REWARD_COMPOSITION"})
+
+func _validate_map(map_state: Dictionary, act_index: int, errors: Array) -> void:
 	var ordered = map_state.get("ordered_path", [])
 	var visited = map_state.get("visited_node_ids", [])
 	var node_ids = map_state.get("node_ids", [])
@@ -132,7 +251,10 @@ func _validate_map(map_state: Dictionary, errors: Array) -> void:
 	if path_edges.size() != maxi(0, ordered.size() - 1):
 		errors.append({"code": "INVALID_MAP_PATH"})
 	if not current.is_empty():
-		var definition = MiniActMapCatalogScript.definition()
+		var definition = MiniActMapCatalogScript.definition_for_act(act_index)
+		if definition == null:
+			errors.append({"code": "INVALID_ACT_INDEX", "act_index": act_index})
+			return
 		if str(map_state.get("map_definition_id", "")) != definition.content_id:
 			errors.append({"code": "INVALID_MAP_DEFINITION"})
 		for index in range(ordered.size() - 1):
