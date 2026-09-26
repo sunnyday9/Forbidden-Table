@@ -18,6 +18,8 @@ const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effe
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
+const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
+const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
 
 var zones
 var draw_wall
@@ -152,6 +154,30 @@ func validate_draw() -> RefCounted:
 	if tile_actions == null or draw_wall == null or not draw_wall.is_initialized():
 		return CommandValidationScript.new(false, "DRAW_WALL_NOT_READY", "The Draw Wall is not ready.")
 	return CommandValidationScript.new(true)
+
+func resolve_character_passive(passive_definition) -> Dictionary:
+	if not passive_definition is CharacterPassiveDefinitionScript or combat_state == null or not combat_state.is_active():
+		return {"accepted": false, "status": "INVALID_CHARACTER_PASSIVE"}
+	if combat_state.triggered_signature_passive_ids.has(passive_definition.content_id):
+		return {"accepted": false, "status": "CHARACTER_PASSIVE_ALREADY_TRIGGERED"}
+	var effect_context = EffectContextScript.new(combat_state, zones, draw_wall, reserve_service, contamination_service)
+	var queue = combat_resolver.begin_queue(combat_state, 256, effect_context)
+	for effect in passive_definition.effects:
+		if effect == null or not effect.has_method("validate_in_context") or not effect.validate_in_context(effect_context).get("valid", false):
+			return {"accepted": false, "status": "CHARACTER_PASSIVE_EFFECT_REJECTED"}
+		if not queue.enqueue_effect(effect):
+			queue.drain()
+			return {"accepted": false, "status": "CHARACTER_PASSIVE_QUEUE_REJECTED"}
+	queue.add_event(DomainEventScript.new(DomainEventScript.CHARACTER_PASSIVE_TRIGGERED, {
+		"passive_id": passive_definition.content_id,
+		"trigger_id": passive_definition.trigger_id,
+	}))
+	var result = queue.drain()
+	if result.is_resolved():
+		combat_state.triggered_signature_passive_ids.append(passive_definition.content_id)
+	return {"accepted": result.is_resolved(), "status": result.status, "events": result.events}
+
+
 
 func execute_draw() -> Dictionary:
 	var draw_result = tile_actions.draw()
@@ -318,9 +344,14 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 	var score_result = score_resolver.resolve_complete_hand(interpretation, hand_yaku_resolver, _yaku_state()) if score_resolver != null and score_resolver.has_method("resolve_complete_hand") else score_resolver.resolve(interpretation)
 	var combat_output = conversion_resolver.resolve(score_result, _complete_hand_conversion_profile, combat_state.to_dictionary())
 	var combat_result = combat_resolver.resolve_combat_conversion(combat_state, combat_output)
+	var pattern_types: Array[String] = []
+	for group in interpretation.groups:
+		if group != null and not pattern_types.has(str(group.pattern_type)):
+			pattern_types.append(str(group.pattern_type))
 	var events: Array = [DomainEventScript.new(DomainEventScript.COMPLETE_HAND_SETTLED, {
 		"interpretation_id": interpretation.interpretation_id,
 		"hand_type": interpretation.hand_type,
+		"pattern_types": pattern_types,
 		"instance_ids": settled_ids,
 		"destination": complete_hand_destination,
 		"score": score_result.total,
@@ -554,6 +585,14 @@ func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
 	]:
 		if snapshot.has(field):
 			combat_state.set(field, snapshot[field])
+	var triggered_passives: Variant = snapshot.get("triggered_signature_passive_ids", [])
+	if not triggered_passives is Array:
+		return false
+	combat_state.triggered_signature_passive_ids.clear()
+	for passive_id in triggered_passives:
+		if not passive_id is String or str(passive_id).is_empty():
+			return false
+		combat_state.triggered_signature_passive_ids.append(str(passive_id))
 	if combat_state.intent_rng != null and snapshot.get("intent_rng", {}) is Dictionary:
 		if not combat_state.intent_rng.restore(snapshot.get("intent_rng", {})):
 			return false

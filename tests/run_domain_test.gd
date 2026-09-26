@@ -235,20 +235,27 @@ func test_terminal_summary_acknowledgment_is_authoritative(failures: Array[Strin
 
 func _registry():
 	var registry := ContentRegistry.new()
-	registry.register(TileDefinition.new("base.tile.characters.1", "characters", 1))
+	for tile_id in [
+		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3",
+		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
+		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
+		"base.tile.honors.east", "base.tile.honors.white",
+	]:
+		var parts: PackedStringArray = tile_id.split(".")
+		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1"],
+		["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"],
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",
 	))
 	registry.register(CharacterDefinition.new(
 		"base.character.triplet",
-		["base.tile.characters.1"],
+		["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"],
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",

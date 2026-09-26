@@ -223,15 +223,18 @@ func test_run_replay_crosses_suspend_resume(failures: Array[String]) -> void:
 	var domain := _run_domain("replay.run.resume", 9004)
 	domain.execute(ChooseCharacterCommand.new("resume.character", "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("resume.contract", "base.contract.pressure"))
+	var resume_diagnostics: Array[Dictionary] = []
 	var resume_factory := func(controller):
 		var checkpoint: Dictionary = controller.checkpoint()
 		if not ["MAP_NODE", "BATTLE_START", "SHOP", "WORKSHOP", "REWARD", "EVENT_CHOICE_BEFORE"].has(checkpoint.get("stable_boundary", "")):
 			return controller
 		var loaded = SaveMapper.load_into_domain(SaveMapper.suspend_snapshot(controller).to_dictionary(), controller.content_registry)
+		if not loaded.accepted:
+			resume_diagnostics.append(loaded.duplicate(true))
 		return loaded.domain if loaded.accepted else null
 	var report = domain.verify_replay(domain.replay_record, resume_factory)
 
-	assert_true(report.is_match(), "Run Replay crossing Suspend/Resume matches uninterrupted execution (%s)" % report.reason, failures)
+	assert_true(report.is_match(), "Run Replay crossing Suspend/Resume matches uninterrupted execution (%s; resume=%s)" % [report.reason, resume_diagnostics], failures)
 
 func _assert_accepted(domain: RunDomain, command, label: String, failures: Array[String]) -> void:
 	var result = domain.execute(command)

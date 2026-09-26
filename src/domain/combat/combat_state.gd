@@ -37,6 +37,7 @@ var terminal_outcome: String
 var queue_index: int
 var state_based_check_count: int
 var tp: int
+var triggered_signature_passive_ids: Array[String]
 var stability: int
 var draw_capacity: int
 var settlement_capacity: int
@@ -88,6 +89,7 @@ func _init(
 	queue_index = 0
 	state_based_check_count = 0
 	tp = maxi(0, initial_tp)
+	triggered_signature_passive_ids = []
 	stability = maxi(0, initial_stability)
 	draw_capacity = maxi(0, initial_draw_capacity)
 	settlement_capacity = maxi(0, initial_settlement_capacity)
@@ -177,6 +179,7 @@ func public_battle_state() -> Dictionary:
 		"starvation_count": starvation_count,
 		"starvation_active": starvation_active,
 		"tp": tp,
+		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
 		"settlement_capacity": settlement_capacity,
@@ -215,6 +218,7 @@ func to_dictionary() -> Dictionary:
 		"queue_index": queue_index,
 		"state_based_check_count": state_based_check_count,
 		"tp": tp,
+		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
 		"settlement_capacity": settlement_capacity,

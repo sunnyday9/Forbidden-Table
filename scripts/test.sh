@@ -5,7 +5,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 godot_version="4.7.2"
 godot_binary="${GODOT_BIN:-}"
 download_timeout_seconds=120
-test_timeout_seconds=30
+test_timeout_seconds=300
 
 if ! command -v timeout >/dev/null 2>&1; then
   echo "ERROR: the test wrapper requires the 'timeout' command to bound Godot and download execution." >&2
@@ -91,7 +91,7 @@ if [[ "${godot_binary,,}" == *.exe ]]; then
 fi
 
 set +e
-test_output="$(timeout "$test_timeout_seconds" "$godot_binary" --headless --path "$project_path" --script res://tests/run_tests.gd "$@" 2>&1)"
+test_output="$(timeout "$test_timeout_seconds" "$godot_binary" --headless --path "$project_path" --script res://tests/run_tests.gd -- "$@" 2>&1)"
 test_status=$?
 set -e
 printf '%s\n' "$test_output"

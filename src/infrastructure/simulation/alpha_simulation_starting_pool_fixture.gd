@@ -1,52 +1,17 @@
 class_name AlphaSimulationStartingPoolFixture
 extends RefCounted
 
-const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
+const RunStartingPoolFactoryScript = preload("res://src/domain/run/run_starting_pool_factory.gd")
 
 const FIXTURE_ID := "phase2.character_biased_complete_hand.v1"
 const TILE_COUNT := 14
 
 static func tile_definition_ids(character_tile_bias_ids: Array) -> Array[String]:
-	if character_tile_bias_ids.size() < 3:
-		return []
-	var preferred_suit := str(character_tile_bias_ids[0]).get_slice(".", 2)
-	if preferred_suit not in ["characters", "bamboo", "dots"]:
-		return []
-	var other_suits: Array[String] = []
-	for suit in ["characters", "bamboo", "dots"]:
-		if suit != preferred_suit:
-			other_suits.append(suit)
-	other_suits.sort()
-	var result: Array[String] = [
-		str(character_tile_bias_ids[0]),
-		str(character_tile_bias_ids[1]),
-		str(character_tile_bias_ids[2]),
-	]
-	for rank in range(4, 7):
-		result.append("base.tile.%s.%d" % [other_suits[0], rank])
-	for rank in range(7, 10):
-		result.append("base.tile.%s.%d" % [other_suits[1], rank])
-	for _triplet_index in range(3):
-		result.append("base.tile.honors.east")
-	for _pair_index in range(2):
-		result.append("base.tile.honors.white")
-	return result
+	return RunStartingPoolFactoryScript.tile_definition_ids(character_tile_bias_ids)
 
 static func create(character_id: String, character_tile_bias_ids: Array) -> Array:
-	var ordered_definition_ids := tile_definition_ids(character_tile_bias_ids)
-	if ordered_definition_ids.size() != TILE_COUNT:
-		return []
-
-	var records: Array = []
-	for index in range(ordered_definition_ids.size()):
-		records.append(RunTileInstanceRecordScript.new(
-			"simulation.start.%s.%03d" % [character_id.replace(".", "_"), index + 1],
-			ordered_definition_ids[index],
-			"RUN",
-			"RUN",
-		))
-	return records
+	return RunStartingPoolFactoryScript.create(character_id, character_tile_bias_ids)
 
 static func hash(character_id: String, character_tile_bias_ids: Array) -> String:
 	return DeterministicSerializerScript.hash({

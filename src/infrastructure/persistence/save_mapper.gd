@@ -113,6 +113,18 @@ static func _state_from_dictionary(data: Dictionary, envelope: Dictionary):
 	state.contract_id = str(data.get("contract_id", ""))
 	state.gold = int(data.get("gold", 0))
 	state.refinement_tokens = int(data.get("refinement_tokens", 0))
+	state.run_started_at_unix_seconds = int(data.get("run_started_at_unix_seconds", 0))
+	state.pattern_counts = data.get("pattern_counts", {}).duplicate(true) if data.get("pattern_counts", {}) is Dictionary else {}
+	state.yaku_counts = data.get("yaku_counts", {}).duplicate(true) if data.get("yaku_counts", {}) is Dictionary else {}
+	state.complete_hand_count = maxi(0, int(data.get("complete_hand_count", 0)))
+	state.maximum_mahjong_score = maxi(0, int(data.get("maximum_mahjong_score", 0)))
+	state.boss_progress.clear()
+	var boss_progress_value: Variant = data.get("boss_progress", [])
+	if boss_progress_value is Array:
+		for boss_progress_item in boss_progress_value:
+			if boss_progress_item is Dictionary:
+				state.boss_progress.append(boss_progress_item.duplicate(true))
+	state.milestones = _string_array(data.get("milestones", []))
 	state.reward_draft_sequence = int(data.get("reward_draft_sequence", 0))
 	state.tile_instance_sequence = int(data.get("tile_instance_sequence", 0))
 	state.map_state = _map_from_dictionary(data.get("map_state", {}))

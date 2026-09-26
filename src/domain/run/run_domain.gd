@@ -7,6 +7,7 @@ const CommandResultScript = preload("res://src/domain/commands/command_result.gd
 const CommandValidationScript = preload("res://src/domain/commands/command_validation.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
+const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
@@ -35,7 +36,11 @@ const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapsho
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
 const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
+const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
+const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
+const RunStartingPoolFactoryScript = preload("res://src/domain/run/run_starting_pool_factory.gd")
+const RUN_SUMMARY_DETAIL_KEYS := ["act_index", "encounter_id", "gold", "reward_option_id", "rule_breaker_id"]
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
 const ShopOfferSelectorScript = preload("res://src/domain/run/shop_offer_selector.gd")
 const ShopStateScript = preload("res://src/domain/run/shop_state.gd")
@@ -55,6 +60,7 @@ var economy
 var current_battle
 var shop_offer_selector
 var replay_record
+var unlock_policy
 
 func _init(
 	initial_run_id: String = "run.1",
@@ -63,6 +69,8 @@ func _init(
 	initial_content_version: String = "",
 	domain_rng_streams = null,
 	initial_act_count: int = 1,
+	initial_tile_pool = null,
+	initial_unlock_policy = null,
 ) -> void:
 	content_registry = domain_content_registry if domain_content_registry != null else ContentRegistryScript.new()
 	var resolved_content_version := initial_content_version
@@ -75,7 +83,8 @@ func _init(
 	economy = RunEconomyScript.new()
 	shop_offer_selector = ShopOfferSelectorScript.new()
 	current_battle = null
-	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version, null, null, initial_act_count)
+	unlock_policy = initial_unlock_policy if initial_unlock_policy is MetaProgressStateScript else MetaProgressStateScript.new()
+	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version, initial_tile_pool, null, initial_act_count)
 	replay_record = ReplayRecordScript.new(initial_seed, resolved_content_version, initial_run_id)
 	replay_record.record_initial_checkpoint(checkpoint(), rng_snapshot(), _terminal_outcome())
 
@@ -85,8 +94,10 @@ static func new_alpha_run(
 	domain_content_registry = null,
 	initial_content_version: String = "",
 	domain_rng_streams = null,
+	initial_tile_pool = null,
+	initial_unlock_policy = null,
 ):
-	return RunDomain.new(initial_run_id, initial_seed, domain_content_registry, initial_content_version, domain_rng_streams, 2)
+	return RunDomain.new(initial_run_id, initial_seed, domain_content_registry, initial_content_version, domain_rng_streams, 2, initial_tile_pool, initial_unlock_policy)
 
 func execute(command) -> RefCounted:
 	var result: RefCounted
@@ -113,7 +124,26 @@ func verify_replay(record = replay_record, resume_factory: Callable = Callable()
 		var replay_run_id: String = state.run_id
 		if record != null and not record.run_id.is_empty():
 			replay_run_id = record.run_id
-		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count)
+		var replay_domain = RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, null, unlock_policy)
+		var initial_run_state: Dictionary = {}
+		if record != null and not record.checkpoints.is_empty():
+			var initial_domain_state: Dictionary = record.checkpoints[0].domain_snapshot.data
+			initial_run_state = initial_domain_state.get("run_state", {})
+		var initial_pool: Dictionary = initial_run_state.get("tile_pool", {}) if initial_run_state is Dictionary else {}
+		var initial_tile_records: Array = []
+		for tile_data in initial_pool.get("tile_instances", []):
+			if not tile_data is Dictionary:
+				continue
+			var tile_record = RunTileInstanceRecordScript.new(
+				str(tile_data.get("instance_id", "")),
+				str(tile_data.get("definition_id", "")),
+				str(tile_data.get("ownership_scope", "RUN")),
+				str(tile_data.get("lifetime_scope", tile_data.get("lifetime", "RUN"))),
+				str(tile_data.get("origin", "RUN_POOL")),
+			)
+			initial_tile_records.append(tile_record)
+		var initial_tile_pool = RunTilePoolStateScript.new(initial_tile_records)
+		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, initial_tile_pool, unlock_policy)
 	return ReplayVerifierScript.verify(record, replay_factory, state.content_version, resume_factory)
 
 func validate_choose_character(selected_character_id: String) -> RefCounted:
@@ -124,11 +154,25 @@ func validate_choose_character(selected_character_id: String) -> RefCounted:
 	var definition = content_registry.resolve(selected_character_id)
 	if not definition is CharacterDefinitionScript:
 		return CommandValidationScript.new(false, "INVALID_CHARACTER_ID", "The selected Character ID is not registered.")
+	if not unlock_policy.is_unlocked("CHARACTER", selected_character_id):
+		return CommandValidationScript.new(false, "CHARACTER_LOCKED", "The selected Character is locked in the active progression profile.", {"character_id": selected_character_id})
+	var starting_tile_ids := RunStartingPoolFactoryScript.tile_definition_ids(definition.starting_tile_pool_bias)
+	if starting_tile_ids.size() != RunStartingPoolFactoryScript.TILE_COUNT:
+		return CommandValidationScript.new(false, "INVALID_STARTING_POOL", "The selected Character has no valid starting Tile Pool profile.", {"character_id": selected_character_id})
+	for tile_id in starting_tile_ids:
+		if not content_registry.resolve(tile_id) is TileDefinitionScript:
+			return CommandValidationScript.new(false, "INVALID_STARTING_POOL", "The selected Character's starting Tile Pool references unavailable tile content.", {"character_id": selected_character_id, "tile_id": tile_id})
 	return CommandValidationScript.new(true)
 
 func execute_choose_character(selected_character_id: String) -> Dictionary:
 	var previous_phase: String = state.phase
+	var character = content_registry.resolve(selected_character_id)
+	state.tile_pool = RunTilePoolStateScript.new(RunStartingPoolFactoryScript.create(selected_character_id, character.starting_tile_pool_bias))
 	state.character_id = selected_character_id
+	state.build_ownership.character_core_technique_id = character.core_technique_id
+	if not state.build_ownership.owned_relic_ids.has(character.starting_relic_id):
+		state.build_ownership.owned_relic_ids.append(character.starting_relic_id)
+	_record_run_milestone("character_chosen")
 	state.phase = RunPhaseScript.CONTRACT_SELECT
 	return {
 		"accepted": true,
@@ -151,11 +195,14 @@ func validate_choose_contract(selected_contract_id: String) -> RefCounted:
 	var definition = content_registry.resolve(selected_contract_id)
 	if not definition is ContractDefinitionScript:
 		return CommandValidationScript.new(false, "INVALID_CONTRACT_ID", "The selected Contract ID is not registered.")
+	if not unlock_policy.is_unlocked("CONTRACT", selected_contract_id):
+		return CommandValidationScript.new(false, "CONTRACT_LOCKED", "The selected Contract is locked in the active progression profile.", {"contract_id": selected_contract_id})
 	return CommandValidationScript.new(true)
 
 func execute_choose_contract(selected_contract_id: String) -> Dictionary:
 	var previous_phase: String = state.phase
 	state.contract_id = selected_contract_id
+	_record_run_milestone("contract_chosen")
 	state.map_state.initialize(map_definition, rng_streams.map)
 	state.phase = RunPhaseScript.MAP_CHOICE
 	return {
@@ -1016,6 +1063,16 @@ func execute_battle(command):
 			before_checkpoint,
 		)
 	var result = current_battle.execute(command)
+	var passive_events: Array = []
+	if result.accepted:
+		_record_run_summary_metrics(result.data, result.events)
+		if _has_event_type(result.events, DomainEventScript.COMPLETE_HAND_SETTLED):
+			var character = content_registry.resolve(state.character_id)
+			var passive = content_registry.resolve(character.signature_passive_id) if character is CharacterDefinitionScript else null
+			if passive is CharacterPassiveDefinitionScript and passive.trigger_id == CharacterPassiveDefinitionScript.AFTER_COMPLETE_HAND:
+				var passive_result: Dictionary = current_battle.resolve_character_passive(passive)
+				if passive_result.get("accepted", false):
+					passive_events = passive_result.get("events", [])
 	var transfer_events: Array = []
 	if current_battle != null and current_battle.combat_state != null:
 		state.current_battle_snapshot = RunBattleSnapshotScript.new(current_battle.checkpoint())
@@ -1031,7 +1088,7 @@ func execute_battle(command):
 		result.accepted,
 		result.status,
 		result.validation,
-		result.events + transfer_events,
+		result.events + passive_events + transfer_events,
 		before_checkpoint,
 		checkpoint(),
 		result.preview,
@@ -1054,6 +1111,9 @@ func apply_battle_outcome() -> Array:
 		"outcome": outcome,
 	})]
 	events.append_array(current_battle.end_battle())
+	if outcome == CombatStateScript.VICTORY and encounter_kind_before == EncounterDefinitionScript.BOSS:
+		state.boss_progress.append({"act_index": state.act_index, "encounter_id": encounter_id_before})
+		_record_run_milestone("act_%d_boss_defeated" % state.act_index)
 	current_battle = null
 	state.current_battle_snapshot = null
 	if outcome == CombatStateScript.DEFEAT:
@@ -1218,6 +1278,8 @@ func execute_choose_reward(selected_draft_id: String, selected_option_id: String
 			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The selected Boss Rule Breaker is unavailable."}
 		var previous_phase: String = state.phase
 		state.build_ownership.acquired_rule_breaker_ids.append(rule_breaker.content_id)
+		if state.build_ownership.acquired_rule_breaker_ids.size() == 1:
+			_record_run_milestone("first_rule_breaker_acquired")
 		state.reward_draft = null
 		var reward_data := {
 			"run_id": state.run_id,
@@ -1483,6 +1545,7 @@ func _reward_phase_for_encounter(encounter_kind: String) -> String:
 func _transition_to_act_two(previous_phase: String) -> Array:
 	var events: Array = _clear_act_boundary_effects()
 	state.act_index = 2
+	_record_run_milestone("act_2_reached")
 	map_definition = MiniActMapCatalogScript.act_two_definition()
 	state.map_state.initialize(map_definition, rng_streams.map)
 	state.current_battle_snapshot = null
@@ -1524,7 +1587,12 @@ func enter_run_summary(outcome: String, reason: String = "", summary_data: Dicti
 	var previous_phase: String = state.phase
 	state.terminal_summary.outcome = outcome
 	state.terminal_summary.reason = reason
-	state.terminal_summary.summary_data = summary_data.duplicate(true)
+	var complete_summary_data := _build_run_summary_data(outcome, reason)
+	for key in summary_data:
+		if complete_summary_data.has(key) or key not in RUN_SUMMARY_DETAIL_KEYS:
+			continue
+		complete_summary_data[key] = summary_data[key].duplicate(true) if summary_data[key] is Dictionary or summary_data[key] is Array else summary_data[key]
+	state.terminal_summary.summary_data = complete_summary_data
 	state.phase = RunPhaseScript.RUN_SUMMARY
 	var events := LifecycleResolverScript.new().advance(state, LifecycleResolverScript.RUN)
 	events.append_array([
@@ -1532,11 +1600,95 @@ func enter_run_summary(outcome: String, reason: String = "", summary_data: Dicti
 			"run_id": state.run_id,
 			"outcome": outcome,
 			"reason": reason,
-			"summary_data": summary_data.duplicate(true),
+			"summary_data": complete_summary_data.duplicate(true),
 		}),
 		_run_phase_event(previous_phase, state.phase),
 	])
 	return events
+
+func _record_run_summary_metrics(command_data: Dictionary, events: Array) -> void:
+	var score_data: Variant = command_data.get("score", {})
+	if score_data is Dictionary and not score_data.is_empty():
+		state.maximum_mahjong_score = maxi(state.maximum_mahjong_score, int(score_data.get("total", score_data.get("final_value", 0))))
+		var contributions: Variant = score_data.get("contributions", [])
+		if contributions is Array:
+			for contribution in contributions:
+				if not contribution is Dictionary:
+					continue
+				var source_id := str(contribution.get("source_id", ""))
+				var definition = content_registry.resolve(source_id) if not source_id.is_empty() else null
+				if definition != null and definition.definition_type_name() == "YakuDefinition":
+					_increment_summary_count(state.yaku_counts, source_id)
+	for event in events:
+		if event == null:
+			continue
+		if event.event_type == DomainEventScript.PATTERN_SETTLED:
+			var pattern_type := str(event.data.get("pattern_type", ""))
+			if not pattern_type.is_empty():
+				_increment_summary_count(state.pattern_counts, pattern_type)
+		elif event.event_type == DomainEventScript.COMPLETE_HAND_SETTLED:
+			state.complete_hand_count += 1
+			var hand_score := int(event.data.get("score", 0))
+			state.maximum_mahjong_score = maxi(state.maximum_mahjong_score, hand_score)
+			var pattern_types: Variant = event.data.get("pattern_types", [])
+			if pattern_types is Array:
+				for pattern_type_value in pattern_types:
+					_increment_summary_count(state.pattern_counts, str(pattern_type_value))
+			if state.complete_hand_count == 1:
+				_record_run_milestone("first_complete_hand")
+
+func _increment_summary_count(counts: Dictionary, key: String) -> void:
+	if key.is_empty():
+		return
+	counts[key] = int(counts.get(key, 0)) + 1
+
+func _record_run_milestone(milestone_id: String) -> void:
+	if not milestone_id.is_empty() and not state.milestones.has(milestone_id):
+		state.milestones.append(milestone_id)
+
+func _has_event_type(events: Array, event_type: String) -> bool:
+	for event in events:
+		if event != null and event.event_type == event_type:
+			return true
+	return false
+
+func _build_run_summary_data(outcome: String, reason: String) -> Dictionary:
+	var technique_ids: Array[String] = []
+	if not state.build_ownership.character_core_technique_id.is_empty():
+		technique_ids.append(state.build_ownership.character_core_technique_id)
+	for technique_id in state.build_ownership.run_technique_ids:
+		if not technique_ids.has(technique_id):
+			technique_ids.append(technique_id)
+	var final_tile_pool: Array = state.tile_pool.to_dictionary().get("tile_instances", [])
+	var final_build := {
+		"tile_pool": final_tile_pool.duplicate(true),
+		"core_yaku": state.yaku_counts.duplicate(true),
+		"relics": state.build_ownership.owned_relic_ids.duplicate(),
+		"techniques": technique_ids.duplicate(),
+		"rule_breakers": state.build_ownership.acquired_rule_breaker_ids.duplicate(),
+	}
+	return {
+		"outcome": outcome,
+		"reason": reason,
+		"character_id": state.character_id,
+		"contract_id": state.contract_id,
+		"act_progress": {
+			"act_index": state.act_index,
+			"act_count": state.act_count,
+			"bosses_defeated": state.boss_progress.duplicate(true),
+		},
+		"final_tile_pool": final_tile_pool.duplicate(true),
+		"core_yaku": state.yaku_counts.duplicate(true),
+		"relics": state.build_ownership.owned_relic_ids.duplicate(),
+		"techniques": technique_ids,
+		"rule_breakers": state.build_ownership.acquired_rule_breaker_ids.duplicate(),
+		"common_patterns": state.pattern_counts.duplicate(true),
+		"complete_hand_count": state.complete_hand_count,
+		"maximum_mahjong_score": state.maximum_mahjong_score,
+		"milestones": state.milestones.duplicate(),
+		"seed": state.seed,
+		"final_build": final_build,
+	}
 
 func validate_acknowledge_run_summary() -> RefCounted:
 	if state.phase != RunPhaseScript.RUN_SUMMARY:
@@ -1561,6 +1713,8 @@ func execute_acknowledge_run_summary() -> Dictionary:
 
 func checkpoint() -> Dictionary:
 	var run_state_checkpoint: Dictionary = state.to_dictionary()
+	# Wall-clock tracking is saved for the player summary but excluded from deterministic replay state.
+	run_state_checkpoint.erase("run_started_at_unix_seconds")
 	return {
 		"schema_version": 1,
 		"run_state": run_state_checkpoint,

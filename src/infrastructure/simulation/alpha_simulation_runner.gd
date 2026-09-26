@@ -3,9 +3,11 @@ extends RefCounted
 
 const AlphaFailureClassifierScript = preload("res://src/infrastructure/simulation/alpha_failure_classifier.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
+const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 const ReplayVerifierScript = preload("res://src/infrastructure/replay/replay_verifier.gd")
 const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save_coordinator.gd")
@@ -58,19 +60,30 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 	var registry = ContentRegistryScript.new()
 	var registration_report = Phase2CatalogScript.register_all(registry)
 	var alpha_act_two_registration_report = AlphaActTwoCatalogScript.register_all(registry)
+	var scale_roster_gate := str(_attempt_case.get("gate_id", "")) in ["scale", "exit"]
+	var alpha_scale_registration_report = AlphaScaleCatalogScript.register_all(registry) if scale_roster_gate else null
 	var attempt_id := str(_attempt_case.get("attempt_id", "attempt.%05d" % int(_attempt_case.get("attempt_index", 0))))
 	var run_id := "alpha.%s.%s" % [str(_attempt_case.get("gate_id", "unknown")), attempt_id]
 	var seed := int(_attempt_case.get("seed", 0))
-	_domain = RunDomainScript.new_alpha_run(run_id, seed, registry, registry.content_version())
+	_domain = RunDomainScript.new_alpha_run(
+		run_id,
+		seed,
+		registry,
+		registry.content_version(),
+		null,
+		null,
+		MetaProgressStateScript.all_unlocked_test_profile(),
+	)
 
 	if (
 		registration_report == null
 		or not registration_report.is_valid()
 		or alpha_act_two_registration_report == null
 		or not alpha_act_two_registration_report.is_valid()
+		or (scale_roster_gate and (alpha_scale_registration_report == null or not alpha_scale_registration_report.is_valid()))
 	):
 		_content_available = false
-		_failure_detail = "The Phase 2 and Act 2 Boss reward content bundles could not be registered."
+		_failure_detail = "The required Phase 2, Act 2, or Scale content bundles could not be registered."
 	elif str(_attempt_case.get("policy_id", "")) not in SUPPORTED_POLICIES:
 		_content_available = false
 		_failure_detail = "The scheduled policy is not supported by the Alpha runner."
@@ -86,12 +99,7 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 			str(_attempt_case.get("character_id", "")),
 			character.starting_tile_pool_bias,
 		)
-		var pool_initialized := not starting_pool.is_empty()
-		for tile_record in starting_pool:
-			if not _domain.state.tile_pool.add_tile_instance(tile_record):
-				pool_initialized = false
-				break
-		if not pool_initialized:
+		if starting_pool.is_empty():
 			_content_available = false
 			_failure_detail = "The versioned starting-pool fixture could not be materialized from the selected Character bias."
 		else:
@@ -100,8 +108,10 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 				str(_attempt_case.get("character_id", "")),
 				character.starting_tile_pool_bias,
 			)
-			_reset_initial_replay_checkpoint(_domain)
 			_execute_command(ChooseCharacterCommandScript.new(_next_command_id("character"), str(_attempt_case.get("character_id", ""))))
+			if _domain.state.tile_pool.tile_instances.size() != _starting_pool_tile_count:
+				_content_available = false
+				_failure_detail = "RunDomain did not apply the versioned starting-pool fixture during Character selection."
 		if not _command_rejected and _content_available:
 			_execute_command(ChooseContractCommandScript.new(_next_command_id("contract"), str(_attempt_case.get("contract_id", ""))))
 
@@ -169,16 +179,15 @@ func _reset_initial_replay_checkpoint(domain) -> void:
 
 func _replay_factory(replay_seed: int, replay_content_version: String):
 	var run_id := str(_domain.state.run_id)
-	var character_id := str(_attempt_case.get("character_id", ""))
-	var replay_domain = RunDomainScript.new_alpha_run(run_id, replay_seed, _domain.content_registry, replay_content_version)
-	var character = replay_domain.content_registry.resolve(character_id)
-	if not character is CharacterDefinitionScript:
-		return null
-	for tile_record in AlphaSimulationStartingPoolFixtureScript.create(character_id, character.starting_tile_pool_bias):
-		if not replay_domain.state.tile_pool.add_tile_instance(tile_record):
-			return null
-	_reset_initial_replay_checkpoint(replay_domain)
-	return replay_domain
+	return RunDomainScript.new_alpha_run(
+		run_id,
+		replay_seed,
+		_domain.content_registry,
+		replay_content_version,
+		null,
+		null,
+		MetaProgressStateScript.all_unlocked_test_profile(),
+	)
 
 func _step_map_choice() -> bool:
 	var node_id := str(_domain.state.map_state.current_node_id)

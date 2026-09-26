@@ -82,6 +82,12 @@ func test_load_reconstructs_without_mutating_a_live_domain(failures: Array[Strin
 	var source := _domain("persist.load", 1203)
 	source.execute(ChooseCharacterCommand.new("persist.load.character", "base.character.sequence"))
 	source.execute(ChooseContractCommand.new("persist.load.contract", "base.contract.pressure"))
+	source.state.pattern_counts["SEQUENCE"] = 2
+	source.state.yaku_counts["base.yaku.sequence"] = 1
+	source.state.complete_hand_count = 1
+	source.state.maximum_mahjong_score = 48
+	source.state.boss_progress.append({"act_index": 1, "encounter_id": "base.encounter.boss"})
+	source.state.milestones.append("first_complete_hand")
 	var snapshot = SaveMapper.suspend_snapshot(source)
 	var target := _domain("persist.target", 9999)
 	var target_before := target.checkpoint()
@@ -124,7 +130,7 @@ func test_battle_snapshot_reconstructs_live_child_and_can_continue(failures: Arr
 	var run_checkpoint: Dictionary = source.checkpoint()
 	var snapshot = SaveMapper.suspend_snapshot(source, {"stable": true, "stable_boundary": "BATTLE_START", "state_hash": run_checkpoint.state_hash})
 	var loaded = SaveMapper.load_into_domain(snapshot.to_dictionary(), _registry())
-	assert_true(loaded.accepted, "a stable BATTLE snapshot loads", failures)
+	assert_true(loaded.accepted, "a stable BATTLE snapshot loads (%s: %s)" % [loaded.get("code", ""), loaded.get("errors", [])], failures)
 	if not loaded.accepted:
 		return
 	assert_true(loaded.domain.current_battle != null, "loading a BATTLE snapshot reconstructs the live BattleDomain child", failures)
@@ -540,12 +546,18 @@ func _has_validation_error(result: Dictionary, code: String) -> bool:
 
 func _registry():
 	var registry := ContentRegistry.new()
-	for rank in range(1, 5):
-		registry.register(TileDefinition.new("base.tile.characters.%d" % rank, "characters", rank))
+	for tile_id in [
+		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3", "base.tile.characters.4",
+		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
+		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
+		"base.tile.honors.east", "base.tile.honors.white",
+	]:
+		var parts: PackedStringArray = tile_id.split(".")
+		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
-	registry.register(CharacterDefinition.new("base.character.sequence", ["base.tile.characters.1"], "base.relic.open_hand", "base.technique.core.sequence_line", "base.passive.sequence"))
+	registry.register(CharacterDefinition.new("base.character.sequence", ["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"], "base.relic.open_hand", "base.technique.core.sequence_line", "base.passive.sequence"))
 	registry.register(ContractDefinition.new("base.contract.pressure", ContractDefinition.PRESSURE, {"pressure": 1}, {"draw_actions": 1}))
 	var graph := IntentGraph.new("pressure", [EnemyIntent.new("pressure", "Pressure", 1, EnemyIntent.PRESSURE, [IntentTransition.fixed("pressure.loop", "pressure")])])
 	registry.register(EnemyDefinition.new("base.enemy.persistence", graph, EnemyDefinition.NORMAL, 9, {"pressure_limit": 9}))

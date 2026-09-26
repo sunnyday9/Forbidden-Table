@@ -15,6 +15,7 @@ const ChooseContractCommandScript = preload("res://src/domain/commands/choose_co
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
 const EndTurnCommandScript = preload("res://src/domain/commands/end_turn_command.gd")
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
+const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 const ChooseRewardCommandScript = preload("res://src/domain/commands/choose_reward_command.gd")
 const EnterShopCommandScript = preload("res://src/domain/commands/enter_shop_command.gd")
@@ -28,6 +29,7 @@ const EnterEventCommandScript = preload("res://src/domain/commands/enter_event_c
 const ChooseEventOptionCommandScript = preload("res://src/domain/commands/choose_event_option_command.gd")
 const AcknowledgeRunSummaryCommandScript = preload("res://src/domain/commands/acknowledge_run_summary_command.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
 const ACTION_PREFIX_CHARACTER := "character:"
 const ACTION_PREFIX_CONTRACT := "contract:"
@@ -40,20 +42,31 @@ const ACTION_PREFIX_EVENT := "event:"
 var domain
 var state
 var tutorial_progress
+var meta_progress_coordinator
 var _command_sequence := 0
 
-func _init(run_domain, initial_tutorial_progress = null) -> void:
+func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_coordinator = null) -> void:
 	assert(run_domain is RunDomainScript)
 	domain = run_domain
 	state = RunPresentationStateScript.new()
 	tutorial_progress = initial_tutorial_progress if initial_tutorial_progress != null else TutorialProgressScript.new()
+	meta_progress_coordinator = initial_meta_progress_coordinator
+	if meta_progress_coordinator != null and meta_progress_coordinator.state != null:
+		# The application owns the trusted profile; the domain enforces its policy.
+		domain.unlock_policy = meta_progress_coordinator.state
 	_refresh([])
 
 func submit(command):
 	var result = domain.execute(command)
 	var events: Array = result.events if result != null and result.events is Array else []
 	tutorial_progress.observe(events)
+	var unlock_result: Dictionary = {}
+	if result != null and result.accepted and meta_progress_coordinator != null:
+		unlock_result = meta_progress_coordinator.observe_run_state(domain.state)
 	_refresh(events)
+	if unlock_result.get("changed", false):
+		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–6 are now available for later Runs."
+		presentation_changed.emit()
 	return result
 
 func focus_next() -> String:
@@ -170,6 +183,8 @@ func _typed_content_actions(definition_script: Script, prefix: String, kind: Str
 	var actions: Array = []
 	for definition in domain.content_registry.enumerate():
 		if definition.get_script() == definition_script:
+			if meta_progress_coordinator != null and not meta_progress_coordinator.is_unlocked(kind, definition.content_id):
+				continue
 			actions.append({"id": prefix + definition.content_id, "kind": kind, "target_id": definition.content_id, "details": {"content_id": definition.content_id}})
 	return actions
 
@@ -205,8 +220,11 @@ func _battle_actions() -> Array:
 	var battle_state: Dictionary = domain.current_battle.public_state()
 	for pattern in battle_state.get("pattern_highlights", []):
 		actions.append({"id": "battle.settle:" + str(pattern.get("candidate_id", "")), "kind": "PARTIAL_SETTLEMENT", "target_id": str(pattern.get("candidate_id", "")), "details": pattern.duplicate(true)})
-	for tile in battle_state.get("hand", []):
-		actions.append({"id": "battle.store:" + str(tile.get("instance_id", "")), "kind": "RESERVE", "target_id": str(tile.get("instance_id", ""))})
+	for tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
+		actions.append({"id": "battle.store:" + str(tile.instance_id), "kind": "RESERVE", "target_id": str(tile.instance_id), "details": {"tile_id": tile.definition_id, "instance_id": tile.instance_id}})
+	if domain.current_battle.can_complete_hand():
+		for interpretation in domain.current_battle.complete_hand_interpretations():
+			actions.append({"id": "battle.complete:" + str(interpretation.interpretation_id), "kind": "COMPLETE_HAND", "target_id": str(interpretation.interpretation_id), "details": interpretation.to_dictionary()})
 	return actions
 
 func _reward_actions() -> Array:
@@ -270,6 +288,7 @@ func _command_for_action(action_id: String):
 		"DRAW": return DrawCommandScript.new(command_id)
 		"END_TURN": return EndTurnCommandScript.new(command_id)
 		"PARTIAL_SETTLEMENT": return SettlePatternCommandScript.new(command_id, [], "", "", false, target_id)
+		"COMPLETE_HAND": return SettleCompleteHandCommandScript.new(command_id, target_id)
 		"RESERVE": return StoreTileCommandScript.new(command_id, target_id)
 		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return ChooseRewardCommandScript.new(command_id, target_id if action.get("kind", "") != "REWARD" else target_id, str(action.get("draft_id", "")))
 		"ENTER_SHOP": return EnterShopCommandScript.new(command_id)
@@ -318,4 +337,7 @@ func _feedback_for_events(events: Array) -> String:
 		DomainEventScript.WORKSHOP_ENTERED: return "Workshop opened."
 		DomainEventScript.EVENT_ENTERED: return "Choose an Event option."
 		DomainEventScript.RUN_SUMMARY_REACHED: return "Run Summary reached."
+		DomainEventScript.CHARACTER_PASSIVE_TRIGGERED:
+			var passive = domain.content_registry.resolve(str(last_event.data.get("passive_id", "")))
+			return "%s: %s" % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else "Character Passive triggered."
 	return str(last_event.event_type)

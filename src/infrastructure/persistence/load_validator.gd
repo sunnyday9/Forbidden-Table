@@ -47,7 +47,9 @@ func validate(data: Dictionary, content_registry = null) -> Dictionary:
 	if state is Dictionary:
 		_validate_checkpoint(data.get("checkpoint_metadata", {}), state, errors)
 		var metadata = data.get("checkpoint_metadata", {})
-		if metadata is Dictionary and metadata.has("state_hash") and str(metadata["state_hash"]) != DeterministicSerializerScript.hash(state):
+		var deterministic_state: Dictionary = state.duplicate(true)
+		deterministic_state.erase("run_started_at_unix_seconds")
+		if metadata is Dictionary and metadata.has("state_hash") and str(metadata["state_hash"]) != DeterministicSerializerScript.hash(deterministic_state):
 			errors.append({"code": "STATE_HASH_MISMATCH"})
 	return {"accepted": errors.is_empty(), "errors": errors}
 
