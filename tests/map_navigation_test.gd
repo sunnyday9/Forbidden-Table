@@ -5,6 +5,7 @@ const ContentRegistry = preload("res://src/content/registry/content_registry.gd"
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
@@ -26,7 +27,6 @@ const ContentDefinition = preload("res://src/content/definitions/content_definit
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
-const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
 
 const INTRO := "base.map_node.intro"
 const LEFT := "base.map_node.normal.left"
@@ -418,13 +418,13 @@ func _prepared_domain(run_id: String, seed: int) -> RunDomain:
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
-	registry.register(TileDefinition.new("base.tile.characters.1", "characters", 1))
+	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1"],
+		RunStartingPoolContentFixture.character_tile_pool_bias(),
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",

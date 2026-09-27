@@ -14,6 +14,7 @@ const IntentTransition = preload("res://src/domain/combat/intent_transition.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
@@ -139,20 +140,16 @@ func _victorious_domain(run_id: String) -> RunDomain:
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
-	for tile in [
-		TileDefinition.new("base.tile.characters.1", "characters", 1),
-		TileDefinition.new("base.tile.characters.2", "characters", 2),
-		TileDefinition.new("base.tile.bamboo.1", "bamboo", 1),
-		TileDefinition.new("base.tile.dots.1", "dots", 1),
-	]:
-		registry.register(tile)
+	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
+	registry.register(TileDefinition.new("base.tile.bamboo.1", "bamboo", 1))
+	registry.register(TileDefinition.new("base.tile.dots.1", "dots", 1))
 	registry.register(TileModifierDefinition.new("base.modifier.ritual_mark", "RITUAL_MARK", 1))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1", "base.tile.characters.2"],
+		RunStartingPoolContentFixture.character_tile_pool_bias(),
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",

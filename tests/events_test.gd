@@ -19,9 +19,9 @@ const ModifyRunCurrencyOperation = preload("res://src/domain/effects/operations/
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const StackPolicy = preload("res://src/domain/effects/stack_policy.gd")
-const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
 
 const EVENT_NODE := "base.map_node.event.left"
 
@@ -172,11 +172,17 @@ func _prepare_event_node(domain: RunDomain, command_prefix: String):
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
-	registry.register(TileDefinition.new("base.tile.characters.1", "characters", 1))
+	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
 	registry.register(ContentDefinition.new("base.relic.open_hand"))
 	registry.register(ContentDefinition.new("base.technique.core.sequence_line"))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
-	registry.register(CharacterDefinition.new("base.character.sequence", ["base.tile.characters.1"], "base.relic.open_hand", "base.technique.core.sequence_line", "base.passive.sequence"))
+	registry.register(CharacterDefinition.new(
+		"base.character.sequence",
+		RunStartingPoolContentFixture.character_tile_pool_bias(),
+		"base.relic.open_hand",
+		"base.technique.core.sequence_line",
+		"base.passive.sequence",
+	))
 	registry.register(ContractDefinition.new("base.contract.pressure", ContractDefinition.PRESSURE, {"pressure": 1}, {"draw_actions": 1}))
 	registry.register(EventDefinition.new("base.event.risk_bargain", [
 		{

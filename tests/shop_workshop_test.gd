@@ -8,6 +8,7 @@ const ContractDefinition = preload("res://src/content/definitions/contract_defin
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const ShopOffer = preload("res://src/domain/run/shop_offer.gd")
 const ShopState = preload("res://src/domain/run/shop_state.gd")
@@ -324,6 +325,7 @@ func _workshop_domain(run_id: String, seed: int, tile_count: int) -> RunDomain:
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
 	domain.execute(SelectMapNodeCommand.new("%s.right" % run_id, RIGHT))
 	domain.execute(SelectMapNodeCommand.new("%s.workshop" % run_id, WORKSHOP))
+	domain.state.tile_pool.tile_instances.clear()
 	for index in tile_count:
 		domain.state.tile_pool.add_tile_instance(RunTileInstanceRecord.new(
 			"%s.tile.%d" % [run_id, index + 1],
@@ -335,14 +337,9 @@ func _workshop_domain(run_id: String, seed: int, tile_count: int) -> RunDomain:
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
-	for tile in [
-		TileDefinition.new("base.tile.characters.1", "characters", 1),
-		TileDefinition.new("base.tile.characters.2", "characters", 2),
-		TileDefinition.new("base.tile.characters.3", "characters", 3),
-		TileDefinition.new("base.tile.bamboo.1", "bamboo", 1),
-		TileDefinition.new("base.tile.dots.1", "dots", 1),
-	]:
-		registry.register(tile)
+	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
+	registry.register(TileDefinition.new("base.tile.bamboo.1", "bamboo", 1))
+	registry.register(TileDefinition.new("base.tile.dots.1", "dots", 1))
 	for relic_id in ["base.relic.open_hand", "base.relic.sequence_lens"]:
 		registry.register(RelicDefinition.new(relic_id))
 	registry.register(TechniqueDefinition.new("base.technique.draw_surge", TechniqueDefinition.ACTIVE, 1))
@@ -353,7 +350,7 @@ func _registry() -> ContentRegistry:
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1", "base.tile.characters.2"],
+		RunStartingPoolContentFixture.character_tile_pool_bias(),
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",

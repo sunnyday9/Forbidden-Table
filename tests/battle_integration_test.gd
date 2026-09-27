@@ -19,9 +19,9 @@ const RuleBreakerDefinition = preload("res://src/content/definitions/rule_breake
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
-const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
 const ChooseCharacterCommand = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommand = preload("res://src/domain/commands/choose_contract_command.gd")
 const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_enemy_intent_command.gd")
@@ -49,6 +49,7 @@ func test_normal_node_creates_isolated_data_driven_battle(failures: Array[String
 	))
 	var gold_before: int = domain.state.gold
 	var build_before: Dictionary = domain.state.build_ownership.to_dictionary()
+	var tile_pool_before: Dictionary = domain.state.tile_pool.to_dictionary()
 
 	var result = domain.execute(SelectMapNodeCommand.new("battle.entry.select", LEFT))
 	var battle = domain.get("current_battle")
@@ -83,7 +84,7 @@ func test_normal_node_creates_isolated_data_driven_battle(failures: Array[String
 	combat_state.set("tp", 99)
 	assert_true(domain.state.gold == gold_before, "child battle state cannot award run currency before outcome", failures)
 	assert_true(domain.state.build_ownership.to_dictionary() == build_before, "child battle state cannot mutate persistent build state before outcome", failures)
-	assert_true(domain.state.tile_pool.to_dictionary()["tile_instances"].size() == 1, "child battle state does not mutate the Run Tile Pool before outcome", failures)
+	assert_true(domain.state.tile_pool.to_dictionary() == tile_pool_before, "child battle state does not mutate the Run Tile Pool before outcome", failures)
 
 func test_battle_outcome_transfer_opens_reward_or_terminates(failures: Array[String]) -> void:
 	var victory_domain := _prepared_domain("run.battle.victory")
@@ -182,13 +183,13 @@ func test_factory_rejects_invalid_enemy_without_mutation(failures: Array[String]
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
-	registry.register(TileDefinition.new("base.tile.characters.1", "characters", 1))
+	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1"],
+		RunStartingPoolContentFixture.character_tile_pool_bias(),
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",
