@@ -17,6 +17,7 @@ func run() -> Array[String]:
 	test_invalid_seven_pairs_is_rejected(failures)
 	test_four_identical_tiles_count_as_one_seven_pairs_pair(failures)
 	test_multiple_complete_hand_interpretations_are_returned(failures)
+	test_duplicate_instance_id_is_rejected(failures)
 	test_evaluation_does_not_mutate_public_hand_inputs(failures)
 	return failures
 
@@ -187,6 +188,53 @@ func test_multiple_complete_hand_interpretations_are_returned(failures: Array[St
 
 	assert_true(_first_type(interpretations, CompleteHandInterpretation.STANDARD) != null, "an ambiguous hand returns its Standard interpretation", failures)
 	assert_true(_first_type(interpretations, CompleteHandInterpretation.SEVEN_PAIRS) != null, "an ambiguous hand returns its Seven Pairs interpretation", failures)
+	assert_true(interpretations.size() == 49, "the ambiguous hand keeps all 48 Standard interpretations plus Seven Pairs", failures)
+	if interpretations.size() == 49:
+		assert_true(interpretations[0].hand_type == CompleteHandInterpretation.STANDARD, "Standard interpretations precede Seven Pairs", failures)
+		assert_true(interpretations[48].hand_type == CompleteHandInterpretation.SEVEN_PAIRS, "Seven Pairs remains the final interpretation", failures)
+		assert_true(_tile_ids(interpretations[0].pair.tile_instances) == [
+			"run.tile.ambiguous.01.a", "run.tile.ambiguous.01.b",
+		], "the first Standard interpretation preserves pair-combination order", failures)
+		assert_true(_group_signatures(interpretations[0]) == [
+			"%s:run.tile.ambiguous.02.a,run.tile.ambiguous.03.a,run.tile.ambiguous.04.a" % PatternCandidate.SEQUENCE,
+			"%s:run.tile.ambiguous.02.b,run.tile.ambiguous.03.b,run.tile.ambiguous.04.b" % PatternCandidate.SEQUENCE,
+			"%s:run.tile.ambiguous.05.a,run.tile.ambiguous.06.a,run.tile.ambiguous.07.a" % PatternCandidate.SEQUENCE,
+			"%s:run.tile.ambiguous.05.b,run.tile.ambiguous.06.b,run.tile.ambiguous.07.b" % PatternCandidate.SEQUENCE,
+		], "the first Standard interpretation preserves deterministic group-combination order", failures)
+		assert_true(_tile_ids(interpretations[48].groups[0].tile_instances) == [
+			"run.tile.ambiguous.01.a", "run.tile.ambiguous.01.b",
+		], "Seven Pairs groups remain ordered by the first definition ID", failures)
+
+func test_duplicate_instance_id_is_rejected(failures: Array[String]) -> void:
+	var registry = _registry([
+		["base.tile.characters.1", "characters", 1],
+		["base.tile.characters.2", "characters", 2],
+		["base.tile.characters.3", "characters", 3],
+		["base.tile.characters.4", "characters", 4],
+		["base.tile.characters.5", "characters", 5],
+		["base.tile.characters.6", "characters", 6],
+		["base.tile.characters.7", "characters", 7],
+		["base.tile.characters.8", "characters", 8],
+		["base.tile.characters.9", "characters", 9],
+		["base.tile.dots.5", "dots", 5],
+		["base.tile.dots.6", "dots", 6],
+	])
+	var hand: Array = []
+	hand.append_array(_instances("run.tile.duplicate.sequence.1", "base.tile.characters.1", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.2", "base.tile.characters.2", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.3", "base.tile.characters.3", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.4", "base.tile.characters.4", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.5", "base.tile.characters.5", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.6", "base.tile.characters.6", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.7", "base.tile.characters.7", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.8", "base.tile.characters.8", 1))
+	hand.append_array(_instances("run.tile.duplicate.sequence.9", "base.tile.characters.9", 1))
+	hand.append_array(_instances("run.tile.duplicate.triplet", "base.tile.dots.5", 3))
+	hand.append_array(_instances("run.tile.duplicate.pair", "base.tile.dots.6", 2))
+	var original_second_tile = hand[1]
+	hand[1] = TileInstance.new(hand[0].instance_id, original_second_tile.definition_id)
+
+	assert_true(CompleteHandEvaluator.new(registry).evaluate(hand).is_empty(), "a complete tile multiset with a repeated instance ID is rejected", failures)
 
 func test_evaluation_does_not_mutate_public_hand_inputs(failures: Array[String]) -> void:
 	var registry = _registry([
@@ -251,6 +299,12 @@ func _tile_ids(tiles: Array) -> Array[String]:
 	for tile_instance in tiles:
 		ids.append(tile_instance.instance_id)
 	return ids
+
+func _group_signatures(interpretation) -> Array[String]:
+	var signatures: Array[String] = []
+	for group in interpretation.groups:
+		signatures.append("%s:%s" % [group.pattern_type, ",".join(_tile_ids(group.tile_instances))])
+	return signatures
 
 func _definition_ids(tiles: Array) -> Array[String]:
 	var definition_ids: Array[String] = []

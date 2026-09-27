@@ -3,6 +3,7 @@ extends RefCounted
 
 const CompleteHandInterpretationScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_interpretation.gd")
 const PatternCandidateScript = preload("res://src/domain/mahjong/pattern/pattern_candidate.gd")
+const CombinationEnumeratorScript = preload("res://src/domain/mahjong/combination_enumerator.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 
@@ -138,7 +139,7 @@ func _matching_combinations(unused_indices: Array, definitions: Array, first_ind
 	for index in unused_indices:
 		if index != first_index and definitions[index].content_id == first_definition.content_id:
 			matching_indices.append(index)
-	return _combinations(matching_indices, required_count)
+	return CombinationEnumeratorScript.combinations(matching_indices, required_count)
 
 func _sequence_combinations(unused_indices: Array, definitions: Array, first_index: int, first_definition) -> Array:
 	if not ["characters", "bamboo", "dots"].has(first_definition.suit):
@@ -199,20 +200,6 @@ func _remove_indices(indices: Array, removed: Array) -> Array:
 		if index not in removed:
 			remaining.append(index)
 	return remaining
-
-func _combinations(values: Array, required_count: int) -> Array:
-	return _combinations_from(values, required_count, 0, [])
-
-func _combinations_from(values: Array, required_count: int, start_index: int, selected: Array) -> Array:
-	if selected.size() == required_count:
-		return [selected.duplicate()]
-	var combinations: Array = []
-	var remaining_count := required_count - selected.size()
-	for index in range(start_index, values.size() - remaining_count + 1):
-		selected.append(values[index])
-		combinations.append_array(_combinations_from(values, required_count, index + 1, selected))
-		selected.pop_back()
-	return combinations
 
 func _compare_tile_instances_by_rank(first, second) -> bool:
 	var first_definition = _resolve_definition(first)

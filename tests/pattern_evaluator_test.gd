@@ -187,6 +187,19 @@ func test_four_identical_tiles_return_all_ambiguous_candidates(failures: Array[S
 	assert_true(_has_candidate_ids(candidates, PatternCandidate.TRIPLET, [
 		"run.tile.ambiguous.001", "run.tile.ambiguous.002", "run.tile.ambiguous.004",
 	]), "ambiguous candidates preserve the selected TileInstance identities", failures)
+	assert_true(_candidate_signatures(candidates) == [
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.002,run.tile.ambiguous.003" % PatternCandidate.TRIPLET,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.002,run.tile.ambiguous.004" % PatternCandidate.TRIPLET,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.003,run.tile.ambiguous.004" % PatternCandidate.TRIPLET,
+		"%s:run.tile.ambiguous.002,run.tile.ambiguous.003,run.tile.ambiguous.004" % PatternCandidate.TRIPLET,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.002,run.tile.ambiguous.003,run.tile.ambiguous.004" % PatternCandidate.QUAD,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.002" % PatternCandidate.PAIR,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.003" % PatternCandidate.PAIR,
+		"%s:run.tile.ambiguous.001,run.tile.ambiguous.004" % PatternCandidate.PAIR,
+		"%s:run.tile.ambiguous.002,run.tile.ambiguous.003" % PatternCandidate.PAIR,
+		"%s:run.tile.ambiguous.002,run.tile.ambiguous.004" % PatternCandidate.PAIR,
+		"%s:run.tile.ambiguous.003,run.tile.ambiguous.004" % PatternCandidate.PAIR,
+	], "ambiguous identical-tile candidates keep their established type and combination order", failures)
 
 func test_evaluation_does_not_mutate_hand_zone_or_tile_instances(failures: Array[String]) -> void:
 	var registry = _registry([
@@ -245,6 +258,12 @@ func _has_candidate_ids(candidates: Array, pattern_type: String, expected_ids: A
 		if candidate.pattern_type == pattern_type and _tile_ids(candidate.tile_instances) == expected_ids:
 			return true
 	return false
+
+func _candidate_signatures(candidates: Array) -> Array[String]:
+	var signatures: Array[String] = []
+	for candidate in candidates:
+		signatures.append("%s:%s" % [candidate.pattern_type, ",".join(_tile_ids(candidate.tile_instances))])
+	return signatures
 
 func _tile_ids(tiles: Array) -> Array[String]:
 	var ids: Array[String] = []
