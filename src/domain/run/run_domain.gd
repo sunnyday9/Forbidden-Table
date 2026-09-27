@@ -280,6 +280,8 @@ func execute_select_map_node(selected_node_id: String) -> Dictionary:
 		events.append_array(battle.battle_start_effect_events)
 		events.append(_run_phase_event(RunPhaseScript.MAP_CHOICE, state.phase))
 		state.current_battle_snapshot = RunBattleSnapshotScript.new(battle.checkpoint())
+		if battle.outcome() in [CombatStateScript.VICTORY, CombatStateScript.DEFEAT]:
+			events.append_array(apply_battle_outcome())
 	state.map_state.last_events = events
 	return {
 		"accepted": true,
@@ -1162,6 +1164,16 @@ func apply_battle_outcome() -> Array:
 			"amount": reward_tax_applied,
 			"currency": RunEconomyScript.GOLD,
 		}))
+	var risk_bargain_gold: int = RunModifierEffectResolverScript.new().risk_bargain_victory_gold(state)
+	if risk_bargain_gold > 0:
+		var risk_bargain_transaction: Dictionary = economy.apply_source(
+			state,
+			RunEconomyScript.GOLD,
+			risk_bargain_gold,
+			RunEconomyScript.SOURCE_EVENT_RISK_BARGAIN_VICTORY,
+		)
+		if not risk_bargain_transaction.is_empty():
+			_events_for_currency_transaction(events, risk_bargain_transaction)
 	var previous_phase: String = state.phase
 	state.phase = _reward_phase_for_encounter(encounter_kind_before)
 	if encounter_kind_before == EncounterDefinitionScript.NORMAL:
@@ -1659,7 +1671,9 @@ func enter_run_summary(outcome: String, reason: String = "", summary_data: Dicti
 		complete_summary_data[key] = summary_data[key].duplicate(true) if summary_data[key] is Dictionary or summary_data[key] is Array else summary_data[key]
 	state.terminal_summary.summary_data = complete_summary_data
 	state.phase = RunPhaseScript.RUN_SUMMARY
-	var events := LifecycleResolverScript.new().advance(state, LifecycleResolverScript.RUN)
+	var lifecycle := LifecycleResolverScript.new()
+	var events := lifecycle.advance(state, LifecycleResolverScript.ACT)
+	events.append_array(lifecycle.advance(state, LifecycleResolverScript.RUN))
 	events.append_array([
 		DomainEventScript.new(DomainEventScript.RUN_SUMMARY_REACHED, {
 			"run_id": state.run_id,

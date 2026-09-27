@@ -15,14 +15,17 @@ const RelicDefinitionScript = preload("res://src/content/definitions/relic_defin
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
+const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
 
 const RULE_MEMORY_RELIC_ID := "base.relic.rule_memory"
 const RULE_MEMORY_MODIFIER_ID := "content.base.relic.rule_memory"
 
 var _content_registry
+var _run_modifier_effect_resolver
 
 func _init(content_registry = null) -> void:
 	_content_registry = content_registry
+	_run_modifier_effect_resolver = RunModifierEffectResolverScript.new()
 
 func resolve_battle_entry(run_state, battle) -> Dictionary:
 	if run_state == null or battle == null or battle.combat_state == null:
@@ -37,6 +40,7 @@ func resolve_battle_entry(run_state, battle) -> Dictionary:
 		run_state.build_ownership.acquired_rule_breaker_ids,
 		"RULE_BREAKER",
 	))
+	effects.append_array(_run_modifier_effect_resolver.battle_entry_effects(run_state))
 	var rule_memory_amount := _rule_memory_entry_amount(run_state, effects)
 	if rule_memory_amount > 0:
 		effects.append(EffectScript.new(

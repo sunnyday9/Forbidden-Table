@@ -195,11 +195,11 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry a one-Act clause", "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "carry_clause", "label": "Carry a one-Act clause: +1 Reserve Capacity in later battles this Act", "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
 			{"choice_id": "leave", "label": "Decline the clause", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[5], [
-			{"choice_id": "study_yaku", "label": "Record a rule and earn a Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "study_yaku", "label": "Record: +1 TP in later battles this Run and +1 Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
 			{"choice_id": "leave", "label": "Leave the old rule undisturbed", "is_skip": true, "effects": []},
 		]),
 	]

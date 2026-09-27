@@ -519,7 +519,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[1], [
-			{"choice_id": "accept", "label": "Accept the Risk", "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
+			{"choice_id": "accept", "label": "Accept: +1 starting Pressure in later battles; +2 Gold per victory this Run", "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[2], [
@@ -531,7 +531,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry the Clause", "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
+			{"choice_id": "carry_clause", "label": "Carry: +1 Settlement Capacity in every later battle this Run", "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[5], [
