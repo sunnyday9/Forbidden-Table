@@ -5,10 +5,14 @@ const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunScene = preload("res://scenes/run/run_scene.tscn")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
+const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
+const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
+const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_launch_scene_uses_the_two_act_presentation_flow(failures)
+	test_invalid_catalogs_block_run_start(failures)
 	test_pre_mvp_scene_has_no_device_capture_ui(failures)
 	test_rejected_profile_is_explained_and_can_be_reset(failures)
 	return failures
@@ -58,6 +62,39 @@ func test_pre_mvp_scene_has_no_device_capture_ui(failures: Array[String]) -> voi
 	assert_true(scene.find_child("DeviceEvidenceCapture", true, false) == null, "the pre-MVP Run scene does not create a device evidence capture node", failures)
 	assert_true(not scene._profile_status.text.contains("device"), "profile messaging does not imply device checks", failures)
 	scene.free()
+
+func test_invalid_catalogs_block_run_start(failures: Array[String]) -> void:
+	var duplicate_registration_scene = RunScene.instantiate()
+	duplicate_registration_scene.content_registry_factory = func():
+		var registry = ContentRegistryScript.new()
+		registry.register(Phase2CatalogScript.definitions()[0])
+		return registry
+	duplicate_registration_scene.meta_progress_coordinator = MetaProgressCoordinatorScript.new(
+		MetaProgressStoreScript.new("user://run_scene_invalid_registration_test.json"),
+	)
+	duplicate_registration_scene._ready()
+	assert_true(duplicate_registration_scene.controller == null, "the launch scene does not create a RunDomain after catalog registration fails", failures)
+	assert_true(duplicate_registration_scene._feedback_value.visible, "catalog registration failure is visible to the player", failures)
+	assert_true(duplicate_registration_scene._feedback_value.text.contains("duplicate_id"), "catalog registration failure identifies the duplicate content ID", failures)
+	duplicate_registration_scene.free()
+
+	var missing_reference_scene = RunScene.instantiate()
+	missing_reference_scene.content_registry_factory = func():
+		var registry = ContentRegistryScript.new()
+		registry.register(EncounterDefinitionScript.new(
+			"alpha.encounter.invalid_launch_fixture",
+			["alpha.enemy.missing_launch_fixture"],
+		))
+		return registry
+	missing_reference_scene.meta_progress_coordinator = MetaProgressCoordinatorScript.new(
+		MetaProgressStoreScript.new("user://run_scene_missing_reference_test.json"),
+	)
+	missing_reference_scene._ready()
+	assert_true(missing_reference_scene.controller == null, "the launch scene does not create a RunDomain with an unresolved content reference", failures)
+	assert_true(missing_reference_scene._feedback_value.visible, "cross-reference validation failure is visible to the player", failures)
+	assert_true(missing_reference_scene._feedback_value.text.contains("missing_reference"), "cross-reference validation reports the issue code", failures)
+	assert_true(missing_reference_scene._feedback_value.text.contains("alpha.enemy.missing_launch_fixture"), "cross-reference validation reports the missing target ID", failures)
+	missing_reference_scene.free()
 
 func test_rejected_profile_is_explained_and_can_be_reset(failures: Array[String]) -> void:
 	var path := "user://run_scene_rejected_profile_%d.json" % Time.get_ticks_usec()

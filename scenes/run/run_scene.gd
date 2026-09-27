@@ -13,6 +13,8 @@ const RunSummaryPresenterScript = preload("res://src/presentation/run/run_summar
 
 var controller
 var meta_progress_coordinator
+var content_registry_factory: Callable
+var _startup_error := ""
 var _meta_progress_load_warning := ""
 var _phase_value: Label
 var _run_value: Label
@@ -39,16 +41,37 @@ func _ready() -> void:
 		_meta_progress_load_warning = "Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile." % [str(meta_load.get("code", "LOAD_FAILED")), preservation_text]
 	_build_new_run()
 	_build_interface()
-	controller.presentation_changed.connect(_render)
+	if controller != null:
+		controller.presentation_changed.connect(_render)
 	_render()
 
 func _build_new_run() -> void:
 	if controller != null and controller.presentation_changed.is_connected(_render):
 		controller.presentation_changed.disconnect(_render)
+	controller = null
+	_startup_error = ""
 	var registry = ContentRegistryScript.new()
-	Phase2CatalogScript.register_all(registry)
-	AlphaActTwoCatalogScript.register_all(registry)
-	AlphaScaleCatalogScript.register_all(registry)
+	if content_registry_factory.is_valid():
+		registry = content_registry_factory.call()
+	if not registry is ContentRegistryScript:
+		_startup_error = "A new run could not start because its content registry is unavailable."
+		return
+	var registration_reports: Array = [
+		{"catalog": "Phase 2", "report": Phase2CatalogScript.register_all(registry)},
+		{"catalog": "Act Two", "report": AlphaActTwoCatalogScript.register_all(registry)},
+		{"catalog": "Alpha Scale", "report": AlphaScaleCatalogScript.register_all(registry)},
+	]
+	var validation_errors: Array[String] = []
+	for registration in registration_reports:
+		_append_content_validation_errors(
+			validation_errors,
+			"%s catalog registration" % str(registration.get("catalog", "Catalog")),
+			registration.get("report"),
+		)
+	_append_content_validation_errors(validation_errors, "Content registry validation", registry.validate())
+	if not validation_errors.is_empty():
+		_startup_error = "A new run could not start because game content failed validation. Please report this issue:\n%s" % "\n".join(validation_errors)
+		return
 	var seed := int(Time.get_ticks_usec() % 2147483647)
 	var run_id := "alpha.%d.%d" % [Time.get_unix_time_from_system(), seed]
 	controller = RunPresentationControllerScript.new(
@@ -56,6 +79,29 @@ func _build_new_run() -> void:
 		null,
 		meta_progress_coordinator,
 	)
+
+func _append_content_validation_errors(errors: Array[String], source: String, report) -> void:
+	if report == null or not report.has_method("is_valid") or not report.has_method("get"):
+		errors.append("%s did not return a validation report." % source)
+		return
+	if report.is_valid():
+		return
+	var issues: Variant = report.get("issues")
+	if not issues is Array or issues.is_empty():
+		errors.append("%s failed without diagnostic details." % source)
+		return
+	for issue in issues:
+		if issue == null or not issue.has_method("get"):
+			errors.append("%s returned an invalid diagnostic." % source)
+			continue
+		var code := str(issue.get("code"))
+		var content_id := str(issue.get("content_id"))
+		var reference_id := str(issue.get("reference_id"))
+		var message := str(issue.get("message"))
+		var location := content_id
+		if not reference_id.is_empty():
+			location += " -> %s" % reference_id
+		errors.append("%s [%s] %s: %s" % [source, code, location, message])
 
 func _build_interface() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -169,6 +215,21 @@ func _build_interface() -> void:
 
 func _render() -> void:
 	if controller == null:
+		if _phase_value != null:
+			_phase_value.text = "Run unavailable"
+		if _profile_status != null:
+			_profile_status.text = _meta_progress_load_warning
+			_profile_status.visible = not _meta_progress_load_warning.is_empty()
+		if _reset_profile_button != null:
+			_reset_profile_button.visible = meta_progress_coordinator.recovery_required
+		if _run_columns != null:
+			_run_columns.visible = false
+		if _summary_panel != null:
+			_summary_panel.visible = false
+		if _new_run_button != null:
+			_new_run_button.disabled = true
+		if _feedback_value != null:
+			_feedback_value.text = _startup_error
 		return
 	var state = controller.domain.state
 	var phase := str(state.phase)
