@@ -44,6 +44,7 @@ func run() -> Array[String]:
 	test_phase_2_event_identity_contracts_are_explicit(failures)
 	test_act_two_event_families_are_deterministic_typed_and_resumable(failures)
 	test_act_two_event_entry_uses_restored_map_definition(failures)
+	test_event_modifier_save_fixtures_include_completed_intro(failures)
 	test_base_event_modifiers_change_battleplay_and_expire(failures)
 	test_act_two_event_modifiers_change_battleplay_and_expire(failures)
 	test_event_modifier_labels_explain_their_effects(failures)
@@ -288,6 +289,24 @@ func test_act_two_event_entry_uses_restored_map_definition(failures: Array[Strin
 	assert_true(restored_domain.state.map_state.knowledge_state.get("base.map_node.act_two.boss", "") == "EXACT", "the restored Act 2 Map Reveal applies to the active map", failures)
 	assert_true(source.state.event_state.active == false and source.state.map_state.knowledge_state.get("base.map_node.act_two.boss", "") != "EXACT", "post-resume Event commands do not mutate the pre-load RunState", failures)
 
+func test_event_modifier_save_fixtures_include_completed_intro(failures: Array[String]) -> void:
+	var registry := _event_effect_registry(true)
+	var cases: Array = [
+		{"run_id": "event.fixture.act-one", "seed": 7439, "event_id": "base.event.risk_bargain", "act_two": false},
+		{"run_id": "event.fixture.act-two", "seed": 7440, "event_id": "alpha.event.act_two.contract_clause", "act_two": true},
+	]
+	for fixture in cases:
+		var domain := _prepared_event_modifier_domain(
+			str(fixture["run_id"]),
+			int(fixture["seed"]),
+			registry,
+			str(fixture["event_id"]),
+			bool(fixture["act_two"]),
+		)
+		var path: Array = domain.state.map_state.ordered_path
+		assert_true(path.size() == 3 and path[0] == domain.map_definition.start_node_id,
+			"%s Event modifier save fixture records the completed mandatory intro before branch and Event" % fixture["run_id"], failures)
+
 func test_base_event_modifiers_change_battleplay_and_expire(failures: Array[String]) -> void:
 	var registry := _event_effect_registry(false)
 	var risk_domain := _prepared_event_modifier_domain("event.modifier.risk", 7441, registry, "base.event.risk_bargain", false)
@@ -511,6 +530,13 @@ func _prepared_event_modifier_domain(run_id: String, seed: int, registry, event_
 	else:
 		branch_node_id = "base.map_node.normal.right" if event_id == "base.event.contract_clause" else "base.map_node.normal.left"
 		event_node_id = "base.map_node.event.right" if branch_node_id.ends_with("right") else "base.map_node.event.left"
+	# Model the mandatory intro as pending, matching the current map-entry boundary.
+	domain.state.map_state.visited_node_ids.clear()
+	domain.state.map_state.ordered_path.clear()
+	domain.state.map_state.path_edge_ids.clear()
+	domain.state.map_state.select_node(domain.map_definition.start_node_id, domain.map_definition)
+	if domain.state.map_state.path_edge_ids.size() == 1 and str(domain.state.map_state.path_edge_ids[0]).is_empty():
+		domain.state.map_state.path_edge_ids.clear()
 	domain.state.map_state.select_node(branch_node_id, domain.map_definition)
 	domain.state.map_state.payload_ids[event_node_id] = event_id
 	domain.state.map_state.select_node(event_node_id, domain.map_definition)
