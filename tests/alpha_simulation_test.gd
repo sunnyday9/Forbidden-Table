@@ -256,9 +256,22 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 	var boss_reward_transition := false
 	var boss_reward_choice_type := ""
 	var draw_budget_respected := true
+	var store_budget_respected := checkpoints.size() == commands.size() + 1
 	if checkpoints.size() == commands.size() + 1:
 		for command_index in range(commands.size()):
-			if str(commands[command_index].get("command_type", "")) != "Draw":
+			var command_type := str(commands[command_index].get("command_type", ""))
+			if command_type == "StoreTile":
+				var before_store: Dictionary = checkpoints[command_index].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
+				var before_store_state: Dictionary = before_store.get("combat_state", {})
+				var after_store: Dictionary = checkpoints[command_index + 1].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
+				var after_store_state: Dictionary = after_store.get("combat_state", {})
+				if (
+					int(before_store_state.get("draw_actions_used_this_turn", 0)) <= 0
+					or bool(before_store_state.get("tile_manipulation_used_this_draw", true))
+					or not bool(after_store_state.get("tile_manipulation_used_this_draw", false))
+				):
+					store_budget_respected = false
+			if command_type != "Draw":
 				continue
 			var draw_checkpoint: Dictionary = checkpoints[command_index + 1].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
 			var draw_state: Dictionary = draw_checkpoint.get("combat_state", {})
@@ -266,6 +279,9 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 			var draw_capacity := int(draw_state.get("draw_capacity", 0))
 			if used_actions < 1 or used_actions > draw_capacity:
 				draw_budget_respected = false
+	assert_true(attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.complete.v7", "the Draw-gated Complete policy uses its own new explicit version", failures)
+	assert_true(str(attempt.get("strategy", {}).get("decision_rule", "")).contains("at most once per accepted normal Draw"), "the policy text states its one-Store-per-Draw budget", failures)
+	assert_true(store_budget_respected, "every accepted Store follows an unused normal-Draw manipulation allowance", failures)
 	if checkpoints.size() == commands.size() + 1:
 		for checkpoint_index in range(1, checkpoints.size()):
 			var checkpoint: Dictionary = checkpoints[checkpoint_index]

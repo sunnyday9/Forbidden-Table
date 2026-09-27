@@ -2,6 +2,8 @@ class_name RunSceneTest
 extends RefCounted
 
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const RunScene = preload("res://scenes/run/run_scene.tscn")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
@@ -9,6 +11,16 @@ const ContentRegistryScript = preload("res://src/content/registry/content_regist
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
+const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
+const SwapReserveTileCommandScript = preload("res://src/domain/commands/swap_reserve_tile_command.gd")
+const UseTechniqueCommandScript = preload("res://src/domain/commands/use_technique_command.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
+const EffectScript = preload("res://src/domain/effects/effect.gd")
+const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
+const StateEffectConditionScript = preload("res://src/domain/effects/conditions/state_condition.gd")
+const GainStabilityOperationScript = preload("res://src/domain/effects/operations/gain_stability_operation.gd")
+const GainTPOperationScript = preload("res://src/domain/effects/operations/gain_tp_operation.gd")
+const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
 const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SuspendSaveStoreScript = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
@@ -28,6 +40,11 @@ func run() -> Array[String]:
 	test_suspend_writer_preserves_unresolved_sidecars(failures)
 	test_suspend_write_failure_is_visible(failures)
 	test_terminal_new_run_retires_old_suspend_slot(failures)
+	test_player_can_discard_a_hand_tile(failures)
+	test_reserve_swap_is_atomic_and_limited_per_draw(failures)
+	test_battle_action_descriptors_only_offer_legal_manipulations(failures)
+	test_owned_active_technique_is_available(failures)
+	test_late_technique_effect_rejection_rolls_back(failures)
 	test_invalid_catalogs_block_run_start(failures)
 	test_pre_mvp_scene_has_no_device_capture_ui(failures)
 	test_rejected_profile_is_explained_and_can_be_reset(failures)
@@ -335,6 +352,330 @@ func test_terminal_new_run_retires_old_suspend_slot(failures: Array[String]) -> 
 		scene._on_action_pressed("contract:base.contract.pressure")
 		var new_save: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
 		assert_true(new_save.get("accepted", false) and new_save.domain.state.run_id == new_run_id, "the next accepted checkpoint writes the new Run instead of being blocked by the terminal slot", failures)
+	scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
+		_clear_test_file(path)
+
+func test_player_can_discard_a_hand_tile(failures: Array[String]) -> void:
+	var suspend_path := "user://run_scene_discard_suspend_%d.json" % Time.get_ticks_usec()
+	var profile_path := "user://run_scene_discard_profile_%d.json" % Time.get_ticks_usec()
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	scene._ready()
+	if scene.controller == null:
+		scene.free()
+		return
+	scene._on_action_pressed("character:base.character.sequence")
+	scene._on_action_pressed("contract:base.contract.pressure")
+	var map_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "MAP_NODE")
+	if not map_actions.is_empty():
+		scene._on_action_pressed(str(map_actions[0].get("id", "")))
+	var draw_result = scene._on_action_pressed("battle.draw")
+	assert_true(draw_result != null and draw_result.accepted, "the Discard fixture reaches a drawn Hand tile", failures)
+	var discard_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "DISCARD")
+	var hand_size: int = scene.controller.domain.current_battle.zones.size(TileZoneScript.HAND)
+	assert_true(discard_actions.size() == hand_size and not discard_actions.is_empty(), "the battle action surface exposes one normal Discard option per Hand tile", failures)
+	if not discard_actions.is_empty():
+		var discard_action: Dictionary = discard_actions[0]
+		var instance_id := str(discard_action.get("target_id", ""))
+		var discard_result = scene._on_action_pressed(str(discard_action.get("id", "")))
+		assert_true(discard_result.accepted, "the player can submit the Discard action through RunScene", failures)
+		assert_true(discard_result.events.any(func(event): return event.event_type == DomainEventScript.TILE_DISCARDED), "accepted Discard returns a factual TileDiscarded event", failures)
+		assert_true(scene.controller.domain.current_battle.zones.zone_of(instance_id) == TileZoneScript.DISCARD, "accepted Discard moves the selected TileInstance from Hand to Discard", failures)
+		var loaded: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
+		assert_true(loaded.get("accepted", false), "the accepted Discard writes a reloadable Suspend Save (%s)" % str(loaded), failures)
+		if loaded.get("accepted", false):
+			assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_ACTION", "Discard persistence names the completed battle action boundary", failures)
+		assert_true(scene.controller.domain.verify_replay().status == "MATCH", "accepted Discard remains in deterministic replay", failures)
+	scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
+		_clear_test_file(path)
+
+func test_reserve_swap_is_atomic_and_limited_per_draw(failures: Array[String]) -> void:
+	var suspend_path := "user://run_scene_swap_suspend_%d.json" % Time.get_ticks_usec()
+	var profile_path := "user://run_scene_swap_profile_%d.json" % Time.get_ticks_usec()
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	scene._ready()
+	if scene.controller == null:
+		scene.free()
+		return
+	scene._on_action_pressed("character:base.character.sequence")
+	scene._on_action_pressed("contract:base.contract.pressure")
+	var map_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "MAP_NODE")
+	if not map_actions.is_empty():
+		scene._on_action_pressed(str(map_actions[0].get("id", "")))
+	var first_draw = scene._on_action_pressed("battle.draw")
+	assert_true(first_draw != null and first_draw.accepted, "the Reserve fixture opens a normal Draw Action", failures)
+	var store_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "RESERVE")
+	assert_true(not store_actions.is_empty(), "the Hand exposes Store options after Draw", failures)
+	if store_actions.is_empty():
+		scene.free()
+		return
+	var stored_id := str(store_actions[0].get("target_id", ""))
+	var stored_result = scene._on_action_pressed(str(store_actions[0].get("id", "")))
+	assert_true(stored_result.accepted, "Store moves one selected Hand tile into Reserve", failures)
+	assert_true(scene.controller.domain.current_battle.zones.zone_of(stored_id) == TileZoneScript.RESERVE, "the stored TileInstance enters Reserve", failures)
+	var remaining_reserve_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") in ["RESERVE", "DISCARD", "RESERVE_SWAP"])
+	assert_true(remaining_reserve_actions.is_empty(), "Store consumes the single Hand/Reserve manipulation for this Draw Action", failures)
+	var before_rejected_store: Dictionary = scene.controller.domain.checkpoint()
+	var rng_before_rejected_store: Dictionary = scene.controller.domain.rng_snapshot()
+	var rejected_store = scene.controller.domain.execute(StoreTileCommandScript.new("swap.budget.store", stored_id))
+	assert_true(not rejected_store.accepted, "a second tile manipulation in the same Draw Action is rejected", failures)
+	assert_true(scene.controller.domain.checkpoint() == before_rejected_store and scene.controller.domain.rng_snapshot() == rng_before_rejected_store, "the rejected second manipulation preserves RunState and every RNG stream", failures)
+	var second_draw = scene._on_action_pressed("battle.draw")
+	assert_true(second_draw.accepted, "the next accepted normal Draw opens a new manipulation allowance", failures)
+	var swap_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "RESERVE_SWAP")
+	var expected_swap_count: int = int(scene.controller.domain.current_battle.zones.size(TileZoneScript.HAND)) * int(scene.controller.domain.current_battle.zones.size(TileZoneScript.RESERVE))
+	assert_true(swap_actions.size() == expected_swap_count and not swap_actions.is_empty(), "the action surface exposes every current Hand-to-Reserve pair after the next Draw", failures)
+	if not swap_actions.is_empty():
+		var swap_action: Dictionary = swap_actions[0]
+		var hand_id := str(swap_action.get("hand_instance_id", ""))
+		var reserve_id := str(swap_action.get("reserve_instance_id", ""))
+		var swap_result = scene._on_action_pressed(str(swap_action.get("id", "")))
+		assert_true(swap_result.accepted, "the selected Hand and Reserve tiles swap in one accepted command", failures)
+		assert_true(swap_result.events.any(func(event): return event.event_type == DomainEventScript.RESERVE_SWAPPED), "atomic Swap emits the factual ReserveSwapped event", failures)
+		assert_true(scene.controller.domain.current_battle.zones.zone_of(hand_id) == TileZoneScript.RESERVE and scene.controller.domain.current_battle.zones.zone_of(reserve_id) == TileZoneScript.HAND, "both TileInstances exchange zones atomically", failures)
+		var before_stale_swap: Dictionary = scene.controller.domain.checkpoint()
+		var rng_before_stale_swap: Dictionary = scene.controller.domain.rng_snapshot()
+		var rejected_swap = scene.controller.domain.execute(SwapReserveTileCommandScript.new("swap.stale", hand_id, reserve_id))
+		assert_true(not rejected_swap.accepted, "stale zone IDs are rejected after the atomic Swap", failures)
+		assert_true(scene.controller.domain.checkpoint() == before_stale_swap and scene.controller.domain.rng_snapshot() == rng_before_stale_swap, "a rejected stale Swap preserves RunState and all RNG streams", failures)
+		var loaded: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
+		assert_true(loaded.get("accepted", false), "accepted Store and Swap snapshots reload", failures)
+		if loaded.get("accepted", false):
+			assert_true(loaded.domain.checkpoint() == scene.controller.domain.checkpoint(), "Resume restores the exact post-Swap battle checkpoint", failures)
+			assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_ACTION", "Swap persistence names the completed battle action boundary", failures)
+	assert_true(scene.controller.domain.verify_replay().status == "MATCH", "accepted Store and Swap commands remain in deterministic replay", failures)
+	scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
+		_clear_test_file(path)
+
+func test_owned_active_technique_is_available(failures: Array[String]) -> void:
+	var suffix := str(Time.get_ticks_usec())
+	var suspend_path := "user://run_scene_technique_suspend_%s.json" % suffix
+	var profile_path := "user://run_scene_technique_profile_%s.json" % suffix
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	scene._ready()
+	if scene.controller == null:
+		scene.free()
+		return
+	scene._on_action_pressed("character:base.character.sequence")
+	scene._on_action_pressed("contract:base.contract.pressure")
+	var owned_ids := [
+		"base.technique.stability_breath",
+		"base.technique.reserve_exchange",
+		"base.technique.reaction_guard",
+		"base.technique.settlement_focus",
+		"alpha.technique.reserve_survey",
+	]
+	for technique_id in owned_ids:
+		scene.controller.domain.state.build_ownership.run_technique_ids.append(technique_id)
+	var map_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "MAP_NODE")
+	if not map_actions.is_empty():
+		scene._on_action_pressed(str(map_actions[0].get("id", "")))
+	var battle = scene.controller.domain.current_battle
+	assert_true(battle != null, "the owned Technique fixture starts a real BattleDomain", failures)
+	if battle != null:
+		battle.combat_state.tp = 0
+		var unaffordable_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "TECHNIQUE")
+		assert_true(unaffordable_actions.size() == 1 and unaffordable_actions[0].get("target_id", "") == "base.technique.core.sequence_line", "the zero-cost Core remains available while TP-gated Techniques are hidden", failures)
+		var before_unaffordable: Dictionary = scene.controller.domain.checkpoint()
+		var rng_before_unaffordable: Dictionary = scene.controller.domain.rng_snapshot()
+		var unaffordable = scene.controller.domain.execute(UseTechniqueCommandScript.new("technique.unaffordable", "base.technique.stability_breath"))
+		assert_true(not unaffordable.accepted and unaffordable.validation.code == "INSUFFICIENT_TP", "the authoritative command rejects an Active Technique when TP is insufficient", failures)
+		assert_true(scene.controller.domain.checkpoint() == before_unaffordable and scene.controller.domain.rng_snapshot() == rng_before_unaffordable, "an unaffordable Technique preserves RunState and every RNG stream", failures)
+		var before_unowned: Dictionary = scene.controller.domain.checkpoint()
+		var rng_before_unowned: Dictionary = scene.controller.domain.rng_snapshot()
+		var unowned = scene.controller.domain.execute(UseTechniqueCommandScript.new("technique.unowned", "base.technique.draw_surge"))
+		assert_true(not unowned.accepted and unowned.validation.code == "TECHNIQUE_NOT_OWNED", "the authoritative command rejects a registered but unowned Technique", failures)
+		assert_true(scene.controller.domain.checkpoint() == before_unowned and scene.controller.domain.rng_snapshot() == rng_before_unowned, "an unowned Technique preserves RunState and all RNG streams", failures)
+		battle.combat_state.tp = 3
+		var hidden_settlement_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("target_id", "") == "base.technique.settlement_focus")
+		assert_true(hidden_settlement_actions.is_empty(), "Settlement Techniques stay hidden until a Settlement Window is open", failures)
+		# Build a real open Settlement Window around existing owned TileInstances so
+		# timing and capacity behavior also survive checkpoint reconstruction.
+		var settlement_definitions := ["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"]
+		for definition_id in settlement_definitions:
+			var selected_tile = null
+			for zone in TileZoneScript.all():
+				for tile in battle.zones.contents(zone):
+					if tile.definition_id == definition_id:
+						selected_tile = tile
+						break
+				if selected_tile != null:
+					break
+			if selected_tile != null and battle.zones.zone_of(selected_tile.instance_id) != TileZoneScript.HAND:
+				battle.zones.transfer(selected_tile.instance_id, battle.zones.zone_of(selected_tile.instance_id), TileZoneScript.HAND)
+		assert_true(battle.settlement_window.open(), "the fixture opens its Settlement Window from a legal Hand Sequence", failures)
+		assert_true(battle.settlement_window.settlement_capacity().consume(), "the fixture marks one Settlement use as spent before the Technique", failures)
+		var technique_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "TECHNIQUE")
+		assert_true(technique_actions.size() == 4, "the action surface offers the owned Active, Core, and open-window Settlement Techniques", failures)
+		assert_true(not technique_actions.any(func(candidate): return candidate.get("target_id", "") in ["base.technique.reaction_guard", "alpha.technique.reserve_survey"]), "Reaction and Passive timing are not exposed as ordinary battle actions", failures)
+		if technique_actions.size() == 4:
+			var action: Dictionary = technique_actions.filter(func(candidate): return candidate.get("target_id", "") == "base.technique.stability_breath")[0]
+			assert_true(action.get("id", "") == "battle.technique:base.technique.stability_breath", "the Technique action ID is stable and derived from its content ID", failures)
+			assert_true(action.get("details", {}).get("technique_kind", "") == "ACTIVE" and int(action.get("details", {}).get("tp_cost", -1)) == 1, "the action details show its registered kind and TP cost", failures)
+			assert_true(not str(scene._action_label(action)).is_empty(), "the owned Technique has a readable player-facing label", failures)
+			# Reconstruct from a stable checkpoint so replay starts with the injected test ownership.
+			scene.controller.domain.state.current_battle_snapshot = RunBattleSnapshotScript.new(battle.checkpoint())
+			var start_save: Dictionary = scene.controller.save_coordinator.save(scene.controller.domain, "BATTLE_START")
+			assert_true(start_save.get("accepted", false), "the in-test owned-Technique fixture can be rebased at a stable Battle checkpoint", failures)
+			if start_save.get("accepted", false):
+				var written_start: Dictionary = scene.suspend_store.write_snapshot(start_save.snapshot)
+				assert_true(written_start.get("accepted", false), "the stable test checkpoint can be written before the Resume comparison", failures)
+				var loaded_start: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
+				assert_true(loaded_start.get("accepted", false), "the owned-Technique checkpoint reconstructs through SaveMapper", failures)
+				if loaded_start.get("accepted", false):
+					scene.controller.domain = loaded_start.domain
+					scene.controller._refresh([])
+					assert_true(scene.controller.domain.verify_replay().status == "MATCH", "the reconstructed fixture starts a fresh accepted-only replay segment", failures)
+					battle = scene.controller.domain.current_battle
+					var before_stability: int = battle.combat_state.stability
+					var technique_result = scene._on_action_pressed("battle.technique:base.technique.stability_breath")
+					assert_true(technique_result.accepted, "the player can activate the owned Active Technique", failures)
+					assert_true(battle.combat_state.tp == 2 and battle.combat_state.stability == before_stability + 1, "Technique activation spends its exact TP cost and resolves its typed Stability effect", failures)
+					assert_true(technique_result.events.any(func(event): return event.event_type == DomainEventScript.TECHNIQUE_USED), "accepted activation emits a factual TechniqueUsed event", failures)
+					assert_true(technique_result.events.any(func(event): return event.event_type == DomainEventScript.TP_CHANGED), "accepted activation reports the TP cost", failures)
+					assert_true(technique_result.events.any(func(event): return event.event_type == DomainEventScript.STABILITY_CHANGED), "accepted activation exposes the typed effect event", failures)
+					var core_result = scene._on_action_pressed("battle.technique:base.technique.core.sequence_line")
+					assert_true(core_result.accepted, "the owned Core Technique can be activated", failures)
+					assert_true(battle.combat_state.tp == 3 and battle.combat_state.core_technique_used_this_turn, "the zero-cost Core resolves its typed effect and records the bounded use", failures)
+					assert_true(not scene.controller.action_descriptors().any(func(candidate): return candidate.get("target_id", "") == "base.technique.core.sequence_line"), "the Core Technique disappears after its one use this turn", failures)
+					var before_repeat_core: Dictionary = scene.controller.domain.checkpoint()
+					var rng_before_repeat_core: Dictionary = scene.controller.domain.rng_snapshot()
+					var repeated_core = scene.controller.domain.execute(UseTechniqueCommandScript.new("technique.core.repeat", "base.technique.core.sequence_line"))
+					assert_true(not repeated_core.accepted and repeated_core.validation.code == "CORE_TECHNIQUE_ALREADY_USED", "the authoritative command rejects a repeated Core Technique", failures)
+					assert_true(scene.controller.domain.checkpoint() == before_repeat_core and scene.controller.domain.rng_snapshot() == rng_before_repeat_core, "a repeated Core Technique preserves RunState and all RNG streams", failures)
+					var reserve_result = scene._on_action_pressed("battle.technique:base.technique.reserve_exchange")
+					assert_true(reserve_result.accepted, "the owned Reserve capacity Technique resolves", failures)
+					assert_true(battle.combat_state.reserve_capacity == 4 and battle.reserve_service.reserve_capacity == 4 and battle.zones.reserve_capacity == 4, "Reserve capacity effects immediately synchronize CombatState, ReserveService, and TileZoneContainer", failures)
+					assert_true(reserve_result.events.any(func(event): return event.event_type == DomainEventScript.CAPACITY_CHANGED and event.data.get("capacity", "") == "reserve_capacity"), "Reserve capacity activation emits the factual capacity event", failures)
+					var settlement_result = scene._on_action_pressed("battle.technique:base.technique.settlement_focus")
+					assert_true(settlement_result.accepted, "the owned Settlement Technique resolves while its Window is open", failures)
+					assert_true(battle.combat_state.settlement_capacity == 3 and battle.settlement_window.settlement_capacity().maximum == 3 and battle.settlement_window.settlement_capacity().remaining == 2, "Settlement capacity synchronizes immediately while preserving the one spent use", failures)
+					assert_true(settlement_result.events.any(func(event): return event.event_type == DomainEventScript.CAPACITY_CHANGED and event.data.get("capacity", "") == "settlement_capacity"), "Settlement capacity activation emits the factual capacity event", failures)
+					var technique_save: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
+					assert_true(technique_save.get("accepted", false), "accepted Technique activation writes a reloadable Suspend Save", failures)
+					if technique_save.get("accepted", false):
+						assert_true(technique_save.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_ACTION", "Technique persistence names the completed battle action boundary", failures)
+						assert_true(technique_save.domain.checkpoint() == scene.controller.domain.checkpoint(), "the Technique save restores its exact battle checkpoint", failures)
+						assert_true(technique_save.domain.rng_snapshot() == scene.controller.domain.rng_snapshot(), "the Technique save restores exact RNG state", failures)
+					assert_true(scene.controller.domain.verify_replay().status == "MATCH", "the accepted Technique is present in deterministic replay", failures)
+					var resumed = _new_isolated_run_scene(suspend_path, profile_path)
+					resumed._ready()
+					var resume_button = resumed.find_child("ResumeRunButton", true, false)
+					if resume_button is Button:
+						resume_button.emit_signal("pressed")
+					assert_true(resumed.controller != null and resumed.controller.domain.checkpoint() == scene.controller.domain.checkpoint(), "player-facing Resume restores the post-Technique state exactly", failures)
+					if resumed.controller != null:
+						assert_true(resumed.controller.action_descriptors() == scene.controller.action_descriptors(), "Resume restores the same legal action choices", failures)
+						var first_end_turn = scene.controller.confirm("battle.end_turn")
+						var resumed_end_turn = resumed.controller.confirm("battle.end_turn")
+						assert_true(first_end_turn.accepted and resumed_end_turn.accepted, "the same next End Turn is accepted on both paths", failures)
+						assert_true(not scene.controller.domain.current_battle.combat_state.core_technique_used_this_turn and scene.controller.action_descriptors().any(func(candidate): return candidate.get("target_id", "") == "base.technique.core.sequence_line"), "an accepted End Turn resets the serialized once-per-turn Core allowance", failures)
+						var first_draw = scene.controller.confirm("battle.draw")
+						var resumed_draw = resumed.controller.confirm("battle.draw")
+						assert_true(first_draw.accepted and resumed_draw.accepted, "the same future Draw is accepted after Resume", failures)
+						if first_draw.accepted and resumed_draw.accepted:
+							assert_true(scene.controller.domain.current_battle.checkpoint() == resumed.controller.domain.current_battle.checkpoint(), "future battle output remains exact after Resume", failures)
+							assert_true(scene.controller.domain.rng_snapshot() == resumed.controller.domain.rng_snapshot(), "future RNG output remains exact after Resume", failures)
+							assert_true(resumed.controller.domain.verify_replay().status == "MATCH", "accepted post-Resume commands replay from the restored checkpoint", failures)
+						resumed.free()
+		scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
+		_clear_test_file(path)
+
+func test_battle_action_descriptors_only_offer_legal_manipulations(failures: Array[String]) -> void:
+	var suffix := str(Time.get_ticks_usec())
+	var suspend_path := "user://run_scene_full_reserve_suspend_%s.json" % suffix
+	var profile_path := "user://run_scene_full_reserve_profile_%s.json" % suffix
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	scene._ready()
+	if scene.controller != null:
+		scene._on_action_pressed("character:base.character.sequence")
+		scene._on_action_pressed("contract:base.contract.pressure")
+		var map_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "MAP_NODE")
+		if not map_actions.is_empty():
+			scene._on_action_pressed(str(map_actions[0].get("id", "")))
+		var battle = scene.controller.domain.current_battle
+		if battle != null:
+			scene._on_action_pressed("battle.draw")
+			var reserve_tiles: Array = []
+			for zone in TileZoneScript.all():
+				for tile in battle.zones.contents(zone):
+					if tile.instance_id != "" and reserve_tiles.size() < battle.combat_state.reserve_capacity:
+						if zone != TileZoneScript.RESERVE:
+							reserve_tiles.append(tile)
+			for tile in reserve_tiles:
+				var source_zone: String = battle.zones.zone_of(tile.instance_id)
+				if source_zone != TileZoneScript.RESERVE:
+					battle.zones.transfer(tile.instance_id, source_zone, TileZoneScript.RESERVE)
+			var actions: Array = scene.controller.action_descriptors()
+			var hand_tiles: Array = battle.zones.contents(TileZoneScript.HAND)
+			var hand_ids: Array[String] = []
+			for tile in hand_tiles:
+				hand_ids.append(str(tile.instance_id))
+			assert_true(battle.zones.size(TileZoneScript.RESERVE) == battle.combat_state.reserve_capacity, "the action fixture fills Reserve to its current capacity", failures)
+			assert_true(not actions.any(func(action): return action.get("kind", "") == "RESERVE"), "Store is not offered when Reserve is full", failures)
+			assert_true(actions.filter(func(action): return action.get("kind", "") == "DISCARD").size() == hand_tiles.size(), "Discard remains available once for each current Hand TileInstance", failures)
+			var swaps: Array = actions.filter(func(action): return action.get("kind", "") == "RESERVE_SWAP")
+			assert_true(swaps.size() == hand_tiles.size() * battle.zones.size(TileZoneScript.RESERVE), "every displayed Swap corresponds to one current Hand and Reserve pair", failures)
+			for action in actions:
+				match str(action.get("kind", "")):
+					"DISCARD":
+						assert_true(battle.validate_discard_tile(str(action.get("target_id", ""))).is_valid(), "every displayed Discard passes authoritative validation", failures)
+					"RESERVE_SWAP":
+						assert_true(battle.validate_swap_reserve_tiles(str(action.get("hand_instance_id", "")), str(action.get("reserve_instance_id", ""))).is_valid(), "every displayed Swap passes authoritative validation", failures)
+	scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
+		_clear_test_file(path)
+
+func test_late_technique_effect_rejection_rolls_back(failures: Array[String]) -> void:
+	var suffix := str(Time.get_ticks_usec())
+	var suspend_path := "user://run_scene_late_effect_suspend_%s.json" % suffix
+	var profile_path := "user://run_scene_late_effect_profile_%s.json" % suffix
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	scene._ready()
+	if scene.controller == null:
+		scene.free()
+		return
+	scene._on_action_pressed("character:base.character.sequence")
+	scene._on_action_pressed("contract:base.contract.pressure")
+	var map_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "MAP_NODE")
+	if not map_actions.is_empty():
+		scene._on_action_pressed(str(map_actions[0].get("id", "")))
+	var battle = scene.controller.domain.current_battle
+	if battle != null:
+		var technique_id := "base.technique.test.late_reject"
+		var before_stability: int = battle.combat_state.stability
+		var second_effect := EffectScript.new(
+			"test.late_reject.guarded_tp",
+			EffectTriggerScript.new(EffectTriggerScript.MANUAL),
+			[StateEffectConditionScript.new("stability", StateEffectConditionScript.EQUAL, before_stability)],
+			[],
+			[GainTPOperationScript.new(1)],
+		)
+		var late_definition := TechniqueDefinitionScript.new(
+			technique_id,
+			TechniqueDefinitionScript.ACTIVE,
+			1,
+			[Phase2CatalogScript.typed_effect("test.late_reject.stability", "GainStability", 1), second_effect],
+		)
+		var registration = scene.controller.domain.content_registry.register(late_definition)
+		assert_true(registration.is_valid(), "the typed late-rejection Technique fixture registers", failures)
+		scene.controller.domain.state.build_ownership.run_technique_ids.append(technique_id)
+		battle.context.build_state.run_technique_ids.append(technique_id)
+		battle.combat_state.tp = 2
+		scene.controller.domain.state.current_battle_snapshot = RunBattleSnapshotScript.new(battle.checkpoint())
+		var baseline_save: Dictionary = scene.controller.save_coordinator.save(scene.controller.domain, "BATTLE_START")
+		if baseline_save.get("accepted", false):
+			scene.suspend_store.write_snapshot(baseline_save.snapshot)
+		var before: Dictionary = scene.controller.domain.checkpoint()
+		var rng_before: Dictionary = scene.controller.domain.rng_snapshot()
+		var result = scene.controller.domain.execute(UseTechniqueCommandScript.new("technique.late.reject", technique_id))
+		assert_true(not result.accepted and result.status == "REJECTED", "a late rejected typed effect rejects the Technique command even when the queue resolves", failures)
+		assert_true(result.validation.code == "TECHNIQUE_EFFECT_REJECTED", "the command explains that an individual Technique effect rejected", failures)
+		assert_true(scene.controller.domain.checkpoint() == before and scene.controller.domain.rng_snapshot() == rng_before, "late effect rejection rolls back TP, earlier effects, state, and RNG", failures)
+		assert_true(scene.controller.domain.verify_replay().status == "MATCH", "a rejected late-effect Technique is excluded from accepted-only replay", failures)
 	scene.free()
 	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path]:
 		_clear_test_file(path)

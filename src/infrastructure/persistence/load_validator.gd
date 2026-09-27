@@ -334,7 +334,7 @@ func _validate_checkpoint(metadata, state, errors: Array) -> void:
 	var valid_boundary := false
 	match boundary:
 		"MAP_NODE": valid_boundary = phase == RunPhaseScript.MAP_CHOICE
-		"BATTLE_START", "TURN_START", "DRAW_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE": valid_boundary = phase == RunPhaseScript.BATTLE
+		"BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE": valid_boundary = phase == RunPhaseScript.BATTLE
 		"SHOP": valid_boundary = phase == RunPhaseScript.SHOP
 		"WORKSHOP": valid_boundary = phase == RunPhaseScript.WORKSHOP
 		"EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER": valid_boundary = phase == RunPhaseScript.EVENT

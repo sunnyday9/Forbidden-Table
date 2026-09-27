@@ -17,6 +17,9 @@ const EndTurnCommandScript = preload("res://src/domain/commands/end_turn_command
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
+const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
+const SwapReserveTileCommandScript = preload("res://src/domain/commands/swap_reserve_tile_command.gd")
+const UseTechniqueCommandScript = preload("res://src/domain/commands/use_technique_command.gd")
 const ChooseRewardCommandScript = preload("res://src/domain/commands/choose_reward_command.gd")
 const EnterShopCommandScript = preload("res://src/domain/commands/enter_shop_command.gd")
 const ExitShopCommandScript = preload("res://src/domain/commands/exit_shop_command.gd")
@@ -33,6 +36,7 @@ const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
 const ACTION_PREFIX_CHARACTER := "character:"
@@ -117,6 +121,8 @@ func _suspend_boundary_for(command) -> String:
 		return "ENEMY_INTENT_COMPLETE"
 	if command is SettlePatternCommandScript or command is SettleCompleteHandCommandScript:
 		return "SETTLEMENT_COMPLETE"
+	if command is StoreTileCommandScript or command is DiscardTileCommandScript or command is SwapReserveTileCommandScript or command is UseTechniqueCommandScript:
+		return "BATTLE_ACTION"
 	if command is EnterShopCommandScript or command is BuyShopOfferCommandScript or command is RefreshShopCommandScript or command is ExitShopCommandScript:
 		return "SHOP"
 	if command is EnterWorkshopCommandScript or command is UseWorkshopServiceCommandScript or command is ExitWorkshopCommandScript:
@@ -412,11 +418,76 @@ func _battle_actions() -> Array:
 	var battle_state: Dictionary = domain.current_battle.public_state()
 	for pattern in battle_state.get("pattern_highlights", []):
 		actions.append({"id": "battle.settle:" + str(pattern.get("candidate_id", "")), "kind": "PARTIAL_SETTLEMENT", "target_id": str(pattern.get("candidate_id", "")), "details": pattern.duplicate(true)})
-	for tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
-		actions.append({"id": "battle.store:" + str(tile.instance_id), "kind": "RESERVE", "target_id": str(tile.instance_id), "details": {"tile_id": tile.definition_id, "instance_id": tile.instance_id}})
+	var combat_state = domain.current_battle.combat_state
+	var can_manipulate_tiles: bool = combat_state.draw_actions_used_this_turn > 0 and not combat_state.tile_manipulation_used_this_draw
+	if can_manipulate_tiles:
+		for tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
+			var tile_details := {"tile_id": tile.definition_id, "instance_id": tile.instance_id}
+			if domain.current_battle.validate_store_tile(str(tile.instance_id)).is_valid():
+				actions.append({"id": "battle.store:" + str(tile.instance_id), "kind": "RESERVE", "target_id": str(tile.instance_id), "details": tile_details.duplicate(true)})
+			if domain.current_battle.validate_discard_tile(str(tile.instance_id)).is_valid():
+				actions.append({"id": "battle.discard:" + str(tile.instance_id), "kind": "DISCARD", "target_id": str(tile.instance_id), "details": tile_details.duplicate(true)})
+		for hand_tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
+			for reserve_tile in domain.current_battle.zones.contents(TileZoneScript.RESERVE):
+				if not domain.current_battle.validate_swap_reserve_tiles(str(hand_tile.instance_id), str(reserve_tile.instance_id)).is_valid():
+					continue
+				actions.append({
+					"id": "battle.swap:%s:%s" % [str(hand_tile.instance_id), str(reserve_tile.instance_id)],
+					"kind": "RESERVE_SWAP",
+					"target_id": str(hand_tile.instance_id),
+					"hand_instance_id": str(hand_tile.instance_id),
+					"reserve_instance_id": str(reserve_tile.instance_id),
+					"details": {
+						"hand_tile_id": str(hand_tile.definition_id),
+						"reserve_tile_id": str(reserve_tile.definition_id),
+					},
+				})
+	actions.append_array(_battle_technique_actions(domain.current_battle))
 	if domain.current_battle.can_complete_hand():
 		for interpretation in domain.current_battle.complete_hand_interpretations():
 			actions.append({"id": "battle.complete:" + str(interpretation.interpretation_id), "kind": "COMPLETE_HAND", "target_id": str(interpretation.interpretation_id), "details": interpretation.to_dictionary()})
+	return actions
+
+func _battle_technique_actions(battle) -> Array:
+	var actions: Array = []
+	if battle == null or battle.context == null or battle.context.content_registry == null:
+		return actions
+	var build_state: Dictionary = battle.context.build_state if battle.context.build_state is Dictionary else {}
+	var owned_technique_ids: Variant = build_state.get("run_technique_ids", [])
+	if not owned_technique_ids is Array:
+		return actions
+	var sorted_ids: Array[String] = []
+	for technique_id in owned_technique_ids:
+		var id := str(technique_id)
+		if not id.is_empty() and not sorted_ids.has(id):
+			sorted_ids.append(id)
+	var core_technique_id := str(build_state.get("character_core_technique_id", ""))
+	if not core_technique_id.is_empty() and not sorted_ids.has(core_technique_id):
+		sorted_ids.append(core_technique_id)
+	sorted_ids.sort()
+	for technique_id in sorted_ids:
+		var definition = battle.context.content_registry.resolve(technique_id)
+		if definition == null or definition.get_script() != TechniqueDefinitionScript:
+			continue
+		var validation = battle.validate_use_technique(technique_id)
+		if validation == null or not validation.is_valid():
+			continue
+		var uses_per_turn: int = 1 if definition.technique_kind == TechniqueDefinitionScript.CORE else -1
+		var uses_remaining: int = 1 if uses_per_turn > 0 else -1
+		if definition.technique_kind == TechniqueDefinitionScript.CORE and battle.combat_state.core_technique_used_this_turn:
+			uses_remaining = 0
+		actions.append({
+			"id": "battle.technique:%s" % technique_id,
+			"kind": "TECHNIQUE",
+			"target_id": technique_id,
+			"details": {
+				"technique_kind": definition.technique_kind,
+				"tp_cost": definition.tp_cost,
+				"effect_count": definition.effects.size(),
+				"uses_per_turn": uses_per_turn,
+				"uses_remaining_this_turn": uses_remaining,
+			},
+		})
 	return actions
 
 func _reward_actions() -> Array:
@@ -650,6 +721,9 @@ func _command_for_action(action_id: String):
 		"PARTIAL_SETTLEMENT": return SettlePatternCommandScript.new(command_id, [], "", "", false, target_id)
 		"COMPLETE_HAND": return SettleCompleteHandCommandScript.new(command_id, target_id)
 		"RESERVE": return StoreTileCommandScript.new(command_id, target_id)
+		"DISCARD": return DiscardTileCommandScript.new(command_id, target_id)
+		"RESERVE_SWAP": return SwapReserveTileCommandScript.new(command_id, str(action.get("hand_instance_id", "")), str(action.get("reserve_instance_id", "")))
+		"TECHNIQUE": return UseTechniqueCommandScript.new(command_id, target_id)
 		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return ChooseRewardCommandScript.new(command_id, target_id if action.get("kind", "") != "REWARD" else target_id, str(action.get("draft_id", "")))
 		"ENTER_SHOP": return EnterShopCommandScript.new(command_id)
 		"SHOP_OFFER": return BuyShopOfferCommandScript.new(command_id, target_id, str(action.get("entry_id", "")))
@@ -704,4 +778,7 @@ func _feedback_for_events(events: Array) -> String:
 		DomainEventScript.CHARACTER_PASSIVE_TRIGGERED:
 			var passive = domain.content_registry.resolve(str(last_event.data.get("passive_id", "")))
 			return "%s: %s" % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else "Character Passive triggered."
+		DomainEventScript.TILE_DISCARDED: return "Tile discarded."
+		DomainEventScript.TECHNIQUE_USED:
+			return "Technique used: %s." % str(last_event.data.get("technique_id", ""))
 	return str(last_event.event_type)

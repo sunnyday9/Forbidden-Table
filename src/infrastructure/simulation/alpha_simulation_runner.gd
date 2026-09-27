@@ -36,6 +36,7 @@ const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_com
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
 const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
 const POLICY_RULE_VERSION := "v6"
+const COMPLETE_POLICY_RULE_VERSION := "v7"
 
 var _domain
 var _attempt_case: Dictionary
@@ -319,7 +320,14 @@ func _step_battle() -> bool:
 				_next_command_id("battle.complete"),
 				interpretation.interpretation_id,
 			))
-	if policy_id == "Complete" and not has_complete_hand and draw_sources_available and battle.combat_state.draw_actions_remaining() > 0:
+	if (
+		policy_id == "Complete"
+		and not has_complete_hand
+		and draw_sources_available
+		and battle.combat_state.draw_actions_remaining() > 0
+		and battle.combat_state.draw_actions_used_this_turn > 0
+		and not battle.combat_state.tile_manipulation_used_this_draw
+	):
 		var store_target := _next_complete_hand_store_target(battle)
 		if not store_target.is_empty():
 			return _execute_command(StoreTileCommandScript.new(
@@ -598,14 +606,15 @@ func _build_attempt_record() -> Dictionary:
 	var strategy_rule := "Partial: settle the highest-ranked legal Partial Pattern; never choose Complete Hand."
 	match str(_attempt_case.get("policy_id", "")):
 		"Complete":
-			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available, deterministically store the least-patterned Hand tile in Reserve and draw a replacement while a Draw Action and source are available; when the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
+			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it, then at most once per accepted normal Draw deterministically store a Hand tile while Reserve has room. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
 	strategy_rule += " End Turn rather than request a Draw when both Draw Wall and Discard are empty, including during Recovery."
 	strategy_rule += " Route SERVICE through an authored Workshop node; use the first deterministic legal Modifier when affordable, banking a Normal Reward skip only when it will reach that price."
+	var policy_rule_version := COMPLETE_POLICY_RULE_VERSION if str(_attempt_case.get("policy_id", "")) == "Complete" else POLICY_RULE_VERSION
 	var strategy := {
 		"policy_id": str(_attempt_case.get("policy_id", "")),
-		"policy_rule_id": "alpha.%s.%s" % [str(_attempt_case.get("policy_id", "unsupported")).to_lower(), POLICY_RULE_VERSION],
+		"policy_rule_id": "alpha.%s.%s" % [str(_attempt_case.get("policy_id", "unsupported")).to_lower(), policy_rule_version],
 		"decision_rule": strategy_rule,
 		"accepted_action_counts": _accepted_action_counts.duplicate(true),
 		"partial_settlements": _partial_settlement_count,

@@ -20,6 +20,9 @@ const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
+const EffectScript = preload("res://src/domain/effects/effect.gd")
+const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
 
 var zones
 var draw_wall
@@ -182,6 +185,154 @@ func resolve_character_passive(passive_definition) -> Dictionary:
 		combat_state.triggered_signature_passive_ids.append(passive_definition.content_id)
 	return {"accepted": result.is_resolved(), "status": result.status, "events": result.events}
 
+func validate_use_technique(technique_id: String) -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if context == null or context.content_registry == null:
+		return CommandValidationScript.new(false, "TECHNIQUE_REGISTRY_UNAVAILABLE", "Technique content is unavailable in this battle.")
+	var build_state: Dictionary = context.build_state if context.build_state is Dictionary else {}
+	var owned_technique_ids: Variant = build_state.get("run_technique_ids", [])
+	var definition = context.content_registry.resolve(technique_id)
+	if not definition is TechniqueDefinitionScript:
+		return CommandValidationScript.new(false, "INVALID_TECHNIQUE_ID", "The selected Technique ID is not registered.")
+	match definition.technique_kind:
+		TechniqueDefinitionScript.CORE:
+			if str(build_state.get("character_core_technique_id", "")) != technique_id:
+				return CommandValidationScript.new(false, "TECHNIQUE_NOT_OWNED", "The selected Core Technique is not this Character's owned Core.")
+			if combat_state.core_technique_used_this_turn:
+				return CommandValidationScript.new(false, "CORE_TECHNIQUE_ALREADY_USED", "This Core Technique has already been used this turn.")
+		TechniqueDefinitionScript.ACTIVE:
+			if not owned_technique_ids is Array or not owned_technique_ids.has(technique_id):
+				return CommandValidationScript.new(false, "TECHNIQUE_NOT_OWNED", "The selected Technique is not owned by this Run.")
+		TechniqueDefinitionScript.SETTLEMENT:
+			if not owned_technique_ids is Array or not owned_technique_ids.has(technique_id):
+				return CommandValidationScript.new(false, "TECHNIQUE_NOT_OWNED", "The selected Technique is not owned by this Run.")
+			if settlement_window == null or not settlement_window.is_open():
+				return CommandValidationScript.new(false, "TECHNIQUE_TIMING_UNAVAILABLE", "Settlement Techniques can only be used while a Settlement Window is open.")
+		_:
+			return CommandValidationScript.new(false, "TECHNIQUE_TIMING_UNAVAILABLE", "This Technique kind is not an ordinary battle action.")
+	if definition.tp_cost < 0 or not definition.effects is Array or definition.effects.is_empty() or definition.effects.size() > 256:
+		return CommandValidationScript.new(false, "INVALID_TECHNIQUE_DEFINITION", "The selected Technique has an invalid cost or effect list.")
+	if combat_state.tp < definition.tp_cost:
+		return CommandValidationScript.new(false, "INSUFFICIENT_TP", "This Technique costs %d TP, but only %d TP is available." % [definition.tp_cost, combat_state.tp])
+	var effect_context = EffectContextScript.new(combat_state, zones, draw_wall, reserve_service, contamination_service)
+	for effect in definition.effects:
+		var allowed_triggers: Array[String] = ["MANUAL"]
+		if definition.technique_kind == TechniqueDefinitionScript.SETTLEMENT:
+			allowed_triggers.append("SETTLEMENT")
+		if not effect is EffectScript or effect.trigger == null or not allowed_triggers.has(effect.trigger.trigger_id):
+			return CommandValidationScript.new(false, "TECHNIQUE_EFFECT_TIMING_UNAVAILABLE", "The Technique contains an effect that cannot resolve at its current timing.")
+		var effect_validation: Dictionary = effect.validate_in_context(effect_context)
+		if not bool(effect_validation.get("valid", false)):
+			return CommandValidationScript.new(false, "TECHNIQUE_EFFECT_REJECTED", "The Technique cannot resolve its typed effects.", effect_validation)
+	return CommandValidationScript.new(true)
+
+func execute_use_technique(technique_id: String) -> Dictionary:
+	var validation := validate_use_technique(technique_id)
+	if not validation.is_valid():
+		return {"accepted": false, "status": validation.code, "message": validation.message, "events": []}
+	var definition = context.content_registry.resolve(technique_id)
+	var transaction := _capture_battle_transaction()
+	var effect_context = EffectContextScript.new(combat_state, zones, draw_wall, reserve_service, contamination_service)
+	var queue = combat_resolver.begin_queue(combat_state, 256, effect_context)
+	if queue == null:
+		return {"accepted": false, "status": "TECHNIQUE_QUEUE_REJECTED", "message": "The Technique resolution queue could not start.", "events": []}
+	var previous_tp: int = combat_state.tp
+	combat_state.tp -= definition.tp_cost
+	var sequence_index: int = combat_state._next_effect_sequence_index()
+	if definition.tp_cost > 0:
+		queue.add_event(DomainEventScript.new(DomainEventScript.TP_CHANGED, {
+			"source_id": technique_id,
+			"previous_tp": previous_tp,
+			"tp": combat_state.tp,
+			"amount": -definition.tp_cost,
+			"sequence_index": sequence_index,
+		}))
+	queue.add_event(DomainEventScript.new(DomainEventScript.TECHNIQUE_USED, {
+		"technique_id": technique_id,
+		"technique_kind": definition.technique_kind,
+		"tp_cost": definition.tp_cost,
+		"sequence_index": sequence_index,
+	}))
+	for effect in definition.effects:
+		if not queue.enqueue_effect(effect):
+			queue.drain()
+			if not _restore_battle_transaction(transaction):
+				return {"accepted": false, "status": "TECHNIQUE_ROLLBACK_FAILED", "message": "The rejected Technique could not restore its prior battle state.", "events": []}
+			return {"accepted": false, "status": "TECHNIQUE_QUEUE_REJECTED", "message": "The Technique effects could not be queued.", "events": []}
+	var result = queue.drain()
+	var rejected_effect: Dictionary = _first_rejected_technique_effect(result.effect_results)
+	if not result.is_resolved() or not rejected_effect.is_empty():
+		if not _restore_battle_transaction(transaction):
+			return {
+				"accepted": false,
+				"status": "TECHNIQUE_ROLLBACK_FAILED",
+				"message": "The rejected Technique could not restore its prior battle state.",
+				"events": [],
+				"data": {"technique_id": technique_id, "effect_failure": rejected_effect, "resolution": result.to_dictionary()},
+			}
+		var failure_message := "The Technique effect %s rejected during resolution." % str(rejected_effect.get("effect_id", "")) if not rejected_effect.is_empty() else "The Technique did not resolve."
+		return {
+			"accepted": false,
+			"status": "TECHNIQUE_EFFECT_REJECTED" if not rejected_effect.is_empty() else result.status,
+			"message": failure_message,
+			"events": [],
+			"data": {"technique_id": technique_id, "effect_failure": rejected_effect, "resolution": result.to_dictionary()},
+		}
+	if definition.technique_kind == TechniqueDefinitionScript.CORE:
+		combat_state.core_technique_used_this_turn = true
+	if not _sync_technique_capacity_services(result.events):
+		if not _restore_battle_transaction(transaction):
+			return {"accepted": false, "status": "TECHNIQUE_ROLLBACK_FAILED", "message": "The rejected capacity change could not restore its prior battle state.", "events": [], "data": {"technique_id": technique_id}}
+		return {"accepted": false, "status": "TECHNIQUE_CAPACITY_SYNC_REJECTED", "message": "The Technique's capacity change could not be applied to its battle service.", "events": [], "data": {"technique_id": technique_id}}
+	return {
+		"accepted": true,
+		"status": result.status,
+		"events": result.events,
+		"data": {"technique_id": technique_id, "tp_cost": definition.tp_cost, "resolution": result.to_dictionary()},
+	}
+
+func _first_rejected_technique_effect(effect_results: Array) -> Dictionary:
+	for effect_result in effect_results:
+		if not effect_result is EffectResolutionResultScript or not effect_result.is_resolved():
+			if effect_result is EffectResolutionResultScript:
+				return {
+					"effect_id": effect_result.effect_id,
+					"status": effect_result.status,
+					"reason": effect_result.reason,
+				}
+			return {"effect_id": "", "status": "INVALID_EFFECT_RESULT", "reason": "A Technique effect did not return a resolution result."}
+	return {}
+
+func _sync_technique_capacity_services(events: Array) -> bool:
+	var reserve_capacity_changed := false
+	var settlement_capacity_changed := false
+	for event in events:
+		if event == null or event.event_type != DomainEventScript.CAPACITY_CHANGED:
+			continue
+		match str(event.data.get("capacity", "")):
+			"reserve_capacity":
+				reserve_capacity_changed = true
+			"settlement_capacity":
+				settlement_capacity_changed = true
+	if reserve_capacity_changed and reserve_service == null:
+		return false
+	var settlement_capacity = null
+	if settlement_capacity_changed:
+		if settlement_window == null:
+			return false
+		settlement_capacity = settlement_window.settlement_capacity()
+		if settlement_capacity == null:
+			return false
+	if reserve_capacity_changed and reserve_service != null:
+		if not reserve_service.set_capacity(combat_state.reserve_capacity):
+			return false
+	if settlement_capacity_changed and settlement_capacity.maximum != combat_state.settlement_capacity:
+		var spent: int = settlement_capacity.spent
+		settlement_capacity.baseline = maxi(0, settlement_capacity.baseline + combat_state.settlement_capacity - settlement_capacity.maximum)
+		settlement_capacity._remaining = maxi(0, settlement_capacity.maximum - spent)
+	return true
+
 
 
 func execute_draw() -> Dictionary:
@@ -189,6 +340,7 @@ func execute_draw() -> Dictionary:
 	var events: Array = draw_result.events
 	if draw_result.is_accepted():
 		combat_state.draw_actions_used_this_turn += 1
+		combat_state.tile_manipulation_used_this_draw = false
 		if settlement_window != null:
 			settlement_window.open()
 	return {
@@ -241,6 +393,7 @@ func execute_end_turn() -> Dictionary:
 	events.append_array(intent_result.events)
 	if intent_result.get("accepted", false):
 		combat_state.draw_actions_used_this_turn = 0
+		combat_state.core_technique_used_this_turn = false
 	return {
 		"accepted": true,
 		"status": "RECOVERY_ENDED" if recovery_ended else "TURN_ENDED",
@@ -251,6 +404,9 @@ func execute_end_turn() -> Dictionary:
 func validate_store_tile(instance_id: String) -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	var manipulation_validation := _validate_tile_manipulation_window()
+	if not manipulation_validation.is_valid():
+		return manipulation_validation
 	if tile_actions == null or zones == null or not zones.contains_in_zone(instance_id, TileZoneScript.HAND):
 		return CommandValidationScript.new(false, ReserveActionResultScript.INVALID_TILE, "The selected TileInstance is not in Hand.")
 	if zones.size(TileZoneScript.RESERVE) >= combat_state.reserve_capacity:
@@ -259,11 +415,16 @@ func validate_store_tile(instance_id: String) -> RefCounted:
 
 func execute_store_tile(instance_id: String) -> Dictionary:
 	var result = tile_actions.store_to_reserve(instance_id)
+	if result.is_accepted():
+		combat_state.tile_manipulation_used_this_draw = true
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
 
 func validate_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: String) -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	var manipulation_validation := _validate_tile_manipulation_window()
+	if not manipulation_validation.is_valid():
+		return manipulation_validation
 	if zones == null or not zones.contains_in_zone(hand_instance_id, TileZoneScript.HAND):
 		return CommandValidationScript.new(false, ReserveActionResultScript.INVALID_TILE, "The selected Hand TileInstance is invalid.")
 	if not zones.contains_in_zone(reserve_instance_id, TileZoneScript.RESERVE):
@@ -272,7 +433,32 @@ func validate_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: 
 
 func execute_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: String) -> Dictionary:
 	var result = tile_actions.swap_with_reserve(hand_instance_id, reserve_instance_id)
+	if result.is_accepted():
+		combat_state.tile_manipulation_used_this_draw = true
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
+
+func validate_discard_tile(instance_id: String) -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	var manipulation_validation := _validate_tile_manipulation_window()
+	if not manipulation_validation.is_valid():
+		return manipulation_validation
+	if tile_actions == null or zones == null or not zones.contains_in_zone(instance_id, TileZoneScript.HAND):
+		return CommandValidationScript.new(false, "INVALID_TILE", "The selected TileInstance is not in Hand.")
+	return CommandValidationScript.new(true)
+
+func execute_discard_tile(instance_id: String) -> Dictionary:
+	var result = tile_actions.discard(instance_id)
+	if result.is_accepted():
+		combat_state.tile_manipulation_used_this_draw = true
+	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
+
+func _validate_tile_manipulation_window() -> RefCounted:
+	if combat_state.draw_actions_used_this_turn <= 0:
+		return CommandValidationScript.new(false, "DRAW_ACTION_NOT_STARTED", "Draw a tile before manipulating Hand or Reserve.")
+	if combat_state.tile_manipulation_used_this_draw:
+		return CommandValidationScript.new(false, "TILE_MANIPULATION_ALREADY_USED", "Only one Hand or Reserve manipulation is allowed per Draw Action.")
+	return CommandValidationScript.new(true)
 
 func can_settle() -> bool:
 	if settlement_window != null and settlement_window.is_open():
@@ -729,6 +915,8 @@ func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
 		if snapshot.has(field):
 			combat_state.set(field, snapshot[field])
 	combat_state.reward_tax = maxi(0, int(snapshot.get("reward_tax", 0)))
+	combat_state.tile_manipulation_used_this_draw = bool(snapshot.get("tile_manipulation_used_this_draw", false))
+	combat_state.core_technique_used_this_turn = bool(snapshot.get("core_technique_used_this_turn", false))
 	var triggered_passives: Variant = snapshot.get("triggered_signature_passive_ids", [])
 	if not triggered_passives is Array:
 		return false

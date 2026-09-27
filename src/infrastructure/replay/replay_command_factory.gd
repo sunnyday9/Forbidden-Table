@@ -7,6 +7,8 @@ const ResolveEnemyIntentCommandScript = preload("res://src/domain/commands/resol
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
+const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
+const UseTechniqueCommandScript = preload("res://src/domain/commands/use_technique_command.gd")
 const SwapReserveTileCommandScript = preload("res://src/domain/commands/swap_reserve_tile_command.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
@@ -53,6 +55,22 @@ static func from_record(record):
 			return StoreTileCommandScript.new(
 				record.command_id,
 				str(payload.get("instance_id", "")),
+				record.actor_id,
+				record.target_id,
+				record.preview,
+			)
+		"DiscardTile":
+			return DiscardTileCommandScript.new(
+				record.command_id,
+				str(payload.get("instance_id", "")),
+				record.actor_id,
+				record.target_id,
+				record.preview,
+			)
+		"UseTechnique":
+			return UseTechniqueCommandScript.new(
+				record.command_id,
+				str(payload.get("technique_id", "")),
 				record.actor_id,
 				record.target_id,
 				record.preview,

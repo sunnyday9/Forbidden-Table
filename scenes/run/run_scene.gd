@@ -564,6 +564,11 @@ func _action_label(action: Dictionary) -> String:
 		]
 		"COMPLETE_HAND": return "Settle complete hand — %s" % _pretty_words(str(details.get("hand_type", "hand")))
 		"RESERVE": return "Store %s in Reserve" % _pretty_tile_id(str(details.get("tile_id", target)))
+		"DISCARD": return "Discard %s" % _pretty_tile_id(str(details.get("tile_id", target)))
+		"RESERVE_SWAP": return "Swap %s with Reserve %s" % [
+			_pretty_tile_id(str(details.get("hand_tile_id", ""))),
+			_pretty_tile_id(str(details.get("reserve_tile_id", ""))),
+		]
 		"REWARD", "ELITE_REWARD", "BOSS_REWARD":
 			var content_id := str(action.get("content_id", details.get("content_id", target)))
 			return "Choose reward — %s" % _pretty_id(content_id)

@@ -41,6 +41,8 @@ var triggered_signature_passive_ids: Array[String]
 var stability: int
 var draw_capacity: int
 var draw_actions_used_this_turn: int
+var tile_manipulation_used_this_draw: bool
+var core_technique_used_this_turn: bool
 var settlement_capacity: int
 var reserve_capacity: int
 var reward_tax: int
@@ -95,6 +97,8 @@ func _init(
 	stability = maxi(0, initial_stability)
 	draw_capacity = maxi(0, initial_draw_capacity)
 	draw_actions_used_this_turn = 0
+	tile_manipulation_used_this_draw = false
+	core_technique_used_this_turn = false
 	settlement_capacity = maxi(0, initial_settlement_capacity)
 	reserve_capacity = maxi(0, initial_reserve_capacity)
 	reward_tax = 0
@@ -190,6 +194,8 @@ func public_battle_state() -> Dictionary:
 		"stability": stability,
 		"draw_capacity": draw_capacity,
 		"draw_actions_used_this_turn": draw_actions_used_this_turn,
+		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"core_technique_used_this_turn": core_technique_used_this_turn,
 		"draw_actions_remaining": draw_actions_remaining(),
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
@@ -232,6 +238,8 @@ func to_dictionary() -> Dictionary:
 		"stability": stability,
 		"draw_capacity": draw_capacity,
 		"draw_actions_used_this_turn": draw_actions_used_this_turn,
+		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"core_technique_used_this_turn": core_technique_used_this_turn,
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
 		"reward_tax": reward_tax,
