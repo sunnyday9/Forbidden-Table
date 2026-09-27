@@ -44,7 +44,7 @@ func test_elite_victory_presents_three_distinct_acquisitions_plus_skip(failures:
 	assert_true(draft.draft_kind == "ELITE_BUILD", "the Elite reward uses its stable draft kind", failures)
 	assert_true(draft.encounter_kind == EncounterDefinition.ELITE, "the draft identifies an Elite encounter", failures)
 	assert_true(draft.draft_id.begins_with("reward.elite.") and not draft.options[0].option_id.is_empty(), "Elite drafts and options have stable non-empty IDs", failures)
-	assert_true(first.state.content_version == "content.slice.v2", "Elite rewards remain part of the pending Phase 2 v2 bundle", failures)
+	assert_true(first.state.content_version == "content.slice.v3", "Elite rewards use the current Phase 2 bundle identity", failures)
 	assert_true(draft.to_dictionary() == second.state.reward_draft.to_dictionary(), "the same seed reproduces the ordered Elite draft", failures)
 	assert_true(draft.reward_rng_state == first.rng_streams.reward.snapshot(), "the draft records the post-generation Reward RNG state", failures)
 	assert_true(first.rng_streams.reward.snapshot() != reward_before, "Elite candidate selection advances the existing Reward RNG stream", failures)

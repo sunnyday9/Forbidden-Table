@@ -48,7 +48,7 @@ func test_lower_bound_catalog_registers_and_validates(failures: Array[String]) -
 	assert_true(registration.is_valid(), "the lower-bound catalog registers every definition", failures)
 	var validation = registry.validate()
 	assert_true(validation.is_valid(), "the lower-bound catalog passes ContentRegistry validation", failures)
-	assert_true(registry.content_version() == "content.slice.v2", "the catalog versions the Phase 2 Boss reward content", failures)
+	assert_true(registry.content_version() == "content.slice.v3", "the catalog versions current deterministic Event content", failures)
 
 func test_catalog_ids_and_roles_match_phase_2(failures: Array[String]) -> void:
 	assert_true(Phase2Catalog.CHARACTER_IDS == [
@@ -247,9 +247,10 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	Phase2Catalog.register_all(repeated_scale_registry)
 	var repeated_scale_version: String = repeated_scale_registry.content_version()
 
-	assert_true(phase2_version == ContentRegistry.CONTENT_VERSION, "the Phase 2 content bundle keeps its v2 migration identity", failures)
+	assert_true(phase2_version == "content.slice.v3", "Phase 2 Event semantics use a new explicit content identity", failures)
+	assert_true(phase2_version != "content.slice.v2", "old Phase 2 v2 content cannot share the updated gameplay identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
-	assert_true(act_two_version.contains("alpha.act_two@v2"), "the Act 2 bundle versions its new encounter, Event, and map content", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v3") and act_two_version.contains("phase2@v3"), "Act 2 and shared Phase 2 Event semantics both carry their updated versions", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)

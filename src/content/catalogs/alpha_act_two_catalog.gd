@@ -45,7 +45,7 @@ const ACT_TWO_EVENT_IDS := [
 	"alpha.event.act_two.rule_memory",
 ]
 const CONTENT_BUNDLE_ID := "alpha.act_two"
-const CONTENT_BUNDLE_VERSION := "v2"
+const CONTENT_BUNDLE_VERSION := "v3"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())

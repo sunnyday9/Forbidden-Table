@@ -23,12 +23,17 @@ const DrawCommand = preload("res://src/domain/commands/draw_command.gd")
 const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SuspendSnapshot = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
 const MetaProgressSnapshot = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
 const RunRecord = preload("res://src/infrastructure/persistence/run_record.gd")
 const MigrationPipeline = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
+const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
+const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
+const StackPolicy = preload("res://src/domain/effects/stack_policy.gd")
 const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const DeterministicSerializer = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const JsonIntegerCodec = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
@@ -49,10 +54,14 @@ func run() -> Array[String]:
 	test_battle_snapshot_reconstructs_live_child_and_can_continue(failures)
 	test_nested_run_and_battle_state_round_trips(failures)
 	test_validator_rejects_identity_boundary_and_missing_registry(failures)
+	test_v2_suspend_snapshot_is_rejected_by_current_bundle(failures)
+	test_v2_act_two_suspend_migration_preserves_bundle_identity(failures)
 	test_invalid_snapshot_is_rejected_atomically(failures)
 	test_migrations_are_sequential(failures)
 	test_restored_domains_rebind_service_and_summary_flows(failures)
 	test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures)
+	test_phase2_v1_migration_rejects_active_event_semantic_changes(failures)
+	test_v2_migration_rejects_unverifiable_active_effect_state(failures)
 	test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures)
 	test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failures)
 	test_phase2_v1_pending_boss_reward_migrates_deterministically(failures)
@@ -221,6 +230,103 @@ func test_validator_rejects_identity_boundary_and_missing_registry(failures: Arr
 	var registry_result = SaveMapper.load_into_domain(SaveMapper.suspend_snapshot(source).to_dictionary(), null)
 	assert_true(not registry_result.accepted, "content-bearing snapshots require a content registry for ID resolution", failures)
 
+func test_v2_suspend_snapshot_is_rejected_by_current_bundle(failures: Array[String]) -> void:
+	var source := RunDomain.new("persist.old-v2", 1218, _phase2_registry())
+	source.execute(ChooseCharacterCommand.new("persist.old-v2.character", "base.character.sequence"))
+	source.execute(ChooseContractCommand.new("persist.old-v2.contract", "base.contract.pressure"))
+	var old_v2: Dictionary = SaveMapper.suspend_snapshot(source).to_dictionary()
+	old_v2.content_version = "content.slice.v2"
+	old_v2.authoritative_state.content_version = "content.slice.v2"
+	old_v2.run_state.content_version = "content.slice.v2"
+	old_v2.checkpoint_metadata.state_hash = _run_state_hash(old_v2.authoritative_state)
+	var original := old_v2.duplicate(true)
+	var rejected = SaveMapper.load_into_domain(old_v2, _phase2_registry())
+	assert_true(not rejected.accepted, "an old v2 save cannot load under the new Event rules", failures)
+	assert_true(_has_validation_error(rejected, "UNSUPPORTED_CONTENT_VERSION"), "old v2 saves report an explicit content-version boundary", failures)
+	assert_true(old_v2 == original, "old-version rejection leaves the supplied save unchanged", failures)
+	var migrated = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(old_v2, _phase2_registry())
+	assert_true(migrated.accepted, "explicit v2 migration accepts a stable snapshot with no changed Event modifier (%s: %s)" % [migrated.get("code", ""), migrated.get("errors", [])], failures)
+	assert_true(old_v2 == original, "successful v2 migration leaves the archived input unchanged", failures)
+	if migrated.accepted:
+		assert_true(migrated.snapshot.content_version == "content.slice.v3", "explicit v2 migration labels the new Event rules accurately", failures)
+		assert_true(migrated.pipeline.has("Explicit Content Migration: content.slice.v2 -> content.slice.v3"), "the load pipeline records explicit v2 migration", failures)
+		assert_true(migrated.domain.replay_record.content_version == migrated.snapshot.content_version, "the resumed replay starts with the migrated content identity", failures)
+		assert_true(migrated.domain.replay_record.checkpoints.size() == 1, "the resumed replay starts from the migrated checkpoint", failures)
+		assert_true(migrated.domain.verify_replay().is_match(), "the migrated replay verifies from its new initial checkpoint", failures)
+func test_phase2_v2_migration_rejects_active_event_semantic_changes(failures: Array[String]) -> void:
+	var domain := RunDomain.new("persist.old-v2-effect", 1219, _phase2_registry())
+	domain.execute(ChooseCharacterCommand.new("persist.old-v2-effect.character", "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("persist.old-v2-effect.contract", "base.contract.pressure"))
+	var source: Dictionary = SaveMapper.suspend_snapshot(domain).to_dictionary()
+	source.content_version = "content.slice.v2"
+	source.authoritative_state.content_version = "content.slice.v2"
+	source.run_state.content_version = "content.slice.v2"
+	var active_modifier := ActiveEffectInstance.new(
+		"run.modifier.event.risk_bargain.accept",
+		DurationSpec.new(DurationSpec.RUN, 1),
+		StackPolicy.new(StackPolicy.REPLACE),
+		"event.risk_bargain.accept",
+		1,
+		-1,
+		-1,
+		"event.risk_bargain.accept",
+		0,
+		{"modifier_id": "event.risk_bargain.accept"},
+	)
+	source.authoritative_state.active_effects = [active_modifier.to_dictionary()]
+	source.run_state = source.authoritative_state.duplicate(true)
+	source.checkpoint_metadata.state_hash = _run_state_hash(source.authoritative_state)
+	var original := source.duplicate(true)
+	var rejected = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, _phase2_registry())
+	assert_true(not rejected.accepted and rejected.get("code", "") == "UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION", "v2 migration refuses to reinterpret an active Event modifier", failures)
+	assert_true(source == original, "rejected v2 Event migration leaves the old snapshot unchanged", failures)
+
+func test_v2_act_two_suspend_migration_preserves_bundle_identity(failures: Array[String]) -> void:
+	for include_scale in [false, true]:
+		var registry := ContentRegistry.new()
+		Phase2Catalog.register_all(registry)
+		AlphaActTwoCatalog.register_all(registry)
+		if include_scale:
+			AlphaScaleCatalog.register_all(registry)
+		var run_id := "persist.old-v2-act-two%s" % ("-scale" if include_scale else "")
+		var domain: RunDomain = RunDomain.new_alpha_run(run_id, 1220 if not include_scale else 1222, registry)
+		domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
+		domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+		var source: Dictionary = SaveMapper.suspend_snapshot(domain).to_dictionary()
+		var old_version := "content.bundle.v1.alpha.act_two@v2+phase2@v2"
+		if include_scale:
+			old_version = "content.bundle.v1.alpha.act_two@v2+alpha.scale@v2+phase2@v2"
+		source.content_version = old_version
+		source.authoritative_state.content_version = old_version
+		source.run_state.content_version = old_version
+		source.checkpoint_metadata.state_hash = _run_state_hash(source.authoritative_state)
+		var migrated = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, registry)
+		var bundle_label := "Act Two+Scale" if include_scale else "Act Two"
+		assert_true(migrated.accepted, "explicit v2 migration accepts an unchanged %s snapshot (%s: %s)" % [bundle_label, migrated.get("code", ""), migrated.get("errors", [])], failures)
+		if migrated.accepted:
+			assert_true(migrated.snapshot.content_version == registry.content_version(), "%s migration uses the exact active bundle combination" % bundle_label, failures)
+			assert_true(migrated.domain.verify_replay().is_match(), "the migrated %s replay starts at a reproducible checkpoint" % bundle_label, failures)
+
+func test_v2_migration_rejects_unverifiable_active_effect_state(failures: Array[String]) -> void:
+	var domain := RunDomain.new("persist.old-v2-malformed-effects", 1221, _phase2_registry())
+	domain.execute(ChooseCharacterCommand.new("persist.old-v2-malformed-effects.character", "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("persist.old-v2-malformed-effects.contract", "base.contract.pressure"))
+	var source: Dictionary = SaveMapper.suspend_snapshot(domain).to_dictionary()
+	source.content_version = "content.slice.v2"
+	source.authoritative_state.content_version = "content.slice.v2"
+	source.run_state.content_version = "content.slice.v2"
+	source.authoritative_state.active_effects = "unreadable"
+	source.run_state = source.authoritative_state.duplicate(true)
+	source.checkpoint_metadata.state_hash = _run_state_hash(source.authoritative_state)
+	var rejected = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, _phase2_registry())
+	assert_true(not rejected.accepted and rejected.get("code", "") == "UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE", "malformed active effects cannot bypass the migration guard", failures)
+	var incomplete_effect: Dictionary = source.duplicate(true)
+	incomplete_effect.authoritative_state.active_effects = [{"instance_id": "legacy.effect", "definition_id": "legacy.effect", "source_id": ""}]
+	incomplete_effect.run_state = incomplete_effect.authoritative_state.duplicate(true)
+	incomplete_effect.checkpoint_metadata.state_hash = _run_state_hash(incomplete_effect.authoritative_state)
+	var incomplete_rejected = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(incomplete_effect, _phase2_registry())
+	assert_true(not incomplete_rejected.accepted and incomplete_rejected.get("code", "") == "UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE", "an active effect without modifier identity data is rejected conservatively", failures)
+
 func test_nested_run_and_battle_state_round_trips(failures: Array[String]) -> void:
 	var source := _domain("persist.nested", 1206)
 	source.execute(ChooseCharacterCommand.new("persist.nested.character", "base.character.sequence"))
@@ -312,16 +418,18 @@ func test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures
 	if not explicit_load.accepted:
 		return
 
-	assert_true(explicit_load.snapshot.content_version == "content.slice.v2", "the migrated snapshot uses the active v2 content bundle", failures)
-	assert_true(explicit_load.domain.state.content_version == "content.slice.v2", "the reconstructed RunState uses the active v2 content bundle", failures)
-	assert_true(explicit_load.snapshot.to_dictionary().run_state.content_version == "content.slice.v2", "explicit content migration updates the full-DTO run_state alias", failures)
+	assert_true(explicit_load.snapshot.content_version == "content.slice.v3", "the migrated snapshot uses the active v3 content bundle", failures)
+	assert_true(explicit_load.domain.state.content_version == "content.slice.v3", "the reconstructed RunState uses the active v3 content bundle", failures)
+	assert_true(explicit_load.snapshot.to_dictionary().run_state.content_version == "content.slice.v3", "explicit content migration updates the full-DTO run_state alias", failures)
 	assert_true(explicit_load.domain.state.phase == "MAP_CHOICE", "migration resumes at the fixture's stable Map boundary", failures)
 	assert_true(explicit_load.domain.state.character_id == "base.character.sequence" and explicit_load.domain.state.contract_id == "base.contract.pressure", "migration preserves the selected Character and Contract", failures)
-	assert_true(explicit_load.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v2"), "the returned load pipeline identifies the explicit content migration", failures)
+	assert_true(explicit_load.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v3"), "the returned load pipeline identifies the explicit content migration", failures)
+	assert_true(explicit_load.domain.replay_record.content_version == "content.slice.v3" and explicit_load.domain.replay_record.checkpoints.size() == 1, "the resumed replay starts from the migrated v3 checkpoint", failures)
+	assert_true(explicit_load.domain.verify_replay().is_match(), "the migrated v1 replay verifies from its new initial checkpoint", failures)
 	assert_true(explicit_load.domain.validate_select_map_node("base.map_node.normal.left").is_valid(), "a valid next Map command remains available after migration", failures)
 
 	var expected_state: Dictionary = original.authoritative_state.duplicate(true)
-	expected_state["content_version"] = "content.slice.v2"
+	expected_state["content_version"] = "content.slice.v3"
 	expected_state["act_index"] = 1
 	expected_state["act_count"] = 1
 	assert_true(DeterministicSerializer.serialize(explicit_load.domain.state.to_dictionary()) == DeterministicSerializer.serialize(expected_state), "migration preserves the authoritative state apart from the content version and explicit one-Act profile fields", failures)
@@ -359,6 +467,30 @@ func test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures
 	var invalid_hash_result = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(invalid_hash, _registry())
 	assert_true(not invalid_hash_result.accepted and invalid_hash_result.code == "SOURCE_STATE_HASH_MISMATCH", "content migration rejects a fixture whose source state hash is invalid", failures)
 	assert_true(invalid_hash == invalid_hash_copy, "rejected hash migration leaves its supplied snapshot untouched", failures)
+
+func test_phase2_v1_migration_rejects_active_event_semantic_changes(failures: Array[String]) -> void:
+	var source: Dictionary = Phase2V1SuspendSnapshotFixture.suspend_snapshot()
+	var changed_state: Dictionary = source.authoritative_state.duplicate(true)
+	var active_modifier := ActiveEffectInstance.new(
+		"run.modifier.event.risk_bargain.accept",
+		DurationSpec.new(DurationSpec.RUN, 1),
+		StackPolicy.new(StackPolicy.REPLACE),
+		"event.risk_bargain.accept",
+		1,
+		-1,
+		-1,
+		"event.risk_bargain.accept",
+		0,
+		{"modifier_id": "event.risk_bargain.accept"},
+	)
+	changed_state.active_effects = [active_modifier.to_dictionary()]
+	source.authoritative_state = changed_state
+	source.run_state = changed_state.duplicate(true)
+	source.checkpoint_metadata.state_hash = DeterministicSerializer.hash(changed_state)
+	var original := source.duplicate(true)
+	var rejected = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(source, _phase2_registry())
+	assert_true(not rejected.accepted and rejected.get("code", "") == "UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION", "v1 migration refuses to activate an inert saved Event modifier under the new rules", failures)
+	assert_true(source == original, "rejected Event modifier migration leaves the v1 archive unchanged", failures)
 
 func test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures: Array[String]) -> void:
 	var codec_boundaries = JsonIntegerCodec.parse("{\"max\":9223372036854775807,\"min\":-9223372036854775808,\"decimal\":1.25,\"text\":\"9223372036854775807\"}")
@@ -428,7 +560,7 @@ func test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures: 
 		unchanged_fixture_file.close()
 	if not explicit_load.accepted:
 		return
-	assert_true(explicit_load.snapshot.content_version == "content.slice.v2", "only the named migration advances the serialized fixture's content version", failures)
+	assert_true(explicit_load.snapshot.content_version == "content.slice.v3", "only the named migration advances the serialized fixture's content version", failures)
 	assert_true(explicit_load.snapshot.checkpoint_metadata.state_hash == DeterministicSerializer.hash(explicit_load.domain.state.to_dictionary()), "migrated serialized checkpoint hash matches reconstructed state", failures)
 	assert_true(explicit_load.domain.rng_snapshot() == source.rng_state, "every migrated serialized RNG stream restores its exact saved state", failures)
 	var expected_rng := DomainRngStreams.new(int(source.run_seed))
@@ -479,7 +611,7 @@ func test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failur
 		unchanged_fixture.close()
 	if not migrated.accepted:
 		return
-	assert_true(migrated.snapshot.content_version == "content.slice.v2", "only explicit migration advances the archived fixture content version", failures)
+	assert_true(migrated.snapshot.content_version == "content.slice.v3", "only explicit migration advances the archived fixture content version", failures)
 	assert_true(migrated.snapshot.checkpoint_metadata.state_hash == DeterministicSerializer.hash(migrated.domain.state.to_dictionary()), "the migrated archived fixture has a valid reconstructed state hash", failures)
 	assert_true(migrated.domain.rng_snapshot() == source.rng_state, "every archived stream state survives migration exactly", failures)
 	var expected_rng := DomainRngStreams.new(int(source.run_seed))
@@ -525,7 +657,7 @@ func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Arr
 	assert_true(first_snapshot == second_snapshot, "repeated migrations produce byte-equivalent migrated DTOs", failures)
 	assert_true(first.domain.state.to_dictionary() == second.domain.state.to_dictionary(), "repeated migrations reconstruct identical RunState", failures)
 	assert_true(first.domain.rng_snapshot() == second.domain.rng_snapshot(), "repeated migrations reconstruct identical post-draft RNG state", failures)
-	assert_true(first_snapshot.content_version == "content.slice.v2", "the explicit migration advances content_version", failures)
+	assert_true(first_snapshot.content_version == "content.slice.v3", "the explicit migration advances content_version", failures)
 	assert_true(first_snapshot.authoritative_state.phase == "BOSS_REWARD", "migration preserves the stable Boss reward phase", failures)
 	assert_true(first_snapshot.authoritative_state.act_index == 1 and first_snapshot.authoritative_state.act_count == 1, "Phase 2 content migration preserves its one-Act run profile", failures)
 	assert_true(first_snapshot.checkpoint_metadata.stable_boundary == "REWARD", "migration preserves the stable REWARD checkpoint boundary", failures)
@@ -547,7 +679,7 @@ func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Arr
 	assert_true(first_snapshot.checkpoint_metadata.state_hash == migrated_state_hash, "migration replaces the source checkpoint hash with the migrated state hash", failures)
 	assert_true(first.domain.checkpoint().state_hash == migrated_state_hash, "the resumed Domain reports the migrated checkpoint hash", failures)
 	assert_true(migrated_state_hash != original.checkpoint_metadata.state_hash, "the migrated checkpoint cannot retain the pre-migration hash", failures)
-	assert_true(first.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v2"), "the returned pipeline identifies the explicit content migration", failures)
+	assert_true(first.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v3"), "the returned pipeline identifies the explicit content migration", failures)
 
 	var selected_option = draft.options[0]
 	var first_choice = first.domain.execute(ChooseRewardCommand.new("legacy.boss.choice", selected_option.option_id, draft.draft_id))
@@ -575,6 +707,11 @@ func _phase2_registry():
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
 	return registry
+
+func _run_state_hash(state: Dictionary) -> String:
+	var deterministic_state: Dictionary = state.duplicate(true)
+	deterministic_state.erase("run_started_at_unix_seconds")
+	return DeterministicSerializer.hash(deterministic_state)
 
 func _has_validation_error(result: Dictionary, code: String) -> bool:
 	for error in result.get("errors", []):

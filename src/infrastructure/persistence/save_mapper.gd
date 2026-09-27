@@ -40,12 +40,15 @@ static func run_record(domain, checkpoint_metadata: Dictionary = {}):
 	return RunRecordScript.new(snapshot.content_version, snapshot.run_id, snapshot.run_seed, snapshot.authoritative_state, snapshot.rng_state, snapshot.checkpoint_metadata)
 
 static func load_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
-	return _load_into_domain(serialized, content_registry, false)
+	return _load_into_domain(serialized, content_registry, "")
 
 static func load_phase2_v1_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
-	return _load_into_domain(serialized, content_registry, true)
+	return _load_into_domain(serialized, content_registry, "PHASE2_V1")
 
-static func _load_into_domain(serialized, content_registry, allow_explicit_content_migration: bool) -> Dictionary:
+static func load_phase2_v2_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "PHASE2_V2")
+
+static func _load_into_domain(serialized, content_registry, requested_content_migration: String) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
 		var json_parse := JsonIntegerCodecScript.parse(serialized)
@@ -62,8 +65,14 @@ static func _load_into_domain(serialized, content_registry, allow_explicit_conte
 		return migrated
 	var data: Dictionary = migrated.data
 	var pipeline: Array[String] = ["Parse", "Schema Migration"]
-	if allow_explicit_content_migration:
-		var content_migration := ContentVersionMigrationScript.migrate_phase2_v1_suspend_snapshot(data, content_registry)
+	if not requested_content_migration.is_empty():
+		var content_migration: Dictionary
+		if requested_content_migration == "PHASE2_V1":
+			content_migration = ContentVersionMigrationScript.migrate_phase2_v1_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "PHASE2_V2":
+			content_migration = ContentVersionMigrationScript.migrate_phase2_v2_suspend_snapshot(data, content_registry)
+		else:
+			return _reject("UNSUPPORTED_CONTENT_MIGRATION")
 		if not content_migration.accepted:
 			return content_migration
 		data = content_migration.data

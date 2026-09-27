@@ -132,7 +132,7 @@ const SHOP_POOL_ID := "base.shop_pool.act_one"
 const WORKSHOP_POOL_ID := "base.workshop_pool.act_one"
 const POOL_IDS := [REWARD_POOL_ID, BOSS_RULE_BREAKER_POOL_ID, SHOP_POOL_ID, WORKSHOP_POOL_ID]
 const CONTENT_BUNDLE_ID := "phase2"
-const CONTENT_BUNDLE_VERSION := "v2"
+const CONTENT_BUNDLE_VERSION := "v3"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())

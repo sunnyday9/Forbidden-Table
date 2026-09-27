@@ -13,12 +13,23 @@ const DeterministicSerializerScript = preload("res://src/infrastructure/serializ
 
 const PHASE2_V1 := "content.slice.v1"
 const PHASE2_V2 := "content.slice.v2"
-const MIGRATION_STEP := "Explicit Content Migration: content.slice.v1 -> content.slice.v2"
+const PHASE2_V3 := "content.slice.v3"
+const ACT_TWO_V2 := "content.bundle.v1.alpha.act_two@v2+phase2@v2"
+const ACT_TWO_SCALE_V2 := "content.bundle.v1.alpha.act_two@v2+alpha.scale@v2+phase2@v2"
+const ACT_TWO_V3 := "content.bundle.v1.alpha.act_two@v3+phase2@v3"
+const ACT_TWO_SCALE_V3 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v2+phase2@v3"
+const CHANGED_EVENT_MODIFIER_IDS := [
+	"event.risk_bargain.accept",
+	"event.contract_clause.apply",
+	"event.act_two.contract_clause",
+	"event.act_two.rule_memory",
+]
+const MIGRATION_STEP := "Explicit Content Migration: content.slice.v1 -> content.slice.v3"
 
 static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
 	if content_registry == null:
 		return _reject("CONTENT_REGISTRY_REQUIRED")
-	if not content_registry.has_method("content_version") or content_registry.content_version() != PHASE2_V2:
+	if not content_registry.has_method("content_version") or content_registry.content_version() != PHASE2_V3:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -44,8 +55,11 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 		return _reject("MISSING_STABLE_BOUNDARY")
 	if not metadata.has("state_hash"):
 		return _reject("SOURCE_STATE_HASH_MISSING")
-	if str(metadata.get("state_hash", "")) != DeterministicSerializerScript.hash(state):
+	if str(metadata.get("state_hash", "")) != _run_state_hash(state):
 		return _reject("SOURCE_STATE_HASH_MISMATCH")
+	var active_effect_validation := _validate_active_event_migration_state(state)
+	if not active_effect_validation.accepted:
+		return active_effect_validation
 
 	var migrated_state: Dictionary = state.duplicate(true)
 	# Phase 2 saves represent a single Mini-Act; newer RunState fields must not
@@ -65,16 +79,115 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 		if migrated_metadata.has("checkpoint_sequence"):
 			migrated_metadata["checkpoint_sequence"] = int(migrated_state["reward_draft_sequence"]) + int(migrated_state["tile_instance_sequence"])
 
-	migrated_state["content_version"] = PHASE2_V2
+	migrated_state["content_version"] = PHASE2_V3
 	var migrated: Dictionary = source.duplicate(true)
-	migrated["content_version"] = PHASE2_V2
+	migrated["content_version"] = PHASE2_V3
 	migrated["authoritative_state"] = migrated_state
 	if migrated.has("run_state"):
 		migrated["run_state"] = migrated_state.duplicate(true)
 	migrated["rng_state"] = migrated_rng_state
-	migrated_metadata["state_hash"] = DeterministicSerializerScript.hash(migrated_state)
+	migrated_metadata["state_hash"] = _run_state_hash(migrated_state)
 	migrated["checkpoint_metadata"] = migrated_metadata
 	return {"accepted": true, "data": migrated, "migration": MIGRATION_STEP}
+
+static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	if content_registry == null:
+		return _reject("CONTENT_REGISTRY_REQUIRED")
+	if not content_registry.has_method("content_version"):
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
+	var source_version := str(source.get("content_version", ""))
+	var target_version := _phase2_v2_migration_target(source_version)
+	if target_version.is_empty() or content_registry.content_version() != target_version:
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
+	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
+	if str(source.get("save_kind", "")) != "SUSPEND":
+		return _reject("CONTENT_MIGRATION_REQUIRES_SUSPEND_SNAPSHOT")
+	var state = source.get("authoritative_state", null)
+	if not state is Dictionary or str(state.get("content_version", "")) != source_version:
+		return _reject("CONTENT_MIGRATION_STATE_VERSION_MISMATCH")
+	if source.has("run_state"):
+		var run_state = source.get("run_state")
+		if not run_state is Dictionary:
+			return _reject("INVALID_RUN_STATE_ALIAS")
+		if DeterministicSerializerScript.serialize(run_state) != DeterministicSerializerScript.serialize(state):
+			return _reject("RUN_STATE_ALIAS_MISMATCH")
+	var metadata = source.get("checkpoint_metadata", null)
+	if not metadata is Dictionary or not bool(metadata.get("stable", false)):
+		return _reject("UNSTABLE_CHECKPOINT")
+	if str(metadata.get("stable_boundary", "")).is_empty():
+		return _reject("MISSING_STABLE_BOUNDARY")
+	if not metadata.has("state_hash"):
+		return _reject("SOURCE_STATE_HASH_MISSING")
+	if str(metadata.get("state_hash", "")) != _run_state_hash(state):
+		return _reject("SOURCE_STATE_HASH_MISMATCH")
+	var active_effect_validation := _validate_active_event_migration_state(state)
+	if not active_effect_validation.accepted:
+		return active_effect_validation
+
+	var migrated_state: Dictionary = state.duplicate(true)
+	migrated_state["content_version"] = target_version
+	var migrated: Dictionary = source.duplicate(true)
+	migrated["content_version"] = target_version
+	migrated["authoritative_state"] = migrated_state
+	if migrated.has("run_state"):
+		migrated["run_state"] = migrated_state.duplicate(true)
+	var migrated_metadata: Dictionary = metadata.duplicate(true)
+	migrated_metadata["state_hash"] = _run_state_hash(migrated_state)
+	migrated["checkpoint_metadata"] = migrated_metadata
+	return {
+		"accepted": true,
+		"data": migrated,
+		"migration": "Explicit Content Migration: %s -> %s" % [source_version, target_version],
+	}
+
+static func _phase2_v2_migration_target(source_version: String) -> String:
+	match source_version:
+		PHASE2_V2:
+			return PHASE2_V3
+		ACT_TWO_V2:
+			return ACT_TWO_V3
+		ACT_TWO_SCALE_V2:
+			return ACT_TWO_SCALE_V3
+		_:
+			return ""
+
+static func _validate_active_event_migration_state(state: Dictionary) -> Dictionary:
+	if not state.has("active_effects"):
+		return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+	var active_effects = state.get("active_effects", [])
+	if not active_effects is Array:
+		return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+	for effect in active_effects:
+		if not effect is Dictionary:
+			return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+		for field in ["instance_id", "definition_id", "source_id", "runtime_parameters"]:
+			if not effect.has(field):
+				return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+		for field in ["instance_id", "definition_id", "source_id"]:
+			if typeof(effect[field]) != TYPE_STRING:
+				return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+		var runtime_parameters = effect.get("runtime_parameters", {})
+		if not runtime_parameters is Dictionary:
+			return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+		if runtime_parameters.has("modifier_id") and typeof(runtime_parameters["modifier_id"]) != TYPE_STRING:
+			return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
+		var serialized_ids: Array = [
+			str(runtime_parameters.get("modifier_id", "")),
+			str(effect.get("instance_id", "")),
+			str(effect.get("definition_id", "")),
+			str(effect.get("source_id", "")),
+		]
+		for serialized_id in serialized_ids:
+			for changed_modifier_id in CHANGED_EVENT_MODIFIER_IDS:
+				if str(serialized_id) == str(changed_modifier_id) or str(serialized_id).contains(str(changed_modifier_id)):
+					return _reject("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION")
+	return {"accepted": true}
+
+static func _run_state_hash(state: Dictionary) -> String:
+	var deterministic_state: Dictionary = state.duplicate(true)
+	deterministic_state.erase("run_started_at_unix_seconds")
+	return DeterministicSerializerScript.hash(deterministic_state)
 
 static func _migrate_legacy_boss_reward(state: Dictionary, source: Dictionary, content_registry) -> Dictionary:
 	var legacy_draft = state.get("reward_draft", null)
@@ -113,7 +226,7 @@ static func _migrate_legacy_boss_reward(state: Dictionary, source: Dictionary, c
 	var acquired_rule_breaker_ids = ownership.get("acquired_rule_breaker_ids", null)
 	if not acquired_rule_breaker_ids is Array:
 		return _reject("INVALID_LEGACY_BOSS_REWARD_OWNERSHIP")
-	var run_state = RunStateScript.new(str(state.get("run_id", "")), int(run_seed), PHASE2_V2)
+	var run_state = RunStateScript.new(str(state.get("run_id", "")), int(run_seed), PHASE2_V3)
 	for rule_breaker_id in acquired_rule_breaker_ids:
 		run_state.build_ownership.acquired_rule_breaker_ids.append(str(rule_breaker_id))
 	var next_sequence := int(sequence) + 1
