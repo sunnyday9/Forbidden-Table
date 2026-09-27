@@ -4,9 +4,9 @@ const SimulationManifestScript = preload("res://src/infrastructure/simulation/si
 const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation/alpha_simulation_runner.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
-const BENCHMARK_ID := "alpha.fixed-complete-run.v2"
+const BENCHMARK_ID := "alpha.fixed-complete-run.v3"
 const GATE_ID := "hardening"
-const SEED := 57028
+const SEED := 57001
 const POLICY_ID := "Complete"
 const CHARACTER_ID := "base.character.reserve"
 const CONTRACT_ID := "base.contract.pool_bias"

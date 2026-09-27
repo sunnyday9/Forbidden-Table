@@ -35,16 +35,13 @@ const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_com
 
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
 const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
-const MAX_DRAWS_PER_TURN := 16
-const POLICY_RULE_VERSION := "v5"
+const POLICY_RULE_VERSION := "v6"
 
 var _domain
 var _attempt_case: Dictionary
 var _manifest_hash := ""
 var _command_limit := 0
 var _command_sequence := 0
-var _draws_this_turn := 0
-var _draws_since_last_settlement := 0
 var _accepted_action_counts: Dictionary = {}
 var _partial_settlement_count := 0
 var _complete_hand_count := 0
@@ -159,8 +156,6 @@ func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_lim
 	_manifest_hash = manifest_hash
 	_command_limit = maxi(0, command_limit)
 	_command_sequence = 0
-	_draws_this_turn = 0
-	_draws_since_last_settlement = 0
 	_accepted_action_counts = {}
 	_partial_settlement_count = 0
 	_complete_hand_count = 0
@@ -271,7 +266,7 @@ func _step_battle() -> bool:
 	if battle.recovery_state != null and battle.recovery_state.is_recovering():
 		var hand_size := int(battle.zones.size(TileZoneScript.HAND))
 		var recovery_baseline := int(battle.recovery_state.normal_hand_baseline)
-		if hand_size < recovery_baseline and draw_sources_available:
+		if hand_size < recovery_baseline and draw_sources_available and battle.combat_state.draw_actions_remaining() > 0:
 			var drew_recovery_tile := _execute_command(DrawCommandScript.new(_next_command_id("battle.recovery.draw")))
 			if drew_recovery_tile and int(battle.zones.size(TileZoneScript.HAND)) <= hand_size:
 				_soft_lock_detected = true
@@ -287,13 +282,6 @@ func _step_battle() -> bool:
 	var has_complete_hand := not complete_hands.is_empty()
 	var selected_partial = _best_partial_candidate(candidates)
 	var has_partial := selected_partial != null
-	if policy_id == "Complete" and not has_complete_hand and draw_sources_available:
-		var store_target := _next_complete_hand_store_target(battle)
-		if not store_target.is_empty():
-			return _execute_command(StoreTileCommandScript.new(
-				_next_command_id("battle.reserve.store"),
-				store_target,
-			))
 	var pressure := int(battle.combat_state.pressure)
 	var pressure_limit := maxi(1, int(battle.combat_state.pressure_limit))
 	var decision := ""
@@ -305,7 +293,7 @@ func _step_battle() -> bool:
 		"Complete":
 			if has_complete_hand:
 				decision = "COMPLETE_HAND"
-			elif has_partial and (_draws_since_last_settlement >= MAX_DRAWS_PER_TURN or battle.draw_wall.size() == 0):
+			elif has_partial and (battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available):
 				decision = "PARTIAL_SETTLEMENT"
 		"Hybrid":
 			if has_complete_hand and (pressure * 2 < pressure_limit or not has_partial):
@@ -331,8 +319,15 @@ func _step_battle() -> bool:
 				_next_command_id("battle.complete"),
 				interpretation.interpretation_id,
 			))
+	if policy_id == "Complete" and not has_complete_hand and draw_sources_available and battle.combat_state.draw_actions_remaining() > 0:
+		var store_target := _next_complete_hand_store_target(battle)
+		if not store_target.is_empty():
+			return _execute_command(StoreTileCommandScript.new(
+				_next_command_id("battle.reserve.store"),
+				store_target,
+			))
 
-	if _draws_this_turn >= MAX_DRAWS_PER_TURN or not draw_sources_available:
+	if battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available:
 		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.end_turn")))
 	return _execute_command(DrawCommandScript.new(_next_command_id("battle.draw")))
 
@@ -515,15 +510,8 @@ func _execute_command(command) -> bool:
 	_accepted_action_counts[command_type] = int(_accepted_action_counts.get(command_type, 0)) + 1
 	if command_type == "SettlePattern":
 		_partial_settlement_count += 1
-		_draws_since_last_settlement = 0
 	elif command_type == "SettleCompleteHand":
 		_complete_hand_count += 1
-		_draws_since_last_settlement = 0
-	if command_type == "Draw":
-		_draws_this_turn += 1
-		_draws_since_last_settlement += 1
-	elif command_type == "EndTurn":
-		_draws_this_turn = 0
 	return true
 
 func _next_command_id(action: String) -> String:
@@ -610,7 +598,7 @@ func _build_attempt_record() -> Dictionary:
 	var strategy_rule := "Partial: settle the highest-ranked legal Partial Pattern; never choose Complete Hand."
 	match str(_attempt_case.get("policy_id", "")):
 		"Complete":
-			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available, deterministically store the least-patterned Hand tile in Reserve and draw a replacement when a slot and draw source are available; otherwise accumulate up to the draw budget between settlements, then settle the highest-ranked legal Partial Pattern when the draw wall is exhausted or the budget is reached."
+			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available, deterministically store the least-patterned Hand tile in Reserve and draw a replacement while a Draw Action and source are available; when the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
 	strategy_rule += " End Turn rather than request a Draw when both Draw Wall and Discard are empty, including during Recovery."

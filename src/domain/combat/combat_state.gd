@@ -40,6 +40,7 @@ var tp: int
 var triggered_signature_passive_ids: Array[String]
 var stability: int
 var draw_capacity: int
+var draw_actions_used_this_turn: int
 var settlement_capacity: int
 var reserve_capacity: int
 var active_effects: Dictionary
@@ -92,6 +93,7 @@ func _init(
 	triggered_signature_passive_ids = []
 	stability = maxi(0, initial_stability)
 	draw_capacity = maxi(0, initial_draw_capacity)
+	draw_actions_used_this_turn = 0
 	settlement_capacity = maxi(0, initial_settlement_capacity)
 	reserve_capacity = maxi(0, initial_reserve_capacity)
 	active_effects = {}
@@ -104,6 +106,9 @@ func _init(
 
 func is_active() -> bool:
 	return terminal_outcome == ONGOING
+
+func draw_actions_remaining() -> int:
+	return maxi(0, draw_capacity - maxi(0, draw_actions_used_this_turn))
 
 func intent_loop() -> Array:
 	return intent_graph.intents()
@@ -182,6 +187,8 @@ func public_battle_state() -> Dictionary:
 		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
+		"draw_actions_used_this_turn": draw_actions_used_this_turn,
+		"draw_actions_remaining": draw_actions_remaining(),
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
 		"terminal_outcome": terminal_outcome,
@@ -221,6 +228,7 @@ func to_dictionary() -> Dictionary:
 		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
+		"draw_actions_used_this_turn": draw_actions_used_this_turn,
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
 		"active_effects": _sorted_effect_ids(),

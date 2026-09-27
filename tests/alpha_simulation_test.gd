@@ -232,19 +232,20 @@ func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array
 	assert_true(scale_version == AlphaSimulationRunnerScript.content_version_for_gate("scale"), "the Scale manifest identity matches the run's registered bundles", failures)
 
 func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: Array[String]) -> void:
+	# Seed 57028 is a valid Act 1 defeat with three Draw Actions per turn; this seed retains the full two-Act coverage.
 	var attempt_case := {
-		"attempt_id": "readiness.00029",
-		"attempt_index": 28,
+		"attempt_id": "readiness.00002",
+		"attempt_index": 1,
 		"gate_id": "readiness",
-		"seed": 57028,
+		"seed": 57001,
 		"policy_id": "Complete",
 		"character_id": "base.character.reserve",
 		"contract_id": "base.contract.pool_bias",
 		"route_id": "SERVICE",
 		"starting_pool_fixture_id": AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID,
 	}
-	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57028", 1024)
-	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57028", 1024)
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57001", 1024)
+	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57001", 1024)
 	var commands: Array = attempt.get("accepted_commands", [])
 	var checkpoints: Array = attempt.get("checkpoints", [])
 	var second_phase_checkpoint := -1
@@ -253,6 +254,17 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 	var second_phase_store_count := 0
 	var boss_reward_transition := false
 	var boss_reward_choice_type := ""
+	var draw_budget_respected := true
+	if checkpoints.size() == commands.size() + 1:
+		for command_index in range(commands.size()):
+			if str(commands[command_index].get("command_type", "")) != "Draw":
+				continue
+			var draw_checkpoint: Dictionary = checkpoints[command_index + 1].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
+			var draw_state: Dictionary = draw_checkpoint.get("combat_state", {})
+			var used_actions := int(draw_state.get("draw_actions_used_this_turn", 0))
+			var draw_capacity := int(draw_state.get("draw_capacity", 0))
+			if used_actions < 1 or used_actions > draw_capacity:
+				draw_budget_respected = false
 	if checkpoints.size() == commands.size() + 1:
 		for checkpoint_index in range(1, checkpoints.size()):
 			var checkpoint: Dictionary = checkpoints[checkpoint_index]
@@ -300,6 +312,7 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 		"the runner resolves the real Act 1 Boss draft with an authoritative ChooseReward command",
 		failures,
 	)
+	assert_true(draw_budget_respected, "the replacement full-run seed keeps every accepted Draw within the authoritative Draw Action budget", failures)
 	assert_true(_has_event(attempt.get("events", []), "ActTransitioned"), "the selected Boss reward advances the same Run through its real Act 2 transition", failures)
 	var expected_act_two_ids: Array = AlphaActTwoCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
 	expected_act_two_ids.sort()
@@ -379,7 +392,7 @@ func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) 
 	}
 	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57000", 1024)
 	assert_true(
-		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.partial.v5",
+		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.partial.v6",
 		"the empty-source End Turn behavior has an explicit, versioned simulation policy",
 		failures,
 	)
@@ -391,8 +404,16 @@ func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) 
 
 	var empty_source_draws := 0
 	var empty_source_end_turns := 0
+	var draw_budget_respected := true
 	for index in range(commands.size()):
 		var command_type := str(commands[index].get("command_type", ""))
+		if command_type == "Draw":
+			var battle_checkpoint: Dictionary = checkpoints[index + 1].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
+			var combat_state: Dictionary = battle_checkpoint.get("combat_state", {})
+			var used_actions := int(combat_state.get("draw_actions_used_this_turn", 0))
+			var draw_capacity := int(combat_state.get("draw_capacity", 0))
+			if used_actions < 1 or used_actions > draw_capacity:
+				draw_budget_respected = false
 		if command_type != "Draw" and command_type != "EndTurn":
 			continue
 		var snapshot: Dictionary = checkpoints[index].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
@@ -411,6 +432,7 @@ func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) 
 		"the fixed-seed runner ends a turn instead of requesting a Draw from empty Wall and Discard (empty Draws: %d, empty End Turns: %d)" % [empty_source_draws, empty_source_end_turns],
 		failures,
 	)
+	assert_true(draw_budget_respected, "every accepted simulation Draw stays within the authoritative battle Draw Action capacity", failures)
 
 func test_service_route_reaches_a_workshop(failures: Array[String]) -> void:
 	var attempt_case := {
@@ -441,7 +463,7 @@ func test_service_route_reaches_a_workshop(failures: Array[String]) -> void:
 		failures,
 	)
 	assert_true(
-		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.hybrid.v5",
+		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.hybrid.v6",
 		"the changed SERVICE route selection is represented by a new explicit simulation policy version",
 		failures,
 	)

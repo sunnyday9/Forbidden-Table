@@ -151,6 +151,8 @@ func enemy_definition_ids() -> Array:
 func validate_draw() -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if combat_state.draw_actions_remaining() <= 0:
+		return CommandValidationScript.new(false, "DRAW_ACTION_BUDGET_EXHAUSTED", "No Draw Actions remain this turn.")
 	if tile_actions == null or draw_wall == null or not draw_wall.is_initialized():
 		return CommandValidationScript.new(false, "DRAW_WALL_NOT_READY", "The Draw Wall is not ready.")
 	return CommandValidationScript.new(true)
@@ -183,6 +185,7 @@ func execute_draw() -> Dictionary:
 	var draw_result = tile_actions.draw()
 	var events: Array = draw_result.events
 	if draw_result.is_accepted():
+		combat_state.draw_actions_used_this_turn += 1
 		if settlement_window != null:
 			settlement_window.open()
 	return {
@@ -233,6 +236,8 @@ func execute_end_turn() -> Dictionary:
 			"data": {"intent": intent_result},
 		}
 	events.append_array(intent_result.events)
+	if intent_result.get("accepted", false):
+		combat_state.draw_actions_used_this_turn = 0
 	return {
 		"accepted": true,
 		"status": "RECOVERY_ENDED" if recovery_ended else "TURN_ENDED",
@@ -648,7 +653,7 @@ func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
 		"starvation_active", "intent_index", "boss_phase_index", "boss_phase_id", "boss_phase_count",
 		"pending_death", "pending_defeat", "pending_death_sequence_index", "pending_defeat_sequence_index",
 		"terminal_sequence_index", "terminal_outcome", "queue_index", "state_based_check_count", "tp",
-		"stability", "draw_capacity", "settlement_capacity", "reserve_capacity", "battle_end_cleanup_done",
+		"stability", "draw_capacity", "draw_actions_used_this_turn", "settlement_capacity", "reserve_capacity", "battle_end_cleanup_done",
 	]:
 		if snapshot.has(field):
 			combat_state.set(field, snapshot[field])

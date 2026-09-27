@@ -14,6 +14,7 @@ const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_c
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
 const SelectMapNodeCommandScript = preload("res://src/domain/commands/select_map_node_command.gd")
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
+const EndTurnCommandScript = preload("res://src/domain/commands/end_turn_command.gd")
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
@@ -50,6 +51,11 @@ func test_harbor_read_resolves_in_encounters(failures: Array[String]) -> void:
 	domain.current_battle.combat_state.enemy_hp = 999
 	var draws_accepted := true
 	for draw_index in range(14):
+		if domain.current_battle.combat_state.draw_actions_remaining() <= 0:
+			var end_turn = domain.execute(EndTurnCommandScript.new("passive.draw.end-turn.%d" % draw_index))
+			if not end_turn.accepted:
+				draws_accepted = false
+				break
 		var draw_result = domain.execute(DrawCommandScript.new("passive.draw.%d" % draw_index))
 		if not draw_result.accepted:
 			draws_accepted = false

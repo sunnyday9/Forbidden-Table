@@ -24,8 +24,13 @@ const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_re
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const ChooseCharacterCommand = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommand = preload("res://src/domain/commands/choose_contract_command.gd")
+const DrawCommand = preload("res://src/domain/commands/draw_command.gd")
+const EndTurnCommand = preload("res://src/domain/commands/end_turn_command.gd")
 const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_enemy_intent_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
+const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
+const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
+const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 
 const LEFT := "base.map_node.normal.left"
 
@@ -35,6 +40,8 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_boss_phases_are_explicit_and_deterministic(failures)
 	test_factory_rejects_invalid_enemy_without_mutation(failures)
+	test_draw_actions_are_limited_and_reset_each_turn(failures)
+	test_draw_capacity_changes_preserve_remaining_actions(failures)
 	return failures
 
 func test_normal_node_creates_isolated_data_driven_battle(failures: Array[String]) -> void:
@@ -180,6 +187,96 @@ func test_factory_rejects_invalid_enemy_without_mutation(failures: Array[String]
 	assert_true(domain.encounter_factory.last_error.get("status", "") == "INVALID_ENEMY_ID", "factory rejection reports the missing EnemyDefinition", failures)
 	assert_true(domain.checkpoint() == checkpoint_before, "factory rejection leaves RunState unchanged", failures)
 	assert_true(domain.rng_snapshot() == rng_before, "factory rejection leaves every RNG stream unchanged", failures)
+
+func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) -> void:
+	var first_domain: RunDomain = _prepared_domain("run.draw.budget")
+	var second_domain := _prepared_domain("run.draw.budget")
+	var replacement_domain := _prepared_domain("run.draw.replacement")
+	var first_selection = first_domain.execute(SelectMapNodeCommand.new("draw.budget.select", LEFT))
+	var second_selection = second_domain.execute(SelectMapNodeCommand.new("draw.budget.select", LEFT))
+	var replacement_selection = replacement_domain.execute(SelectMapNodeCommand.new("draw.replacement.select", LEFT))
+	assert_true(first_selection.is_accepted() and second_selection.is_accepted(), "Draw budget setup enters equivalent Battles", failures)
+	assert_true(replacement_selection.is_accepted(), "replacement draw setup enters a Battle", failures)
+	if not first_selection.is_accepted() or not second_selection.is_accepted() or not replacement_selection.is_accepted():
+		return
+	var capacity := int(first_domain.current_battle.combat_state.draw_capacity)
+	assert_true(capacity >= 2, "the fixture Battle has multiple Draw Actions to spend", failures)
+	if capacity < 2:
+		return
+	var replacement = replacement_domain.current_battle.tile_actions.draw(DrawSource.SETTLEMENT_REPLACEMENT)
+	assert_true(replacement.is_accepted(), "a settlement replacement draw is available in the fixture", failures)
+	assert_true(replacement_domain.current_battle.combat_state.draw_actions_used_this_turn == 0, "a replacement draw does not spend a normal Draw Action", failures)
+
+	for turn_index in 2:
+		for draw_index in capacity:
+			var command_id := "draw.budget.turn.%d.draw.%d" % [turn_index, draw_index]
+			var first_draw = first_domain.execute(DrawCommand.new(command_id))
+			var second_draw = second_domain.execute(DrawCommand.new(command_id))
+			assert_true(first_draw.is_accepted() and second_draw.is_accepted(), "a Draw Action within capacity is accepted", failures)
+			assert_true(
+				first_domain.checkpoint().get("state_hash", "") == second_domain.checkpoint().get("state_hash", ""),
+				"identical seeded Draw Actions produce identical checkpoints",
+				failures,
+			)
+			if turn_index == 0 and draw_index == capacity - 2:
+				var saved = SaveCoordinator.new().save(first_domain)
+				assert_true(saved.get("accepted", false), "a partially spent Draw Action budget can be saved", failures)
+				if saved.get("accepted", false):
+					var loaded = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), first_domain.content_registry)
+					assert_true(loaded.accepted, "a mid-turn save restores (%s)" % loaded.get("code", ""), failures)
+					if loaded.accepted:
+						assert_true(
+							loaded.domain.current_battle.combat_state.draw_actions_used_this_turn == draw_index + 1,
+							"Suspend/Resume preserves Draw Actions already spent this turn",
+							failures,
+						)
+						assert_true(loaded.domain.checkpoint() == first_domain.checkpoint(), "Suspend/Resume preserves the authoritative battle checkpoint", failures)
+						first_domain = loaded.domain
+		var checkpoint_before_rejected_draw: Dictionary = first_domain.checkpoint()
+		var replay_count_before_rejected_draw: int = first_domain.replay_record.commands.size()
+		var rejected_command_id := "draw.budget.turn.%d.exhausted" % turn_index
+		var first_rejected = first_domain.execute(DrawCommand.new(rejected_command_id))
+		var second_rejected = second_domain.execute(DrawCommand.new(rejected_command_id))
+		assert_true(not first_rejected.is_accepted() and not second_rejected.is_accepted(), "a Draw Action beyond capacity is rejected", failures)
+		assert_true(first_rejected.validation.code == "DRAW_ACTION_BUDGET_EXHAUSTED", "exhaustion reports the authoritative Draw Action budget", failures)
+		assert_true(first_domain.checkpoint() == checkpoint_before_rejected_draw, "rejected Draw Actions leave the checkpoint unchanged", failures)
+		assert_true(first_domain.replay_record.commands.size() == replay_count_before_rejected_draw, "rejected Draw Actions are omitted from replay", failures)
+		assert_true(
+			first_domain.checkpoint().get("state_hash", "") == second_domain.checkpoint().get("state_hash", ""),
+			"identical seeded rejection decisions preserve deterministic checkpoints",
+			failures,
+		)
+		if turn_index == 0:
+			var first_end_turn = first_domain.execute(EndTurnCommand.new("draw.budget.turn.end"))
+			var second_end_turn = second_domain.execute(EndTurnCommand.new("draw.budget.turn.end"))
+			assert_true(first_end_turn.is_accepted() and second_end_turn.is_accepted(), "End Turn is accepted after Draw Action exhaustion", failures)
+			assert_true(
+				first_domain.checkpoint().get("state_hash", "") == second_domain.checkpoint().get("state_hash", ""),
+				"identical seeded End Turns produce identical checkpoints",
+				failures,
+			)
+	assert_true(second_domain.verify_replay().is_match(), "accepted Draw Actions and End Turn replay deterministically", failures)
+
+func test_draw_capacity_changes_preserve_remaining_actions(failures: Array[String]) -> void:
+	var domain := _prepared_domain("run.draw.capacity")
+	var selection = domain.execute(SelectMapNodeCommand.new("draw.capacity.select", LEFT))
+	assert_true(selection.is_accepted(), "Draw capacity setup enters a Battle", failures)
+	if not selection.is_accepted():
+		return
+	var initial_capacity := int(domain.current_battle.combat_state.draw_capacity)
+	var first_draw = domain.execute(DrawCommand.new("draw.capacity.first"))
+	assert_true(first_draw.is_accepted(), "an initial Draw Action is accepted before a capacity change", failures)
+	domain.current_battle.combat_state.draw_capacity += 1
+	assert_true(
+		domain.current_battle.combat_state.draw_actions_remaining() == initial_capacity,
+		"increasing Draw Capacity grants one remaining action without refunding a spent action",
+		failures,
+	)
+	for index in initial_capacity:
+		var result = domain.execute(DrawCommand.new("draw.capacity.modified.%d" % index))
+		assert_true(result.is_accepted(), "a Draw Action granted by changed capacity is accepted", failures)
+	var rejected = domain.execute(DrawCommand.new("draw.capacity.modified.exhausted"))
+	assert_true(not rejected.is_accepted() and rejected.validation.code == "DRAW_ACTION_BUDGET_EXHAUSTED", "changed capacity remains subject to authoritative exhaustion", failures)
 
 func _registry() -> ContentRegistry:
 	var registry := ContentRegistry.new()
