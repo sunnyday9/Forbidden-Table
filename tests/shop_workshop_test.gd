@@ -31,6 +31,7 @@ const WorkshopState = preload("res://src/domain/run/workshop_state.gd")
 
 const LEFT := "base.map_node.normal.left"
 const RIGHT := "base.map_node.normal.right"
+const INTRO := "base.map_node.intro"
 const SHOP := "base.map_node.shop"
 const WORKSHOP := "base.map_node.workshop"
 
@@ -524,6 +525,7 @@ func _shop_domain(run_id: String, seed: int) -> RunDomain:
 	var domain := RunDomain.new(run_id, seed, _registry())
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	domain.execute(SelectMapNodeCommand.new("%s.intro" % run_id, INTRO))
 	domain.execute(SelectMapNodeCommand.new("%s.left" % run_id, LEFT))
 	domain.execute(SelectMapNodeCommand.new("%s.shop" % run_id, SHOP))
 	return domain
@@ -532,6 +534,7 @@ func _workshop_domain(run_id: String, seed: int, tile_count: int) -> RunDomain:
 	var domain := RunDomain.new(run_id, seed, _registry())
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	domain.execute(SelectMapNodeCommand.new("%s.intro" % run_id, INTRO))
 	domain.execute(SelectMapNodeCommand.new("%s.right" % run_id, RIGHT))
 	domain.execute(SelectMapNodeCommand.new("%s.workshop" % run_id, WORKSHOP))
 	domain.state.tile_pool.tile_instances.clear()

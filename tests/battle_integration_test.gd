@@ -32,7 +32,7 @@ const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 
-const LEFT := "base.map_node.normal.left"
+const LEFT := "base.map_node.intro"
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -70,7 +70,7 @@ func test_normal_node_creates_isolated_data_driven_battle(failures: Array[String
 	assert_true(domain.state.phase == RunPhase.BATTLE, "a configured Normal node enters BATTLE", failures)
 	assert_true(_has_event(result.events, DomainEvent.BATTLE_STARTED), "battle entry emits an explicit BattleStarted event", failures)
 	assert_true(battle != null, "RunDomain creates a BattleDomain child", failures)
-	assert_true(_property(battle, "encounter_id", "") == "base.encounter.normal.left", "the battle uses the authored encounter identity", failures)
+	assert_true(_property(battle, "encounter_id", "") == "base.encounter.intro", "the battle uses the authored intro encounter identity", failures)
 	assert_true(_property(enemy_definition, "content_id", "") == "base.enemy.wall_taxer", "the factory resolves the authored EnemyDefinition", failures)
 	assert_true(_property(combat_state, "enemy_max_hp", -1) == 17, "the factory applies data-driven enemy HP", failures)
 	assert_true(_property(combat_state, "pressure_limit", -1) == 9, "the factory applies data-driven Pressure limit", failures)
@@ -391,6 +391,11 @@ func _registry(normal_intent_graph = null) -> ContentRegistry:
 		{"kind": "wall_tax"},
 	)
 	registry.register(enemy)
+	registry.register(EncounterDefinition.new(
+		"base.encounter.intro",
+		["base.enemy.wall_taxer"],
+		EncounterDefinition.NORMAL,
+	))
 	registry.register(EncounterDefinition.new(
 		"base.encounter.normal.left",
 		["base.enemy.wall_taxer"],

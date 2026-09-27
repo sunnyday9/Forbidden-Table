@@ -391,15 +391,15 @@ func _map_actions() -> Array:
 	var map_state = domain.state.map_state
 	var definition = domain.map_definition
 	var current = definition.node_definition(map_state.current_node_id)
-	if current != null:
-		for node_id in current.next_node_ids:
-			actions.append({
-				"id": ACTION_PREFIX_MAP + node_id,
-				"kind": "MAP_NODE",
-				"target_id": node_id,
-				"node_kind": definition.node_definition(node_id).node_kind,
-				"payload_id": map_state.visible_payload_id(node_id),
-			})
+	for node_id in map_state.selectable_node_ids(definition):
+		var node = definition.node_definition(node_id)
+		actions.append({
+			"id": ACTION_PREFIX_MAP + node_id,
+			"kind": "MAP_NODE",
+			"target_id": node_id,
+			"node_kind": node.node_kind,
+			"payload_id": map_state.visible_payload_id(node_id),
+		})
 	if current != null and current.node_kind == "SHOP":
 		actions.append({"id": "run.enter.shop", "kind": "ENTER_SHOP", "target_id": map_state.current_node_id})
 	if current != null and current.node_kind == "WORKSHOP":

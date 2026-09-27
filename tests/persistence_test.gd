@@ -117,8 +117,8 @@ func test_battle_snapshot_reconstructs_live_child_and_can_continue(failures: Arr
 		["persist.battle.tile.4", "base.tile.characters.4"],
 	]:
 		source.state.tile_pool.add_tile_instance(RunTileInstanceRecord.new(tile_data[0], tile_data[1], "RUN", "RUN"))
-	var selection = source.execute(SelectMapNodeCommand.new("persist.battle.select", "base.map_node.normal.left"))
-	assert_true(selection.accepted and source.current_battle != null, "a valid battle snapshot has a live BattleDomain before saving", failures)
+	var selection = source.execute(SelectMapNodeCommand.new("persist.battle.select", source.map_definition.start_node_id))
+	assert_true(selection.accepted and source.current_battle != null, "a valid battle snapshot has a live BattleDomain before saving (%s: %s)" % [selection.validation.code, selection.validation.message], failures)
 	if not selection.accepted or source.current_battle == null:
 		return
 	var draw_wall_ids: Array[String] = []
@@ -599,6 +599,7 @@ func _registry():
 	registry.register(ContractDefinition.new("base.contract.pressure", ContractDefinition.PRESSURE, {"pressure": 1}, {"draw_actions": 1}))
 	var graph := IntentGraph.new("pressure", [EnemyIntent.new("pressure", "Pressure", 1, EnemyIntent.PRESSURE, [IntentTransition.fixed("pressure.loop", "pressure")])])
 	registry.register(EnemyDefinition.new("base.enemy.persistence", graph, EnemyDefinition.NORMAL, 9, {"pressure_limit": 9}))
+	registry.register(EncounterDefinition.new("base.encounter.intro", ["base.enemy.persistence"], EncounterDefinition.NORMAL))
 	registry.register(EncounterDefinition.new("base.encounter.normal.left", ["base.enemy.persistence"], EncounterDefinition.NORMAL))
 	return registry
 

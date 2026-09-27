@@ -244,7 +244,7 @@ func test_run_replay_records_bounded_battle_command(failures: Array[String]) -> 
 	var domain := _phase2_battle_domain("replay.bounded.battle", 9101)
 	_assert_accepted(domain, ChooseCharacterCommand.new("bounded.character", "base.character.sequence"), "Character selection", failures)
 	_assert_accepted(domain, ChooseContractCommand.new("bounded.contract", "base.contract.pressure"), "Contract selection", failures)
-	_assert_accepted(domain, SelectMapNodeCommand.new("bounded.normal.left", "base.map_node.normal.left"), "Normal battle Map selection", failures)
+	_assert_accepted(domain, SelectMapNodeCommand.new("bounded.normal.intro", "base.map_node.intro"), "mandatory intro Normal Map selection", failures)
 	var battle_result = domain.execute(DrawCommand.new("bounded.battle.draw", "player.1"))
 	if not battle_result.accepted:
 		battle_result = domain.execute(ResolveEnemyIntentCommand.new("bounded.battle.intent"))

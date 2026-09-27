@@ -27,6 +27,7 @@ const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_
 const RewardOption = preload("res://src/domain/run/reward_option.gd")
 
 const LEFT := "base.map_node.normal.left"
+const INTRO := "base.map_node.intro"
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -233,6 +234,15 @@ func _victorious_domain(run_id: String, extra_starting_tile_copies: int = 0) -> 
 			"RUN",
 			"RUN",
 		))
+	domain.execute(SelectMapNodeCommand.new("%s.intro" % run_id, INTRO))
+	var intro_battle = domain.current_battle
+	if intro_battle != null:
+		intro_battle.combat_resolver.resolve_player_action(intro_battle.combat_state, 17)
+		domain.apply_battle_outcome()
+		var intro_skip = _find_option(domain.state.reward_draft, RewardOption.SKIP)
+		if intro_skip != null:
+			domain.execute(ChooseRewardCommand.new("%s.intro.skip" % run_id, intro_skip.option_id, domain.state.reward_draft.draft_id))
+	domain.state.gold = 0
 	domain.execute(SelectMapNodeCommand.new("%s.select" % run_id, LEFT))
 	var battle = domain.current_battle
 	battle.combat_resolver.resolve_player_action(battle.combat_state, 17)
@@ -273,6 +283,11 @@ func _registry() -> ContentRegistry:
 		17,
 		{"pressure_limit": 9},
 		{"kind": "wall_tax"},
+	))
+	registry.register(EncounterDefinition.new(
+		"base.encounter.intro",
+		["base.enemy.wall_taxer"],
+		EncounterDefinition.NORMAL,
 	))
 	registry.register(EncounterDefinition.new(
 		"base.encounter.normal.left",

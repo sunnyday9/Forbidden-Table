@@ -221,7 +221,7 @@ func _step_map_choice() -> bool:
 			if not _domain.state.event_state.has_completed_node(node_id):
 				return _execute_command(EnterEventCommandScript.new(_next_command_id("event.enter")))
 
-	var next_node_ids: Array = current_node.next_node_ids.duplicate()
+	var next_node_ids: Array = _domain.state.map_state.selectable_node_ids(_domain.map_definition)
 	if next_node_ids.is_empty():
 		return false
 	var selected_node_id := _select_route_node(next_node_ids)

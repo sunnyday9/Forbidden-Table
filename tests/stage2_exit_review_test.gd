@@ -58,10 +58,29 @@ func test_bounded_controller_entry_evidence(failures: Array[String]) -> void:
 	assert_true(character_result.accepted, "the real controller accepts Character selection", failures)
 	var contract_result = controller.confirm("contract:%s" % Phase2Catalog.CONTRACT_IDS[0])
 	assert_true(contract_result.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "the real controller independently reaches Map Choice", failures)
-	assert_true(controller.action_descriptors().size() == 2, "Map Choice exposes the bounded branch actions", failures)
-	var map_result = controller.confirm(controller.action_descriptors()[0].get("id", ""))
-	assert_true(map_result.accepted and domain.state.phase == RunPhase.BATTLE, "a focused map action starts the real main-loop battle", failures)
+	var intro_id: String = domain.map_definition.start_node_id
+	var intro = domain.map_definition.node_definition(intro_id)
+	var intro_actions: Array = controller.action_descriptors().filter(func(action): return action.get("kind") == "MAP_NODE")
+	assert_true(intro_actions.size() == 1 and intro_actions[0].get("target_id", "") == intro_id, "Map Choice exposes only the mandatory introductory Normal", failures)
+	var map_result = controller.confirm(str(intro_actions[0].get("id", ""))) if not intro_actions.is_empty() else null
+	assert_true(map_result != null and map_result.accepted and domain.state.phase == RunPhase.BATTLE, "a focused entry action starts the real main-loop battle", failures)
 	assert_true(domain.replay_record.commands.size() == 3, "the bounded controller smoke records only accepted entry commands", failures)
+	if domain.current_battle == null:
+		return
+	domain.current_battle.combat_state.enemy_hp = 1
+	var victory = domain.current_battle.combat_resolver.resolve_player_action(domain.current_battle.combat_state, 17)
+	assert_true(victory.terminal_outcome == "VICTORY", "the bounded intro encounter is resolved as a real Battle", failures)
+	var outcome_events: Array = domain.apply_battle_outcome()
+	controller._refresh(outcome_events)
+	var reward_actions: Array = controller.action_descriptors().filter(func(action): return action.get("kind") == "REWARD")
+	assert_true(not reward_actions.is_empty(), "the mandatory Normal exposes its usual Reward Choice", failures)
+	if reward_actions.is_empty():
+		return
+	var reward_result = controller.confirm(str(reward_actions[0].get("id", "")))
+	assert_true(reward_result.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "accepting the intro reward returns to Map Choice", failures)
+	var branch_actions: Array = controller.action_descriptors().filter(func(action): return action.get("kind") == "MAP_NODE")
+	assert_true(branch_actions.size() == 2 and branch_actions.all(func(action): return intro.next_node_ids.has(str(action.get("target_id", "")))), "Map Choice exposes the authored branch nodes after the intro victory and reward", failures)
+	assert_true(domain.replay_record.commands.size() == 4, "the intro reward choice remains in accepted-command replay", failures)
 
 func test_complete_hand_recovery_allows_hybrid_partial_settlement(failures: Array[String]) -> void:
 	var fixture := CompleteHandSettlementTest.new()._fixture(6, 5, 3, TileZone.DISCARD)

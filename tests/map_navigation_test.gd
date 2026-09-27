@@ -46,6 +46,7 @@ func run() -> Array[String]:
 	test_act_two_authored_graph_meets_the_same_topology_contract(failures)
 	test_act_two_map_payload_starts_its_authored_encounter(failures)
 	test_contract_choice_initializes_visible_deterministic_map(failures)
+	test_mandatory_intro_battle_is_played_and_resumeable_for_both_acts(failures)
 	test_valid_route_reaches_boss_and_records_stable_edge_path(failures)
 	test_every_authored_route_reaches_boss(failures)
 	test_invalid_map_selection_is_atomic_and_does_not_consume_map_rng(failures)
@@ -115,7 +116,7 @@ func test_act_one_boss_reward_starts_a_fresh_act_two_map(failures: Array[String]
 	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "applying the Act 1 Boss reward enters Act 2 instead of Run Summary", failures)
 	assert_true(domain.map_definition.content_id == "base.map.act_two" and domain.map_definition.content_id != act_one_map_id, "the Act transition selects a distinct Act 2 map definition", failures)
 	assert_true(domain.state.map_state.map_definition_id == "base.map.act_two", "the Run map state records the fresh Act 2 map", failures)
-	assert_true(domain.state.map_state.current_node_id == "base.map_node.act_two.intro" and domain.state.map_state.ordered_path == ["base.map_node.act_two.intro"], "the Act 2 map starts at its own mandatory entry node", failures)
+	assert_true(domain.state.map_state.current_node_id == "base.map_node.act_two.intro" and domain.state.map_state.ordered_path.is_empty(), "the Act 2 map starts with its own mandatory entry pending", failures)
 	var replay_factory: Callable = func(replay_seed: int, replay_content_version: String):
 		if replay_seed != seed or replay_content_version != content_version:
 			return null
@@ -225,8 +226,9 @@ func test_act_two_map_identity_round_trips_at_stable_boundary(failures: Array[St
 	assert_true(resumed_domain.map_definition.content_id == "base.map.act_two", "Suspend/Resume reconstructs the Act 2 MapDefinition", failures)
 	assert_true(resumed_domain.state.map_state.map_definition_id == "base.map.act_two", "Suspend/Resume preserves the Act 2 path identity", failures)
 	assert_true(resumed_domain.state.map_state.current_node_id == "base.map_node.act_two.intro", "Suspend/Resume preserves the mandatory Act 2 entry node", failures)
-	var next_node = resumed_domain.execute(SelectMapNodeCommand.new("map.act-two-resume.next", "base.map_node.act_two.normal.left"))
-	assert_true(next_node.accepted and resumed_domain.state.phase == RunPhase.BATTLE, "the resumed Act 2 MapDefinition accepts an adjacent Act 2 route", failures)
+	assert_true(not resumed_domain.state.map_state.is_visited(resumed_domain.map_definition.start_node_id), "Suspend/Resume keeps the Act 2 intro pending", failures)
+	var intro = resumed_domain.execute(SelectMapNodeCommand.new("map.act-two-resume.intro", resumed_domain.map_definition.start_node_id))
+	assert_true(intro.accepted and resumed_domain.state.phase == RunPhase.BATTLE, "the resumed Act 2 MapDefinition starts its mandatory intro battle", failures)
 
 func test_act_two_boss_reward_selection_ends_run_without_act_three(failures: Array[String]) -> void:
 	var domain = _act_two_boss_reward_boundary()
@@ -273,6 +275,7 @@ func _act_two_boss_reward_boundary():
 	domain.map_definition = MiniActMapCatalog.definition_for_act(2)
 	domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
 	for node_id in [
+		"base.map_node.act_two.intro",
 		"base.map_node.act_two.normal.left",
 		"base.map_node.act_two.shop",
 		"base.map_node.act_two.workshop",
@@ -349,15 +352,15 @@ func test_act_two_map_payload_starts_its_authored_encounter(failures: Array[Stri
 	assert_true(domain.state.map_state.payload_ids == repeated_domain.state.map_state.payload_ids, "same-seed Act 2 initialization selects identical encounter and Event payloads", failures)
 	var intro_node_id: String = domain.map_definition.start_node_id
 	assert_true(domain.state.map_state.current_node_id == intro_node_id, "the Act 2 mandatory entry starts at its authored node", failures)
-	var selected_node_id := "base.map_node.act_two.normal.left"
+	var selected_node_id := intro_node_id
 	var encounter_id := str(domain.state.map_state.payload_ids[selected_node_id])
-	var selected = domain.execute(SelectMapNodeCommand.new("map.act-two.payload.left", selected_node_id))
-	assert_true(selected.accepted, "the Act 2 first battle node is selectable through RunDomain (%s: %s)" % [selected.validation.code, selected.validation.message], failures)
+	var selected = domain.execute(SelectMapNodeCommand.new("map.act-two.payload.intro", selected_node_id))
+	assert_true(selected.accepted, "the Act 2 mandatory intro battle is selectable through RunDomain (%s: %s)" % [selected.validation.code, selected.validation.message], failures)
 	assert_true(encounter_id.begins_with("alpha.encounter.act_two."), "the visible Act 2 payload points to its authored encounter package", failures)
 	assert_true(domain.current_battle != null, "selecting the Act 2 entry payload creates a Battle", failures)
 	if domain.current_battle != null:
 		assert_true(domain.current_battle.encounter_id == encounter_id, "the reached Battle uses the map's selected Act 2 encounter identity", failures)
-		assert_true(domain.current_battle.enemy_definition.content_id == "alpha.enemy.act_two.afterimage", "the reached Act 2 Normal encounter uses its unique enemy", failures)
+		assert_true(domain.current_battle.enemy_definition.content_id == "alpha.enemy.act_two.tollkeeper", "the mandatory Act 2 intro encounter uses its authored Tollkeeper enemy", failures)
 	var boss_node = domain.map_definition.node_definition("base.map_node.act_two.boss")
 	var boss_encounter_id := str(boss_node.payload_options[0])
 	var boss_validation: Dictionary = domain.encounter_factory.validate(domain.state, boss_encounter_id, "BOSS")
@@ -374,7 +377,8 @@ func test_contract_choice_initializes_visible_deterministic_map(failures: Array[
 
 	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "Contract choice enters Map Choice", failures)
 	assert_true(map_state.current_node_id == INTRO, "the mandatory introductory Normal is the current node", failures)
-	assert_true(map_state.ordered_path == [INTRO], "the map path starts at the introductory Normal", failures)
+	assert_true(map_state.ordered_path.is_empty() and map_state.visited_node_ids.is_empty(), "the introductory Normal is pending before its battle", failures)
+	assert_true(map_state.selectable_node_ids(domain.map_definition) == [INTRO], "the pending entry is the only selectable Map Node", failures)
 	assert_true(map_state.knowledge_state[INTRO] == "EXACT", "the current node identity is exact", failures)
 	assert_true(map_state.knowledge_state[LEFT] == "EXACT", "an immediately selectable node is exact", failures)
 	assert_true(map_state.knowledge_state[BOSS] == "PARTIAL", "a distant node keeps partial identity visibility", failures)
@@ -385,9 +389,118 @@ func test_contract_choice_initializes_visible_deterministic_map(failures: Array[
 	assert_true(map_state.edge_ids.size() == 12, "every authored edge has a stable edge ID", failures)
 	assert_true(not map_state.map_rng_state.is_empty(), "map state records the Map RNG checkpoint", failures)
 
+func test_mandatory_intro_battle_is_played_and_resumeable_for_both_acts(failures: Array[String]) -> void:
+	var domains: Array = [
+		_prepared_alpha_domain("map.intro.act-one", 701),
+		_transitioned_act_two_entry_domain("map.intro.act-two"),
+	]
+	for act_offset in domains.size():
+		var domain = domains[act_offset]
+		if domain == null:
+			assert_true(false, "Act 2 enters its fresh map through the Boss reward transition", failures)
+			continue
+		var intro_id: String = domain.map_definition.start_node_id
+		var intro = domain.map_definition.node_definition(intro_id)
+		var branch_id := str(intro.next_node_ids[0])
+		assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "Act %d begins at Map Choice" % domain.state.act_index, failures)
+		assert_true(domain.state.map_state.current_node_id == intro_id, "Act %d points at its authored introductory Normal" % domain.state.act_index, failures)
+		assert_true(not domain.state.map_state.is_visited(intro_id), "Act %d leaves the mandatory intro pending until it is fought" % domain.state.act_index, failures)
+
+		var entry_save = SaveCoordinator.new().save(domain)
+		assert_true(entry_save.accepted, "Act %d can be saved before the intro battle" % domain.state.act_index, failures)
+		if not entry_save.accepted:
+			continue
+		var resumed = SaveMapper.load_into_domain(entry_save.snapshot.to_dictionary(), domain.content_registry)
+		assert_true(resumed.accepted, "Act %d resumes before the intro battle" % domain.state.act_index, failures)
+		if not resumed.accepted:
+			continue
+		domain = resumed.domain
+		assert_true(domain.state.map_state.payload_ids[intro_id] == entry_save.snapshot.authoritative_state.map_state.payload_ids[intro_id], "Act %d preserves the deterministic intro payload on resume" % domain.state.act_index, failures)
+		var branch_before_entry = domain.validate_select_map_node(branch_id)
+		assert_true(not branch_before_entry.is_valid(), "Act %d cannot select a branch before its intro battle" % domain.state.act_index, failures)
+
+		var intro_payload_id: String = str(domain.state.map_state.payload_ids[intro_id])
+		var intro_selection = domain.execute(SelectMapNodeCommand.new("%s.intro" % domain.state.run_id, intro_id))
+		assert_true(intro_selection.accepted and domain.state.phase == RunPhase.BATTLE, "Act %d starts its mandatory intro battle through SelectMapNode" % domain.state.act_index, failures)
+		assert_true(domain.current_battle != null and domain.current_battle.encounter_id == intro_payload_id, "Act %d fights the exact encounter selected by its deterministic intro payload" % domain.state.act_index, failures)
+		assert_true(_has_event(intro_selection.events, DomainEvent.MAP_NODE_SELECTED) and _has_event(intro_selection.events, DomainEvent.BATTLE_STARTED) and _has_event(intro_selection.events, DomainEvent.RUN_PHASE_CHANGED), "Act %d intro entry emits map, battle, and phase facts" % domain.state.act_index, failures)
+		assert_true(not domain.validate_select_map_node(branch_id).is_valid(), "Act %d cannot select a branch during its intro battle" % domain.state.act_index, failures)
+
+		var battle_save = SaveCoordinator.new().save(domain)
+		assert_true(battle_save.accepted, "Act %d can be saved at the intro battle start" % domain.state.act_index, failures)
+		if not battle_save.accepted:
+			continue
+		var battle_resume = SaveMapper.load_into_domain(battle_save.snapshot.to_dictionary(), domain.content_registry)
+		assert_true(battle_resume.accepted, "Act %d resumes at the same intro battle" % domain.state.act_index, failures)
+		if not battle_resume.accepted:
+			continue
+		domain = battle_resume.domain
+		assert_true(domain.current_battle != null and domain.current_battle.encounter_id == intro_payload_id, "Act %d resumes the intro encounter payload" % domain.state.act_index, failures)
+		if domain.current_battle == null:
+			continue
+		domain.current_battle.combat_state.enemy_hp = 1
+		var victory = domain.current_battle.combat_resolver.resolve_player_action(domain.current_battle.combat_state, 17)
+		assert_true(victory.terminal_outcome == "VICTORY", "Act %d intro encounter is actually resolved as a battle" % domain.state.act_index, failures)
+		domain.apply_battle_outcome()
+		assert_true(domain.state.phase == RunPhase.REWARD_CHOICE, "Act %d intro victory reaches its normal Reward Choice" % domain.state.act_index, failures)
+		if domain.state.reward_draft == null or domain.state.reward_draft.options.is_empty():
+			assert_true(false, "Act %d intro victory creates its Normal reward draft" % domain.state.act_index, failures)
+			continue
+		var reward_option = domain.state.reward_draft.options[0]
+		var reward_result = domain.execute(ChooseRewardCommand.new(
+			"%s.intro.reward" % domain.state.run_id,
+			reward_option.option_id,
+			domain.state.reward_draft.draft_id,
+		))
+		assert_true(reward_result.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "Act %d returns to Map Choice after the intro reward" % domain.state.act_index, failures)
+		var available_branches: Array = domain.state.map_state.selectable_node_ids(domain.map_definition)
+		assert_true(available_branches == intro.next_node_ids, "Act %d exposes its authored branch only after the intro battle and reward" % domain.state.act_index, failures)
+		var branch_result = domain.execute(SelectMapNodeCommand.new("%s.branch" % domain.state.run_id, branch_id))
+		assert_true(branch_result.accepted, "Act %d can progress from the intro to its selected branch" % domain.state.act_index, failures)
+
+func _prepared_alpha_domain(run_id: String, seed: int) -> RunDomain:
+	var registry := _phase2_registry()
+	var domain = RunDomain.new_alpha_run(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	return domain
+
+func _transitioned_act_two_entry_domain(run_id: String):
+	var registry := _phase2_registry()
+	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(
+		Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot(),
+		registry,
+	)
+	if not migrated.accepted:
+		return null
+	var domain = migrated.domain
+	_register_act_two_encounter_content(registry)
+	domain.state.act_count = 2
+	var saved = SaveCoordinator.new().save(domain)
+	if not saved.accepted:
+		return null
+	var resumed = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), registry)
+	if not resumed.accepted:
+		return null
+	domain = resumed.domain
+	var draft = domain.state.reward_draft
+	if draft == null or draft.options.is_empty():
+		return null
+	var selected = domain.execute(ChooseRewardCommand.new(
+		"%s.act-one-boss-reward" % run_id,
+		draft.options[0].option_id,
+		draft.draft_id,
+	))
+	return domain if selected.accepted and domain.state.act_index == 2 and domain.state.phase == RunPhase.MAP_CHOICE else null
+
+func _phase2_registry() -> ContentRegistry:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	return registry
+
 func test_valid_route_reaches_boss_and_records_stable_edge_path(failures: Array[String]) -> void:
 	var domain := _prepared_domain("map.route", 202)
-	for node_id in [LEFT, SHOP, WORKSHOP, MID, ELITE, BOSS]:
+	for node_id in [INTRO, LEFT, SHOP, WORKSHOP, MID, ELITE, BOSS]:
 		var result = domain.execute(SelectMapNodeCommand.new("map.route.%s" % node_id, node_id))
 		assert_true(result.accepted, "valid route accepts %s" % node_id, failures)
 
@@ -400,7 +513,7 @@ func test_valid_route_reaches_boss_and_records_stable_edge_path(failures: Array[
 	assert_true(_has_event(domain.state.map_state.last_events, DomainEvent.MAP_NODE_SELECTED), "map traversal emits a factual selection event", failures)
 
 func test_every_authored_route_reaches_boss(failures: Array[String]) -> void:
-	var route_choices := [[LEFT, SHOP, WORKSHOP], [LEFT, EVENT_LEFT], [RIGHT, WORKSHOP], [RIGHT, EVENT_RIGHT]]
+	var route_choices := [[INTRO, LEFT, SHOP, WORKSHOP], [INTRO, LEFT, EVENT_LEFT], [INTRO, RIGHT, WORKSHOP], [INTRO, RIGHT, EVENT_RIGHT]]
 	for route_index in route_choices.size():
 		var domain := _prepared_domain("map.route.%d" % route_index, 250 + route_index)
 		for node_id in route_choices[route_index] + [MID, ELITE, BOSS]:
@@ -424,6 +537,7 @@ func test_invalid_map_selection_is_atomic_and_does_not_consume_map_rng(failures:
 	assert_true(domain.checkpoint() == before, "non-adjacent selection leaves state unchanged", failures)
 	assert_true(domain.rng_snapshot() == rng_before, "non-adjacent selection does not consume Map RNG", failures)
 
+	domain.execute(SelectMapNodeCommand.new("map.invalid.intro", INTRO))
 	domain.execute(SelectMapNodeCommand.new("map.invalid.left", LEFT))
 	var visited_before := domain.checkpoint()
 	var visited_rng_before := domain.rng_snapshot()
@@ -444,7 +558,7 @@ func test_invalid_map_selection_is_atomic_and_does_not_consume_map_rng(failures:
 func test_same_seed_and_accepted_map_commands_reproduce_checkpoint(failures: Array[String]) -> void:
 	var first := _prepared_domain("map.deterministic", 404)
 	var second := _prepared_domain("map.deterministic", 404)
-	for node_id in [RIGHT, EVENT_RIGHT, MID, ELITE, BOSS]:
+	for node_id in [INTRO, RIGHT, EVENT_RIGHT, MID, ELITE, BOSS]:
 		first.execute(SelectMapNodeCommand.new("map.deterministic.%s" % node_id, node_id))
 		second.execute(SelectMapNodeCommand.new("map.deterministic.%s" % node_id, node_id))
 	assert_true(first.state.map_state.payload_ids == second.state.map_state.payload_ids, "same seed reproduces map payload IDs", failures)
