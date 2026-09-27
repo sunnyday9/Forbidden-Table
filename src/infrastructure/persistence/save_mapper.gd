@@ -27,6 +27,7 @@ const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
 const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
+const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 
 static func suspend_snapshot(domain, checkpoint_metadata: Dictionary = {}):
 	var metadata := checkpoint_metadata.duplicate(true)
@@ -83,6 +84,16 @@ static func _load_into_domain(serialized, content_registry, allow_explicit_conte
 			return battle_reconstruction
 	if not domain.rng_streams.restore(data.rng_state):
 		return _reject("INVALID_RNG_STATE")
+	# A Suspend Save starts a new accepted-command replay segment at the restored
+	# authoritative checkpoint. This leaves older replay fixture semantics alone.
+	var resumed_snapshot = suspend_snapshot(domain, data.get("checkpoint_metadata", {}))
+	var resumed_replay = ReplayRecordScript.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
+	resumed_replay.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), str(domain.state.terminal_summary.outcome))
+	var replay_factory := func(_replay_seed: int, _replay_content_version: String):
+		var replay_loaded: Dictionary = load_into_domain(resumed_snapshot.serialize(), content_registry)
+		return replay_loaded.domain if replay_loaded.get("accepted", false) else null
+	resumed_replay.restored_replay_factory = replay_factory
+	domain.replay_record = resumed_replay
 	pipeline.append_array(["Validate", "Resolve Content IDs", "Reconstruct"])
 	return {"accepted": true, "domain": domain, "snapshot": SuspendSnapshotScript.from_dictionary(data), "pipeline": pipeline}
 

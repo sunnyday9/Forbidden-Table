@@ -16,6 +16,7 @@ var content_version: String
 var commands: Array
 var checkpoints: Array
 var terminal_outcome: String
+var restored_replay_factory: Callable
 
 func _init(replay_seed: int, replay_content_version: String, replay_run_id: String = "", replay_game_version: String = SnapshotDtoScript.GAME_VERSION) -> void:
 	schema_version = SCHEMA_VERSION
@@ -26,6 +27,7 @@ func _init(replay_seed: int, replay_content_version: String, replay_run_id: Stri
 	commands = []
 	checkpoints = []
 	terminal_outcome = "ONGOING"
+	restored_replay_factory = Callable()
 
 func record_initial_checkpoint(domain_checkpoint: Dictionary, rng_state: Dictionary, outcome: String, domain_events: Array = []) -> void:
 	if not checkpoints.is_empty():

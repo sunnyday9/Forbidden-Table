@@ -29,6 +29,7 @@ const EnterEventCommandScript = preload("res://src/domain/commands/enter_event_c
 const ChooseEventOptionCommandScript = preload("res://src/domain/commands/choose_event_option_command.gd")
 const AcknowledgeRunSummaryCommandScript = preload("res://src/domain/commands/acknowledge_run_summary_command.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
@@ -46,16 +47,20 @@ var domain
 var state
 var tutorial_progress
 var meta_progress_coordinator
+var suspend_store
+var save_coordinator
 var _command_sequence := 0
 var _selected_workshop_service_id := ""
 var _selected_workshop_instance_id := ""
 
-func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_coordinator = null) -> void:
+func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_coordinator = null, initial_suspend_store = null) -> void:
 	assert(run_domain is RunDomainScript)
 	domain = run_domain
 	state = RunPresentationStateScript.new()
 	tutorial_progress = initial_tutorial_progress if initial_tutorial_progress != null else TutorialProgressScript.new()
 	meta_progress_coordinator = initial_meta_progress_coordinator
+	suspend_store = initial_suspend_store
+	save_coordinator = SaveCoordinatorScript.new()
 	if meta_progress_coordinator != null and meta_progress_coordinator.state != null:
 		# The application owns the trusted profile; the domain enforces its policy.
 		domain.unlock_policy = meta_progress_coordinator.state
@@ -71,6 +76,26 @@ func submit(command):
 	var unlock_result: Dictionary = {}
 	if result != null and result.accepted and meta_progress_coordinator != null:
 		unlock_result = meta_progress_coordinator.observe_run_state(domain.state)
+	var suspend_feedback := ""
+	var stable_boundary := _suspend_boundary_for(command) if result != null and result.accepted else ""
+	if result != null and result.accepted and suspend_store != null and not stable_boundary.is_empty():
+		var save_result: Dictionary = save_coordinator.save(domain, stable_boundary)
+		if save_result.get("accepted", false):
+			var write_result: Dictionary = suspend_store.write_snapshot(save_result.snapshot)
+			if not write_result.get("accepted", false):
+				suspend_feedback = "This action succeeded, but the Suspend Save was not written (%s). The existing save and recovery files were left in place; check storage space and permissions before quitting." % str(write_result.get("code", "SUSPEND_WRITE_FAILED"))
+			elif write_result.has("cleanup_warning"):
+				suspend_feedback = "The Run was saved, but temporary save cleanup needs attention (%s)." % str(write_result.get("cleanup_warning", "SUSPEND_CLEANUP_FAILED"))
+			if write_result.get("accepted", false) and str(domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
+				var progression_pending: bool = unlock_result.has("persisted") and not bool(unlock_result.get("persisted", false))
+				if progression_pending:
+					suspend_feedback = "The completed Run was saved, but progression persistence failed (%s). Its terminal save remains available so launch can retry." % str(unlock_result.get("code", "META_PROGRESS_SAVE_FAILED"))
+				else:
+					var clear_result: Dictionary = suspend_store.clear()
+					if not clear_result.get("accepted", false):
+						suspend_feedback = "The Run completed, but its continuation save could not be cleared (%s). Reopen the game to retry, or choose New Run after checking file permissions." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+		elif str(save_result.get("code", "")) not in ["UNSUPPORTED_CHECKPOINT", "UNSTABLE_CHECKPOINT"]:
+			suspend_feedback = "This action succeeded, but a Suspend Save could not be prepared (%s)." % str(save_result.get("code", "SUSPEND_SAVE_FAILED"))
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
 		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–6 are now available for later Runs."
@@ -78,7 +103,33 @@ func submit(command):
 	elif unlock_result.has("code") and not unlock_result.get("persisted", false):
 		state.feedback = "Unlock progress could not be saved. The game will retry the next time this Run is recorded."
 		presentation_changed.emit()
+	if not suspend_feedback.is_empty():
+		state.feedback = suspend_feedback
+		presentation_changed.emit()
 	return result
+
+func _suspend_boundary_for(command) -> String:
+	if command is SelectMapNodeCommandScript or command is ChooseContractCommandScript:
+		return "MAP_NODE"
+	if command is DrawCommandScript:
+		return "DRAW_ACTION"
+	if command is EndTurnCommandScript:
+		return "ENEMY_INTENT_COMPLETE"
+	if command is SettlePatternCommandScript or command is SettleCompleteHandCommandScript:
+		return "SETTLEMENT_COMPLETE"
+	if command is EnterShopCommandScript or command is BuyShopOfferCommandScript or command is RefreshShopCommandScript or command is ExitShopCommandScript:
+		return "SHOP"
+	if command is EnterWorkshopCommandScript or command is UseWorkshopServiceCommandScript or command is ExitWorkshopCommandScript:
+		return "WORKSHOP"
+	if command is EnterEventCommandScript:
+		return "EVENT_CHOICE_BEFORE"
+	if command is ChooseEventOptionCommandScript:
+		return "EVENT_CHOICE_AFTER"
+	if command is ChooseRewardCommandScript:
+		return "REWARD"
+	if command is AcknowledgeRunSummaryCommandScript:
+		return "RUN_COMPLETE"
+	return ""
 
 func focus_next() -> String:
 	var focused: String = state.focus_next()

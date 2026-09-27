@@ -10,10 +10,17 @@ const RunPresentationControllerScript = preload("res://src/presentation/run/run_
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const RunSummaryPresenterScript = preload("res://src/presentation/run/run_summary_presenter.gd")
+const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
+const SuspendSaveStoreScript = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
 
 var controller
 var meta_progress_coordinator
 var content_registry_factory: Callable
+var suspend_file_path := "user://alpha_suspend.json"
+var suspend_store
+var _content_registry
+var _pending_resume_domain
+var _suspend_rejected_copy_path := ""
 var _startup_error := ""
 var _meta_progress_load_warning := ""
 var _phase_value: Label
@@ -25,6 +32,10 @@ var _feedback_value: Label
 var _profile_status: Label
 var _reset_profile_button: Button
 var _new_run_button: Button
+var _suspend_choice_panel: VBoxContainer
+var _suspend_status: Label
+var _resume_run_button: Button
+var _new_run_from_suspend_button: Button
 var _actions_column: VBoxContainer
 var _run_columns: HBoxContainer
 var _summary_panel: PanelContainer
@@ -32,6 +43,8 @@ var _summary_value: Label
 var _summary_acknowledge_button: Button
 
 func _ready() -> void:
+	if suspend_store == null:
+		suspend_store = SuspendSaveStoreScript.new(suspend_file_path)
 	if meta_progress_coordinator == null:
 		meta_progress_coordinator = MetaProgressCoordinatorScript.new()
 	var meta_load: Dictionary = meta_progress_coordinator.load_profile()
@@ -39,23 +52,21 @@ func _ready() -> void:
 		var recovery_path := str(meta_load.get("preserved_path", ""))
 		var preservation_text := "A recovery copy is at %s." % recovery_path if not recovery_path.is_empty() else "The original save remains in place."
 		_meta_progress_load_warning = "Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile." % [str(meta_load.get("code", "LOAD_FAILED")), preservation_text]
-	_build_new_run()
 	_build_interface()
-	if controller != null:
-		controller.presentation_changed.connect(_render)
+	var registry_result := _validated_content_registry()
+	if not registry_result.get("accepted", false):
+		_startup_error = str(registry_result.get("message", "A new run could not start because game content failed validation."))
+	else:
+		_content_registry = registry_result.registry
+		_load_suspend_or_start_new(_content_registry)
 	_render()
 
-func _build_new_run() -> void:
-	if controller != null and controller.presentation_changed.is_connected(_render):
-		controller.presentation_changed.disconnect(_render)
-	controller = null
-	_startup_error = ""
+func _validated_content_registry() -> Dictionary:
 	var registry = ContentRegistryScript.new()
 	if content_registry_factory.is_valid():
 		registry = content_registry_factory.call()
 	if not registry is ContentRegistryScript:
-		_startup_error = "A new run could not start because its content registry is unavailable."
-		return
+		return {"accepted": false, "message": "A new run could not start because its content registry is unavailable."}
 	var registration_reports: Array = [
 		{"catalog": "Phase 2", "report": Phase2CatalogScript.register_all(registry)},
 		{"catalog": "Act Two", "report": AlphaActTwoCatalogScript.register_all(registry)},
@@ -70,15 +81,157 @@ func _build_new_run() -> void:
 		)
 	_append_content_validation_errors(validation_errors, "Content registry validation", registry.validate())
 	if not validation_errors.is_empty():
-		_startup_error = "A new run could not start because game content failed validation. Please report this issue:\n%s" % "\n".join(validation_errors)
+		return {"accepted": false, "message": "A new run could not start because game content failed validation. Please report this issue:\n%s" % "\n".join(validation_errors)}
+	return {"accepted": true, "registry": registry}
+
+func _load_suspend_or_start_new(registry) -> void:
+	var stored: Dictionary = suspend_store.read_source()
+	if not stored.get("accepted", false):
+		if stored.get("preserve_required", false):
+			var interrupted_preservation: Dictionary = suspend_store.preserve_source()
+			if interrupted_preservation.get("accepted", false):
+				_suspend_rejected_copy_path = str(interrupted_preservation.get("path", ""))
+				_show_suspend_recovery_required(
+					"The Suspend Save commit was interrupted (%s). No older save was loaded. Recovery sources remain unchanged and are copied to %s. Choose New Run only if you want to leave this save behind." % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), _suspend_rejected_copy_path],
+					true,
+				)
+			else:
+				_show_suspend_recovery_required(
+					"The Suspend Save commit was interrupted (%s), and a recovery copy failed (%s). No older save was loaded. Copy the files manually before starting over." % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), str(interrupted_preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+					false,
+				)
+			return
+		_show_suspend_recovery_required(
+			"The saved Run could not be read (%s). The source has not been changed. Check the save file permissions or move the file before trying again." % str(stored.get("code", "SUSPEND_READ_FAILED")),
+			false,
+		)
 		return
+	if not stored.get("exists", false):
+		_start_new_run(registry)
+		return
+	var loaded: Dictionary = SaveMapperScript.load_into_domain(str(stored.get("contents", "")), registry)
+	if not loaded.get("accepted", false):
+		var preservation: Dictionary = suspend_store.preserve_source()
+		if preservation.get("accepted", false):
+			_suspend_rejected_copy_path = str(preservation.get("path", ""))
+			var explanation := _suspend_load_error(loaded)
+			_show_suspend_recovery_required(
+				"%s The original save remains unchanged, and a byte-for-byte recovery copy is at %s. Choose New Run only if you want to leave this save behind." % [explanation, _suspend_rejected_copy_path],
+				true,
+			)
+		else:
+			_show_suspend_recovery_required(
+				"%s The original save remains unchanged, but its recovery copy failed (%s). Copy the file manually before starting over." % [_suspend_load_error(loaded), str(preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+				false,
+			)
+		return
+	var saved_domain = loaded.domain
+	var finalized: Dictionary = suspend_store.finalize_load(stored, str(saved_domain.state.run_id))
+	if not finalized.get("accepted", false):
+		var preservation: Dictionary = suspend_store.preserve_source()
+		var recovery_path := str(preservation.get("path", "")) if preservation.get("accepted", false) else ""
+		var suffix := " A recovery copy is at %s." % recovery_path if not recovery_path.is_empty() else " Copy the files manually before starting over."
+		_show_suspend_recovery_required(
+			"The saved Run was valid, but interrupted-save recovery could not be finalized (%s). The original sources were retained.%s" % [str(finalized.get("code", "SUSPEND_RECOVERY_FAILED")), suffix],
+			preservation.get("accepted", false),
+		)
+		if preservation.get("accepted", false):
+			_suspend_rejected_copy_path = recovery_path
+		return
+	if str(saved_domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
+		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(saved_domain.state)
+		var progression_pending: bool = unlock_retry.has("persisted") and not bool(unlock_retry.get("persisted", false))
+		var cleared: Dictionary = suspend_store.clear() if not progression_pending else {"accepted": false, "code": str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))}
+		if cleared.get("accepted", false):
+			_start_new_run(registry)
+		else:
+			_pending_resume_domain = saved_domain
+			var prefix := "The previous Run is complete, but progression could not be saved (%s). Resume to view it; its save stays available so launch can retry." % str(cleared.get("code", "META_PROGRESS_SAVE_FAILED")) if progression_pending else "The previous Run is complete, but its save slot could not be cleared (%s). Resume to view the result or choose New Run to retry clearing it." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+			_show_valid_suspend_choice(saved_domain, prefix, not progression_pending, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
+		return
+	_pending_resume_domain = saved_domain
+	var cleanup_prefix := ""
+	if finalized.has("cleanup_warning"):
+		cleanup_prefix = "The saved Run loaded, but interrupted-save cleanup needs attention (%s)." % str(finalized.get("cleanup_warning"))
+	_show_valid_suspend_choice(saved_domain, cleanup_prefix, true, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
+
+func _suspend_load_error(loaded: Dictionary) -> String:
+	for issue in loaded.get("errors", []):
+		var code := str(issue.get("code", "")) if issue is Dictionary else ""
+		if code == "UNSUPPORTED_CONTENT_VERSION":
+			return "This saved Run uses an unsupported content version."
+		if code == "UNSUPPORTED_GAME_VERSION":
+			return "This saved Run uses an unsupported game version."
+	return "The saved Run could not be loaded (%s)." % str(loaded.get("code", "SUSPEND_LOAD_FAILED"))
+
+func _show_valid_suspend_choice(saved_domain, prefix: String = "", can_start_new: bool = true, saved_boundary: String = "") -> void:
+	var checkpoint: Dictionary = saved_domain.checkpoint()
+	var message := "A saved Run is ready to continue. Run: %s. Resume restores its saved state and RNG; New Run discards this one continuation save." % str(saved_domain.state.run_id)
+	var boundary := saved_boundary if not saved_boundary.is_empty() else str(checkpoint.get("stable_boundary", ""))
+	if not boundary.is_empty():
+		message += " Saved boundary: %s." % _pretty_words(boundary)
+	if not prefix.is_empty():
+		message = "%s\n%s" % [prefix, message]
+	_show_suspend_choice(message, true, "New Run (discard saved Run)", can_start_new)
+
+func _show_suspend_recovery_required(message: String, can_start_new: bool) -> void:
+	_show_suspend_choice(message, false, "Start New Run (keep rejected save)", can_start_new)
+
+func _show_suspend_choice(message: String, can_resume: bool, new_run_label: String, can_start_new: bool) -> void:
+	_suspend_choice_panel.visible = true
+	_suspend_status.text = message
+	_resume_run_button.visible = can_resume
+	_resume_run_button.disabled = not can_resume
+	_new_run_from_suspend_button.text = new_run_label
+	_new_run_from_suspend_button.visible = true
+	_new_run_from_suspend_button.disabled = not can_start_new
+	_run_columns.visible = false
+	_summary_panel.visible = false
+	_new_run_button.disabled = true
+
+func _start_new_run(registry) -> void:
 	var seed := int(Time.get_ticks_usec() % 2147483647)
 	var run_id := "alpha.%d.%d" % [Time.get_unix_time_from_system(), seed]
-	controller = RunPresentationControllerScript.new(
-		RunDomainScript.new_alpha_run(run_id, seed, registry, "", null, null, meta_progress_coordinator.state),
-		null,
-		meta_progress_coordinator,
-	)
+	_attach_controller(RunDomainScript.new_alpha_run(run_id, seed, registry, "", null, null, meta_progress_coordinator.state))
+
+func _attach_controller(run_domain) -> void:
+	controller = RunPresentationControllerScript.new(run_domain, null, meta_progress_coordinator, suspend_store)
+	controller.presentation_changed.connect(_render)
+
+func _on_resume_run_pressed() -> void:
+	if _pending_resume_domain == null:
+		return
+	var resumed_domain = _pending_resume_domain
+	_pending_resume_domain = null
+	if str(resumed_domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
+		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(resumed_domain.state)
+		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
+			_suspend_status.text = "Progression is still not saved (%s). The completed Run remains in its Suspend Save so you can retry on the next launch." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
+			_pending_resume_domain = resumed_domain
+			return
+		var clear_result: Dictionary = suspend_store.clear()
+		if not clear_result.get("accepted", false):
+			_suspend_status.text = "The completed Run could not be cleared (%s). Its save remains available." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+			_pending_resume_domain = resumed_domain
+			return
+	_suspend_choice_panel.visible = false
+	_attach_controller(resumed_domain)
+	_render()
+
+func _on_new_run_from_suspend_pressed() -> void:
+	if _new_run_from_suspend_button.disabled:
+		return
+	if _pending_resume_domain == null and _suspend_rejected_copy_path.is_empty():
+		return
+	var cleared: Dictionary = suspend_store.clear()
+	if not cleared.get("accepted", false):
+		_suspend_status.text += "\nThe saved Run could not be cleared (%s). No new Run was started; retry after checking file permissions." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		return
+	_pending_resume_domain = null
+	_suspend_rejected_copy_path = ""
+	_suspend_choice_panel.visible = false
+	_start_new_run(_content_registry)
+	_render()
 
 func _append_content_validation_errors(errors: Array[String], source: String, report) -> void:
 	if report == null or not report.has_method("is_valid") or not report.has_method("get"):
@@ -145,6 +298,25 @@ func _build_interface() -> void:
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
 	_reset_profile_button.pressed.connect(_on_reset_profile_pressed)
 	page.add_child(_reset_profile_button)
+	_suspend_choice_panel = VBoxContainer.new()
+	_suspend_choice_panel.name = "SuspendChoicePanel"
+	_suspend_choice_panel.visible = false
+	_suspend_choice_panel.add_theme_constant_override("separation", 8)
+	page.add_child(_suspend_choice_panel)
+	_suspend_status = Label.new()
+	_suspend_status.name = "SuspendStatus"
+	_suspend_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_suspend_choice_panel.add_child(_suspend_status)
+	_resume_run_button = Button.new()
+	_resume_run_button.name = "ResumeRunButton"
+	_resume_run_button.text = "Resume Run"
+	_resume_run_button.pressed.connect(_on_resume_run_pressed)
+	_suspend_choice_panel.add_child(_resume_run_button)
+	_new_run_from_suspend_button = Button.new()
+	_new_run_from_suspend_button.name = "NewRunFromSuspendButton"
+	_new_run_from_suspend_button.text = "Start New Run (keep rejected save)"
+	_new_run_from_suspend_button.pressed.connect(_on_new_run_from_suspend_pressed)
+	_suspend_choice_panel.add_child(_new_run_from_suspend_button)
 
 	var columns := HBoxContainer.new()
 	_run_columns = columns
@@ -231,6 +403,7 @@ func _render() -> void:
 		if _feedback_value != null:
 			_feedback_value.text = _startup_error
 		return
+	_suspend_choice_panel.visible = false
 	var state = controller.domain.state
 	var phase := str(state.phase)
 	_phase_value.text = "Act %d of %d   ·   %s" % [state.act_index, state.act_count, _pretty_words(phase)]
@@ -290,7 +463,29 @@ func _on_action_pressed(action_id: String):
 	return result
 
 func _on_new_run_pressed() -> void:
-	_build_new_run()
+	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_COMPLETE:
+		return
+	var registry_result := _validated_content_registry()
+	if not registry_result.get("accepted", false):
+		_startup_error = str(registry_result.get("message", "A new run could not start because game content failed validation."))
+		_render()
+		return
+	if controller != null and str(controller.domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
+		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(controller.domain.state)
+		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
+			controller.state.feedback = "Progression could not be saved (%s). The completed Run remains available; retry before starting another Run." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
+			_render()
+			return
+	var cleared: Dictionary = suspend_store.clear()
+	if not cleared.get("accepted", false):
+		controller.state.feedback = "The previous Suspend Save could not be cleared (%s). No new Run was started; check file permissions and retry." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		_render()
+		return
+	if controller != null and controller.presentation_changed.is_connected(_render):
+		controller.presentation_changed.disconnect(_render)
+	controller = null
+	_content_registry = registry_result.registry
+	_start_new_run(_content_registry)
 	_render()
 
 func _on_reset_profile_pressed() -> void:

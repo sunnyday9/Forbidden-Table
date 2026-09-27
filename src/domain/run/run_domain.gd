@@ -122,6 +122,8 @@ func execute(command) -> RefCounted:
 
 func verify_replay(record = replay_record, resume_factory: Callable = Callable()):
 	var replay_factory := func(replay_seed: int, replay_content_version: String):
+		if record != null and record is ReplayRecordScript and record.restored_replay_factory.is_valid():
+			return record.restored_replay_factory.call(replay_seed, replay_content_version)
 		var replay_run_id: String = state.run_id
 		if record != null and not record.run_id.is_empty():
 			replay_run_id = record.run_id
