@@ -520,6 +520,7 @@ func _event_domain(run_id: String, seed: int) -> RunDomain:
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
 	domain.state.gold = 5
+	_mark_intro_complete_for_later_event_fixture(domain)
 	return domain
 
 func _act_two_event_domain(run_id: String, seed: int) -> RunDomain:
@@ -535,7 +536,12 @@ func _act_two_event_domain(run_id: String, seed: int) -> RunDomain:
 	domain.map_definition = MiniActMapCatalog.act_two_definition()
 	domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
 	domain.state.phase = RunPhase.MAP_CHOICE
+	_mark_intro_complete_for_later_event_fixture(domain)
 	return domain
+
+func _mark_intro_complete_for_later_event_fixture(domain: RunDomain) -> void:
+	# These tests isolate downstream Event behavior; map/presentation tests cover the real intro battle journey.
+	domain.state.map_state.select_node(domain.map_definition.start_node_id, domain.map_definition)
 
 func _prepare_act_two_event(domain: RunDomain, event_id: String, command_prefix: String):
 	var is_left_event := event_id in [

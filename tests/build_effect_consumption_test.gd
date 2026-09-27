@@ -42,7 +42,7 @@ func test_owned_starting_relic_effect_replays_and_resumes_once(failures: Array[S
 	var registry := ContentRegistryScript.new()
 	Phase2CatalogScript.register_all(registry)
 	var domain := _prepared_domain("build-effects.relic", 7821, registry)
-	var selected = domain.execute(SelectMapNodeCommandScript.new("build-effects.relic.enter", "base.map_node.normal.left"))
+	var selected = domain.execute(SelectMapNodeCommandScript.new("build-effects.relic.enter", domain.map_definition.start_node_id))
 	assert_true(selected.accepted, "the prepared run enters a valid battle", failures)
 	if not selected.accepted:
 		return
@@ -72,7 +72,7 @@ func test_act_two_rule_breaker_effect_applies_only_when_owned(failures: Array[St
 	var registry := _alpha_registry()
 	var rule_breaker_id: String = AlphaActTwoCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS[0]
 	var unowned_domain := _prepared_act_two_domain("build-effects.act-two-unowned", 7822, registry, false)
-	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.act-two-unowned.enter", "base.map_node.act_two.normal.left"))
+	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.act-two-unowned.enter", unowned_domain.map_definition.start_node_id))
 	assert_true(unowned_selection.accepted, "the Act Two comparison run enters its authored battle", failures)
 	if not unowned_selection.accepted:
 		return
@@ -80,7 +80,7 @@ func test_act_two_rule_breaker_effect_applies_only_when_owned(failures: Array[St
 	assert_true(not unowned_domain.state.build_ownership.acquired_rule_breaker_ids.has(rule_breaker_id), "the comparison run does not own the registered Rule Breaker", failures)
 
 	var owned_domain := _prepared_act_two_domain("build-effects.act-two-owned", 7822, registry, true)
-	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.act-two-owned.enter", "base.map_node.act_two.normal.left"))
+	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.act-two-owned.enter", owned_domain.map_definition.start_node_id))
 	assert_true(selection.accepted, "the prepared Act Two run enters its authored battle", failures)
 	if not selection.accepted:
 		return
@@ -189,7 +189,7 @@ func test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures: Arra
 	relic.effects[0].operations = [ModifyRunCurrencyOperationScript.new(RunEconomyScript.GOLD, -100, "test.invalid_owned_effect")]
 	var before: Dictionary = domain.checkpoint()
 	var rng_before: Dictionary = domain.rng_snapshot()
-	var result = domain.execute(SelectMapNodeCommandScript.new("build-effects.invalid.enter", "base.map_node.normal.left"))
+	var result = domain.execute(SelectMapNodeCommandScript.new("build-effects.invalid.enter", domain.map_definition.start_node_id))
 	assert_true(not result.accepted, "an owned build effect with invalid operation data rejects battle entry", failures)
 	assert_true(result.validation.code == "BUILD_EFFECT_REJECTED", "battle-entry effect validation exposes a stable rejection code", failures)
 	assert_true(result.events.is_empty(), "a rejected battle-entry effect emits no accepted map events", failures)
@@ -208,7 +208,7 @@ func test_workshop_kit_changes_workshop_prices_and_expires(failures: Array[Strin
 	var owned_domain := _prepared_domain("build-effects.workshop-kit", 7827, registry)
 	assert_true(owned_domain.state.build_ownership.owned_relic_ids.has("base.relic.workshop_kit"), "choosing a Character acquires its Workshop Kit starting Relic", failures)
 	_record_replay_segment(owned_domain)
-	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit.enter", MiniActMapCatalogScript.RIGHT))
+	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit.enter", owned_domain.map_definition.start_node_id))
 	assert_true(selection.accepted, "the Workshop Kit run enters its first battle", failures)
 	if not selection.accepted:
 		return
@@ -237,7 +237,7 @@ func test_workshop_kit_changes_workshop_prices_and_expires(failures: Array[Strin
 	var unowned_registry := ContentRegistryScript.new()
 	Phase2CatalogScript.register_all(unowned_registry)
 	var unowned_domain := _prepared_domain("build-effects.workshop-kit-unowned", 7827, unowned_registry)
-	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit-unowned.enter", MiniActMapCatalogScript.RIGHT))
+	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit-unowned.enter", unowned_domain.map_definition.start_node_id))
 	assert_true(unowned_selection.accepted, "the comparison run enters the same battle without Workshop Kit", failures)
 	assert_true(unowned_domain.state.active_modifier("content.base.relic.workshop_kit") == null, "a registered but unowned Workshop Kit does not install its modifier", failures)
 
@@ -274,7 +274,7 @@ func test_workshop_kit_changes_workshop_prices_and_expires(failures: Array[Strin
 		Phase2CatalogScript.register_all(replay_registry)
 		replay_registry.resolve(Phase2CatalogScript.CHARACTER_IDS[0]).starting_relic_id = "base.relic.workshop_kit"
 		var replay_domain := _prepared_domain("build-effects.workshop-kit", replay_seed, replay_registry)
-		var replay_entry = replay_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit.enter", MiniActMapCatalogScript.RIGHT))
+		var replay_entry = replay_domain.execute(SelectMapNodeCommandScript.new("build-effects.workshop-kit.enter", replay_domain.map_definition.start_node_id))
 		assert_true(replay_entry.accepted, "the Workshop service replay enters the same battle", failures)
 		_workshop_remove_price(replay_domain, failures, "replay")
 		replay_domain.replay_record = ReplayRecordScript.new(replay_domain.state.seed, replay_domain.state.content_version, replay_domain.state.run_id)
@@ -320,7 +320,7 @@ func test_rule_memory_changes_battle_entry_tp_and_replays_once(failures: Array[S
 		{"modifier_id": "content.example.unknown", "value": 50},
 	)
 	unowned_domain.state.active_effects[unknown_modifier.instance_id] = unknown_modifier
-	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.rule-memory-unowned.enter", MiniActMapCatalogScript.RIGHT))
+	var unowned_selection = unowned_domain.execute(SelectMapNodeCommandScript.new("build-effects.rule-memory-unowned.enter", unowned_domain.map_definition.start_node_id))
 	assert_true(unowned_selection.accepted, "the comparison run enters the same battle without Rule Memory", failures)
 	if not unowned_selection.accepted:
 		return
@@ -331,7 +331,7 @@ func test_rule_memory_changes_battle_entry_tp_and_replays_once(failures: Array[S
 	var owned_domain := _prepared_rule_memory_domain("build-effects.rule-memory", 7828, registry, true)
 	assert_true(owned_domain.state.build_ownership.owned_relic_ids.has("base.relic.rule_memory"), "choosing a Character acquires its configured Rule Memory starting Relic", failures)
 	_record_replay_segment(owned_domain)
-	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.rule-memory.enter", MiniActMapCatalogScript.RIGHT))
+	var selection = owned_domain.execute(SelectMapNodeCommandScript.new("build-effects.rule-memory.enter", owned_domain.map_definition.start_node_id))
 	assert_true(selection.accepted, "the Rule Memory run enters its first battle", failures)
 	if not selection.accepted:
 		return
@@ -438,7 +438,7 @@ func _prepared_rule_memory_domain(run_id: String, seed: int, registry, owns_rule
 
 func _prepared_modifier_domain(run_id: String, seed: int, registry) -> RunDomainScript:
 	var domain := _prepared_domain(run_id, seed, registry)
-	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, "base.map_node.normal.left"))
+	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, domain.map_definition.start_node_id))
 	if not selected.accepted:
 		return domain
 	var battle = domain.current_battle
@@ -456,7 +456,7 @@ func _prepared_modifier_domain(run_id: String, seed: int, registry) -> RunDomain
 
 func _prepared_complete_hand_modifier_domain(run_id: String, seed: int, registry) -> RunDomainScript:
 	var domain := _prepared_domain(run_id, seed, registry)
-	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, "base.map_node.normal.left"))
+	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, domain.map_definition.start_node_id))
 	if not selected.accepted:
 		return domain
 	var battle = domain.current_battle

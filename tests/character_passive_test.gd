@@ -34,15 +34,10 @@ func test_harbor_read_resolves_in_encounters(failures: Array[String]) -> void:
 	var character_result = domain.execute(ChooseCharacterCommandScript.new("passive.character", AlphaScaleCatalogScript.CHARACTER_ID))
 	var contract_result = domain.execute(ChooseContractCommandScript.new("passive.contract", Phase2CatalogScript.CONTRACT_IDS[0]))
 	assert_true(character_result.accepted and contract_result.accepted, "the unlocked Harbor Reader can begin a Run", failures)
-	var start_node = domain.map_definition.node_definition(domain.state.map_state.current_node_id)
-	var battle_node_id := ""
-	for next_node_id in start_node.next_node_ids:
-		var next_node = domain.map_definition.node_definition(next_node_id)
-		if next_node != null and next_node.node_kind == "BATTLE":
-			battle_node_id = next_node_id
-			break
-	assert_true(not battle_node_id.is_empty(), "the Alpha map exposes a first normal encounter", failures)
-	if battle_node_id.is_empty():
+	var battle_node_id: String = domain.map_definition.start_node_id
+	var battle_node = domain.map_definition.node_definition(battle_node_id)
+	assert_true(battle_node != null and battle_node.node_kind == "BATTLE", "the Alpha map exposes a mandatory introductory Normal encounter", failures)
+	if battle_node == null or battle_node.node_kind != "BATTLE":
 		return
 	var battle_start = domain.execute(SelectMapNodeCommandScript.new("passive.first-battle", battle_node_id))
 	assert_true(battle_start.accepted and domain.state.phase == RunPhaseScript.BATTLE, "Harbor Reader enters a real encounter", failures)

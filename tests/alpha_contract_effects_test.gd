@@ -28,8 +28,6 @@ const TileModifierDefinition = preload("res://src/content/definitions/tile_modif
 const UseWorkshopServiceCommand = preload("res://src/domain/commands/use_workshop_service_command.gd")
 const WorkshopState = preload("res://src/domain/run/workshop_state.gd")
 
-const LEFT := "base.map_node.normal.left"
-
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_contract_selection_effects_and_invalid_selection_are_atomic(failures)
@@ -76,7 +74,7 @@ func test_contract_selection_effects_and_invalid_selection_are_atomic(failures: 
 
 func test_quiet_current_applies_battle_start_pressure_and_tp(failures: Array[String]) -> void:
 	var normal_domain := _alpha_domain("contract.quiet.normal", AlphaScaleCatalog.CONTRACT_IDS[0])
-	var normal_result = normal_domain.execute(SelectMapNodeCommand.new("contract.quiet.normal.battle", LEFT))
+	var normal_result = normal_domain.execute(SelectMapNodeCommand.new("contract.quiet.normal.battle", normal_domain.map_definition.start_node_id))
 	assert_true(normal_result.accepted, "Quiet Current enters a normal battle", failures)
 	if normal_domain.current_battle != null:
 		assert_true(normal_domain.current_battle.combat_state.pressure == 2, "Quiet Current starts every battle with two additional Pressure", failures)
@@ -249,7 +247,7 @@ func test_phase_2_contract_defaults_remain_unchanged(failures: Array[String]) ->
 	var domain := RunDomain.new("contract.phase2.defaults", 103, registry)
 	domain.execute(ChooseCharacterCommand.new("contract.phase2.defaults.character", Phase2Catalog.CHARACTER_IDS[0]))
 	domain.execute(ChooseContractCommand.new("contract.phase2.defaults.contract", Phase2Catalog.CONTRACT_IDS[0]))
-	var result = domain.execute(SelectMapNodeCommand.new("contract.phase2.defaults.battle", LEFT))
+	var result = domain.execute(SelectMapNodeCommand.new("contract.phase2.defaults.battle", domain.map_definition.start_node_id))
 	assert_true(result.accepted, "the Phase 2 Contract still starts a normal battle", failures)
 	if domain.current_battle != null:
 		assert_true(domain.current_battle.combat_state.pressure == 0 and domain.current_battle.combat_state.tp == 0, "Phase 2 battle start Pressure and TP remain unchanged", failures)
