@@ -14,8 +14,11 @@ const RelicDefinition = preload("res://src/content/definitions/relic_definition.
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
+const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const ChooseCharacterCommand = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommand = preload("res://src/domain/commands/choose_contract_command.gd")
+const UseWorkshopServiceCommand = preload("res://src/domain/commands/use_workshop_service_command.gd")
+const AcknowledgeRunSummaryCommand = preload("res://src/domain/commands/acknowledge_run_summary_command.gd")
 const DrawCommand = preload("res://src/domain/commands/draw_command.gd")
 const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
@@ -48,6 +51,7 @@ func run() -> Array[String]:
 	test_validator_rejects_identity_boundary_and_missing_registry(failures)
 	test_invalid_snapshot_is_rejected_atomically(failures)
 	test_migrations_are_sequential(failures)
+	test_restored_domains_rebind_service_and_summary_flows(failures)
 	test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures)
 	test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures)
 	test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failures)
@@ -233,6 +237,40 @@ func test_nested_run_and_battle_state_round_trips(failures: Array[String]) -> vo
 	var battle_checkpoint := {"combat_state": {"terminal_outcome": "ONGOING"}, "zones": {"hand": ["persist.tile"]}}
 	var battle_dto := BattleSnapshot.new(source.state.content_version, source.state.run_id, source.state.seed, battle_checkpoint, source.rng_snapshot(), {"stable": true, "stable_boundary": "BATTLE_START"})
 	assert_true(BattleSnapshot.from_dictionary(battle_dto.to_dictionary()).to_dictionary() == battle_dto.to_dictionary(), "BattleSnapshot has an explicit DTO round-trip", failures)
+
+func test_restored_domains_rebind_service_and_summary_flows(failures: Array[String]) -> void:
+	var workshop_source := _domain("persist.rebind.workshop", 1210)
+	workshop_source.execute(ChooseCharacterCommand.new("persist.rebind.workshop.character", "base.character.sequence"))
+	workshop_source.execute(ChooseContractCommand.new("persist.rebind.workshop.contract", "base.contract.pressure"))
+	workshop_source.state.phase = RunPhase.WORKSHOP
+	workshop_source.state.gold = 100
+	workshop_source.state.workshop_state.begin("base.map_node.workshop", "persist.rebind.workshop.entry")
+	var tile_instance_id: String = workshop_source.state.tile_pool.tile_instances[0].instance_id
+	var original_tile_definition_id: String = workshop_source.state.tile_pool.tile_instances[0].definition_id
+	var workshop_snapshot = SaveMapper.suspend_snapshot(workshop_source)
+	var restored_workshop = SaveMapper.load_into_domain(workshop_snapshot.to_dictionary(), _registry())
+	assert_true(restored_workshop.accepted, "an active Workshop checkpoint restores", failures)
+	if restored_workshop.accepted:
+		var transform = restored_workshop.domain.execute(UseWorkshopServiceCommand.new(
+			"persist.rebind.workshop.transform",
+			UseWorkshopServiceCommand.TRANSFORM,
+			tile_instance_id,
+			"base.tile.bamboo.4",
+		))
+		assert_true(transform.accepted, "a restored domain accepts a Workshop service", failures)
+		assert_true(restored_workshop.domain.state.tile_pool.tile_instances[0].definition_id == "base.tile.bamboo.4", "the Workshop flow mutates the restored authoritative RunState", failures)
+		assert_true(workshop_source.state.tile_pool.tile_instances[0].definition_id == original_tile_definition_id, "the Workshop flow does not mutate the pre-load RunState", failures)
+
+	var summary_source := _domain("persist.rebind.summary", 1211)
+	summary_source.enter_run_summary("VICTORY", "RESTORE_TEST")
+	var summary_snapshot = SaveMapper.suspend_snapshot(summary_source)
+	var restored_summary = SaveMapper.load_into_domain(summary_snapshot.to_dictionary(), _registry())
+	assert_true(restored_summary.accepted, "a Run Summary checkpoint restores", failures)
+	if restored_summary.accepted:
+		var acknowledgement = restored_summary.domain.execute(AcknowledgeRunSummaryCommand.new("persist.rebind.summary.acknowledge"))
+		assert_true(acknowledgement.accepted, "a restored domain accepts Run Summary acknowledgement", failures)
+		assert_true(restored_summary.domain.state.phase == RunPhase.RUN_COMPLETE, "the Run Summary flow advances the restored authoritative RunState", failures)
+		assert_true(summary_source.state.phase == RunPhase.RUN_SUMMARY, "Run Summary acknowledgement does not mutate the pre-load RunState", failures)
 
 func test_migrations_are_sequential(failures: Array[String]) -> void:
 	var pipeline := MigrationPipeline.new(1)

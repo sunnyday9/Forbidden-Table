@@ -4,6 +4,7 @@ extends RefCounted
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
+const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
@@ -17,6 +18,7 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_build_story_contains_tracked_run_data(failures)
 	test_complete_yaku_score_hooks_are_counted_by_yaku(failures)
+	test_settlement_events_are_tracked_without_score_data(failures)
 	test_legacy_summary_does_not_invent_untracked_metrics(failures)
 	return failures
 
@@ -89,6 +91,24 @@ func test_legacy_summary_does_not_invent_untracked_metrics(failures: Array[Strin
 		assert_true(text.contains("%s Not tracked for this Run" % field), "older terminal summary marks missing %s data as untracked" % field, failures)
 	assert_true(text.contains("Acts / Bosses: Act 2 of 2; Boss progress not tracked for this Run"), "older terminal summary uses the saved Act and does not invent Boss progress", failures)
 	assert_true(text.contains("Seed: 5502") and text.contains("Duration: Not tracked for this Run"), "older terminal summary keeps the actual Seed and leaves absent duration untracked", failures)
+
+func test_settlement_events_are_tracked_without_score_data(failures: Array[String]) -> void:
+	var registry := ContentRegistryScript.new()
+	Phase2CatalogScript.register_all(registry)
+	AlphaActTwoCatalogScript.register_all(registry)
+	AlphaScaleCatalogScript.register_all(registry)
+	var domain = RunDomainScript.new_alpha_run("summary.event-metrics", 5504, registry)
+	var events: Array = [
+		DomainEventScript.new(DomainEventScript.PATTERN_SETTLED, {"pattern_type": "SEQUENCE"}),
+		DomainEventScript.new(DomainEventScript.COMPLETE_HAND_SETTLED, {
+			"score": 57,
+			"pattern_types": ["SEQUENCE", "TRIPLET"],
+		}),
+	]
+	domain._record_run_summary_metrics({}, events)
+	assert_true(domain.state.pattern_counts == {"SEQUENCE": 2, "TRIPLET": 1}, "settlement events update pattern metrics when the command has no score data", failures)
+	assert_true(domain.state.complete_hand_count == 1 and domain.state.maximum_mahjong_score == 57, "complete-hand events update Run Summary counters without score data", failures)
+	assert_true(domain.state.milestones == ["first_complete_hand"], "the first complete-hand event records its Run milestone", failures)
 
 func assert_true(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:

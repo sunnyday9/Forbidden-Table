@@ -74,7 +74,7 @@ static func _load_into_domain(serialized, content_registry, allow_explicit_conte
 	# Content IDs are resolved by the validator before any runtime object is constructed.
 	var state = _state_from_dictionary(data.get("authoritative_state", data.get("run_state", {})), data)
 	var domain := RunDomainScript.new(str(data.run_id), int(data.run_seed), content_registry, str(data.content_version))
-	domain.state = state
+	domain.rebind_state(state)
 	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index)
 	if domain.map_definition == null:
 		return _reject("INVALID_ACT_INDEX")
