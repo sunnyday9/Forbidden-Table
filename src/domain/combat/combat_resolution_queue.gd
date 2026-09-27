@@ -72,6 +72,8 @@ func fail(status: String, diagnostic: Dictionary = {}, event = null) -> bool:
 	if _drained or not _accepted or status.is_empty():
 		return false
 	_failure_status = status
+	_pending_effects.clear()
+	_pending_triggers.clear()
 	if not diagnostic.is_empty():
 		_diagnostics.append(diagnostic.duplicate(true))
 	if event != null:
@@ -130,6 +132,9 @@ func consume_effect(effect_id: String, uses: int = 0, charges: int = 0) -> bool:
 
 func pending_item_count() -> int:
 	return _pending_effects.size() + _pending_triggers.size()
+
+func is_failed() -> bool:
+	return not _failure_status.is_empty()
 
 func effect_context():
 	return _context
@@ -204,7 +209,7 @@ func _apply_item(item) -> bool:
 	return true
 
 func _drain_pending_items() -> void:
-	while pending_item_count() > 0:
+	while pending_item_count() > 0 and not is_failed():
 		if _processed_item_count >= _operation_limit:
 			_record_loop_guard()
 			return

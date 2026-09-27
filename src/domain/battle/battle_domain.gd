@@ -724,10 +724,11 @@ func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
 		"starvation_active", "intent_index", "boss_phase_index", "boss_phase_id", "boss_phase_count",
 		"pending_death", "pending_defeat", "pending_death_sequence_index", "pending_defeat_sequence_index",
 		"terminal_sequence_index", "terminal_outcome", "queue_index", "state_based_check_count", "tp",
-		"stability", "draw_capacity", "draw_actions_used_this_turn", "settlement_capacity", "reserve_capacity", "battle_end_cleanup_done",
+		"stability", "draw_capacity", "draw_actions_used_this_turn", "settlement_capacity", "reserve_capacity", "battle_end_cleanup_done", "reward_tax",
 	]:
 		if snapshot.has(field):
 			combat_state.set(field, snapshot[field])
+	combat_state.reward_tax = maxi(0, int(snapshot.get("reward_tax", 0)))
 	var triggered_passives: Variant = snapshot.get("triggered_signature_passive_ids", [])
 	if not triggered_passives is Array:
 		return false

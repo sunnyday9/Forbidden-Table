@@ -1118,6 +1118,7 @@ func apply_battle_outcome() -> Array:
 		return []
 	var encounter_id_before: String = current_battle.encounter_id
 	var encounter_kind_before: String = current_battle.encounter_kind
+	var reward_tax_requested: int = maxi(0, int(current_battle.combat_state.reward_tax))
 	var events: Array = [DomainEventScript.new(DomainEventScript.BATTLE_OUTCOME_TRANSFERRED, {
 		"run_id": state.run_id,
 		"encounter_id": encounter_id_before,
@@ -1134,6 +1135,22 @@ func apply_battle_outcome() -> Array:
 		events.append_array(enter_run_summary("DEFEAT", "BATTLE_DEFEAT", {"encounter_id": encounter_id_before}))
 		state.map_state.last_events = events
 		return events
+	if reward_tax_requested > 0:
+		var reward_tax_applied: int = mini(reward_tax_requested, maxi(0, state.gold))
+		if reward_tax_applied > 0:
+			var tax_transaction: Dictionary = economy.apply_sink(
+				state,
+				RunEconomyScript.GOLD,
+				reward_tax_applied,
+				RunEconomyScript.SINK_ENEMY_REWARD_TAX,
+			)
+			_events_for_currency_transaction(events, tax_transaction)
+		events.append(DomainEventScript.new(DomainEventScript.ENEMY_REWARD_TAX_APPLIED, {
+			"encounter_id": encounter_id_before,
+			"requested_amount": reward_tax_requested,
+			"amount": reward_tax_applied,
+			"currency": RunEconomyScript.GOLD,
+		}))
 	var previous_phase: String = state.phase
 	state.phase = _reward_phase_for_encounter(encounter_kind_before)
 	if encounter_kind_before == EncounterDefinitionScript.NORMAL:

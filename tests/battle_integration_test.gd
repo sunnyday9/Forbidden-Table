@@ -38,6 +38,8 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_normal_node_creates_isolated_data_driven_battle(failures)
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
+	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
+	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
 	test_boss_phases_are_explicit_and_deterministic(failures)
 	test_factory_rejects_invalid_enemy_without_mutation(failures)
 	test_draw_actions_are_limited_and_reset_each_turn(failures)
@@ -132,6 +134,89 @@ func test_battle_outcome_transfer_opens_reward_or_terminates(failures: Array[Str
 	assert_true(elite_resolution.terminal_outcome == CombatState.VICTORY, "the Elite BattleDomain exposes Victory", failures)
 	assert_true(elite_domain.state.phase == RunPhase.ELITE_REWARD, "Elite victory opens the Elite reward phase", failures)
 	assert_true(elite_domain.state.gold == 0, "Elite victory does not award run currency in BattleDomain", failures)
+
+func test_reward_tax_survives_save_replay_and_taxes_victory_once(failures: Array[String]) -> void:
+	var graph := IntentGraph.new("reward_tax", [
+		EnemyIntent.new("reward_tax", "Collect the Ledger", 2, EnemyIntent.REWARD_TAX, [IntentTransition.fixed("reward_tax.loop", "reward_tax")]),
+	])
+	var registry := _registry(graph)
+	var domain := _prepared_domain_with_registry("run.reward.tax", registry)
+	var selection = domain.execute(SelectMapNodeCommand.new("reward.tax.select", LEFT))
+	var intent_result = domain.execute(ResolveEnemyIntentCommand.new("reward.tax.intent"))
+	var tax_snapshot: Dictionary = domain.current_battle.checkpoint()
+
+	assert_true(selection.is_accepted(), "Reward Tax setup enters the authored Normal encounter", failures)
+	assert_true(intent_result.is_accepted(), "Reward Tax resolves through the RunDomain child command path", failures)
+	assert_true(domain.current_battle.combat_state.reward_tax == 2, "the resolved tax is retained in battle-local runtime state", failures)
+	assert_true(tax_snapshot.get("combat_state", {}).get("reward_tax", -1) == 2, "the battle checkpoint serializes the tax marker", failures)
+	if not intent_result.is_accepted():
+		return
+
+	var saved = SaveCoordinator.new().save(domain)
+	assert_true(saved.get("accepted", false), "a battle with Reward Tax can be saved at an accepted Intent boundary", failures)
+	if not saved.get("accepted", false):
+		return
+	var loaded = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), registry)
+	assert_true(loaded.get("accepted", false), "the saved Reward Tax battle can be resumed", failures)
+	if not loaded.get("accepted", false):
+		return
+	var resumed: RunDomain = loaded.domain
+	assert_true(resumed.current_battle.combat_state.reward_tax == 2, "resume restores the battle-local tax marker", failures)
+	assert_true(resumed.checkpoint() == domain.checkpoint(), "resume preserves the full run and battle checkpoints", failures)
+	assert_true(resumed.verify_replay().is_match(), "the accepted typed Intent is deterministic under replay after resume", failures)
+
+	# Set the post-checkpoint purse after replay verification so this test isolates
+	# outcome transfer; the battle tax itself remains the state restored above.
+	resumed.state.gold = 1
+	var victory = resumed.current_battle.combat_resolver.resolve_player_action(resumed.current_battle.combat_state, 17)
+	var outcome_events: Array = resumed.apply_battle_outcome()
+	var tax_event = _event_of_type(outcome_events, DomainEvent.ENEMY_REWARD_TAX_APPLIED)
+	assert_true(victory.terminal_outcome == CombatState.VICTORY, "the saved Normal battle reaches Victory", failures)
+	assert_true(resumed.state.gold == 0, "Reward Tax removes no more Gold than the Run owns", failures)
+	assert_true(tax_event != null and tax_event.data.get("requested_amount", -1) == 2 and tax_event.data.get("amount", -1) == 1, "the factual tax event records requested and capped amounts", failures)
+	assert_true(_has_event(outcome_events, DomainEvent.GOLD_CHANGED), "the tax sink emits a factual currency change", failures)
+	assert_true(resumed.state.phase == RunPhase.REWARD_CHOICE and resumed.state.reward_draft != null, "taxing Gold preserves the normal reward draft", failures)
+	var second_outcome: Array = resumed.apply_battle_outcome()
+	assert_true(second_outcome.is_empty() and resumed.state.gold == 0, "the battle tax cannot be consumed twice", failures)
+
+func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var catalog_result = Phase2Catalog.register_all(registry)
+	assert_true(catalog_result.is_valid(), "the typed-intent catalog is valid for integration coverage", failures)
+	if not catalog_result.is_valid():
+		return
+	var domain := RunDomain.new("run.typed.roles", 7214, registry)
+	domain.execute(ChooseCharacterCommand.new("typed.roles.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("typed.roles.contract", Phase2Catalog.CONTRACT_IDS[0]))
+
+	var normal_battle = domain.encounter_factory.create(domain.state, "base.encounter.normal.left", domain.rng_streams, EncounterDefinition.NORMAL)
+	assert_true(normal_battle != null, "the authored Normal typed-intent encounter is constructible", failures)
+	if normal_battle != null:
+		var capacity_before: int = normal_battle.combat_state.draw_capacity
+		var normal_result = normal_battle.combat_resolver.resolve_enemy_intent(normal_battle.combat_state)
+		assert_true(normal_result.is_resolved(), "the Normal Wall Tax intent resolves", failures)
+		assert_true(normal_battle.combat_state.draw_capacity == capacity_before - 1, "the Normal Wall Taxer changes Draw Capacity instead of adding Pressure", failures)
+		assert_true(normal_battle.combat_state.pressure == 0, "the typed Normal action does not fall through to generic Pressure", failures)
+
+	var elite_battle = domain.encounter_factory.create(domain.state, "base.encounter.elite", domain.rng_streams, EncounterDefinition.ELITE)
+	assert_true(elite_battle != null, "the authored Elite typed-intent encounter is constructible", failures)
+	if elite_battle != null:
+		var fatigue_before: int = elite_battle.combat_state.fatigue
+		var audit_result = elite_battle.combat_resolver.resolve_enemy_intent(elite_battle.combat_state)
+		assert_true(audit_result.is_resolved(), "the Elite Audit intent resolves", failures)
+		assert_true(elite_battle.combat_state.fatigue == fatigue_before + 1, "the Elite Audit changes Fatigue", failures)
+		var reward_tax_result = elite_battle.combat_resolver.resolve_enemy_intent(elite_battle.combat_state)
+		assert_true(reward_tax_result.is_resolved() and elite_battle.combat_state.reward_tax == 1, "the Elite conditional route can resolve its Reward Tax action", failures)
+
+	var boss_battle = domain.encounter_factory.create(domain.state, "base.encounter.boss", domain.rng_streams, EncounterDefinition.BOSS)
+	assert_true(boss_battle != null, "the authored Boss typed-intent encounter is constructible", failures)
+	if boss_battle != null:
+		var phase_result = boss_battle.combat_resolver.resolve_player_action(boss_battle.combat_state, boss_battle.combat_state.enemy_hp)
+		assert_true(phase_result.terminal_outcome == CombatState.ONGOING and boss_battle.combat_state.boss_phase_id == "table_interference", "the authored Boss advances to its typed interference phase", failures)
+		boss_battle.combat_state.stability = 2
+		var boss_result = boss_battle.combat_resolver.resolve_enemy_intent(boss_battle.combat_state)
+		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
+		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
 
 func test_boss_phases_are_explicit_and_deterministic(failures: Array[String]) -> void:
 	var first_domain := _prepared_domain("run.boss.first")
@@ -278,7 +363,7 @@ func test_draw_capacity_changes_preserve_remaining_actions(failures: Array[Strin
 	var rejected = domain.execute(DrawCommand.new("draw.capacity.modified.exhausted"))
 	assert_true(not rejected.is_accepted() and rejected.validation.code == "DRAW_ACTION_BUDGET_EXHAUSTED", "changed capacity remains subject to authoritative exhaustion", failures)
 
-func _registry() -> ContentRegistry:
+func _registry(normal_intent_graph = null) -> ContentRegistry:
 	var registry := ContentRegistry.new()
 	RunStartingPoolContentFixture.register_character_starting_pool_tiles(registry)
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
@@ -292,9 +377,11 @@ func _registry() -> ContentRegistry:
 		"base.passive.sequence",
 	))
 	registry.register(ContractDefinition.new("base.contract.pressure", ContractDefinition.PRESSURE, {"pressure": 1}, {"draw_actions": 1}))
-	var graph := IntentGraph.new("pressure", [
-		EnemyIntent.new("pressure", "Pressure", 1, EnemyIntent.PRESSURE, [IntentTransition.fixed("pressure.loop", "pressure")]),
-	])
+	var graph = normal_intent_graph
+	if graph == null:
+		graph = IntentGraph.new("pressure", [
+			EnemyIntent.new("pressure", "Pressure", 1, EnemyIntent.PRESSURE, [IntentTransition.fixed("pressure.loop", "pressure")]),
+		])
 	var enemy := EnemyDefinition.new(
 		"base.enemy.wall_taxer",
 		graph,
@@ -370,6 +457,12 @@ func _has_event(events: Array, event_type: String) -> bool:
 		if event.event_type == event_type:
 			return true
 	return false
+
+func _event_of_type(events: Array, event_type: String):
+	for event in events:
+		if event.event_type == event_type:
+			return event
+	return null
 
 func _property(instance, property_name: String, default_value = null):
 	if instance == null or not instance.has_method("get"):

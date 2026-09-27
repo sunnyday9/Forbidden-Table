@@ -43,6 +43,7 @@ var draw_capacity: int
 var draw_actions_used_this_turn: int
 var settlement_capacity: int
 var reserve_capacity: int
+var reward_tax: int
 var active_effects: Dictionary
 var zones
 var draw_wall
@@ -96,6 +97,7 @@ func _init(
 	draw_actions_used_this_turn = 0
 	settlement_capacity = maxi(0, initial_settlement_capacity)
 	reserve_capacity = maxi(0, initial_reserve_capacity)
+	reward_tax = 0
 	active_effects = {}
 	zones = null
 	draw_wall = null
@@ -191,6 +193,7 @@ func public_battle_state() -> Dictionary:
 		"draw_actions_remaining": draw_actions_remaining(),
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
+		"reward_tax": reward_tax,
 		"terminal_outcome": terminal_outcome,
 		"boss_phase_index": boss_phase_index,
 		"boss_phase_id": boss_phase_id,
@@ -231,6 +234,7 @@ func to_dictionary() -> Dictionary:
 		"draw_actions_used_this_turn": draw_actions_used_this_turn,
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
+		"reward_tax": reward_tax,
 		"active_effects": _sorted_effect_ids(),
 		"active_effect_details": _sorted_effect_details(),
 		"battle_end_cleanup_done": battle_end_cleanup_done,

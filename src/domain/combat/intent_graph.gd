@@ -57,6 +57,19 @@ func validation():
 		if not intent is EnemyIntentScript:
 			report.add_issue(ContentValidationIssueScript.new("invalid_intent_definition", "", "Intent Graph contains a non-Intent definition."))
 			continue
+		if not EnemyIntentScript.is_supported_action_type(intent.action_type):
+			report.add_issue(ContentValidationIssueScript.new(
+				"unsupported_action_type",
+				intent.intent_id,
+				"Intent action type is not supported.",
+				intent.action_type,
+			))
+		elif intent.action_type != EnemyIntentScript.PRESSURE and intent.pressure_amount < 1:
+			report.add_issue(ContentValidationIssueScript.new(
+				"invalid_action_amount",
+				intent.intent_id,
+				"Typed Intent actions require a positive magnitude.",
+			))
 		var transition_ids: Dictionary = {}
 		var transition_types: Dictionary = {}
 		for transition in intent.transitions:

@@ -20,6 +20,7 @@ const PUBLIC_STATE_KEYS := {
 	"draw_capacity": true,
 	"settlement_capacity": true,
 	"reserve_capacity": true,
+	"reward_tax": true,
 	"terminal_outcome": true,
 	"current_intent_id": true,
 	"boss_phase_index": true,

@@ -6,6 +6,13 @@ const CombatResolutionResultScript = preload("res://src/domain/combat/combat_res
 const CombatResolutionStepScript = preload("res://src/domain/combat/combat_resolution_step.gd")
 const CombatResolutionEffectScript = preload("res://src/domain/combat/combat_resolution_effect.gd")
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
+const ContaminationCatalogScript = preload("res://src/domain/tiles/contamination_catalog.gd")
+const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
+const EnemyIntentScript = preload("res://src/domain/combat/enemy_intent.gd")
+const IntegrityCauseScript = preload("res://src/domain/tiles/integrity_cause.gd")
+const IntegrityLossScript = preload("res://src/domain/tiles/integrity_loss.gd")
+const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const LifecycleResolverScript = preload("res://src/domain/effects/lifecycle_resolver.gd")
 const IntentTransitionSelectionScript = preload("res://src/domain/combat/intent_transition_selection.gd")
@@ -51,7 +58,13 @@ func resolve_enemy_intent(state):
 		})
 	var intent = state.current_intent
 	var queue = begin_queue(state)
-	queue.enqueue_effect(CombatResolutionStepScript.new(intent.intent_id, 0, intent.pressure_amount))
+	if intent.action_type == EnemyIntentScript.PRESSURE:
+		queue.enqueue_effect(CombatResolutionStepScript.new(intent.intent_id, 0, intent.pressure_amount))
+	else:
+		queue.enqueue_effect(CombatResolutionEffectScript.new(
+			"intent.action.%s" % intent.intent_id,
+			Callable(self, "_resolve_enemy_intent_action"),
+		))
 	queue.enqueue_effect(CombatResolutionEffectScript.new(
 		"intent.transition.%s" % intent.intent_id,
 		Callable(self, "_resolve_intent_transition"),
@@ -59,7 +72,152 @@ func resolve_enemy_intent(state):
 	var result = queue.drain()
 	return result
 
+func _resolve_enemy_intent_action(queue, state, sequence_index: int) -> Array:
+	var intent = state.current_intent
+	if intent == null:
+		return []
+	var requested_amount: int = maxi(1, intent.pressure_amount)
+	var events: Array = []
+	var applied_amount := 0
+	var target_instance_id := ""
+	var channel := ""
+	match intent.action_type:
+		EnemyIntentScript.WALL_TAX:
+			channel = "draw_capacity"
+			var current_capacity: int = maxi(0, state.draw_capacity)
+			var minimum_capacity: int = mini(1, current_capacity)
+			var next_capacity: int = maxi(minimum_capacity, current_capacity - requested_amount)
+			applied_amount = current_capacity - next_capacity
+			state.draw_capacity = next_capacity
+			if applied_amount > 0:
+				events.append(DomainEventScript.new(DomainEventScript.CAPACITY_CHANGED, {
+					"effect_id": intent.intent_id,
+					"capacity": channel,
+					"previous": current_capacity,
+					"value": next_capacity,
+					"amount": -applied_amount,
+					"sequence_index": sequence_index,
+				}))
+		EnemyIntentScript.INTEGRITY, EnemyIntentScript.HUNT:
+			channel = "reserve_integrity"
+			var target = _reserve_target(state, intent.action_type == EnemyIntentScript.HUNT)
+			if target != null:
+				target_instance_id = str(target.instance_id)
+				var service := ReserveServiceScript.new(state.zones, state.reserve_capacity)
+				var loss := IntegrityLossScript.new(requested_amount, IntegrityCauseScript.ENEMY_DAMAGE)
+				var result = service.apply_integrity_loss(target_instance_id, loss)
+				for event in result.events:
+					event.data["sequence_index"] = sequence_index
+					events.append(event)
+				for event in result.events:
+					if event.event_type == DomainEventScript.INTEGRITY_CHANGED:
+						applied_amount = int(event.data.get("amount", 0))
+						break
+		EnemyIntentScript.CONTAMINATION:
+			channel = "draw_wall"
+			if state.zones == null:
+				_fail_enemy_intent_action(queue, intent, "NO_TILE_ZONES", sequence_index)
+				return events
+			var service = state.contamination_service if state.contamination_service != null else ContaminationServiceScript.new(state.zones, state)
+			var contamination = ContaminationCatalogScript.by_id("base.contamination.clutter")
+			if service == null or contamination == null or not contamination.is_valid():
+				_fail_enemy_intent_action(queue, intent, "CONTAMINATION_SERVICE_UNAVAILABLE", sequence_index)
+				return events
+			for injection_index in requested_amount:
+				var instance_id := "battle.intent.%d.%s.%d" % [state.queue_index, intent.intent_id, injection_index]
+				var injection = service.inject_contamination(
+					instance_id,
+					"base.tile.honors.white",
+					contamination,
+					TileZoneScript.DRAW_WALL,
+					sequence_index,
+				)
+				if injection == null or not injection.is_accepted():
+					_fail_enemy_intent_action(queue, intent, str(injection.status) if injection != null else "INJECTION_FAILED", sequence_index)
+					return events
+				applied_amount += 1
+				events.append_array(injection.events)
+		EnemyIntentScript.TABLE_INTERFERENCE:
+			channel = "stability"
+			var previous_stability: int = maxi(0, state.stability)
+			applied_amount = mini(requested_amount, previous_stability)
+			state.stability = previous_stability - applied_amount
+			if applied_amount > 0:
+				events.append(DomainEventScript.new(DomainEventScript.STABILITY_CHANGED, {
+					"effect_id": intent.intent_id,
+					"previous_stability": previous_stability,
+					"stability": state.stability,
+					"amount": -applied_amount,
+					"sequence_index": sequence_index,
+				}))
+		EnemyIntentScript.RULE_BREAKER:
+			channel = "tp"
+			var previous_tp: int = maxi(0, state.tp)
+			applied_amount = mini(requested_amount, previous_tp)
+			state.tp = previous_tp - applied_amount
+			if applied_amount > 0:
+				events.append(DomainEventScript.new(DomainEventScript.TP_CHANGED, {
+					"effect_id": intent.intent_id,
+					"previous_tp": previous_tp,
+					"tp": state.tp,
+					"amount": -applied_amount,
+					"sequence_index": sequence_index,
+				}))
+		EnemyIntentScript.AUDIT:
+			channel = "fatigue"
+			for _increase_index in requested_amount:
+				events.append_array(state.increment_fatigue(intent.intent_id, sequence_index))
+				applied_amount += 1
+		EnemyIntentScript.REWARD_TAX:
+			channel = "reward_tax"
+			state.reward_tax += requested_amount
+			applied_amount = requested_amount
+		_:
+			return []
+	events.append(DomainEventScript.new(DomainEventScript.ENEMY_INTENT_EFFECT_APPLIED, {
+		"intent_id": intent.intent_id,
+		"action_type": intent.action_type,
+		"requested_amount": requested_amount,
+		"amount": applied_amount,
+		"channel": channel,
+		"target_instance_id": target_instance_id,
+		"sequence_index": sequence_index,
+	}))
+	return events
+
+func _fail_enemy_intent_action(queue, intent, reason: String, sequence_index: int) -> void:
+	var diagnostic := {
+		"code": "INTENT_ACTION_FAILED",
+		"intent_id": intent.intent_id if intent != null else "",
+		"action_type": intent.action_type if intent != null else "",
+		"reason": reason,
+		"sequence_index": sequence_index,
+	}
+	queue.fail(
+		CombatResolutionResultScript.INTENT_ACTION_FAILED,
+		diagnostic,
+		DomainEventScript.new(DomainEventScript.ENEMY_INTENT_FAILED, diagnostic),
+	)
+
+func _reserve_target(state, weakest: bool):
+	if state == null or state.zones == null:
+		return null
+	var reserve_tiles: Array = state.zones.contents(TileZoneScript.RESERVE)
+	if reserve_tiles.is_empty():
+		return null
+	if weakest:
+		reserve_tiles.sort_custom(func(left, right):
+			if left.integrity != right.integrity:
+				return left.integrity < right.integrity
+			return left.instance_id < right.instance_id
+		)
+	else:
+		reserve_tiles.sort_custom(func(left, right): return left.instance_id < right.instance_id)
+	return reserve_tiles[0]
+
 func _resolve_intent_transition(queue, state, sequence_index: int) -> Array:
+	if queue.is_failed():
+		return []
 	var current_intent = state.current_intent
 	if current_intent == null:
 		queue.fail(
