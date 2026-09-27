@@ -11,6 +11,7 @@ const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
+const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
 
 const NORMAL := "NORMAL"
 const BOSS_RULE_BREAKER := RewardDraftScript.BOSS_RULE_BREAKER
@@ -184,12 +185,20 @@ func create_normal_draft(
 	encounter_id: String,
 	draft_index: int,
 	configured_skip_gold: int = 5,
+	configured_tile_copy_limit: int = RunEconomyScript.DEFAULT_TILE_COPY_LIMIT,
 ) -> RewardDraftScript:
 	var tile_definitions: Array = _tile_definitions(content_registry)
 	var modifier_definitions: Array = _modifier_definitions(content_registry)
 	var context := _context(run_state, content_registry)
+	var owned_tile_counts: Dictionary = {}
+	if run_state != null and run_state.tile_pool != null:
+		for tile_instance in run_state.tile_pool.tile_instances:
+			var definition_id := str(tile_instance.definition_id)
+			owned_tile_counts[definition_id] = int(owned_tile_counts.get(definition_id, 0)) + 1
 	var candidates: Array = []
 	for tile_definition in tile_definitions:
+		if int(owned_tile_counts.get(tile_definition.content_id, 0)) >= configured_tile_copy_limit:
+			continue
 		candidates.append({
 			"definition": tile_definition,
 			"bias": _tile_bias(tile_definition, context),
@@ -302,8 +311,9 @@ func build_normal_draft(
 	encounter_id: String,
 	draft_index: int,
 	configured_skip_gold: int = 5,
+	configured_tile_copy_limit: int = RunEconomyScript.DEFAULT_TILE_COPY_LIMIT,
 ) -> RewardDraftScript:
-	return create_normal_draft(run_state, content_registry, reward_rng, encounter_id, draft_index, configured_skip_gold)
+	return create_normal_draft(run_state, content_registry, reward_rng, encounter_id, draft_index, configured_skip_gold, configured_tile_copy_limit)
 
 func _tile_definitions(content_registry) -> Array:
 	var definitions: Array = []

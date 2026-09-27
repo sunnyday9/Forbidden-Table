@@ -255,6 +255,27 @@ func test_workshop_copy_limits_and_service_availability(failures: Array[String])
 	assert_true(copy_limit_domain.checkpoint() == before_copy_limit, "a copy-limit rejection leaves RunState unchanged", failures)
 	assert_true(copy_limit_domain.rng_snapshot() == rng_before_copy_limit, "a copy-limit rejection leaves every RNG stream unchanged", failures)
 
+	var copy_break_domain := _workshop_domain("workshop.copy-limit-break", 1212, 1)
+	for index in range(3):
+		copy_break_domain.state.tile_pool.add_tile_instance(RunTileInstanceRecord.new(
+			"workshop.copy-limit-break.extra.%d" % index,
+			"base.tile.characters.1",
+			"RUN",
+			"RUN",
+		))
+	copy_break_domain.state.gold = 100
+	copy_break_domain.state.refinement_tokens = 1
+	copy_break_domain.execute(EnterWorkshopCommand.new("workshop.copy-limit-break.enter"))
+	var capped_tile_id: String = copy_break_domain.state.tile_pool.tile_instances[0].instance_id
+	var copy_limit_break = copy_break_domain.execute(UseWorkshopServiceCommand.new(
+		"workshop.copy-limit-break.refinement",
+		UseWorkshopServiceCommand.REFINEMENT_TOKEN,
+		capped_tile_id,
+	))
+	assert_true(copy_limit_break.accepted, "explicit Refinement Token copy-limit break accepts a fifth TileInstance", failures)
+	assert_true(copy_break_domain.state.tile_pool.tile_instances.size() == 5, "explicit copy-limit break adds one TileInstance beyond the default cap", failures)
+	assert_true(copy_limit_break.data.get("refinement", "") == "COPY_LIMIT_BREAK", "the over-cap refinement is identified as an explicit copy-limit break", failures)
+
 func test_rejected_shop_and_workshop_actions_are_atomic(failures: Array[String]) -> void:
 	var shop_domain := _shop_domain("service.atomic.shop", 1207)
 	shop_domain.execute(EnterShopCommand.new("service.atomic.shop.enter"))

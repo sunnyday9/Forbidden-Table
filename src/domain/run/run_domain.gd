@@ -1132,6 +1132,7 @@ func apply_battle_outcome() -> Array:
 			encounter_id_before,
 			draft_index,
 			economy.normal_skip_gold,
+			economy.tile_copy_limit,
 		)
 		events.append(DomainEventScript.new(DomainEventScript.REWARD_DRAFT_CREATED, {
 			"run_id": state.run_id,
@@ -1360,6 +1361,8 @@ func _validate_reward_option(option) -> Dictionary:
 	if option.kind == RewardOptionScript.ADD_TILE:
 		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
 			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Add Tile content ID is not registered."}
+		if _tile_definition_count(option.tile_id) >= economy.tile_copy_limit:
+			return {"accepted": false, "status": "COPY_LIMIT", "message": "Add Tile would exceed the TileDefinition copy limit."}
 		return {"accepted": true}
 	if option.kind == RewardOptionScript.MODIFIED_TILE:
 		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
@@ -1376,6 +1379,9 @@ func _validate_reward_option(option) -> Dictionary:
 	return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option has an unsupported kind."}
 
 func _add_reward_tile(option) -> Dictionary:
+	var validation := _validate_reward_option(option)
+	if not validation.get("accepted", false):
+		return validation
 	var tile_instance_result := _next_tile_instance_id()
 	var tile_instance := RunTileInstanceRecordScript.new(
 		tile_instance_result["instance_id"],
