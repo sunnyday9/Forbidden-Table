@@ -157,7 +157,11 @@ func action_descriptors() -> Array:
 
 func _refresh(events: Array) -> void:
 	var previous_focus: String = state.focused_action_id()
-	state.phase = str(domain.state.phase)
+	var next_phase := str(domain.state.phase)
+	if state.phase == RunPhaseScript.WORKSHOP and next_phase != RunPhaseScript.WORKSHOP:
+		_selected_workshop_service_id = ""
+		_selected_workshop_instance_id = ""
+	state.phase = next_phase
 	state.screen = "run.%s" % state.phase.to_lower()
 	state.authoritative_snapshot = domain.checkpoint().duplicate(true)
 	state.last_domain_event_types = []

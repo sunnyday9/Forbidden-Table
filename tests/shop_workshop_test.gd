@@ -42,6 +42,7 @@ func run() -> Array[String]:
 	test_workshop_services_preserve_tile_identity_and_ownership(failures)
 	test_workshop_add_and_replace_modifier_services_are_available(failures)
 	test_workshop_presentation_actions_include_legal_inputs(failures)
+	test_workshop_selection_resets_when_exiting(failures)
 	test_workshop_copy_limits_and_service_availability(failures)
 	test_rejected_shop_and_workshop_actions_are_atomic(failures)
 	test_service_commands_serialize_stable_ids(failures)
@@ -370,6 +371,32 @@ func _find_workshop_action(actions: Array, service_id: String, instance_id: Stri
 			continue
 		return action
 	return {}
+
+func test_workshop_selection_resets_when_exiting(failures: Array[String]) -> void:
+	var domain := _workshop_domain("workshop.presentation.exit", 1216, 2)
+	domain.state.gold = 100
+	domain.execute(EnterWorkshopCommand.new("workshop.presentation.exit.enter"))
+	var controller := RunPresentationController.new(domain)
+	var service_action := _find_workshop_service_action(controller.action_descriptors(), UseWorkshopServiceCommand.TRANSFORM)
+	assert_true(not service_action.is_empty(), "the first Workshop visit offers Transform", failures)
+	if service_action.is_empty():
+		return
+	controller.confirm(str(service_action.get("id", "")))
+	var target_instance_id: String = domain.state.tile_pool.tile_instances[1].instance_id
+	var target_action := _find_workshop_target_action(controller.action_descriptors(), UseWorkshopServiceCommand.TRANSFORM, target_instance_id)
+	assert_true(not target_action.is_empty(), "the first Workshop visit can select a Transform target", failures)
+	if target_action.is_empty():
+		return
+	controller.confirm(str(target_action.get("id", "")))
+	var exit_result = controller.submit(ExitWorkshopCommand.new("workshop.presentation.exit.leave"))
+	assert_true(exit_result.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "accepted Workshop exit returns to the map", failures)
+
+	# Model the next authored Workshop boundary on the same long-lived controller.
+	domain.state.workshop_state.begin("base.map_node.next_act.workshop", "workshop.second_entry")
+	domain.state.phase = RunPhase.WORKSHOP
+	var next_entry_actions := controller.action_descriptors()
+	assert_true(next_entry_actions.any(func(action): return action.get("kind") == "WORKSHOP_SELECT_SERVICE"), "a later Workshop entry starts at its service menu", failures)
+	assert_true(not next_entry_actions.any(func(action): return action.get("kind") == "WORKSHOP_SERVICE"), "the prior visit's selected target and value do not leak into a later entry", failures)
 
 func test_workshop_copy_limits_and_service_availability(failures: Array[String]) -> void:
 	var availability_domain := _workshop_domain("workshop.availability", 1210, 2)
