@@ -28,6 +28,7 @@ const ChooseEventOptionCommandScript = preload("res://src/domain/commands/choose
 const ChooseRewardCommandScript = preload("res://src/domain/commands/choose_reward_command.gd")
 const UseWorkshopServiceCommandScript = preload("res://src/domain/commands/use_workshop_service_command.gd")
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
+const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
 const EndTurnCommandScript = preload("res://src/domain/commands/end_turn_command.gd")
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
@@ -35,7 +36,7 @@ const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_com
 
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
 const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
-const POLICY_RULE_VERSION := "v6"
+const POLICY_RULE_VERSION := "v7"
 const COMPLETE_POLICY_RULE_VERSION := "v7"
 
 var _domain
@@ -276,8 +277,16 @@ func _step_battle() -> bool:
 			return drew_recovery_tile
 		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.recovery.end_turn")))
 
-	var candidates: Array = battle.settlement_window.candidates() if battle.settlement_window != null and battle.settlement_window.has_capacity() else []
 	var policy_id := str(_attempt_case.get("policy_id", ""))
+	if policy_id in ["Partial", "Hybrid"] and _should_discard_excess_hand_tile(battle):
+		var discard_target := _lowest_instance_id_in_hand(battle)
+		if not discard_target.is_empty():
+			return _execute_command(DiscardTileCommandScript.new(
+				_next_command_id("battle.discard.excess"),
+				discard_target,
+			))
+
+	var candidates: Array = battle.settlement_window.candidates() if battle.settlement_window != null and battle.settlement_window.has_capacity() else []
 	var complete_hand_window: bool = policy_id != "Partial" and battle.recovery_state != null and battle.recovery_state.can_complete_hand()
 	var complete_hands: Array = battle.complete_hand_interpretations() if complete_hand_window else []
 	var has_complete_hand := not complete_hands.is_empty()
@@ -349,6 +358,27 @@ func _best_partial_candidate(candidates: Array):
 		return str(left.candidate_id) < str(right.candidate_id)
 	)
 	return sorted[0] if not sorted.is_empty() else null
+
+func _should_discard_excess_hand_tile(battle) -> bool:
+	if battle == null or battle.combat_state == null or battle.zones == null or battle.recovery_state == null:
+		return false
+	if battle.combat_state.draw_actions_used_this_turn <= 0 or battle.combat_state.tile_manipulation_used_this_draw:
+		return false
+	var maximum_policy_hand_size := int(battle.recovery_state.normal_hand_baseline) + 1
+	return battle.zones.size(TileZoneScript.HAND) > maximum_policy_hand_size
+
+func _lowest_instance_id_in_hand(battle) -> String:
+	if battle == null or battle.zones == null:
+		return ""
+	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
+	var selected_instance_id := ""
+	for tile in hand:
+		if tile == null:
+			continue
+		var candidate_id := str(tile.instance_id)
+		if selected_instance_id.is_empty() or candidate_id < selected_instance_id:
+			selected_instance_id = candidate_id
+	return selected_instance_id
 
 func _next_complete_hand_store_target(battle) -> String:
 	if battle == null or battle.zones == null or battle.complete_hand_evaluator == null:
@@ -609,6 +639,8 @@ func _build_attempt_record() -> Dictionary:
 			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it, then at most once per accepted normal Draw deterministically store a Hand tile while Reserve has room. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
+	if str(_attempt_case.get("policy_id", "")) in ["Partial", "Hybrid"]:
+		strategy_rule += " After a Draw, discard the lowest instance ID when Hand exceeds the normal baseline plus one, before settlement candidate evaluation."
 	strategy_rule += " End Turn rather than request a Draw when both Draw Wall and Discard are empty, including during Recovery."
 	strategy_rule += " Route SERVICE through an authored Workshop node; use the first deterministic legal Modifier when affordable, banking a Normal Reward skip only when it will reach that price."
 	var policy_rule_version := COMPLETE_POLICY_RULE_VERSION if str(_attempt_case.get("policy_id", "")) == "Complete" else POLICY_RULE_VERSION

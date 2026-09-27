@@ -17,6 +17,7 @@ func run() -> Array[String]:
 	test_valid_defeat_and_harness_failures_are_classified_separately(failures)
 	test_act_two_boss_reward_gap_is_content_unavailable_not_a_soft_lock(failures)
 	test_runner_emits_a_real_replayable_run_attempt(failures)
+	test_hybrid_discards_excess_hand_with_bounded_work(failures)
 	test_runner_content_version_tracks_conditional_scale_bundle(failures)
 	test_complete_policy_completes_real_two_act_run_and_reward_flow(failures)
 	test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures)
@@ -205,6 +206,40 @@ func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) ->
 	var repeated_report: Dictionary = AlphaAttemptComparatorScript.compare(repeated_attempt, repeated_attempt_again)
 	assert_true(repeated_report.get("matches", false), "repeating the same seed/policy prefix reproduces its authoritative output exactly", failures)
 	assert_true(repeated_attempt.get("failure_classification", "") == "INCOMPLETE_RUN", "a deliberately bounded nonterminal attempt is incomplete rather than an invalid-state pass", failures)
+
+func test_hybrid_discards_excess_hand_with_bounded_work(failures: Array[String]) -> void:
+	var attempt_case := {
+		"attempt_id": "hybrid.hand-cap.8803",
+		"attempt_index": 0,
+		"gate_id": "hardening",
+		"seed": 8803,
+		"policy_id": "Hybrid",
+		"character_id": "base.character.sequence",
+		"contract_id": "base.contract.pressure",
+		"route_id": "EVENT",
+	}
+	var runner = AlphaSimulationRunnerScript.new()
+	var attempt: Dictionary = runner.run_attempt(attempt_case, "hybrid.hand-cap", 200)
+	var action_counts: Dictionary = attempt.get("strategy", {}).get("accepted_action_counts", {})
+	var maximum_hand_size := 0
+	var normal_hand_baseline := 13
+	for checkpoint_value in attempt.get("checkpoints", []):
+		if not checkpoint_value is Dictionary:
+			continue
+		var run_state: Dictionary = checkpoint_value.get("domain_snapshot", {}).get("data", {}).get("run_state", {})
+		var battle_snapshot: Dictionary = run_state.get("current_battle_snapshot", {})
+		var zones: Dictionary = battle_snapshot.get("zones", {})
+		var checkpoint_hand: Variant = zones.get("Hand", null)
+		if checkpoint_hand is Array:
+			maximum_hand_size = maxi(maximum_hand_size, checkpoint_hand.size())
+			var recovery: Dictionary = battle_snapshot.get("recovery", {})
+			normal_hand_baseline = int(recovery.get("normal_hand_baseline", normal_hand_baseline))
+
+	assert_true(attempt.get("accepted_command_count", 0) <= 200, "the deterministic Hybrid stress prefix respects its bounded command limit", failures)
+	assert_true(int(action_counts.get("DiscardTile", 0)) > 0, "Hybrid uses accepted authoritative DiscardTile commands when its Hand grows beyond baseline", failures)
+	assert_true(maximum_hand_size <= normal_hand_baseline + 2, "Hybrid keeps every recorded Hand near baseline, allowing a just-drawn tile and the following discard", failures)
+	assert_true(attempt.get("failure_classification", "") in ["NONE", "INCOMPLETE_RUN"], "the bounded policy prefix reaches no rejected-command or invalid-replay state", failures)
+	assert_true(attempt.get("replay_status", "") == "MATCH", "the bounded Hybrid prefix replays exactly after policy discards", failures)
 
 func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array[String]) -> void:
 	var attempt_case := {
@@ -458,7 +493,7 @@ func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) 
 	}
 	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57000", 1024)
 	assert_true(
-		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.partial.v6",
+		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.partial.v7",
 		"the empty-source End Turn behavior has an explicit, versioned simulation policy",
 		failures,
 	)
@@ -529,7 +564,7 @@ func test_service_route_reaches_a_workshop(failures: Array[String]) -> void:
 		failures,
 	)
 	assert_true(
-		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.hybrid.v6",
+		attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.hybrid.v7",
 		"the changed SERVICE route selection is represented by a new explicit simulation policy version",
 		failures,
 	)
