@@ -35,6 +35,7 @@ const RewardDraftSelectorScript = preload("res://src/domain/run/reward_draft_sel
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
+const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
 const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
 const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
@@ -923,7 +924,8 @@ func validate_use_workshop_service(
 		return CommandValidationScript.new(false, "INVALID_TILE_INSTANCE", "The selected TileInstance is not in the Run Tile Pool.")
 	if tile_instance.ownership_scope != "RUN" or tile_instance.lifetime_scope != "RUN":
 		return CommandValidationScript.new(false, "INVALID_TILE_OWNERSHIP", "Workshop services require a Run-owned persistent TileInstance.")
-	var price := _workshop_price(service_key)
+	var price_data: Dictionary = _workshop_price_details(service_key)
+	var price := int(price_data.get("price", 0))
 	if state.gold < price:
 		return CommandValidationScript.new(false, "INSUFFICIENT_GOLD", "The run does not have enough Gold for this Workshop service.")
 	match service_key:
@@ -961,7 +963,12 @@ func validate_use_workshop_service(
 		WorkshopStateScript.REFINEMENT_TOKEN:
 			if state.refinement_tokens < 1:
 				return CommandValidationScript.new(false, "INSUFFICIENT_REFINEMENT_TOKENS", "The Refinement Token service requires one Refinement Token.")
-	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"service_id": service_id, "price": price})
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {
+		"service_id": service_id,
+		"price": price,
+		"base_price": int(price_data.get("base_price", price)),
+		"price_adjustments": price_data.get("adjustments", []).duplicate(true),
+	})
 
 func execute_use_workshop_service(
 	service_id: String,
@@ -971,13 +978,17 @@ func execute_use_workshop_service(
 	replace_existing: bool = false,
 ) -> Dictionary:
 	var service_key: String = state.workshop_state.service_key(service_id)
-	var price := _workshop_price(service_key)
+	var price_data: Dictionary = _workshop_price_details(service_key)
+	var price := int(price_data.get("price", 0))
 	var gold_transaction: Dictionary = economy.apply_sink(state, RunEconomyScript.GOLD, price, RunEconomyScript.SINK_WORKSHOP_SERVICE)
 	if gold_transaction.is_empty():
 		return {"accepted": false, "status": "INSUFFICIENT_GOLD", "message": "The run does not have enough Gold for this Workshop service."}
 	var token_transaction: Dictionary = {}
 	var data: Dictionary = {
 		"service_id": service_id,
+		"base_price": int(price_data.get("base_price", price)),
+		"price": price,
+		"price_adjustments": price_data.get("adjustments", []).duplicate(true),
 		"instance_id": instance_id,
 		"value_id": value_id,
 		"modifier_id": modifier_id,
@@ -1467,18 +1478,22 @@ func _apply_shop_special_offer(offer) -> Dictionary:
 	return {}
 
 func _workshop_price(service_key: String) -> int:
+	return int(_workshop_price_details(service_key).get("price", 0))
+
+func _workshop_price_details(service_key: String) -> Dictionary:
+	var base_price := 0
 	match service_key:
 		WorkshopStateScript.REMOVE:
-			return economy.workshop_remove_price
+			base_price = economy.workshop_remove_price
 		WorkshopStateScript.TRANSFORM:
-			return economy.workshop_transform_price
+			base_price = economy.workshop_transform_price
 		WorkshopStateScript.MODIFIER:
-			return economy.workshop_modifier_price
+			base_price = economy.workshop_modifier_price
 		WorkshopStateScript.DUPLICATE:
-			return economy.workshop_duplicate_price
+			base_price = economy.workshop_duplicate_price
 		WorkshopStateScript.REFINEMENT_TOKEN:
-			return economy.workshop_refinement_price + AlphaContractEffectsScript.workshop_refinement_gold_surcharge(content_registry, state.contract_id)
-	return 0
+			base_price = economy.workshop_refinement_price + AlphaContractEffectsScript.workshop_refinement_gold_surcharge(content_registry, state.contract_id)
+	return RunModifierEffectResolverScript.new().workshop_price(state, base_price)
 
 func _run_tile_instance(instance_id: String):
 	for tile_instance in state.tile_pool.tile_instances:
