@@ -3,6 +3,7 @@ extends RefCounted
 
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const RewardDraftScript = preload("res://src/domain/run/reward_draft.gd")
 const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
 const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
@@ -25,6 +26,7 @@ func create_elite_build_draft(
 	draft_index: int,
 	pool_id: String,
 	configured_skip_gold: int = 10,
+	configured_skip_tokens: int = 0,
 ) -> RewardDraftScript:
 	var pool = content_registry.resolve(pool_id) if content_registry != null else null
 	if not pool is RewardPoolDefinitionScript:
@@ -83,6 +85,7 @@ func create_elite_build_draft(
 		"",
 		RewardOptionScript.NEUTRAL,
 		configured_skip_gold,
+		maxi(0, configured_skip_tokens),
 	))
 	var reward_rng_state: Dictionary = reward_rng.snapshot() if reward_rng != null and reward_rng.has_method("snapshot") else {}
 	return RewardDraftScript.new(draft_id, ELITE_BUILD, encounter_id, "ELITE", options, reward_rng_state)
@@ -196,17 +199,23 @@ func create_normal_draft(
 			var definition_id := str(tile_instance.definition_id)
 			owned_tile_counts[definition_id] = int(owned_tile_counts.get(definition_id, 0)) + 1
 	var candidates: Array = []
+	var preferred_add_tile_suit := str(context.get("normal_reward_add_tile_suit", ""))
 	for tile_definition in tile_definitions:
 		if int(owned_tile_counts.get(tile_definition.content_id, 0)) >= configured_tile_copy_limit:
+			continue
+		if not preferred_add_tile_suit.is_empty() and tile_definition.suit != preferred_add_tile_suit:
 			continue
 		candidates.append({
 			"definition": tile_definition,
 			"bias": _tile_bias(tile_definition, context),
+			"contract_preferred": bool(context.get("contract_preferred_tile_ids", {}).has(tile_definition.content_id)),
 		})
 
 	var selected_content_ids: Dictionary = {}
 	var acquisition_options: Array = []
-	var first_candidate = _pick_by_bias(candidates, RewardOptionScript.SYNERGY, selected_content_ids, reward_rng)
+	var first_candidate = _pick_contract_preferred(candidates, selected_content_ids, reward_rng)
+	if first_candidate.is_empty():
+		first_candidate = _pick_by_bias(candidates, RewardOptionScript.SYNERGY, selected_content_ids, reward_rng)
 	if first_candidate.is_empty():
 		first_candidate = _pick_by_bias(candidates, RewardOptionScript.NEUTRAL, selected_content_ids, reward_rng)
 	if first_candidate.is_empty():
@@ -222,7 +231,9 @@ func create_normal_draft(
 		acquisition_options.append({"type": "MODIFIED_TILE", "candidate": modified_option})
 
 	if acquisition_options.size() < 2:
-		var second_candidate = _pick_by_bias(candidates, RewardOptionScript.NEUTRAL, selected_content_ids, reward_rng)
+		var second_candidate = _pick_contract_preferred(candidates, selected_content_ids, reward_rng)
+		if second_candidate.is_empty():
+			second_candidate = _pick_by_bias(candidates, RewardOptionScript.NEUTRAL, selected_content_ids, reward_rng)
 		if second_candidate.is_empty():
 			second_candidate = _pick_by_bias(candidates, RewardOptionScript.PIVOT, selected_content_ids, reward_rng)
 		if second_candidate.is_empty():
@@ -232,6 +243,16 @@ func create_normal_draft(
 		if not second_candidate.is_empty():
 			selected_content_ids[second_candidate.definition.content_id] = true
 			acquisition_options.append({"type": "ADD_TILE", "candidate": second_candidate})
+	var extra_modified_candidate: Dictionary = {}
+	if bool(context.get("extra_modified_tile_choice", false)) and not modified_option.is_empty():
+		extra_modified_candidate = _second_modified_candidate(
+			run_state,
+			content_registry,
+			modifier_definitions,
+			context,
+			modified_option,
+			reward_rng,
+		)
 
 	var draft_id := "reward.normal.%s.%d" % [encounter_id, draft_index]
 	var options: Array = []
@@ -276,6 +297,19 @@ func create_normal_draft(
 			duplicate_source.gold_delta,
 			duplicate_source.refinement_token_delta,
 			duplicate_source.metadata,
+		))
+	if not extra_modified_candidate.is_empty():
+		options.append(RewardOptionScript.new(
+			"%s.option.%d" % [draft_id, options.size()],
+			RewardOptionScript.MODIFIED_TILE,
+			extra_modified_candidate.modifier_id,
+			extra_modified_candidate.tile_id,
+			extra_modified_candidate.modifier_id,
+			extra_modified_candidate.target_instance_id,
+			extra_modified_candidate.bias,
+			0,
+			0,
+			{"target_definition_id": extra_modified_candidate.tile_id},
 		))
 
 	options.append(RewardOptionScript.new(
@@ -333,6 +367,7 @@ func _modifier_definitions(content_registry) -> Array:
 
 func _context(run_state, content_registry) -> Dictionary:
 	var preferred_tile_ids: Dictionary = {}
+	var contract_preferred_tile_ids: Dictionary = {}
 	var character = content_registry.resolve(run_state.character_id) if content_registry != null else null
 	if character is CharacterDefinitionScript:
 		for tile_id in character.starting_tile_pool_bias:
@@ -340,6 +375,9 @@ func _context(run_state, content_registry) -> Dictionary:
 	var contract = content_registry.resolve(run_state.contract_id) if content_registry != null else null
 	if contract is ContractDefinitionScript:
 		_add_build_bias_ids(preferred_tile_ids, contract.build_bias)
+	for tile_id in AlphaContractEffectsScript.preferred_tile_ids(content_registry, run_state.contract_id):
+		preferred_tile_ids[tile_id] = true
+		contract_preferred_tile_ids[tile_id] = true
 	if run_state.build_ownership != null:
 		for milestone_id in run_state.build_ownership.yaku_build_milestones.keys():
 			preferred_tile_ids[str(milestone_id)] = true
@@ -357,7 +395,13 @@ func _context(run_state, content_registry) -> Dictionary:
 		if count > dominant_count or (count == dominant_count and (dominant_suit.is_empty() or str(suit) < dominant_suit)):
 			dominant_suit = str(suit)
 			dominant_count = count
-	return {"preferred_tile_ids": preferred_tile_ids, "dominant_suit": dominant_suit}
+	return {
+		"preferred_tile_ids": preferred_tile_ids,
+		"contract_preferred_tile_ids": contract_preferred_tile_ids,
+		"dominant_suit": dominant_suit,
+		"normal_reward_add_tile_suit": AlphaContractEffectsScript.normal_reward_add_tile_suit(content_registry, run_state.contract_id),
+		"extra_modified_tile_choice": AlphaContractEffectsScript.extra_modified_tile_choice(content_registry, run_state.contract_id),
+	}
 
 func _add_build_bias_ids(preferred_tile_ids: Dictionary, build_bias: Dictionary) -> void:
 	for key in ["tile_id", "tile_ids", "preferred_tile_ids", "tiles"]:
@@ -405,6 +449,39 @@ func _pick_any(candidates: Array, selected_content_ids: Dictionary, reward_rng) 
 		if not selected_content_ids.has(candidate.definition.content_id):
 			available.append(candidate)
 	return _pick_from(available, reward_rng)
+
+func _pick_contract_preferred(candidates: Array, selected_content_ids: Dictionary, reward_rng) -> Dictionary:
+	var preferred: Array = []
+	for candidate in candidates:
+		if bool(candidate.get("contract_preferred", false)) and not selected_content_ids.has(candidate.definition.content_id):
+			preferred.append(candidate)
+	return _pick_from(preferred, reward_rng)
+
+func _second_modified_candidate(run_state, content_registry, modifier_definitions: Array, context: Dictionary, first_candidate: Dictionary, reward_rng) -> Dictionary:
+	if run_state == null or run_state.tile_pool == null:
+		return {}
+	var first_pair := "%s|%s" % [str(first_candidate.get("target_instance_id", "")), str(first_candidate.get("modifier_id", ""))]
+	var candidates: Array = []
+	for tile_instance in run_state.tile_pool.tile_instances:
+		var target_definition = content_registry.resolve(str(tile_instance.definition_id))
+		if not target_definition is TileDefinitionScript:
+			continue
+		var current_modifiers: Array = run_state.build_ownership.persistent_tile_modifier_state.get(str(tile_instance.instance_id), [])
+		for modifier_definition in modifier_definitions:
+			if current_modifiers.count(modifier_definition.content_id) >= modifier_definition.max_per_tile:
+				continue
+			var pair_id := "%s|%s" % [str(tile_instance.instance_id), str(modifier_definition.content_id)]
+			if pair_id == first_pair:
+				continue
+			candidates.append({
+				"tile_id": target_definition.content_id,
+				"modifier_id": modifier_definition.content_id,
+				"target_instance_id": tile_instance.instance_id,
+				"bias": _tile_bias(target_definition, context),
+				"pair_id": pair_id,
+			})
+	candidates.sort_custom(func(left, right): return str(left.pair_id) < str(right.pair_id))
+	return _pick_from(candidates, reward_rng)
 
 func _pick_from(candidates: Array, reward_rng) -> Dictionary:
 	if candidates.is_empty():

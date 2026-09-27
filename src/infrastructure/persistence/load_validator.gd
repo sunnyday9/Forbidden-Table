@@ -10,6 +10,7 @@ const RelicDefinitionScript = preload("res://src/content/definitions/relic_defin
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
+const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 
 func validate(data: Dictionary, content_registry = null) -> Dictionary:
@@ -134,7 +135,7 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 		if content_registry != null and not content_registry.resolve(rule_breaker_id) is RuleBreakerDefinitionScript:
 			errors.append({"code": "INVALID_RULE_BREAKER_CONTENT", "content_id": rule_breaker_id})
 	_validate_boss_reward_draft(state.get("reward_draft", {}), phase, acquired_rule_breakers, content_registry, errors)
-	_validate_elite_reward_draft(state.get("reward_draft", {}), phase, owned_relic_ids, run_technique_ids, content_registry, errors)
+	_validate_elite_reward_draft(state.get("reward_draft", {}), phase, owned_relic_ids, run_technique_ids, content_registry, str(state.get("contract_id", "")), errors)
 	for instance_id in build.get("persistent_tile_modifier_state", {}).keys():
 		if not tile_ids.has(str(instance_id)):
 			errors.append({"code": "INVALID_MODIFIER_TARGET", "instance_id": str(instance_id)})
@@ -172,7 +173,7 @@ func _validate_boss_reward_draft(draft, phase: String, acquired_ids: Dictionary,
 		elif not content_registry.resolve(content_id) is RuleBreakerDefinitionScript:
 			errors.append({"code": "INVALID_BOSS_REWARD_CONTENT", "content_id": content_id})
 
-func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, owned_technique_ids: Array, content_registry, errors: Array) -> void:
+func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, owned_technique_ids: Array, content_registry, contract_id: String, errors: Array) -> void:
 	if phase != RunPhaseScript.ELITE_REWARD:
 		if draft is Dictionary and str(draft.get("draft_kind", "")) == "ELITE_BUILD":
 			errors.append({"code": "ELITE_REWARD_PHASE_MISMATCH"})
@@ -228,7 +229,9 @@ func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, 
 					errors.append({"code": "INVALID_ELITE_REWARD_CURRENCY", "option_id": option_id})
 			RewardOptionScript.SKIP:
 				skip_count += 1
-				if content_id != RewardOptionScript.SKIP_CONTENT_ID or int(option.get("gold_delta", -1)) != RunEconomyScript.DEFAULT_ELITE_SKIP_GOLD or int(option.get("refinement_token_delta", 0)) != 0:
+				var expected_gold := AlphaContractEffectsScript.elite_skip_gold(RunEconomyScript.DEFAULT_ELITE_SKIP_GOLD, content_registry, contract_id)
+				var expected_tokens := AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, contract_id)
+				if content_id != RewardOptionScript.SKIP_CONTENT_ID or int(option.get("gold_delta", -1)) != expected_gold or int(option.get("refinement_token_delta", 0)) != expected_tokens:
 					errors.append({"code": "INVALID_ELITE_REWARD_SKIP", "option_id": option_id})
 			_:
 				errors.append({"code": "INVALID_ELITE_REWARD_OPTION", "option_id": option_id})

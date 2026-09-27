@@ -9,6 +9,7 @@ const ContentRegistryScript = preload("res://src/content/registry/content_regist
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
 const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
@@ -205,17 +206,27 @@ func execute_choose_contract(selected_contract_id: String) -> Dictionary:
 	_record_run_milestone("contract_chosen")
 	state.map_state.initialize(map_definition, rng_streams.map)
 	state.phase = RunPhaseScript.MAP_CHOICE
+	var selection_data := {"run_id": state.run_id, "contract_id": selected_contract_id}
+	var contract_reward_transactions: Array = []
+	var token_reward := AlphaContractEffectsScript.refinement_tokens_on_contract_selection(content_registry, selected_contract_id)
+	if token_reward > 0:
+		var token_transaction: Dictionary = economy.apply_source(state, RunEconomyScript.REFINEMENT_TOKENS, token_reward, RunEconomyScript.SOURCE_CONTRACT_SELECTION)
+		if not token_transaction.is_empty():
+			contract_reward_transactions.append(token_transaction)
+	var yaku_hint := AlphaContractEffectsScript.yaku_hint(content_registry, selected_contract_id)
+	if not yaku_hint.is_empty():
+		selection_data["yaku_hint"] = yaku_hint
+	if not contract_reward_transactions.is_empty():
+		selection_data["currency_transactions"] = contract_reward_transactions.duplicate(true)
+	var events: Array = [DomainEventScript.new(DomainEventScript.CONTRACT_SELECTED, selection_data.duplicate(true))]
+	if not contract_reward_transactions.is_empty():
+		_events_for_currency_transaction(events, contract_reward_transactions[0])
+	events.append(_run_phase_event(previous_phase, state.phase))
 	return {
 		"accepted": true,
 		"status": CommandResultScript.ACCEPTED,
-		"events": [
-			DomainEventScript.new(DomainEventScript.CONTRACT_SELECTED, {
-				"run_id": state.run_id,
-				"contract_id": selected_contract_id,
-			}),
-			_run_phase_event(previous_phase, state.phase),
-		],
-		"data": {"contract_id": selected_contract_id, "phase": state.phase},
+		"events": events,
+		"data": selection_data.merged({"phase": state.phase}),
 	}
 
 func validate_select_map_node(selected_node_id: String) -> RefCounted:
@@ -1148,7 +1159,8 @@ func apply_battle_outcome() -> Array:
 			encounter_id_before,
 			draft_index,
 			Phase2CatalogScript.REWARD_POOL_ID,
-			economy.elite_skip_gold,
+			AlphaContractEffectsScript.elite_skip_gold(economy.elite_skip_gold, content_registry, state.contract_id),
+			AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, state.contract_id),
 		)
 		if state.reward_draft != null:
 			events.append(DomainEventScript.new(DomainEventScript.REWARD_DRAFT_CREATED, {
@@ -1188,8 +1200,10 @@ func validate_choose_reward(selected_draft_id: String, selected_option_id: Strin
 		if elite_option == null:
 			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected Elite reward option is not in the active draft.")
 		if elite_option.kind == RewardOptionScript.SKIP:
-			if elite_option.content_id != RewardOptionScript.SKIP_CONTENT_ID or elite_option.gold_delta != economy.elite_skip_gold or elite_option.refinement_token_delta != 0:
-				return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "Elite Skip must grant only its configured Gold compensation.")
+			var expected_skip_gold := AlphaContractEffectsScript.elite_skip_gold(economy.elite_skip_gold, content_registry, state.contract_id)
+			var expected_skip_tokens := AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, state.contract_id)
+			if elite_option.content_id != RewardOptionScript.SKIP_CONTENT_ID or elite_option.gold_delta != expected_skip_gold or elite_option.refinement_token_delta != expected_skip_tokens:
+				return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "Elite Skip must grant only its configured Gold and Refinement Token compensation.")
 			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id})
 		if elite_option.kind == RewardOptionScript.RELIC:
 			var relic = content_registry.resolve(elite_option.content_id)
@@ -1253,6 +1267,12 @@ func execute_choose_reward(selected_draft_id: String, selected_option_id: String
 				return {"accepted": false, "status": "CURRENCY_SOURCE_REJECTED", "message": "The configured Elite Skip compensation could not be applied."}
 			currency_transactions.append(skip_transaction)
 			_events_for_currency_transaction(events, skip_transaction)
+			if option.refinement_token_delta > 0:
+				var token_transaction: Dictionary = economy.apply_source(state, RunEconomyScript.REFINEMENT_TOKENS, option.refinement_token_delta, RunEconomyScript.SOURCE_ELITE_REWARD)
+				if token_transaction.is_empty():
+					return {"accepted": false, "status": "CURRENCY_SOURCE_REJECTED", "message": "The configured Elite Skip token compensation could not be applied."}
+				currency_transactions.append(token_transaction)
+				_events_for_currency_transaction(events, token_transaction)
 		var reward_data := {
 			"run_id": state.run_id,
 			"draft_id": elite_draft.draft_id,
@@ -1359,8 +1379,12 @@ func _validate_reward_option(option) -> Dictionary:
 	if option.kind == RewardOptionScript.SKIP:
 		return {"accepted": true}
 	if option.kind == RewardOptionScript.ADD_TILE:
-		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
+		var tile_definition = content_registry.resolve(option.tile_id)
+		if not tile_definition is TileDefinitionScript:
 			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Add Tile content ID is not registered."}
+		var allowed_add_tile_suit := AlphaContractEffectsScript.normal_reward_add_tile_suit(content_registry, state.contract_id)
+		if not allowed_add_tile_suit.is_empty() and tile_definition.suit != allowed_add_tile_suit:
+			return {"accepted": false, "status": "CONTRACT_RESTRICTION", "message": "The selected Contract does not allow this Add Tile suit."}
 		if _tile_definition_count(option.tile_id) >= economy.tile_copy_limit:
 			return {"accepted": false, "status": "COPY_LIMIT", "message": "Add Tile would exceed the TileDefinition copy limit."}
 		return {"accepted": true}
@@ -1433,7 +1457,7 @@ func _workshop_price(service_key: String) -> int:
 		WorkshopStateScript.DUPLICATE:
 			return economy.workshop_duplicate_price
 		WorkshopStateScript.REFINEMENT_TOKEN:
-			return economy.workshop_refinement_price
+			return economy.workshop_refinement_price + AlphaContractEffectsScript.workshop_refinement_gold_surcharge(content_registry, state.contract_id)
 	return 0
 
 func _run_tile_instance(instance_id: String):

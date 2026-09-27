@@ -10,6 +10,7 @@ const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const DrawWallScript = preload("res://src/domain/tiles/draw_wall.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const EnemyDefinitionScript = preload("res://src/content/definitions/enemy_definition.gd")
@@ -77,6 +78,8 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	var values: Dictionary = primary_enemy.battle_values.duplicate(true)
 	for key in encounter.battle_values.keys():
 		values[key] = encounter.battle_values[key]
+	values["initial_pressure"] = int(values.get("initial_pressure", 0)) + AlphaContractEffectsScript.initial_pressure_per_battle(content_registry, run_state.contract_id)
+	values["tp"] = int(values.get("tp", 0)) + AlphaContractEffectsScript.starting_tp_per_battle(content_registry, run_state.contract_id)
 	var contamination: Dictionary = primary_enemy.contamination_config.duplicate(true)
 	for key in encounter.contamination_config.keys():
 		contamination[key] = encounter.contamination_config[key]
