@@ -8,7 +8,6 @@ const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
 const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
-const RunTileInstanceRecordScript = preload("res://src/domain/run/run_tile_instance_record.gd")
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
 const ShopStateScript = preload("res://src/domain/run/shop_state.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
@@ -30,13 +29,15 @@ var content_registry
 var rng_streams
 var economy
 var shop_offer_selector
+var tile_pool_editor
 
-func _init(initial_state, initial_content_registry, initial_rng_streams, initial_economy, initial_shop_offer_selector) -> void:
+func _init(initial_state, initial_content_registry, initial_rng_streams, initial_economy, initial_shop_offer_selector, initial_tile_pool_editor) -> void:
 	state = initial_state
 	content_registry = initial_content_registry
 	rng_streams = initial_rng_streams
 	economy = initial_economy
 	shop_offer_selector = initial_shop_offer_selector
+	tile_pool_editor = initial_tile_pool_editor
 
 func bind_state(authoritative_state) -> void:
 	state = authoritative_state
@@ -209,10 +210,10 @@ func _execute_buy_shop_offer(selected_entry_id: String, selected_offer_id: Strin
 	else:
 		state.build_ownership.owned_special_offer_ids.append(offer.content_id)
 	var events: Array = []
-	_events_for_currency_transaction(events, transaction)
+	events.append(RunEconomyScript.event_for_transaction(transaction))
 	var special_transaction := _apply_shop_special_offer(offer)
 	if not special_transaction.is_empty():
-		_events_for_currency_transaction(events, special_transaction)
+		events.append(RunEconomyScript.event_for_transaction(special_transaction))
 	var data: Dictionary = {
 		"entry_id": state.shop_state.entry_id if selected_entry_id.is_empty() else selected_entry_id,
 		"offer": offer.to_dictionary(),
@@ -378,7 +379,7 @@ func _validate_use_workshop_service(
 		return CommandValidationScript.new(false, "INVALID_WORKSHOP_SERVICE", "The Workshop service ID is not supported.")
 	if not state.workshop_state.is_service_available(service_id):
 		return CommandValidationScript.new(false, "SERVICE_UNAVAILABLE", "The selected Workshop service is no longer available.")
-	var tile_instance = _run_tile_instance(instance_id)
+	var tile_instance = tile_pool_editor.find_instance(instance_id)
 	if tile_instance == null:
 		return CommandValidationScript.new(false, "INVALID_TILE_INSTANCE", "The selected TileInstance is not in the Run Tile Pool.")
 	if tile_instance.ownership_scope != "RUN" or tile_instance.lifetime_scope != "RUN":
@@ -398,7 +399,7 @@ func _validate_use_workshop_service(
 				return CommandValidationScript.new(false, "INVALID_TILE_DEFINITION", "Transform requires a registered TileDefinition.")
 			if transform_definition_id == tile_instance.definition_id:
 				return CommandValidationScript.new(false, "NO_OP_TRANSFORM", "Transform must change the TileDefinition.")
-			if _tile_definition_count(transform_definition_id, instance_id) >= economy.tile_copy_limit:
+			if tile_pool_editor.count_definition(transform_definition_id, instance_id) >= economy.tile_copy_limit:
 				return CommandValidationScript.new(false, "COPY_LIMIT", "Transform would exceed the TileDefinition copy limit.")
 		WorkshopStateScript.MODIFIER:
 			var selected_modifier_id := modifier_id if not modifier_id.is_empty() else value_id
@@ -417,7 +418,7 @@ func _validate_use_workshop_service(
 			if current_modifiers.count(selected_modifier_id) >= modifier.max_per_tile:
 				return CommandValidationScript.new(false, "MODIFIER_LIMIT", "The TileInstance has reached this Modifier's copy limit.")
 		WorkshopStateScript.DUPLICATE:
-			if _tile_definition_count(tile_instance.definition_id) >= economy.tile_copy_limit:
+			if tile_pool_editor.count_definition(tile_instance.definition_id) >= economy.tile_copy_limit:
 				return CommandValidationScript.new(false, "COPY_LIMIT", "Duplicate would exceed the TileDefinition copy limit.")
 		WorkshopStateScript.REFINEMENT_TOKEN:
 			if state.refinement_tokens < 1:
@@ -453,9 +454,9 @@ func _execute_use_workshop_service(
 		"modifier_id": modifier_id,
 		"currency_transactions": [gold_transaction],
 	}
-	var tile_instance = _run_tile_instance(instance_id)
+	var tile_instance = tile_pool_editor.find_instance(instance_id)
 	if service_key == WorkshopStateScript.REMOVE:
-		var remove_index := _tile_instance_index(instance_id)
+		var remove_index: int = tile_pool_editor.instance_index(instance_id)
 		state.tile_pool.tile_instances.remove_at(remove_index)
 		state.build_ownership.persistent_tile_modifier_state.erase(instance_id)
 	elif service_key == WorkshopStateScript.TRANSFORM:
@@ -487,9 +488,9 @@ func _execute_use_workshop_service(
 		data["currency_transactions"].append(token_transaction)
 	state.workshop_state.mark_service_used(service_id)
 	var events: Array = []
-	_events_for_currency_transaction(events, gold_transaction)
+	events.append(RunEconomyScript.event_for_transaction(gold_transaction))
 	if not token_transaction.is_empty():
-		_events_for_currency_transaction(events, token_transaction)
+		events.append(RunEconomyScript.event_for_transaction(token_transaction))
 	if service_key == WorkshopStateScript.REMOVE:
 		events.append(DomainEventScript.new(DomainEventScript.TILE_REMOVED, {
 			"instance_id": instance_id,
@@ -571,54 +572,11 @@ func _workshop_price_details(service_key: String) -> Dictionary:
 			base_price = economy.workshop_refinement_price + AlphaContractEffectsScript.workshop_refinement_gold_surcharge(content_registry, state.contract_id)
 	return RunModifierEffectResolverScript.new().workshop_price(state, base_price)
 
-func _run_tile_instance(instance_id: String):
-	for tile_instance in state.tile_pool.tile_instances:
-		if tile_instance.instance_id == instance_id:
-			return tile_instance
-	return null
-
-func _tile_instance_index(instance_id: String) -> int:
-	for index in range(state.tile_pool.tile_instances.size()):
-		if state.tile_pool.tile_instances[index].instance_id == instance_id:
-			return index
-	return -1
-
-func _tile_definition_count(definition_id: String, excluded_instance_id: String = "") -> int:
-	var count := 0
-	for tile_instance in state.tile_pool.tile_instances:
-		if tile_instance.instance_id != excluded_instance_id and tile_instance.definition_id == definition_id:
-			count += 1
-	return count
-
 func _duplicate_run_tile(source_tile) -> Dictionary:
-	var tile_instance_result := _next_tile_instance_id()
-	var duplicate := RunTileInstanceRecordScript.new(
-		tile_instance_result["instance_id"],
-		source_tile.definition_id,
-		"RUN",
-		"RUN",
-	)
-	state.tile_pool.add_tile_instance(duplicate)
-	state.tile_instance_sequence = tile_instance_result["sequence"]
+	var duplicate_result: Dictionary = tile_pool_editor.add_tile(source_tile.definition_id)
+	if not duplicate_result.get("accepted", false):
+		return duplicate_result
 	var source_modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(source_tile.instance_id, []).duplicate()
 	if not source_modifiers.is_empty():
-		state.build_ownership.persistent_tile_modifier_state[duplicate.instance_id] = source_modifiers
-	return {"accepted": true, "instance_id": duplicate.instance_id}
-
-func _next_tile_instance_id() -> Dictionary:
-	var sequence: int = state.tile_instance_sequence
-	var instance_id := ""
-	while instance_id.is_empty() or _tile_instance_exists(instance_id):
-		sequence += 1
-		instance_id = "run.tile.%d" % sequence
-	return {"sequence": sequence, "instance_id": instance_id}
-
-func _tile_instance_exists(instance_id: String) -> bool:
-	for tile_instance in state.tile_pool.tile_instances:
-		if tile_instance.instance_id == instance_id:
-			return true
-	return false
-
-func _events_for_currency_transaction(events: Array, transaction: Dictionary) -> void:
-	var event_type := DomainEventScript.GOLD_CHANGED if transaction.currency == RunEconomyScript.GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
-	events.append(DomainEventScript.new(event_type, transaction))
+		state.build_ownership.persistent_tile_modifier_state[duplicate_result.instance_id] = source_modifiers
+	return {"accepted": true, "instance_id": duplicate_result.instance_id}

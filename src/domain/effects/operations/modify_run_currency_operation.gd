@@ -50,8 +50,7 @@ func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String
 		})]
 	transaction["effect_id"] = effect_id
 	transaction["sequence_index"] = sequence_index
-	var event_type := DomainEventScript.GOLD_CHANGED if currency == RunEconomyScript.GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
-	return [_event(event_type, transaction)]
+	return [RunEconomyScript.event_for_transaction(transaction)]
 
 func to_dictionary() -> Dictionary:
 	return {

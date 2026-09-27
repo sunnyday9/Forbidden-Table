@@ -1,6 +1,8 @@
 class_name RunEconomy
 extends RefCounted
 
+const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+
 const GOLD := "GOLD"
 const REFINEMENT_TOKENS := "REFINEMENT_TOKENS"
 
@@ -93,6 +95,10 @@ func apply_sink(run_state, currency: String, amount: int, sink_id: String) -> Di
 	var current := previous - amount
 	_write_currency(run_state, currency, current)
 	return _transaction(currency, amount, previous, current, "", sink_id)
+
+static func event_for_transaction(transaction: Dictionary):
+	var event_type := DomainEventScript.GOLD_CHANGED if transaction.get("currency", "") == GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
+	return DomainEventScript.new(event_type, transaction)
 
 func _is_currency(currency: String) -> bool:
 	return currency in [GOLD, REFINEMENT_TOKENS]

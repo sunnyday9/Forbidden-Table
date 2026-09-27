@@ -25,6 +25,7 @@ const ChooseContractCommand = preload("res://src/domain/commands/choose_contract
 const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const RewardOption = preload("res://src/domain/run/reward_option.gd")
+const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 
 const LEFT := "base.map_node.normal.left"
 const INTRO := "base.map_node.intro"
@@ -35,6 +36,7 @@ func run() -> Array[String]:
 	test_same_seed_repeats_the_normal_draft(failures)
 	test_normal_draft_excludes_tiles_at_the_copy_limit(failures)
 	test_skip_is_legal_and_pays_configured_compensation(failures)
+	test_reward_flow_rebinds_after_resume(failures)
 	test_add_tile_selection_updates_the_run_build_and_returns_to_map(failures)
 	test_stale_add_tile_option_is_rejected_at_the_copy_limit(failures)
 	test_forged_add_tile_option_is_rejected_at_the_copy_limit(failures)
@@ -124,6 +126,26 @@ func test_skip_is_legal_and_pays_configured_compensation(failures: Array[String]
 	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "accepted Skip returns the run to Map Choice", failures)
 	assert_true(_has_event(result.events, DomainEvent.REWARD_SELECTED), "reward selection emits a factual domain event", failures)
 	assert_true(result.data.get("option_id", "") == skip.option_id, "the result records the selected stable option ID", failures)
+
+func test_reward_flow_rebinds_after_resume(failures: Array[String]) -> void:
+	var source := _victorious_domain("reward.resume")
+	var draft = source.state.reward_draft
+	var skip = _find_option(draft, RewardOption.SKIP)
+	assert_true(skip != null, "a reward checkpoint has a Skip choice to resolve after resume", failures)
+	if skip == null:
+		return
+	var snapshot = SaveMapper.suspend_snapshot(source)
+	var restored = SaveMapper.load_into_domain(snapshot.to_dictionary(), source.content_registry)
+	assert_true(restored.accepted, "a pending Normal reward draft restores", failures)
+	if not restored.accepted:
+		return
+	var restored_domain = restored.domain
+	var gold_before: int = restored_domain.state.gold
+	var result = restored_domain.execute(ChooseRewardCommand.new("reward.resume.choose", skip.option_id, draft.draft_id))
+	assert_true(result.accepted, "the restored domain accepts the reward choice", failures)
+	assert_true(restored_domain.state.gold == gold_before + skip.gold_delta, "the Reward flow applies Gold to the restored RunState", failures)
+	assert_true(restored_domain.state.reward_draft == null and restored_domain.state.phase == RunPhase.MAP_CHOICE, "the restored Reward flow clears its draft and returns to Map Choice", failures)
+	assert_true(source.state.gold == 0 and source.state.reward_draft != null, "the post-resume Reward choice leaves the pre-load RunState untouched", failures)
 
 func test_add_tile_selection_updates_the_run_build_and_returns_to_map(failures: Array[String]) -> void:
 	var domain := _victorious_domain("reward.add-tile")

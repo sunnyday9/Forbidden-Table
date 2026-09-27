@@ -43,6 +43,7 @@ func run() -> Array[String]:
 	test_run_scoped_contract_modifier_cleans_up_without_leaking(failures)
 	test_phase_2_event_identity_contracts_are_explicit(failures)
 	test_act_two_event_families_are_deterministic_typed_and_resumable(failures)
+	test_act_two_event_entry_uses_restored_map_definition(failures)
 	test_base_event_modifiers_change_battleplay_and_expire(failures)
 	test_act_two_event_modifiers_change_battleplay_and_expire(failures)
 	test_event_modifier_labels_explain_their_effects(failures)
@@ -247,6 +248,45 @@ func test_act_two_event_families_are_deterministic_typed_and_resumable(failures:
 			return replay_loaded.domain if replay_loaded.accepted else null
 		var replay_report = ReplayVerifier.verify(resumed_domain.replay_record, replay_factory, resumed_domain.state.content_version)
 		assert_true(replay_report.is_match(), "%s accepted choice replays from the stable Event checkpoint" % event_id, failures)
+
+func test_act_two_event_entry_uses_restored_map_definition(failures: Array[String]) -> void:
+	var source := _act_two_event_domain("event.act-two.entry-resume", 7440)
+	var event_node_id := "base.map_node.act_two.event.right"
+	var branch_node_id := "base.map_node.act_two.normal.right"
+	var event_id := "alpha.event.act_two.map_reveal"
+	if source.state.map_state.visited_node_ids.is_empty():
+		# This fixture represents a completed intro entry when starting from the
+		# intro worker's pending-entry shape; ordinary tests use the pre-entry form.
+		var intro_node_id: String = source.state.map_state.current_node_id
+		if intro_node_id.is_empty():
+			intro_node_id = source.map_definition.start_node_id
+			source.state.map_state.current_node_id = intro_node_id
+		source.state.map_state.visited_node_ids.append(intro_node_id)
+		source.state.map_state.ordered_path.append(intro_node_id)
+		source.state.map_state.knowledge_state[intro_node_id] = "EXACT"
+	source.state.map_state.select_node(branch_node_id, source.map_definition)
+	source.state.map_state.payload_ids[event_node_id] = event_id
+	source.state.map_state.select_node(event_node_id, source.map_definition)
+	assert_true(source.state.map_state.ordered_path[0] == source.map_definition.start_node_id and source.state.map_state.ordered_path.size() == 3, "the saved fixture records a continuous path from the completed Act 2 intro", failures)
+	var snapshot = SaveMapper.suspend_snapshot(source)
+	var restored = SaveMapper.load_into_domain(snapshot.to_dictionary(), source.content_registry)
+	assert_true(restored.accepted, "a Map Choice checkpoint on the Act 2 Event node restores", failures)
+	if not restored.accepted:
+		return
+	var restored_domain = restored.domain
+	assert_true(restored_domain.map_definition.content_id == "base.map.act_two", "restored RunDomain binds the Act 2 map before Event entry", failures)
+	var entry = restored_domain.execute(EnterEventCommand.new("event.act-two.entry-resume.enter"))
+	assert_true(entry.accepted, "the restored Act 2 Event node accepts Event entry", failures)
+	assert_true(restored_domain.state.event_state.event_id == event_id, "restored entry resolves the authored Act 2 Event payload", failures)
+	var choice = restored_domain.execute(ChooseEventOptionCommand.new(
+		"event.act-two.entry-resume.choose",
+		"reveal_route",
+		event_id,
+		restored_domain.state.event_state.entry_id,
+	))
+	assert_true(choice.accepted, "the restored Act 2 Event accepts a choice", failures)
+	assert_true(restored_domain.state.map_state.knowledge_state.get("base.map_node.act_two.boss", "") == "EXACT", "the restored Act 2 Map Reveal applies to the active map", failures)
+	assert_true(source.state.event_state.active == false and source.state.map_state.knowledge_state.get("base.map_node.act_two.boss", "") != "EXACT", "post-resume Event commands do not mutate the pre-load RunState", failures)
 
 func test_base_event_modifiers_change_battleplay_and_expire(failures: Array[String]) -> void:
 	var registry := _event_effect_registry(false)
