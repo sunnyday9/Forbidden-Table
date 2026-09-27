@@ -725,6 +725,9 @@ func execute_use_workshop_service(
 		"replace_existing": replace_existing,
 	})
 
+func _workshop_price(service_key: String) -> int:
+	return shop_workshop_flow.workshop_price(service_key)
+
 func validate_exit_workshop() -> RefCounted:
 	return shop_workshop_flow.validate(RunShopWorkshopFlowScript.EXIT_WORKSHOP)
 

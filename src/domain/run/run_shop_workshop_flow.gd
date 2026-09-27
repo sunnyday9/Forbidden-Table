@@ -89,6 +89,9 @@ func execute(command_type: String, arguments: Dictionary = {}) -> Dictionary:
 			return _execute_exit_workshop()
 	return {"accepted": false, "status": "UNKNOWN_SERVICE_COMMAND", "message": "Unsupported Shop or Workshop command."}
 
+func workshop_price(service_key: String) -> int:
+	return _workshop_price(service_key)
+
 func _invalid_phase(expected_phase: String) -> RefCounted:
 	return CommandValidationScript.new(
 		false,
