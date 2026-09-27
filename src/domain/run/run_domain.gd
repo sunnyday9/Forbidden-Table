@@ -1617,8 +1617,12 @@ func _record_run_summary_metrics(command_data: Dictionary, events: Array) -> voi
 					continue
 				var source_id := str(contribution.get("source_id", ""))
 				var definition = content_registry.resolve(source_id) if not source_id.is_empty() else null
+				var yaku_id := source_id
+				if definition == null and source_id.ends_with(".complete"):
+					yaku_id = source_id.substr(0, source_id.length() - ".complete".length())
+					definition = content_registry.resolve(yaku_id)
 				if definition != null and definition.definition_type_name() == "YakuDefinition":
-					_increment_summary_count(state.yaku_counts, source_id)
+					_increment_summary_count(state.yaku_counts, definition.content_id)
 	for event in events:
 		if event == null:
 			continue

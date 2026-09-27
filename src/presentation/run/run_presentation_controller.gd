@@ -64,8 +64,11 @@ func submit(command):
 	if result != null and result.accepted and meta_progress_coordinator != null:
 		unlock_result = meta_progress_coordinator.observe_run_state(domain.state)
 	_refresh(events)
-	if unlock_result.get("changed", false):
+	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
 		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–6 are now available for later Runs."
+		presentation_changed.emit()
+	elif unlock_result.has("code") and not unlock_result.get("persisted", false):
+		state.feedback = "Unlock progress could not be saved. The game will retry the next time this Run is recorded."
 		presentation_changed.emit()
 	return result
 

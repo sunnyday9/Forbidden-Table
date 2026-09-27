@@ -15,12 +15,31 @@ const RunPresentationControllerScript = preload("res://src/presentation/run/run_
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
+const AcknowledgeRunSummaryCommandScript = preload("res://src/domain/commands/acknowledge_run_summary_command.gd")
+
+class FailOnceMetaProgressStore extends RefCounted:
+	var initial_state
+	var save_attempts := 0
+	var persisted_state: Dictionary = {}
+
+	func load_profile() -> Dictionary:
+		return {"accepted": true, "state": initial_state, "created_default": true}
+
+	func save_profile(state) -> Dictionary:
+		save_attempts += 1
+		if save_attempts == 1:
+			return {"accepted": false, "code": "TEST_WRITE_FAILED"}
+		persisted_state = state.to_dictionary().duplicate(true)
+		return {"accepted": true}
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_default_and_all_unlocked_profiles(failures)
 	test_only_act_two_normal_ending_unlocks_for_later_runs(failures)
 	test_profile_persists_and_migrates_without_overwriting_source(failures)
+	test_schema_migration_preserves_content_version(failures)
+	test_failed_unlock_persistence_can_be_retried(failures)
+	test_controller_reports_unlock_save_failure(failures)
 	test_rejected_profile_is_preserved_and_progression_is_read_only(failures)
 	test_authoritative_run_commands_enforce_unlocks(failures)
 	return failures
@@ -77,7 +96,7 @@ func test_profile_persists_and_migrates_without_overwriting_source(failures: Arr
 	var legacy_data := {
 		"schema_version": 1,
 		"game_version": "game.phase2.v1",
-		"content_version": "legacy.meta.v1",
+		"content_version": MetaProgressStoreScript.CONTENT_VERSION,
 		"save_kind": MetaProgressSnapshotScript.SAVE_KIND,
 		"run_id": "",
 		"run_seed": 0,
@@ -102,6 +121,95 @@ func test_profile_persists_and_migrates_without_overwriting_source(failures: Arr
 	var reloaded: Dictionary = MetaProgressStoreScript.new(path).load_profile()
 	assert_true(reloaded.accepted and not reloaded.migrated, "the current schema reloads without migration", failures)
 	_remove_temporary(path)
+
+func test_schema_migration_preserves_content_version(failures: Array[String]) -> void:
+	var legacy_data := {
+		"schema_version": 1,
+		"game_version": "game.phase2.v1",
+		"content_version": "legacy.meta.v1",
+		"save_kind": MetaProgressSnapshotScript.SAVE_KIND,
+		"run_id": "",
+		"run_seed": 0,
+		"authoritative_state": {"unlocked": [Phase2CatalogScript.CHARACTER_IDS[0]]},
+		"rng_state": {},
+		"checkpoint_metadata": {"stable_boundary": "META_PROGRESS"},
+	}
+	var store = MetaProgressStoreScript.new(_temporary_path("content-version"))
+	var migration: Dictionary = store._migration_pipeline().migrate(legacy_data)
+	assert_true(
+		migration.accepted and migration.data.get("content_version", "") == "legacy.meta.v1",
+		"schema-only migration preserves the source content_version",
+		failures
+	)
+	var file := FileAccess.open(store.file_path, FileAccess.WRITE)
+	assert_true(file != null, "the unsupported-content migration fixture can be written", failures)
+	if file == null:
+		return
+	file.store_string(JSON.stringify(legacy_data))
+	file.close()
+	var loaded: Dictionary = store.load_profile()
+	assert_true(
+		not loaded.accepted and loaded.get("code", "") == "UNSUPPORTED_CONTENT_VERSION",
+		"schema migration rejects a content version without an explicit content migration",
+		failures
+	)
+	assert_true(
+		FileAccess.get_file_as_string(store.file_path) == JSON.stringify(legacy_data),
+		"rejecting an unsupported content version preserves the source profile",
+		failures
+	)
+	_remove_temporary(store.file_path)
+
+func test_failed_unlock_persistence_can_be_retried(failures: Array[String]) -> void:
+	var store := FailOnceMetaProgressStore.new()
+	store.initial_state = MetaProgressStateScript.new()
+	var coordinator = MetaProgressCoordinatorScript.new(store)
+	var loaded: Dictionary = coordinator.load_profile()
+	assert_true(loaded.accepted, "the retry fixture loads its initial progression state", failures)
+	var completed_run = _run_summary("meta.retry-save", 2, 2, "VICTORY", "BOSS_DEFEATED")
+	var first_attempt: Dictionary = coordinator.observe_run_state(completed_run)
+	assert_true(
+		not first_attempt.get("accepted", false)
+		and not first_attempt.get("changed", false)
+		and not first_attempt.get("persisted", false),
+		"a failed unlock write is reported as unsuccessful",
+		failures
+	)
+	assert_true(store.save_attempts == 1, "the initial unlock observation attempts persistence once", failures)
+	var retry: Dictionary = coordinator.observe_run_state(completed_run)
+	assert_true(
+		retry.get("accepted", false) and retry.get("changed", false) and retry.get("persisted", false),
+		"re-observing the same completed Run retries the pending unlock write",
+		failures
+	)
+	assert_true(store.save_attempts == 2, "the pending unlock is saved on the second observation", failures)
+	assert_true(
+		store.persisted_state.get("unlocked_character_ids", []).size() == 3
+		and store.persisted_state.get("unlocked_contract_ids", []).size() == 6,
+		"the retry persists the complete unlock roster",
+		failures
+	)
+
+func test_controller_reports_unlock_save_failure(failures: Array[String]) -> void:
+	var store := FailOnceMetaProgressStore.new()
+	store.initial_state = MetaProgressStateScript.new()
+	var coordinator = MetaProgressCoordinatorScript.new(store)
+	coordinator.load_profile()
+	var domain = RunDomainScript.new_alpha_run("meta.presentation-save-failure", 5203, _registry())
+	domain.state.act_index = 2
+	domain.state.act_count = 2
+	domain.state.phase = RunPhaseScript.RUN_SUMMARY
+	domain.state.terminal_summary.outcome = "VICTORY"
+	domain.state.terminal_summary.reason = "BOSS_DEFEATED"
+	var controller = RunPresentationControllerScript.new(domain, null, coordinator)
+	var result = controller.submit(AcknowledgeRunSummaryCommandScript.new("meta.presentation-save-failure.ack"))
+	assert_true(result.accepted, "the terminal Run can still be acknowledged when saving progression fails", failures)
+	assert_true(
+		controller.state.feedback.to_lower().contains("could not be saved")
+		and not controller.state.feedback.contains("now available for later Runs"),
+		"the Run presentation reports failed unlock persistence instead of claiming success",
+		failures
+	)
 
 func test_rejected_profile_is_preserved_and_progression_is_read_only(failures: Array[String]) -> void:
 	var path := _temporary_path("unsupported")

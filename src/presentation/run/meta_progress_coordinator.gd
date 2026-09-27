@@ -12,6 +12,7 @@ var last_profile_load_error := ""
 var last_rejected_profile_path := ""
 var profile_loaded := false
 var recovery_required := false
+var _pending_persistence := false
 
 func _init(initial_store = null, initial_state = null) -> void:
 	store = initial_store if initial_store != null else MetaProgressStoreScript.new()
@@ -23,12 +24,14 @@ func load_profile() -> Dictionary:
 		state = loaded.state
 		profile_loaded = true
 		recovery_required = false
+		_pending_persistence = false
 		last_profile_load_error = ""
 		last_rejected_profile_path = ""
 	else:
 		state = MetaProgressStateScript.new()
 		profile_loaded = false
 		recovery_required = true
+		_pending_persistence = false
 		last_profile_load_error = str(loaded.get("code", "META_PROGRESS_LOAD_FAILED"))
 		last_rejected_profile_path = str(loaded.get("preserved_path", ""))
 	return loaded
@@ -48,11 +51,27 @@ func observe_run_state(run_state) -> Dictionary:
 	if str(run_state.terminal_summary.outcome) != "VICTORY" or str(run_state.terminal_summary.reason) != "BOSS_DEFEATED":
 		return {"accepted": true, "changed": false, "reason": "NOT_NORMAL_ENDING"}
 	var changed = state.record_act_two_normal_ending(str(run_state.run_id))
-	if not changed:
+	var retrying_pending_persistence := _pending_persistence
+	if not changed and not retrying_pending_persistence:
 		return {"accepted": true, "changed": false, "reason": "ALREADY_RECORDED_OR_TEST_PROFILE"}
 	var saved: Dictionary = store.save_profile(state)
-	last_persistence_error = "" if saved.get("accepted", false) else str(saved.get("code", "META_PROGRESS_SAVE_FAILED"))
-	return {"accepted": true, "changed": true, "persisted": bool(saved.get("accepted", false)), "save_result": saved}
+	var persisted := bool(saved.get("accepted", false))
+	_pending_persistence = not persisted
+	last_persistence_error = "" if persisted else str(saved.get("code", "META_PROGRESS_SAVE_FAILED"))
+	if not persisted:
+		return {
+			"accepted": false,
+			"changed": false,
+			"persisted": false,
+			"code": last_persistence_error,
+			"save_result": saved,
+		}
+	return {
+		"accepted": true,
+		"changed": changed or retrying_pending_persistence,
+		"persisted": true,
+		"save_result": saved,
+	}
 
 func reset_profile() -> Dictionary:
 	if not recovery_required:

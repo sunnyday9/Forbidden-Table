@@ -9,14 +9,34 @@ const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const RunSummaryPresenterScript = preload("res://src/presentation/run/run_summary_presenter.gd")
+const YakuDefinitionScript = preload("res://src/content/definitions/yaku_definition.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_build_story_contains_tracked_run_data(failures)
+	test_complete_yaku_score_hooks_are_counted_by_yaku(failures)
 	test_legacy_summary_does_not_invent_untracked_metrics(failures)
 	return failures
+
+func test_complete_yaku_score_hooks_are_counted_by_yaku(failures: Array[String]) -> void:
+	var registry := ContentRegistryScript.new()
+	Phase2CatalogScript.register_all(registry)
+	AlphaActTwoCatalogScript.register_all(registry)
+	AlphaScaleCatalogScript.register_all(registry)
+	var complete_yaku = null
+	for definition in registry.enumerate():
+		if definition is YakuDefinitionScript and str(definition.complete_score.get("source_id", "")).ends_with(".complete"):
+			complete_yaku = definition
+			break
+	assert_true(complete_yaku != null, "the content registry has a Complete Hand Yaku with a distinct score source ID", failures)
+	if complete_yaku == null:
+		return
+	var domain = RunDomainScript.new_alpha_run("summary.complete-yaku", 5503, registry, "", null, null, MetaProgressStateScript.all_unlocked_test_profile())
+	var complete_source_id := str(complete_yaku.complete_score.get("source_id", ""))
+	domain._record_run_summary_metrics({"score": {"total": 42, "contributions": [{"source_id": complete_source_id}]}}, [])
+	assert_true(domain.state.yaku_counts.get(complete_yaku.content_id, 0) == 1, "Complete Hand score hooks are attributed to their registered Yaku in Run Summary", failures)
 
 func test_build_story_contains_tracked_run_data(failures: Array[String]) -> void:
 	var registry := ContentRegistryScript.new()

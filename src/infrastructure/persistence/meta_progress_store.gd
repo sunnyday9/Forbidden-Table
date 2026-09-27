@@ -157,7 +157,6 @@ func _migrate_v1_to_v2(data: Dictionary) -> Dictionary:
 				return {"accepted": false, "code": "INVALID_LEGACY_META_CONTENT_ID", "content_id": identifier}
 	migrated["schema_version"] = CURRENT_SCHEMA_VERSION
 	migrated["save_kind"] = MetaProgressSnapshotScript.SAVE_KIND
-	migrated["content_version"] = CONTENT_VERSION
 	migrated["authoritative_state"] = state.to_dictionary()
 	migrated["run_state"] = state.to_dictionary()
 	return migrated
