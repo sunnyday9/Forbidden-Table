@@ -30,6 +30,9 @@ const ChooseEventOptionCommandScript = preload("res://src/domain/commands/choose
 const AcknowledgeRunSummaryCommandScript = preload("res://src/domain/commands/acknowledge_run_summary_command.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
+const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
+const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
+const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
 const ACTION_PREFIX_CHARACTER := "character:"
 const ACTION_PREFIX_CONTRACT := "contract:"
@@ -44,6 +47,8 @@ var state
 var tutorial_progress
 var meta_progress_coordinator
 var _command_sequence := 0
+var _selected_workshop_service_id := ""
+var _selected_workshop_instance_id := ""
 
 func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_coordinator = null) -> void:
 	assert(run_domain is RunDomainScript)
@@ -58,6 +63,9 @@ func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_c
 
 func submit(command):
 	var result = domain.execute(command)
+	if result != null and result.accepted and command is UseWorkshopServiceCommandScript:
+		_selected_workshop_service_id = ""
+		_selected_workshop_instance_id = ""
 	var events: Array = result.events if result != null and result.events is Array else []
 	tutorial_progress.observe(events)
 	var unlock_result: Dictionary = {}
@@ -90,6 +98,18 @@ func confirm(command_or_action = null):
 		state.feedback = "No action is focused."
 		presentation_changed.emit()
 		return _rejected_presentation_input("No action is focused.")
+	var action := _find_action(action_id)
+	if not action.is_empty():
+		match action.get("kind", ""):
+			"WORKSHOP_SELECT_SERVICE":
+				_selected_workshop_service_id = str(action.get("service_id", ""))
+				_selected_workshop_instance_id = ""
+				return _workshop_selection_result("Choose a TileInstance for %s." % _pretty_service_name(_selected_workshop_service_id))
+			"WORKSHOP_SELECT_TARGET":
+				_selected_workshop_instance_id = str(action.get("instance_id", ""))
+				return _workshop_selection_result("Choose the result for the selected TileInstance.")
+			"WORKSHOP_BACK":
+				return _step_back_workshop_selection()
 	var command = _command_for_action(action_id)
 	if command == null:
 		return _rejected_presentation_input("The focused action is not available.")
@@ -105,6 +125,8 @@ func back():
 	if state.phase == RunPhaseScript.SHOP:
 		return submit(ExitShopCommandScript.new(_next_command_id("shop.back")))
 	if state.phase == RunPhaseScript.WORKSHOP:
+		if not _selected_workshop_service_id.is_empty():
+			return _step_back_workshop_selection()
 		return submit(ExitWorkshopCommandScript.new(_next_command_id("workshop.back")))
 	return cancel()
 
@@ -266,11 +288,179 @@ func _shop_actions() -> Array:
 
 func _workshop_actions() -> Array:
 	var actions: Array = []
-	for service_id in domain.state.workshop_state.available_service_ids:
-		if domain.state.workshop_state.is_service_available(service_id):
-			actions.append({"id": ACTION_PREFIX_WORKSHOP + service_id, "kind": "WORKSHOP_SERVICE", "target_id": service_id, "entry_id": domain.state.workshop_state.entry_id})
-	actions.append({"id": "workshop.back", "kind": "WORKSHOP_EXIT"})
+	var workshop_state = domain.state.workshop_state
+	if _selected_workshop_service_id.is_empty():
+		for service_id in workshop_state.available_service_ids:
+			if not workshop_state.is_service_available(service_id):
+				continue
+			if service_id == WorkshopStateScript.MODIFIER:
+				_append_workshop_service_choice(actions, UseWorkshopServiceCommandScript.ADD_MODIFIER)
+				_append_workshop_service_choice(actions, UseWorkshopServiceCommandScript.REPLACE_MODIFIER)
+			else:
+				_append_workshop_service_choice(actions, service_id)
+		actions.append({"id": "workshop.back", "kind": "WORKSHOP_EXIT"})
+		return actions
+	if _selected_workshop_instance_id.is_empty():
+		if _requires_workshop_value(_selected_workshop_service_id):
+			for tile_instance in domain.state.tile_pool.tile_instances:
+				if _workshop_target_has_legal_choice(_selected_workshop_service_id, tile_instance):
+					_append_workshop_target_choice(actions, _selected_workshop_service_id, tile_instance)
+		else:
+			for tile_instance in domain.state.tile_pool.tile_instances:
+				_append_workshop_command_action(actions, _selected_workshop_service_id, tile_instance)
+		_append_workshop_back_action(actions)
+		return actions
+	_append_workshop_value_choices(actions, _selected_workshop_service_id, _selected_workshop_instance_id)
+	_append_workshop_back_action(actions)
 	return actions
+
+func _append_workshop_service_choice(actions: Array, service_id: String) -> void:
+	if not _workshop_service_has_legal_choice(service_id):
+		return
+	actions.append({
+		"id": "%sservice:%s" % [ACTION_PREFIX_WORKSHOP, service_id],
+		"kind": "WORKSHOP_SELECT_SERVICE",
+		"target_id": service_id,
+		"service_id": service_id,
+		"details": {"service_id": service_id},
+	})
+
+func _workshop_service_has_legal_choice(service_id: String) -> bool:
+	for tile_instance in domain.state.tile_pool.tile_instances:
+		if _requires_workshop_value(service_id):
+			if _workshop_target_has_legal_choice(service_id, tile_instance):
+				return true
+		elif _workshop_action_is_valid(service_id, tile_instance.instance_id):
+			return true
+	return false
+
+func _requires_workshop_value(service_id: String) -> bool:
+	return service_id in [
+		UseWorkshopServiceCommandScript.TRANSFORM,
+		UseWorkshopServiceCommandScript.ADD_MODIFIER,
+		UseWorkshopServiceCommandScript.REPLACE_MODIFIER,
+	]
+
+func _workshop_target_has_legal_choice(service_id: String, tile_instance) -> bool:
+	if service_id == UseWorkshopServiceCommandScript.TRANSFORM:
+		for definition in domain.content_registry.enumerate():
+			if definition is TileDefinitionScript and definition.content_id != tile_instance.definition_id:
+				if _workshop_action_is_valid(service_id, tile_instance.instance_id, definition.content_id):
+					return true
+		return false
+	for definition in domain.content_registry.enumerate():
+		if not definition is TileModifierDefinitionScript:
+			continue
+		if _workshop_action_is_valid(service_id, tile_instance.instance_id, "", definition.content_id, service_id == UseWorkshopServiceCommandScript.REPLACE_MODIFIER):
+			return true
+	return false
+
+func _workshop_action_is_valid(service_id: String, instance_id: String, value_id: String = "", modifier_id: String = "", replace_existing: bool = false) -> bool:
+	var validation = domain.validate_use_workshop_service(service_id, instance_id, value_id, modifier_id, replace_existing)
+	return validation != null and validation.is_valid()
+
+func _append_workshop_target_choice(actions: Array, service_id: String, tile_instance) -> void:
+	actions.append({
+		"id": "%starget:%s:%s" % [ACTION_PREFIX_WORKSHOP, service_id, tile_instance.instance_id],
+		"kind": "WORKSHOP_SELECT_TARGET",
+		"target_id": str(tile_instance.instance_id),
+		"service_id": service_id,
+		"instance_id": str(tile_instance.instance_id),
+		"details": _workshop_details(service_id, tile_instance),
+	})
+
+func _append_workshop_value_choices(actions: Array, service_id: String, instance_id: String) -> void:
+	var tile_instance = _workshop_tile_instance(instance_id)
+	if tile_instance == null:
+		return
+	if service_id == UseWorkshopServiceCommandScript.TRANSFORM:
+		for definition in domain.content_registry.enumerate():
+			if definition is TileDefinitionScript and definition.content_id != tile_instance.definition_id:
+				_append_workshop_command_action(actions, service_id, tile_instance, definition.content_id)
+		return
+	for definition in domain.content_registry.enumerate():
+		if definition is TileModifierDefinitionScript:
+			_append_workshop_command_action(
+				actions,
+				service_id,
+				tile_instance,
+				"",
+				definition.content_id,
+				service_id == UseWorkshopServiceCommandScript.REPLACE_MODIFIER,
+			)
+
+func _append_workshop_command_action(
+	actions: Array,
+	service_id: String,
+	tile_instance,
+	value_id: String = "",
+	modifier_id: String = "",
+	replace_existing: bool = false,
+) -> void:
+	var validation = domain.validate_use_workshop_service(
+		service_id,
+		str(tile_instance.instance_id),
+		value_id,
+		modifier_id,
+		replace_existing,
+	)
+	if validation == null or not validation.is_valid():
+		return
+	var action_id := "%scommand:%s:%s" % [ACTION_PREFIX_WORKSHOP, service_id, str(tile_instance.instance_id)]
+	if not value_id.is_empty():
+		action_id += ":" + value_id
+	elif not modifier_id.is_empty():
+		action_id += ":" + modifier_id
+	actions.append({
+		"id": action_id,
+		"kind": "WORKSHOP_SERVICE",
+		"target_id": service_id,
+		"service_id": service_id,
+		"instance_id": str(tile_instance.instance_id),
+		"value_id": value_id,
+		"modifier_id": modifier_id,
+		"replace_existing": replace_existing,
+		"entry_id": domain.state.workshop_state.entry_id,
+		"details": _workshop_details(service_id, tile_instance, value_id, modifier_id, replace_existing, validation),
+	})
+
+func _workshop_details(service_id: String, tile_instance, value_id: String = "", modifier_id: String = "", replace_existing: bool = false, validation = null) -> Dictionary:
+	var result := {
+		"service_id": service_id,
+		"tile_instance_id": str(tile_instance.instance_id),
+		"tile_definition_id": str(tile_instance.definition_id),
+		"value_id": value_id,
+		"modifier_id": modifier_id,
+		"existing_modifier_ids": domain.state.build_ownership.persistent_tile_modifier_state.get(tile_instance.instance_id, []).duplicate(),
+		"replace_existing": replace_existing,
+	}
+	if validation != null:
+		result["price"] = int(validation.details.get("price", 0))
+	return result
+
+func _append_workshop_back_action(actions: Array) -> void:
+	actions.append({"id": "workshop:selection:back", "kind": "WORKSHOP_BACK"})
+
+func _workshop_tile_instance(instance_id: String):
+	for tile_instance in domain.state.tile_pool.tile_instances:
+		if tile_instance.instance_id == instance_id:
+			return tile_instance
+	return null
+
+func _workshop_selection_result(message: String) -> Dictionary:
+	state.feedback = message
+	_refresh([])
+	return {"accepted": true, "status": "PRESENTATION_SELECTION", "events": []}
+
+func _step_back_workshop_selection() -> Dictionary:
+	if not _selected_workshop_instance_id.is_empty():
+		_selected_workshop_instance_id = ""
+		return _workshop_selection_result("Choose a TileInstance.")
+	_selected_workshop_service_id = ""
+	return _workshop_selection_result("Choose a Workshop service.")
+
+func _pretty_service_name(service_id: String) -> String:
+	return service_id.to_lower().replace("_", " ").capitalize()
 
 func _event_actions() -> Array:
 	var actions: Array = []
@@ -299,18 +489,22 @@ func _command_for_action(action_id: String):
 		"SHOP_REFRESH": return RefreshShopCommandScript.new(command_id, str(action.get("entry_id", "")))
 		"SHOP_EXIT": return ExitShopCommandScript.new(command_id)
 		"ENTER_WORKSHOP": return EnterWorkshopCommandScript.new(command_id)
-		"WORKSHOP_SERVICE": return _workshop_command(command_id, target_id)
+		"WORKSHOP_SERVICE": return _workshop_command(command_id, action)
 		"WORKSHOP_EXIT": return ExitWorkshopCommandScript.new(command_id)
 		"ENTER_EVENT": return EnterEventCommandScript.new(command_id)
 		"EVENT_OPTION": return ChooseEventOptionCommandScript.new(command_id, target_id, str(action.get("event_id", "")), str(action.get("entry_id", "")))
 		"RUN_SUMMARY": return AcknowledgeRunSummaryCommandScript.new(command_id)
 	return null
 
-func _workshop_command(command_id: String, service_id: String):
-	var instance_id := ""
-	if not domain.state.tile_pool.tile_instances.is_empty():
-		instance_id = domain.state.tile_pool.tile_instances[0].instance_id
-	return UseWorkshopServiceCommandScript.new(command_id, service_id, instance_id)
+func _workshop_command(command_id: String, action: Dictionary):
+	return UseWorkshopServiceCommandScript.new(
+		command_id,
+		str(action.get("service_id", "")),
+		str(action.get("instance_id", "")),
+		str(action.get("value_id", "")),
+		str(action.get("modifier_id", "")),
+		bool(action.get("replace_existing", false)),
+	)
 
 func _find_action(action_id: String) -> Dictionary:
 	for action in _action_descriptors():

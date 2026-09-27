@@ -274,7 +274,7 @@ func _render_actions() -> void:
 		var action_id := str(action.get("id", ""))
 		var button := Button.new()
 		button.text = _action_label(action)
-		button.tooltip_text = JSON.stringify(action.get("details", {}))
+		button.tooltip_text = _action_tooltip(action)
 		button.custom_minimum_size.y = 42
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_action_pressed.bind(action_id))
@@ -380,7 +380,10 @@ func _action_label(action: Dictionary) -> String:
 		"SHOP_REFRESH": return "Refresh Shop"
 		"SHOP_EXIT": return "Leave Shop"
 		"ENTER_WORKSHOP": return "Enter Workshop"
-		"WORKSHOP_SERVICE": return "Workshop — %s" % _pretty_id(target)
+		"WORKSHOP_SELECT_SERVICE": return "Workshop — %s" % _pretty_words(str(action.get("service_id", target)))
+		"WORKSHOP_SELECT_TARGET": return "Choose tile — %s" % _pretty_tile_id(str(details.get("tile_definition_id", "")))
+		"WORKSHOP_BACK": return "Back to Workshop choices"
+		"WORKSHOP_SERVICE": return _workshop_action_label(action, details)
 		"WORKSHOP_EXIT": return "Leave Workshop"
 		"ENTER_EVENT": return "Enter Event"
 		"EVENT_OPTION": return str(details.get("label", "Event — %s" % _pretty_id(target)))
@@ -400,6 +403,47 @@ func _help_text(phase: String) -> String:
 func _action_label_for_target(kind: String, target_id: String) -> String:
 	return "%s — %s" % [_pretty_words(kind), _pretty_id(target_id)]
 
+func _workshop_action_label(action: Dictionary, details: Dictionary) -> String:
+	var service_id := str(action.get("service_id", action.get("target_id", "")))
+	var tile_label := _pretty_tile_id(str(details.get("tile_definition_id", "")))
+	var price := int(details.get("price", 0))
+	match service_id:
+		"TRANSFORM":
+			return "Transform %s to %s (%d Gold)" % [tile_label, _pretty_tile_id(str(action.get("value_id", ""))), price]
+		"ADD_MODIFIER":
+			return "Add %s to %s (%d Gold)" % [_pretty_id(str(action.get("modifier_id", ""))), tile_label, price]
+		"REPLACE_MODIFIER":
+			return "Replace modifier on %s with %s (%d Gold)" % [tile_label, _pretty_id(str(action.get("modifier_id", ""))), price]
+		"REMOVE":
+			return "Remove %s (%d Gold)" % [tile_label, price]
+		"DUPLICATE":
+			return "Duplicate %s (%d Gold)" % [tile_label, price]
+		"REFINEMENT_TOKEN":
+			return "Use Refinement Token on %s (%d Gold)" % [tile_label, price]
+	return "Workshop — %s" % _pretty_words(service_id)
+
+func _action_tooltip(action: Dictionary) -> String:
+	if action.get("kind", "") != "WORKSHOP_SERVICE":
+		return JSON.stringify(action.get("details", {}))
+	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
+	var service_id := str(action.get("service_id", action.get("target_id", "")))
+	var tile_definition_id := str(details.get("tile_definition_id", ""))
+	var lines := PackedStringArray()
+	lines.append("TileInstance: %s" % str(action.get("instance_id", "")))
+	lines.append("Current tile: %s (%s)" % [_pretty_tile_id(tile_definition_id), tile_definition_id])
+	match service_id:
+		"TRANSFORM":
+			var value_id := str(action.get("value_id", ""))
+			lines.append("New tile: %s (%s)" % [_pretty_tile_id(value_id), value_id])
+		"ADD_MODIFIER":
+			lines.append("Add modifier: %s" % str(action.get("modifier_id", "")))
+		"REPLACE_MODIFIER":
+			lines.append("Replace %s with %s" % [_join_strings(details.get("existing_modifier_ids", [])), str(action.get("modifier_id", ""))])
+	lines.append("Cost: %d Gold" % int(details.get("price", 0)))
+	if service_id == "REFINEMENT_TOKEN":
+		lines.append("Also consumes: 1 Refinement Token")
+	return "\n".join(lines)
+
 func _join_strings(values: Array) -> String:
 	var result := PackedStringArray()
 	for value in values:
@@ -411,7 +455,7 @@ func _pretty_tile_id(definition_id: String) -> String:
 	if parts.size() >= 4 and parts[parts.size() - 2] == "honors":
 		return _pretty_words(parts[parts.size() - 1])
 	if parts.size() >= 4:
-		return "%s %s" % [_pretty_words(parts[parts.size() - 1]), _pretty_words(parts[parts.size() - 2])]
+		return "%s %s" % [_pretty_words(parts[parts.size() - 2]), _pretty_words(parts[parts.size() - 1])]
 	return _pretty_id(definition_id)
 
 func _pretty_id(identifier: String) -> String:
