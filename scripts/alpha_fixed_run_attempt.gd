@@ -17,7 +17,7 @@ const RESULT_PREFIX := "ALPHA_FIXED_RUN_RESULT "
 static func fixed_workload_definition() -> Dictionary:
 	var config := {
 		"schema_version": 1,
-		"content_version": "content.slice.v2",
+		"content_version": AlphaSimulationRunnerScript.content_version_for_gate(GATE_ID),
 		"gate_profiles": [{
 			"gate_id": GATE_ID,
 			"attempt_count": 1,

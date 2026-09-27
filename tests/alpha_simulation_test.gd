@@ -8,6 +8,7 @@ const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation
 const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructure/simulation/alpha_simulation_starting_pool_fixture.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -16,6 +17,7 @@ func run() -> Array[String]:
 	test_valid_defeat_and_harness_failures_are_classified_separately(failures)
 	test_act_two_boss_reward_gap_is_content_unavailable_not_a_soft_lock(failures)
 	test_runner_emits_a_real_replayable_run_attempt(failures)
+	test_runner_content_version_tracks_conditional_scale_bundle(failures)
 	test_complete_policy_completes_real_two_act_run_and_reward_flow(failures)
 	test_runner_ends_turn_when_draw_sources_are_empty(failures)
 	test_service_route_reaches_a_workshop(failures)
@@ -24,7 +26,7 @@ func run() -> Array[String]:
 func test_gate_manifest_is_stable_and_does_not_overclaim_roster_coverage(failures: Array[String]) -> void:
 	var config := {
 		"schema_version": 1,
-		"content_version": "content.slice.v2",
+		"content_version": AlphaSimulationRunnerScript.content_version_for_gate("hardening"),
 		"gate_profiles": [{
 			"gate_id": "hardening",
 			"attempt_count": 6,
@@ -157,7 +159,7 @@ func test_act_two_boss_reward_gap_is_content_unavailable_not_a_soft_lock(failure
 func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) -> void:
 	var config := {
 		"schema_version": 1,
-		"content_version": "content.slice.v2",
+		"content_version": AlphaSimulationRunnerScript.content_version_for_gate("hardening"),
 		"gate_profiles": [{
 			"gate_id": "hardening",
 			"attempt_count": 1,
@@ -202,6 +204,32 @@ func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) ->
 	var repeated_report: Dictionary = AlphaAttemptComparatorScript.compare(repeated_attempt, repeated_attempt_again)
 	assert_true(repeated_report.get("matches", false), "repeating the same seed/policy prefix reproduces its authoritative output exactly", failures)
 	assert_true(repeated_attempt.get("failure_classification", "") == "INCOMPLETE_RUN", "a deliberately bounded nonterminal attempt is incomplete rather than an invalid-state pass", failures)
+
+func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array[String]) -> void:
+	var attempt_case := {
+		"attempt_id": "version.identity",
+		"attempt_index": 0,
+		"gate_id": "hardening",
+		"seed": 31,
+		"policy_id": "unsupported-version-test-policy",
+		"character_id": Phase2CatalogScript.CHARACTER_IDS[0],
+		"contract_id": Phase2CatalogScript.CONTRACT_IDS[0],
+		"route_id": "EVENT",
+	}
+	var hardening_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "version.identity", 0)
+	var scale_case: Dictionary = attempt_case.duplicate(true)
+	scale_case["gate_id"] = "scale"
+	var scale_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(scale_case, "version.identity", 0)
+	var repeated_scale_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(scale_case, "version.identity", 0)
+	var hardening_version := _initial_content_version(hardening_attempt)
+	var scale_version := _initial_content_version(scale_attempt)
+	var repeated_scale_version := _initial_content_version(repeated_scale_attempt)
+
+	assert_true(not hardening_version.is_empty() and hardening_version != ContentRegistryScript.CONTENT_VERSION, "the runner does not label its unconditional Act Two bundle as Phase 2 v2", failures)
+	assert_true(not scale_version.is_empty() and scale_version != hardening_version, "the Scale gate's conditional catalog registration changes the run content identity", failures)
+	assert_true(scale_version == repeated_scale_version, "the same Scale gate receives the same deterministic content identity", failures)
+	assert_true(hardening_version == AlphaSimulationRunnerScript.content_version_for_gate("hardening"), "the hardening manifest identity matches the run's registered bundles", failures)
+	assert_true(scale_version == AlphaSimulationRunnerScript.content_version_for_gate("scale"), "the Scale manifest identity matches the run's registered bundles", failures)
 
 func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: Array[String]) -> void:
 	var attempt_case := {
@@ -429,6 +457,15 @@ func _has_command_type(commands: Array, command_type: String) -> bool:
 		if command is Dictionary and str(command.get("command_type", "")) == command_type:
 			return true
 	return false
+
+func _initial_content_version(attempt: Dictionary) -> String:
+	var checkpoints: Array = attempt.get("checkpoints", [])
+	if checkpoints.is_empty():
+		return ""
+	var domain_snapshot: Dictionary = checkpoints[0].get("domain_snapshot", {})
+	var snapshot_data: Dictionary = domain_snapshot.get("data", {})
+	var run_state: Dictionary = snapshot_data.get("run_state", {})
+	return str(run_state.get("content_version", ""))
 
 func assert_true(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:

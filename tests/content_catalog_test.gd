@@ -3,8 +3,11 @@ extends RefCounted
 
 const CharacterDefinition = preload("res://src/content/definitions/character_definition.gd")
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
+const ContentDefinition = preload("res://src/content/definitions/content_definition.gd")
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const Effect = preload("res://src/domain/effects/effect.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
@@ -30,6 +33,8 @@ func run() -> Array[String]:
 	test_boss_exposes_the_three_public_phases(failures)
 	test_boss_reward_rule_breakers_are_registered_and_typed(failures)
 	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
+	test_content_version_identifies_registered_catalog_bundles(failures)
+	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
 	test_no_core_code_content_can_be_added_and_validated(failures)
@@ -212,6 +217,53 @@ func test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures:
 	var act_one_pool = registry.resolve(Phase2Catalog.BOSS_RULE_BREAKER_POOL_ID)
 	act_one_ids.sort()
 	assert_true(act_one_pool.entry_ids() == act_one_ids, "the Phase 2 Act 1 Boss pool contract remains unchanged", failures)
+
+func test_content_version_identifies_registered_catalog_bundles(failures: Array[String]) -> void:
+	var phase2_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(phase2_registry)
+	var phase2_version: String = phase2_registry.content_version()
+
+	var act_two_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(act_two_registry)
+	AlphaActTwoCatalog.register_all(act_two_registry)
+	var act_two_version: String = act_two_registry.content_version()
+
+	var repeated_act_two_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(repeated_act_two_registry)
+	AlphaActTwoCatalog.register_all(repeated_act_two_registry)
+	var repeated_act_two_version: String = repeated_act_two_registry.content_version()
+
+	var scale_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(scale_registry)
+	AlphaActTwoCatalog.register_all(scale_registry)
+	AlphaScaleCatalog.register_all(scale_registry)
+	var scale_version: String = scale_registry.content_version()
+
+	var repeated_scale_registry := ContentRegistry.new()
+	AlphaScaleCatalog.register_all(repeated_scale_registry)
+	AlphaActTwoCatalog.register_all(repeated_scale_registry)
+	Phase2Catalog.register_all(repeated_scale_registry)
+	var repeated_scale_version: String = repeated_scale_registry.content_version()
+
+	assert_true(phase2_version == ContentRegistry.CONTENT_VERSION, "the Phase 2 content bundle keeps its v2 migration identity", failures)
+	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
+	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
+	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
+	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
+	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
+	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
+
+func test_failed_catalog_registration_does_not_change_bundle_identity(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var version_before_failed_registration: String = registry.content_version()
+	registry.register(ContentDefinition.new(AlphaScaleCatalog.PASSIVE_ID))
+	var registration = AlphaScaleCatalog.register_all(registry)
+
+	assert_true(not registration.is_valid(), "a catalog with an existing ID collision fails registration", failures)
+	assert_true(registry.content_version() == version_before_failed_registration, "a failed Scale registration does not claim its bundle version", failures)
+	assert_true(registry.resolve(AlphaScaleCatalog.CHARACTER_ID) == null, "a failed catalog registration does not partially add Scale definitions", failures)
 
 func test_yaku_compatibility_and_new_typed_hooks(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

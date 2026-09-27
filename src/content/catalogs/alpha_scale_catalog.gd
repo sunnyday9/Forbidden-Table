@@ -2,7 +2,6 @@ class_name AlphaScaleCatalog
 extends RefCounted
 
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
-const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
@@ -70,14 +69,11 @@ const ACT_ONE_BUILD_POOL_ID := "alpha.reward_pool.act_one_build"
 const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
+const CONTENT_BUNDLE_ID := "alpha.scale"
+const CONTENT_BUNDLE_VERSION := "v1"
 
 static func register_all(registry) -> RefCounted:
-	var report = ContentValidationReportScript.new()
-	for definition in definitions():
-		var registration = registry.register(definition)
-		for issue in registration.issues:
-			report.add_issue(issue)
-	return report
+	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
 
 static func definitions() -> Array:
 	var result: Array = [

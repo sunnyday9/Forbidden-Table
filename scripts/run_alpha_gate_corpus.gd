@@ -9,7 +9,6 @@ const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructu
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
 const REPORT_SCHEMA := "alpha.gate-corpus-jsonl.v2"
-const BASELINE_CONTENT_VERSION := "content.slice.v2"
 const BASELINE_SEED_START := 57000
 const COMMAND_LIMIT := 1024
 const DEFAULT_GATE_ID := "hardening"
@@ -349,7 +348,7 @@ func _build_manifest(gate_id: String):
 		return null
 	var config := {
 		"schema_version": SimulationManifestScript.SCHEMA_VERSION,
-		"content_version": BASELINE_CONTENT_VERSION,
+		"content_version": AlphaSimulationRunnerScript.content_version_for_gate(gate_id),
 		"starting_pool_fixture_id": AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID,
 		"gate_profiles": [{
 			"gate_id": gate_id,

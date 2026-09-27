@@ -1,7 +1,6 @@
 class_name AlphaActTwoCatalog
 extends RefCounted
 
-const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
@@ -12,14 +11,11 @@ const ACT_TWO_BOSS_RULE_BREAKER_IDS := [
 	"alpha.rule_breaker.act_two.draw_actions",
 ]
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.act_two.boss_rule_breaker_pool"
+const CONTENT_BUNDLE_ID := "alpha.act_two"
+const CONTENT_BUNDLE_VERSION := "v1"
 
 static func register_all(registry) -> RefCounted:
-	var report = ContentValidationReportScript.new()
-	for definition in definitions():
-		var registration = registry.register(definition)
-		for issue in registration.issues:
-			report.add_issue(issue)
-	return report
+	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
 
 static func definitions() -> Array:
 	return _rule_breaker_definitions() + [_boss_reward_pool_definition()]

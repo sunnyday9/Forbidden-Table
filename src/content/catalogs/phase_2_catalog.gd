@@ -4,7 +4,6 @@ extends RefCounted
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
-const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
@@ -132,14 +131,11 @@ const BOSS_RULE_BREAKER_POOL_ID := "base.reward_pool.boss_rule_breaker"
 const SHOP_POOL_ID := "base.shop_pool.act_one"
 const WORKSHOP_POOL_ID := "base.workshop_pool.act_one"
 const POOL_IDS := [REWARD_POOL_ID, BOSS_RULE_BREAKER_POOL_ID, SHOP_POOL_ID, WORKSHOP_POOL_ID]
+const CONTENT_BUNDLE_ID := "phase2"
+const CONTENT_BUNDLE_VERSION := "v2"
 
 static func register_all(registry) -> RefCounted:
-	var report = ContentValidationReportScript.new()
-	for definition in definitions():
-		var registration = registry.register(definition)
-		for issue in registration.issues:
-			report.add_issue(issue)
-	return report
+	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
 
 static func definitions() -> Array:
 	var result: Array = []

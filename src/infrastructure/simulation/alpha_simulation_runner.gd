@@ -34,6 +34,7 @@ const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settl
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
+const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
 const MAX_DRAWS_PER_TURN := 16
 const POLICY_RULE_VERSION := "v5"
 
@@ -58,10 +59,11 @@ var _unavailable_content_paths: Array[String] = []
 func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit: int = 1024) -> Dictionary:
 	_reset_attempt(attempt_case, manifest_hash, command_limit)
 	var registry = ContentRegistryScript.new()
-	var registration_report = Phase2CatalogScript.register_all(registry)
-	var alpha_act_two_registration_report = AlphaActTwoCatalogScript.register_all(registry)
-	var scale_roster_gate := str(_attempt_case.get("gate_id", "")) in ["scale", "exit"]
-	var alpha_scale_registration_report = AlphaScaleCatalogScript.register_all(registry) if scale_roster_gate else null
+	var registration_reports: Dictionary = _register_content_bundles(registry, str(_attempt_case.get("gate_id", "")))
+	var registration_report = registration_reports.get("phase2")
+	var alpha_act_two_registration_report = registration_reports.get("act_two")
+	var scale_roster_gate := str(_attempt_case.get("gate_id", "")) in SCALE_ROSTER_GATE_IDS
+	var alpha_scale_registration_report = registration_reports.get("scale") if scale_roster_gate else null
 	var attempt_id := str(_attempt_case.get("attempt_id", "attempt.%05d" % int(_attempt_case.get("attempt_index", 0))))
 	var run_id := "alpha.%s.%s" % [str(_attempt_case.get("gate_id", "unknown")), attempt_id]
 	var seed := int(_attempt_case.get("seed", 0))
@@ -172,6 +174,23 @@ func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_lim
 
 static func is_unavailable_act_two_boss_reward(phase: String, act_index: int, act_count: int, reward_draft) -> bool:
 	return phase == RunPhaseScript.BOSS_REWARD and act_index == 2 and act_count >= 2 and reward_draft == null
+
+static func content_version_for_gate(gate_id: String) -> String:
+	var registry = ContentRegistryScript.new()
+	var registration_reports: Dictionary = _register_content_bundles(registry, gate_id)
+	for registration in registration_reports.values():
+		if registration == null or not registration.is_valid():
+			return ""
+	return registry.content_version()
+
+static func _register_content_bundles(registry, gate_id: String) -> Dictionary:
+	var registration_reports := {
+		"phase2": Phase2CatalogScript.register_all(registry),
+		"act_two": AlphaActTwoCatalogScript.register_all(registry),
+	}
+	if gate_id in SCALE_ROSTER_GATE_IDS:
+		registration_reports["scale"] = AlphaScaleCatalogScript.register_all(registry)
+	return registration_reports
 
 func _reset_initial_replay_checkpoint(domain) -> void:
 	domain.replay_record = ReplayRecordScript.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
