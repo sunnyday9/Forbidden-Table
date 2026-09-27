@@ -214,8 +214,120 @@ func _typed_content_actions(definition_script: Script, prefix: String, kind: Str
 		if definition.get_script() == definition_script:
 			if meta_progress_coordinator != null and not meta_progress_coordinator.is_unlocked(kind, definition.content_id):
 				continue
-			actions.append({"id": prefix + definition.content_id, "kind": kind, "target_id": definition.content_id, "details": {"content_id": definition.content_id}})
+			var details := {"content_id": definition.content_id}
+			if definition is ContractDefinitionScript:
+				details = _contract_action_details(definition)
+			actions.append({"id": prefix + definition.content_id, "kind": kind, "target_id": definition.content_id, "details": details})
 	return actions
+
+func _contract_action_details(definition: ContractDefinitionScript) -> Dictionary:
+	var contract_name := _pretty_service_name(str(definition.content_id).get_slice(".", str(definition.content_id).get_slice_count(".") - 1))
+	var yaku_signal: Variant = definition.reward.get("yaku_signal", "")
+	return {
+		"content_id": definition.content_id,
+		"contract_id": definition.content_id,
+		"name": contract_name,
+		"tradeoff_family": definition.tradeoff_family,
+		"risk": definition.risk.duplicate(true),
+		"reward": definition.reward.duplicate(true),
+		"build_bias": definition.build_bias.duplicate(true),
+		"risk_summary": _contract_effect_summary(definition.risk, "risk"),
+		"reward_summary": _contract_effect_summary(definition.reward, "reward"),
+		"build_bias_summary": _contract_build_bias_summary(definition.build_bias),
+		"yaku_signal": yaku_signal,
+		"yaku_signal_summary": _contract_yaku_signal_summary(yaku_signal),
+	}
+
+func _contract_effect_summary(values: Dictionary, category: String) -> String:
+	var entries := PackedStringArray()
+	var keys: Array = values.keys()
+	keys.sort()
+	for key in keys:
+		var field := str(key)
+		var value: Variant = values[key]
+		if category == "risk" and field == "visible":
+			continue
+		if category == "reward" and field == "yaku_signal":
+			continue
+		var summary := _contract_effect_entry(field, value, category)
+		if not summary.is_empty():
+			entries.append(summary)
+	if entries.is_empty():
+		return "No additional %s effects" % category
+	return "; ".join(entries)
+
+func _contract_effect_entry(field: String, value: Variant, category: String) -> String:
+	if category == "risk":
+		match field:
+			"pressure_per_battle": return "Take %s Pressure each battle" % str(value)
+			"initial_pressure_per_battle": return "Start each battle with %s Pressure" % str(value)
+			"normal_reward_off_suit_choice_cap":
+				return "No off-suit tiles in normal rewards" if int(value) == 0 else "Up to %s off-suit tile choices in normal rewards" % str(value)
+			"elite_skip_gold_penalty": return "Lose %s Gold when skipping an Elite reward" % str(value)
+			"workshop_refinement_gold_surcharge": return "Workshop Refinement costs %s extra Gold" % str(value)
+			"off_suit_pool_weight": return "Off-suit tile pool weight: %s" % str(value)
+			"composition_cost": return "Higher pool composition cost" if bool(value) else ""
+			"gold": return "Pay %s Gold" % str(value)
+			"route_cost": return "Route opportunity cost" if bool(value) else ""
+	else:
+		match field:
+			"starting_tp_per_battle": return "Gain %s TP at each battle start" % str(value)
+			"refinement_tokens_on_elite_skip": return "Gain %s when skipping an Elite reward" % _counted_name(value, "Refinement Token", "Refinement Tokens")
+			"reward_tile_suit_bias": return "Tile rewards favor %s" % _pretty_service_name(str(value))
+			"tp": return "Gain %s TP" % str(value)
+			"tempo": return "Tempo benefit" if bool(value) else ""
+			"starting_bias": return "Starting tile bias favors %s" % _pretty_service_name(str(value))
+			"refinement_tokens": return "Gain %s" % _counted_name(value, "Refinement Token", "Refinement Tokens")
+			"map_opportunity": return "Extra map opportunity" if bool(value) else ""
+			"refinement_tokens_on_contract_selection": return "Gain %s on Contract selection" % _counted_name(value, "Refinement Token", "Refinement Tokens")
+			"extra_modified_tile_choice": return "One extra Modified Tile option" if bool(value) else ""
+	return _contract_generic_effect_entry(field, value)
+
+func _contract_generic_effect_entry(field: String, value: Variant) -> String:
+	var label := _pretty_service_name(field)
+	if typeof(value) == TYPE_BOOL:
+		return label if bool(value) else ""
+	if value is Array:
+		var readable_values := PackedStringArray()
+		for item in value:
+			readable_values.append(_pretty_service_name(str(item)))
+		return "%s: %s" % [label, ", ".join(readable_values)]
+	return "%s: %s" % [label, str(value)]
+
+func _counted_name(value: Variant, singular: String, plural: String) -> String:
+	var count := int(value)
+	return "%d %s" % [count, singular if count == 1 else plural]
+
+func _contract_build_bias_summary(build_bias: Dictionary) -> String:
+	var entries := PackedStringArray()
+	var path := str(build_bias.get("path", ""))
+	if not path.is_empty():
+		entries.append("%s path" % _pretty_service_name(path))
+	var flexibility := str(build_bias.get("flexibility", ""))
+	if not flexibility.is_empty():
+		entries.append("%s flexibility" % _pretty_service_name(flexibility))
+	var preferred_tile_ids: Variant = build_bias.get("preferred_tile_ids", [])
+	if preferred_tile_ids is Array and not preferred_tile_ids.is_empty():
+		var preferred_tiles := PackedStringArray()
+		for tile_id in preferred_tile_ids:
+			preferred_tiles.append(_contract_preferred_tile_name(str(tile_id)))
+		entries.append("favors %s" % ", ".join(preferred_tiles))
+	return "; ".join(entries) if not entries.is_empty() else "No specific Tile Pool bias"
+
+func _contract_preferred_tile_name(tile_id: String) -> String:
+	var definition = domain.content_registry.resolve(tile_id)
+	if definition is TileDefinitionScript:
+		if definition.suit == "honors":
+			return _pretty_service_name(tile_id.get_slice(".", tile_id.get_slice_count(".") - 1))
+		return "%s %d" % [_pretty_service_name(definition.suit), int(definition.rank)]
+	return _pretty_service_name(tile_id.get_slice(".", tile_id.get_slice_count(".") - 1))
+
+func _contract_yaku_signal_summary(signal_value: Variant) -> String:
+	if typeof(signal_value) == TYPE_STRING and not str(signal_value).is_empty():
+		return _pretty_service_name(str(signal_value))
+	if typeof(signal_value) == TYPE_BOOL and bool(signal_value):
+		return "General Yaku support"
+	return "No specific Yaku signal"
 
 func _map_actions() -> Array:
 	var actions: Array = []

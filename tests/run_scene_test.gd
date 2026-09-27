@@ -7,11 +7,16 @@ const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_p
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
+const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
+const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_launch_scene_uses_the_two_act_presentation_flow(failures)
+	test_contract_choices_explain_alpha_tradeoffs(failures)
 	test_invalid_catalogs_block_run_start(failures)
 	test_pre_mvp_scene_has_no_device_capture_ui(failures)
 	test_rejected_profile_is_explained_and_can_be_reset(failures)
@@ -51,6 +56,52 @@ func test_launch_scene_uses_the_two_act_presentation_flow(failures: Array[String
 	assert_true(project_config.contains("res://scenes/run/run_scene.tscn"), "project main scene points to the playable Run scene", failures)
 	var replay_report = scene.controller.domain.verify_replay()
 	assert_true(replay_report.status == "MATCH", "the candidate starting profile remains inside accepted-command replay", failures)
+	scene.free()
+
+func test_contract_choices_explain_alpha_tradeoffs(failures: Array[String]) -> void:
+	var registry = ContentRegistryScript.new()
+	Phase2CatalogScript.register_all(registry)
+	AlphaScaleCatalogScript.register_all(registry)
+	var domain = RunDomainScript.new("run.scene.contract_details", 601, registry)
+	domain.unlock_policy = MetaProgressStateScript.all_unlocked_test_profile()
+	var controller = RunPresentationControllerScript.new(domain)
+	var scene = RunScene.instantiate()
+	var character_result = controller.confirm("character:base.character.sequence")
+	assert_true(character_result.accepted, "Contract detail fixture reaches Contract selection", failures)
+	var contract_actions: Array = controller.action_descriptors()
+	var expected_names := {
+		"alpha.contract.quiet_current": "Quiet Current",
+		"alpha.contract.open_ledger": "Open Ledger",
+		"alpha.contract.brittle_compass": "Brittle Compass",
+	}
+	for contract_id in expected_names:
+		var matching_actions: Array = contract_actions.filter(func(action): return action.get("id", "") == "contract:%s" % contract_id)
+		assert_true(matching_actions.size() == 1, "%s remains one stable selectable Contract action" % contract_id, failures)
+		if matching_actions.is_empty():
+			continue
+		var action: Dictionary = matching_actions[0]
+		var details: Dictionary = action.get("details", {})
+		assert_true(details.get("name", "") == expected_names[contract_id], "%s presents its readable name" % contract_id, failures)
+		assert_true(not str(details.get("risk_summary", "")).is_empty(), "%s explains its risk before selection" % contract_id, failures)
+		assert_true(not str(details.get("reward_summary", "")).is_empty(), "%s explains its reward before selection" % contract_id, failures)
+		assert_true(not str(details.get("build_bias_summary", "")).is_empty(), "%s explains its build bias before selection" % contract_id, failures)
+		assert_true(details.has("yaku_signal_summary"), "%s declares its Yaku signal or its absence" % contract_id, failures)
+		var label: String = scene._action_label(action)
+		assert_true(label.contains(expected_names[contract_id]), "%s name is visible on its selection button" % contract_id, failures)
+		assert_true(label.contains(str(details.get("risk_summary", ""))) and label.contains(str(details.get("reward_summary", ""))), "%s button includes readable risk and reward summaries" % contract_id, failures)
+		var tooltip: String = scene._action_tooltip(action)
+		assert_true(tooltip.contains("Build bias:") and tooltip.contains(str(details.get("build_bias_summary", ""))), "%s details show its build bias" % contract_id, failures)
+		assert_true(tooltip.contains("Yaku signal:") and tooltip.contains(str(details.get("yaku_signal_summary", ""))), "%s details show its Yaku signal" % contract_id, failures)
+
+	var open_ledger_actions: Array = contract_actions.filter(func(action): return action.get("id", "") == "contract:alpha.contract.open_ledger")
+	if not open_ledger_actions.is_empty():
+		var open_ledger_details: Dictionary = open_ledger_actions[0].details
+		assert_true(open_ledger_details.get("yaku_signal", "") == "Sequence", "Open Ledger preserves its typed Sequence Yaku signal", failures)
+		assert_true(str(open_ledger_details.get("build_bias_summary", "")).contains("Characters 4") and str(open_ledger_details.get("build_bias_summary", "")).contains("Characters 6"), "Open Ledger explains its preferred Characters 4–6 build", failures)
+	var phase_two_action = contract_actions.filter(func(action): return action.get("id", "") == "contract:base.contract.pressure")[0]
+	assert_true(not str(phase_two_action.get("details", {}).get("risk_summary", "")).is_empty(), "Phase 2 Contracts receive the same readable detail format", failures)
+	var selected = controller.confirm("contract:alpha.contract.open_ledger")
+	assert_true(selected.accepted and domain.state.contract_id == "alpha.contract.open_ledger", "a detailed Contract remains selectable through its stable action ID", failures)
 	scene.free()
 
 func test_pre_mvp_scene_has_no_device_capture_ui(failures: Array[String]) -> void:

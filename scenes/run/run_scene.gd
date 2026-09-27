@@ -352,7 +352,7 @@ func _action_label(action: Dictionary) -> String:
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	match kind:
 		"CHARACTER": return "Choose Character — %s" % _pretty_id(target)
-		"CONTRACT": return "Choose Contract — %s" % str(details.get("name", _pretty_id(target)))
+		"CONTRACT": return _contract_action_label(details, target)
 		"MAP_NODE": return "%s — %s" % [_pretty_words(str(action.get("node_kind", "Map"))), _pretty_id(target)]
 		"DRAW": return "Draw tile"
 		"END_TURN": return "End turn (resolve enemy intent)"
@@ -423,9 +423,11 @@ func _workshop_action_label(action: Dictionary, details: Dictionary) -> String:
 	return "Workshop — %s" % _pretty_words(service_id)
 
 func _action_tooltip(action: Dictionary) -> String:
+	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
+	if action.get("kind", "") == "CONTRACT":
+		return _contract_action_details_text(details, str(action.get("target_id", "")))
 	if action.get("kind", "") != "WORKSHOP_SERVICE":
 		return JSON.stringify(action.get("details", {}))
-	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	var service_id := str(action.get("service_id", action.get("target_id", "")))
 	var tile_definition_id := str(details.get("tile_definition_id", ""))
 	var lines := PackedStringArray()
@@ -443,6 +445,20 @@ func _action_tooltip(action: Dictionary) -> String:
 	if service_id == "REFINEMENT_TOKEN":
 		lines.append("Also consumes: 1 Refinement Token")
 	return "\n".join(lines)
+
+func _contract_action_label(details: Dictionary, target_id: String) -> String:
+	var contract_name := str(details.get("name", _pretty_id(target_id)))
+	var risk := str(details.get("risk_summary", "No risk details available"))
+	var reward := str(details.get("reward_summary", "No reward details available"))
+	return "Choose Contract — %s\nRisk: %s\nReward: %s" % [contract_name, risk, reward]
+
+func _contract_action_details_text(details: Dictionary, target_id: String) -> String:
+	var contract_name := str(details.get("name", _pretty_id(target_id)))
+	var risk := str(details.get("risk_summary", "No risk details available"))
+	var reward := str(details.get("reward_summary", "No reward details available"))
+	var build_bias := str(details.get("build_bias_summary", "No specific Tile Pool bias"))
+	var yaku_signal := str(details.get("yaku_signal_summary", "No specific Yaku signal"))
+	return "%s\nRisk: %s\nReward: %s\nBuild bias: %s\nYaku signal: %s" % [contract_name, risk, reward, build_bias, yaku_signal]
 
 func _join_strings(values: Array) -> String:
 	var result := PackedStringArray()
