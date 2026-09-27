@@ -7,6 +7,7 @@ const ContentDefinition = preload("res://src/content/definitions/content_definit
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const Effect = preload("res://src/domain/effects/effect.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
@@ -33,6 +34,7 @@ func run() -> Array[String]:
 	test_boss_exposes_the_three_public_phases(failures)
 	test_boss_reward_rule_breakers_are_registered_and_typed(failures)
 	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
+	test_act_two_encounters_events_and_map_payloads_are_typed(failures)
 	test_content_version_identifies_registered_catalog_bundles(failures)
 	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
@@ -247,11 +249,105 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 
 	assert_true(phase2_version == ContentRegistry.CONTENT_VERSION, "the Phase 2 content bundle keeps its v2 migration identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v2"), "the Act 2 bundle versions its new encounter, Event, and map content", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
+
+func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	var registration = AlphaActTwoCatalog.register_all(registry)
+	assert_true(registration.is_valid(), "the expanded Act 2 content bundle registers without changing Act 1 IDs", failures)
+
+	var expected_normal_enemy_ids := [
+		"alpha.enemy.act_two.tollkeeper",
+		"alpha.enemy.act_two.afterimage",
+		"alpha.enemy.act_two.pressure_warden",
+		"alpha.enemy.act_two.wall_eater",
+	]
+	for enemy_id in expected_normal_enemy_ids:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition, "%s resolves to an Act 2 EnemyDefinition" % enemy_id, failures)
+		if enemy is EnemyDefinition:
+			assert_true(enemy.role == EnemyDefinition.NORMAL, "%s is an Act 2 Normal enemy" % enemy_id, failures)
+			assert_true(enemy.intent_graph is IntentGraph and enemy.intent_graph.validation().is_valid(), "%s has a valid Act 2 Intent Graph" % enemy_id, failures)
+	for enemy_id in ["alpha.enemy.act_two.elite.ledger_mimic", "alpha.boss.act_two.final_index"]:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition, "%s resolves to an Act 2 EnemyDefinition" % enemy_id, failures)
+	if registry.resolve("alpha.enemy.act_two.elite.ledger_mimic") is EnemyDefinition:
+		assert_true(registry.resolve("alpha.enemy.act_two.elite.ledger_mimic").role == EnemyDefinition.ELITE, "the Act 2 Elite has the matching role", failures)
+	var afterimage = registry.resolve("alpha.enemy.act_two.afterimage")
+	if afterimage is EnemyDefinition:
+		var repeat_intent = afterimage.intent_graph.intent("act_two.afterimage.repeat")
+		assert_true(
+			repeat_intent.action_type == "AUDIT",
+			"Afterimage uses an existing typed intent identity",
+			failures,
+		)
+		var copied_graph = IntentGraph.from_intent_loop(afterimage.intent_graph.intents())
+		var copied_repeat = copied_graph.intent("act_two.afterimage.repeat")
+		assert_true(copied_repeat.action_type == repeat_intent.action_type, "IntentGraph copies retain the authored Act 2 action type", failures)
+	var wall_eater = registry.resolve("alpha.enemy.act_two.wall_eater")
+	if wall_eater is EnemyDefinition:
+		var consume_intent = wall_eater.intent_graph.intent("act_two.wall_eater.consume")
+		assert_true(consume_intent.action_type == "WALL_TAX", "Wall Eater uses the existing Wall Tax intent identity", failures)
+	var ledger_mimic = registry.resolve("alpha.enemy.act_two.elite.ledger_mimic")
+	if ledger_mimic is EnemyDefinition:
+		var mirror_intent = ledger_mimic.intent_graph.intent("act_two.ledger_mimic.mirror")
+		assert_true(mirror_intent.action_type == "INTEGRITY", "Ledger Mimic uses the existing Integrity intent identity", failures)
+	var act_two_boss = registry.resolve("alpha.boss.act_two.final_index")
+	assert_true(act_two_boss is EnemyDefinition and act_two_boss.role == EnemyDefinition.BOSS, "the Act 2 Boss has the matching role", failures)
+	if act_two_boss is EnemyDefinition:
+		assert_true(act_two_boss.boss_phases.size() >= 3, "the Act 2 Boss has multiple public phases", failures)
+		var mark_intent = act_two_boss.boss_phases[0].intent_graph.intent("act_two.final_index.catalogue.mark")
+		assert_true(mark_intent.action_type == "TABLE_INTERFERENCE", "the Act 2 Boss uses an existing Table Interference intent identity", failures)
+
+	var expected_event_ids := [
+		"alpha.event.act_two.tile_surgery",
+		"alpha.event.act_two.risk_bargain",
+		"alpha.event.act_two.gold_exchange",
+		"alpha.event.act_two.map_reveal",
+		"alpha.event.act_two.contract_clause",
+		"alpha.event.act_two.rule_memory",
+	]
+	for event_id in expected_event_ids:
+		var event = registry.resolve(event_id)
+		assert_true(event is EventDefinition and event.choices.size() >= 2, "%s resolves to a typed Act 2 Event" % event_id, failures)
+		if event is EventDefinition:
+			assert_true(event.validate().is_valid(), "%s declares valid stable choices and effects" % event_id, failures)
+
+	var map_definition = MiniActMapCatalog.act_two_definition()
+	var mapped_enemy_ids: Dictionary = {}
+	var mapped_event_ids: Dictionary = {}
+	for node_id in map_definition.node_ids:
+		var node = map_definition.node_definition(node_id)
+		if node.node_kind in ["BATTLE", "ELITE", "BOSS"]:
+			for encounter_id in node.payload_options:
+				var encounter = registry.resolve(encounter_id)
+				assert_true(encounter is EncounterDefinition, "%s resolves to an Act 2 EncounterDefinition" % encounter_id, failures)
+				if encounter is EncounterDefinition:
+					assert_true(encounter_id.begins_with("alpha.encounter.act_two."), "%s is an Act 2 map binding" % encounter_id, failures)
+					for enemy_id in encounter.enemy_ids:
+						mapped_enemy_ids[enemy_id] = true
+		if node.node_kind == "EVENT":
+			for event_id in node.payload_options:
+				var event = registry.resolve(event_id)
+				assert_true(event is EventDefinition, "%s resolves to a typed Act 2 EventDefinition" % event_id, failures)
+				assert_true(event_id.begins_with("alpha.event.act_two."), "%s is an Act 2 map binding" % event_id, failures)
+				mapped_event_ids[event_id] = true
+	var sorted_mapped_enemies: Array = mapped_enemy_ids.keys()
+	sorted_mapped_enemies.sort()
+	var expected_enemies := expected_normal_enemy_ids + ["alpha.enemy.act_two.elite.ledger_mimic", "alpha.boss.act_two.final_index"]
+	expected_enemies.sort()
+	assert_true(sorted_mapped_enemies == expected_enemies, "the Act 2 Map reaches exactly its four Normal enemies, Elite, and Boss", failures)
+	var sorted_mapped_events: Array = mapped_event_ids.keys()
+	sorted_mapped_events.sort()
+	expected_event_ids.sort()
+	assert_true(sorted_mapped_events == expected_event_ids, "the Act 2 Event nodes expose all six existing Event families", failures)
+	assert_true(registry.validate().is_valid(), "all Act 2 map payload references pass typed registry validation", failures)
 
 func test_failed_catalog_registration_does_not_change_bundle_identity(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

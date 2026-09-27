@@ -19,6 +19,7 @@ func run() -> Array[String]:
 	test_runner_emits_a_real_replayable_run_attempt(failures)
 	test_runner_content_version_tracks_conditional_scale_bundle(failures)
 	test_complete_policy_completes_real_two_act_run_and_reward_flow(failures)
+	test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures)
 	test_runner_ends_turn_when_draw_sources_are_empty(failures)
 	test_service_route_reaches_a_workshop(failures)
 	return failures
@@ -232,20 +233,20 @@ func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array
 	assert_true(scale_version == AlphaSimulationRunnerScript.content_version_for_gate("scale"), "the Scale manifest identity matches the run's registered bundles", failures)
 
 func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: Array[String]) -> void:
-	# Seed 57028 is a valid Act 1 defeat with three Draw Actions per turn; this seed retains the full two-Act coverage.
+	# Act 2's new encounter package makes this a new v4 workload; v3 timing is not directly comparable.
 	var attempt_case := {
 		"attempt_id": "readiness.00002",
 		"attempt_index": 1,
 		"gate_id": "readiness",
-		"seed": 57001,
+		"seed": 57002,
 		"policy_id": "Complete",
 		"character_id": "base.character.reserve",
 		"contract_id": "base.contract.pool_bias",
 		"route_id": "SERVICE",
 		"starting_pool_fixture_id": AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID,
 	}
-	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57001", 1024)
-	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57001", 1024)
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57002", 1024)
+	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.seed-57002", 1024)
 	var commands: Array = attempt.get("accepted_commands", [])
 	var checkpoints: Array = attempt.get("checkpoints", [])
 	var second_phase_checkpoint := -1
@@ -377,6 +378,55 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 		"repeating the full fixed-seed policy attempt reproduces its commands, checkpoints, RNG states, events, and outcome",
 		failures,
 	)
+
+func test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures: Array[String]) -> void:
+	var attempt_case := {
+		"attempt_id": "readiness.act-two-defeat.57001",
+		"attempt_index": 0,
+		"gate_id": "readiness",
+		"seed": 57001,
+		"policy_id": "Complete",
+		"character_id": "base.character.reserve",
+		"contract_id": "base.contract.pool_bias",
+		"route_id": "SERVICE",
+		"starting_pool_fixture_id": AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID,
+	}
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-defeat.seed-57001", 1024)
+	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-defeat.seed-57001", 1024)
+	var commands: Array = attempt.get("accepted_commands", [])
+	var checkpoints: Array = attempt.get("checkpoints", [])
+	var in_act_two := false
+	var act_two_elite_defeat := false
+	var draw_budget_respected := checkpoints.size() == commands.size() + 1
+	if checkpoints.size() == commands.size() + 1:
+		for index in range(commands.size()):
+			if str(commands[index].get("command_type", "")) == "Draw":
+				var battle_snapshot: Dictionary = checkpoints[index + 1].get("domain_snapshot", {}).get("data", {}).get("run_state", {}).get("current_battle_snapshot", {})
+				var combat_state: Dictionary = battle_snapshot.get("combat_state", {})
+				var used_actions := int(combat_state.get("draw_actions_used_this_turn", 0))
+				var draw_capacity := int(combat_state.get("draw_capacity", 0))
+				if used_actions < 1 or used_actions > draw_capacity:
+					draw_budget_respected = false
+		for checkpoint_index in range(1, checkpoints.size()):
+			for event in checkpoints[checkpoint_index].get("domain_events", []):
+				if not event is Dictionary:
+					continue
+				var event_type := str(event.get("event_type", ""))
+				var event_data: Dictionary = event.get("data", {})
+				if event_type == "ActTransitioned" and int(event_data.get("to_act", 0)) == 2:
+					in_act_two = true
+				elif in_act_two and event_type == "BattleOutcomeTransferred":
+					act_two_elite_defeat = (
+						str(event_data.get("encounter_kind", "")) == "ELITE"
+						and str(event_data.get("outcome", "")) == "DEFEAT"
+					)
+	assert_true(attempt.get("terminal", false) and attempt.get("outcome", "") == "DEFEAT", "seed 57001 records a terminal legal Act 2 defeat under the new encounter package", failures)
+	assert_true(int(attempt.get("act_reached", 0)) == 2 and act_two_elite_defeat, "seed 57001 reaches and loses to its Act 2 Elite encounter", failures)
+	assert_true(attempt.get("failure_classification", "") == "NONE", "seed 57001's defeat is a gameplay outcome rather than a harness failure", failures)
+	assert_true(attempt.get("replay_status", "") == "MATCH", "seed 57001's accepted-command trace replays exactly", failures)
+	assert_true(attempt.get("authoritative_state_validation_status", "") == "VALID", "seed 57001's terminal defeat has a valid authoritative stable state", failures)
+	assert_true(draw_budget_respected, "every accepted Draw in seed 57001 stays within its combat Draw Action capacity", failures)
+	assert_true(AlphaAttemptComparatorScript.compare(attempt, repeated_attempt).get("matches", false), "repeating seed 57001 reproduces its defeat and accepted trace", failures)
 
 func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) -> void:
 	var attempt_case := {

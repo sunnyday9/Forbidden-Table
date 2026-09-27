@@ -5,6 +5,7 @@ const ContentRegistry = preload("res://src/content/registry/content_registry.gd"
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
@@ -43,6 +44,7 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_authored_graph_is_bounded_and_route_safe(failures)
 	test_act_two_authored_graph_meets_the_same_topology_contract(failures)
+	test_act_two_map_payload_starts_its_authored_encounter(failures)
 	test_contract_choice_initializes_visible_deterministic_map(failures)
 	test_valid_route_reaches_boss_and_records_stable_edge_path(failures)
 	test_every_authored_route_reaches_boss(failures)
@@ -182,6 +184,7 @@ func test_act_transition_carries_run_effects_and_clears_act_interactions(failure
 func test_act_two_map_identity_round_trips_at_stable_boundary(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
+	_register_act_two_encounter_content(registry)
 	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(
 		Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot(),
 		registry,
@@ -318,6 +321,52 @@ func test_act_two_authored_graph_meets_the_same_topology_contract(failures: Arra
 	assert_true(definition.branch_decision_count_before("base.map_node.act_two.elite") >= 2, "Act 2 has meaningful branches before the Elite", failures)
 	assert_true(definition.has_route_through(["base.map_node.act_two.shop", "base.map_node.act_two.workshop"], "base.map_node.act_two.boss"), "an Act 2 route exposes both services before the Boss", failures)
 	assert_true(definition.node_ids.filter(func(node_id: String): return act_one.node_ids.has(node_id)).is_empty(), "Act 2 node IDs are distinct from the preserved Act 1 topology", failures)
+	for node_id in definition.node_ids:
+		var node = definition.node_definition(node_id)
+		if node.node_kind in ["BATTLE", "ELITE", "BOSS"]:
+			assert_true(node.content_reference_id.begins_with("alpha.encounter.act_two."), "%s binds an Act 2 encounter" % node_id, failures)
+		if node.node_kind == "EVENT":
+			assert_true(node.content_reference_id.begins_with("alpha.event.act_two."), "%s binds an Act 2 Event" % node_id, failures)
+
+func test_act_two_map_payload_starts_its_authored_encounter(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var domain := RunDomain.new("map.act-two.payload", 902, registry, "", null, 2)
+	domain.execute(ChooseCharacterCommand.new("map.act-two.payload.character", "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("map.act-two.payload.contract", "base.contract.pressure"))
+	domain.state.act_index = 2
+	domain.map_definition = MiniActMapCatalog.act_two_definition()
+	domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
+	domain.state.phase = RunPhase.MAP_CHOICE
+	var repeated_domain := RunDomain.new("map.act-two.payload.repeated", 902, registry, "", null, 2)
+	repeated_domain.execute(ChooseCharacterCommand.new("map.act-two.payload.repeated.character", "base.character.sequence"))
+	repeated_domain.execute(ChooseContractCommand.new("map.act-two.payload.repeated.contract", "base.contract.pressure"))
+	repeated_domain.state.act_index = 2
+	repeated_domain.map_definition = MiniActMapCatalog.act_two_definition()
+	repeated_domain.state.map_state.initialize(repeated_domain.map_definition, repeated_domain.rng_streams.map)
+	repeated_domain.state.phase = RunPhase.MAP_CHOICE
+	assert_true(domain.state.map_state.payload_ids == repeated_domain.state.map_state.payload_ids, "same-seed Act 2 initialization selects identical encounter and Event payloads", failures)
+	var intro_node_id: String = domain.map_definition.start_node_id
+	assert_true(domain.state.map_state.current_node_id == intro_node_id, "the Act 2 mandatory entry starts at its authored node", failures)
+	var selected_node_id := "base.map_node.act_two.normal.left"
+	var encounter_id := str(domain.state.map_state.payload_ids[selected_node_id])
+	var selected = domain.execute(SelectMapNodeCommand.new("map.act-two.payload.left", selected_node_id))
+	assert_true(selected.accepted, "the Act 2 first battle node is selectable through RunDomain (%s: %s)" % [selected.validation.code, selected.validation.message], failures)
+	assert_true(encounter_id.begins_with("alpha.encounter.act_two."), "the visible Act 2 payload points to its authored encounter package", failures)
+	assert_true(domain.current_battle != null, "selecting the Act 2 entry payload creates a Battle", failures)
+	if domain.current_battle != null:
+		assert_true(domain.current_battle.encounter_id == encounter_id, "the reached Battle uses the map's selected Act 2 encounter identity", failures)
+		assert_true(domain.current_battle.enemy_definition.content_id == "alpha.enemy.act_two.afterimage", "the reached Act 2 Normal encounter uses its unique enemy", failures)
+	var boss_node = domain.map_definition.node_definition("base.map_node.act_two.boss")
+	var boss_encounter_id := str(boss_node.payload_options[0])
+	var boss_validation: Dictionary = domain.encounter_factory.validate(domain.state, boss_encounter_id, "BOSS")
+	assert_true(boss_validation.get("accepted", false), "the Act 2 Boss encounter passes EncounterFactory validation (%s: %s)" % [boss_validation.get("status", ""), boss_validation.get("message", "")], failures)
+	var boss_battle = domain.encounter_factory.create(domain.state, boss_encounter_id, domain.rng_streams, "BOSS")
+	assert_true(boss_battle != null, "the Act 2 Boss encounter creates through EncounterFactory", failures)
+	if boss_battle != null:
+		assert_true(boss_battle.enemy_definition.content_id == "alpha.boss.act_two.final_index", "the Act 2 Boss payload resolves to its own EnemyDefinition", failures)
+		assert_true(boss_battle.combat_state.boss_phase_count >= 3, "the Act 2 Boss installs its multi-phase combat state", failures)
 
 func test_contract_choice_initializes_visible_deterministic_map(failures: Array[String]) -> void:
 	var domain := _prepared_domain("map.visibility", 101)
@@ -431,6 +480,11 @@ func _registry() -> ContentRegistry:
 	))
 	registry.register(ContractDefinition.new("base.contract.pressure", ContractDefinition.PRESSURE, {"pressure": 1}, {"draw_actions": 1}))
 	return registry
+
+func _register_act_two_encounter_content(registry: ContentRegistry) -> void:
+	for definition in AlphaActTwoCatalog.definitions():
+		if definition.definition_type_name() in ["EnemyDefinition", "EncounterDefinition"]:
+			registry.register(definition)
 
 func _has_event(events: Array, event_type: String) -> bool:
 	for event in events:
