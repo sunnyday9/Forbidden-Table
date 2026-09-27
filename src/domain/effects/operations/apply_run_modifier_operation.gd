@@ -30,9 +30,10 @@ func _init(
 	parameters = modifier_parameters.duplicate(true)
 
 func validate(context, _targets: Dictionary) -> String:
-	if not _has_state(context):
+	var run_state = _run_state(context)
+	if run_state == null:
 		return "NO_STATE"
-	if not context.state.has_method("active_modifier") or not context.state.active_effects is Dictionary:
+	if not run_state.has_method("active_modifier") or not run_state.active_effects is Dictionary:
 		return "RUN_STATE_REQUIRED"
 	if modifier_id.is_empty():
 		return "INVALID_MODIFIER_ID"
@@ -47,15 +48,23 @@ func validate(context, _targets: Dictionary) -> String:
 		StackPolicyScript.UNIQUE,
 	].has(stack_policy):
 		return "INVALID_MODIFIER_STACK_POLICY"
-	return LifecycleResolverScript.new().can_apply(context.state, _effect_id(), duration_spec, stack_policy)
+	return LifecycleResolverScript.new().can_apply(run_state, _effect_id(), duration_spec, stack_policy)
 
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
+	var run_state = _run_state(context)
+	if run_state == null:
+		return [_event(DomainEventScript.EFFECT_REJECTED, {
+			"effect_id": effect_id,
+			"operation_id": operation_id,
+			"reason": "NO_RUN_STATE",
+			"sequence_index": sequence_index,
+		})]
 	var lifecycle := LifecycleResolverScript.new()
 	var resolved_source_id := source_id
-	if resolved_source_id.is_empty() and context.state != null:
-		resolved_source_id = str(context.state.get("contract_id"))
+	if resolved_source_id.is_empty():
+		resolved_source_id = str(run_state.get("contract_id"))
 	var events := lifecycle.apply_effect(
-		context.state,
+		run_state,
 		_effect_id(),
 		duration_spec,
 		stack_policy,
@@ -66,7 +75,7 @@ func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String
 		0,
 		sequence_index,
 	)
-	var instance = lifecycle.active_effect(context.state, _effect_id())
+	var instance = lifecycle.active_effect(run_state, _effect_id())
 	if instance != null:
 		instance.runtime_parameters = parameters.duplicate(true)
 		instance.runtime_parameters["modifier_id"] = modifier_id
@@ -96,3 +105,8 @@ func to_dictionary() -> Dictionary:
 
 func _effect_id() -> String:
 	return "run.modifier.%s" % modifier_id
+
+func _run_state(context):
+	if context == null:
+		return null
+	return context.run_state if context.get("run_state") != null else context.state

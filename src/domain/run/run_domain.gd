@@ -276,6 +276,7 @@ func execute_select_map_node(selected_node_id: String) -> Dictionary:
 			"encounter_kind": battle.encounter_kind,
 			"enemy_ids": battle.context.enemy_ids,
 		}))
+		events.append_array(battle.battle_start_effect_events)
 		events.append(_run_phase_event(RunPhaseScript.MAP_CHOICE, state.phase))
 		state.current_battle_snapshot = RunBattleSnapshotScript.new(battle.checkpoint())
 	state.map_state.last_events = events

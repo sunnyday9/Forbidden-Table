@@ -45,6 +45,8 @@ var encounter_definition
 var enemy_definition
 var enemy_definitions: Array
 var context
+var battle_start_effect_events: Array = []
+var build_effect_resolver
 var contamination_service
 var _battle_end_cleaned := false
 
@@ -90,6 +92,7 @@ func _init(
 	enemy_definition = null
 	enemy_definitions = []
 	context = null
+	battle_start_effect_events = []
 	recovery_state = RecoveryStateScript.new(domain_normal_hand_baseline, domain_recovery_baseline)
 	_complete_hand_conversion_profile = _build_complete_hand_conversion_profile()
 	if reserve_service == null and tile_actions != null:
@@ -299,6 +302,9 @@ func validate_settlement(selected_instance_ids: Array) -> RefCounted:
 			"The selected Pattern was rejected.",
 			{"reason": selection_result.status if selection_result != null else "INVALID_SELECTION"},
 		)
+	var effect_validation := _validate_tile_modifier_effects(selected_instance_ids)
+	if not effect_validation.is_valid():
+		return effect_validation
 	return CommandValidationScript.new(true)
 
 func validate_settlement_candidate(candidate_id: String) -> RefCounted:
@@ -316,6 +322,9 @@ func validate_settlement_candidate(candidate_id: String) -> RefCounted:
 			"The selected Pattern was rejected.",
 			{"reason": selection_result.status if selection_result != null else "INVALID_SELECTION"},
 		)
+	var effect_validation := _validate_tile_modifier_effects(_tile_instance_ids_for_candidate(candidate_id))
+	if not effect_validation.is_valid():
+		return effect_validation
 	return CommandValidationScript.new(true)
 
 func complete_hand_interpretations() -> Array:
@@ -339,9 +348,16 @@ func validate_complete_hand(interpretation_id: String) -> RefCounted:
 		return CommandValidationScript.new(false, "INVALID_INTERPRETATION", "The selected Complete Hand interpretation is not available.")
 	if not _valid_complete_hand_destination():
 		return CommandValidationScript.new(false, "INVALID_DESTINATION", "The Complete Hand destination policy is invalid.")
+	var settled_ids: Array[String] = []
+	for tile_instance in interpretation.tile_instances:
+		settled_ids.append(tile_instance.instance_id)
+	var effect_validation := _validate_tile_modifier_effects(settled_ids)
+	if not effect_validation.is_valid():
+		return effect_validation
 	return CommandValidationScript.new(true)
 
 func execute_complete_hand(interpretation_id: String) -> Dictionary:
+	var transaction := _capture_build_effect_transaction()
 	var interpretation = _complete_hand_by_id(interpretation_id)
 	if interpretation == null:
 		return {"accepted": false, "status": CompleteHandSettlementResultScript.INVALID_INTERPRETATION}
@@ -355,6 +371,10 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 				zones.transfer(moved_id, complete_hand_destination, TileZoneScript.HAND)
 			return {"accepted": false, "status": CompleteHandSettlementResultScript.TRANSFER_FAILED}
 		settled_ids.append(tile_instance.instance_id)
+	var build_effect_result: Dictionary = settlement_turn.resolve_tile_modifier_effects(settled_ids)
+	if not build_effect_result.get("accepted", false):
+		_restore_build_effect_transaction(transaction)
+		return {"accepted": false, "status": "BUILD_EFFECT_REJECTED", "message": "A Tile Modifier effect was rejected during Complete Hand resolution."}
 
 	var score_result = score_resolver.resolve_complete_hand(interpretation, hand_yaku_resolver, _yaku_state()) if score_resolver != null and score_resolver.has_method("resolve_complete_hand") else score_resolver.resolve(interpretation)
 	var combat_output = conversion_resolver.resolve(score_result, _complete_hand_conversion_profile, combat_state.to_dictionary())
@@ -371,6 +391,7 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 		"destination": complete_hand_destination,
 		"score": score_result.total,
 	})]
+	events.append_array(build_effect_result.get("events", []))
 	events.append_array(combat_result.events)
 	var recovery_baseline: int = recovery_state.recovery_baseline
 	events.append(DomainEventScript.new(DomainEventScript.COMPLETE_HAND_REBUILD_STARTED, {
@@ -408,14 +429,21 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 	}
 
 func execute_settlement(selected_instance_ids: Array) -> Dictionary:
+	var transaction := _capture_build_effect_transaction()
 	var turn_result = settlement_turn.resolve_partial_settlement(selected_instance_ids)
-	return _execute_settlement_result(turn_result)
+	return _execute_settlement_result(turn_result, transaction)
 
 func execute_settlement_candidate(candidate_id: String) -> Dictionary:
+	var transaction := _capture_build_effect_transaction()
 	var turn_result = settlement_turn.resolve_partial_settlement_candidate(candidate_id)
-	return _execute_settlement_result(turn_result)
+	return _execute_settlement_result(turn_result, transaction)
 
-func _execute_settlement_result(turn_result) -> Dictionary:
+func _execute_settlement_result(turn_result, transaction: Dictionary = {}) -> Dictionary:
+	if turn_result != null and turn_result.status == "BUILD_EFFECT_REJECTED":
+		if not _restore_build_effect_transaction(transaction):
+			push_error("Tile Modifier effect rejection could not restore its battle, Run, and RNG checkpoint.")
+			return {"accepted": false, "status": "BUILD_EFFECT_ROLLBACK_FAILED", "message": "The failed Tile Modifier effect could not be rolled back."}
+		return {"accepted": false, "status": "BUILD_EFFECT_REJECTED", "message": "A Tile Modifier effect was rejected during settlement resolution."}
 	var settlement_result = turn_result.settlement_result
 	if settlement_result == null or not settlement_result.is_accepted():
 		return {
@@ -440,6 +468,49 @@ func _execute_settlement_result(turn_result) -> Dictionary:
 			"combat_output": combat_output.to_dictionary(),
 		},
 	}
+
+func _validate_tile_modifier_effects(instance_ids: Array) -> RefCounted:
+	if settlement_turn == null or not settlement_turn.has_method("validate_tile_modifier_effects"):
+		return CommandValidationScript.new(true)
+	var validation: Dictionary = settlement_turn.validate_tile_modifier_effects(instance_ids)
+	if validation.get("accepted", false):
+		return CommandValidationScript.new(true)
+	return CommandValidationScript.new(
+		false,
+		"BUILD_EFFECT_REJECTED",
+		"A Tile Modifier effect cannot resolve for the selected TileInstances.",
+		{"effect_id": str(validation.get("effect_id", "")), "reason": str(validation.get("reason", "BUILD_EFFECT_REJECTED"))},
+	)
+
+func _tile_instance_ids_for_candidate(candidate_id: String) -> Array[String]:
+	var ids: Array[String] = []
+	if settlement_window == null:
+		return ids
+	for candidate in settlement_window.candidates():
+		if candidate != null and candidate.candidate_id == candidate_id:
+			for tile_instance in candidate.tile_instances:
+				ids.append(tile_instance.instance_id)
+			return ids
+	return ids
+
+func _capture_build_effect_transaction() -> Dictionary:
+	var run_state = context.run_state if context != null else null
+	return {
+		"battle": _capture_battle_transaction(),
+		"run_state": build_effect_resolver.capture_run_state(run_state) if build_effect_resolver != null and run_state != null else {},
+		"settlement_turn": settlement_turn.transaction_snapshot() if settlement_turn != null and settlement_turn.has_method("transaction_snapshot") else {},
+	}
+
+func _restore_build_effect_transaction(snapshot: Dictionary) -> bool:
+	if not snapshot.has("battle") or not _restore_battle_transaction(snapshot.get("battle", {})):
+		return false
+	var run_state = context.run_state if context != null else null
+	if build_effect_resolver != null and run_state != null:
+		if not build_effect_resolver.restore_run_state(run_state, snapshot.get("run_state", {})):
+			return false
+	if settlement_turn != null and settlement_turn.has_method("restore_transaction_snapshot"):
+		settlement_turn.restore_transaction_snapshot(snapshot.get("settlement_turn", {}))
+	return true
 
 func resolve_enemy_intent():
 	if combat_resolver == null:

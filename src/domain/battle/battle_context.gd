@@ -14,6 +14,7 @@ var rng_streams
 var content_registry
 var tile_pool: Array
 var persistent_state: Dictionary
+var run_state
 
 func _init(
 	initial_encounter_id: String,
