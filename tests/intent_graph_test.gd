@@ -24,6 +24,8 @@ func run() -> Array[String]:
 	test_repeated_graph_transitions_remain_stable(failures)
 	test_same_seed_repeats_intent_sequence(failures)
 	test_enemy_intent_command_and_end_turn_use_domain_resolution(failures)
+	test_rejected_end_turn_is_atomic_and_not_replayed(failures)
+	test_rejected_end_turn_restores_consumed_rng(failures)
 	return failures
 
 func test_fixed_transition_resolves_through_queue(failures: Array[String]) -> void:
@@ -146,6 +148,49 @@ func test_enemy_intent_command_and_end_turn_use_domain_resolution(failures: Arra
 	assert_true(controller.presentation.pressure == 5, "End Turn resolves the next Main Intent", failures)
 	assert_true(_has_event(end_turn_result.events, DomainEvent.ENEMY_INTENT_RESOLVED), "End Turn emits the Intent resolution event", failures)
 
+func test_rejected_end_turn_is_atomic_and_not_replayed(failures: Array[String]) -> void:
+	var controller := BattleController.new(4242)
+	var terminal_graph := IntentGraph.new("terminal", [
+		EnemyIntent.new("terminal", "Terminal Pressure", 3, EnemyIntent.PRESSURE),
+	])
+	controller.domain.combat_state.set_intent_graph(terminal_graph)
+	controller.domain.combat_state.pressure = 1
+	controller.domain.recovery_state.start()
+	var before_checkpoint: Dictionary = controller.domain.checkpoint()
+	var before_rng: Dictionary = controller.domain.rng_snapshot()
+	var before_sequence_index: int = controller.domain.combat_state._next_sequence_index
+	var before_replay_count: int = controller.replay_record.commands.size()
+	var direct_result = controller.submit(ResolveEnemyIntentCommand.new("stage1.intent.rejected_resolution"))
+
+	assert_true(not direct_result.accepted, "the explicit Intent command rejects when the active Intent has no transition", failures)
+	assert_true(direct_result.validation.code == CombatResolutionResult.INTENT_TRANSITIONS_EXHAUSTED, "the explicit Intent command preserves the transition failure status", failures)
+	assert_true(controller.replay_record.commands.size() == before_replay_count, "a rejected explicit Intent command is excluded from accepted-only Replay", failures)
+	assert_true(controller.domain.checkpoint() == before_checkpoint, "a rejected explicit Intent command restores the battle checkpoint", failures)
+	assert_true(controller.domain.rng_snapshot() == before_rng, "a rejected explicit Intent command restores every RNG stream", failures)
+
+	var result = controller.submit(EndTurnCommand.new("stage1.intent.rejected_end_turn"))
+
+	assert_true(not result.accepted, "End Turn rejects when the active Intent has no transition", failures)
+	assert_true(result.validation.code == CombatResolutionResult.INTENT_TRANSITIONS_EXHAUSTED, "the rejected End Turn preserves the transition failure status", failures)
+	assert_true(controller.replay_record.commands.size() == before_replay_count, "a rejected End Turn is excluded from accepted-only Replay", failures)
+	assert_true(controller.domain.checkpoint() == before_checkpoint, "a rejected End Turn restores pressure, recovery, and the battle checkpoint", failures)
+	assert_true(controller.domain.rng_snapshot() == before_rng, "a rejected End Turn restores every RNG stream", failures)
+	assert_true(controller.domain.combat_state._next_sequence_index == before_sequence_index, "a rejected End Turn restores the combat sequence counter", failures)
+
+func test_rejected_end_turn_restores_consumed_rng(failures: Array[String]) -> void:
+	var controller := BattleController.new(4243)
+	controller.domain.recovery_state.start()
+	controller.domain.combat_resolver = MutatingFailureCombatResolver.new()
+	var before_checkpoint: Dictionary = controller.domain.checkpoint()
+	var before_rng: Dictionary = controller.domain.rng_snapshot()
+
+	var result = controller.submit(EndTurnCommand.new("stage1.intent.rng_rollback"))
+
+	assert_true(not result.accepted, "End Turn rejects a failed Intent resolution", failures)
+	assert_true(result.validation.code == "TEST_INTENT_FAILURE", "End Turn propagates the sub-resolution failure", failures)
+	assert_true(controller.domain.checkpoint() == before_checkpoint, "End Turn restores state changed by a failed resolver", failures)
+	assert_true(controller.domain.rng_snapshot() == before_rng, "End Turn restores RNG consumed by a failed resolver", failures)
+
 func _weighted_sequence(seed: int) -> Array[String]:
 	var graph := IntentGraph.new("start", [
 		EnemyIntent.new("start", "Start", 0, EnemyIntent.PRESSURE, [
@@ -176,3 +221,24 @@ func _has_event(events: Array, event_type: String) -> bool:
 		if event.event_type == event_type:
 			return true
 	return false
+
+class MutatingFailureCombatResolver:
+	extends RefCounted
+
+	func resolve_enemy_intent(state):
+		state.pressure += 1
+		state.intent_rng.next_int(1, 100)
+		state._next_sequence_index += 1
+		return FailedIntentResolution.new()
+
+class FailedIntentResolution:
+	extends RefCounted
+
+	var status := "TEST_INTENT_FAILURE"
+	var events: Array = []
+
+	func is_resolved() -> bool:
+		return false
+
+	func to_dictionary() -> Dictionary:
+		return {"status": status, "events": events.duplicate()}

@@ -207,6 +207,7 @@ func validate_enemy_intent() -> RefCounted:
 	return CommandValidationScript.new(true)
 
 func execute_end_turn() -> Dictionary:
+	var before_recovery: Dictionary = recovery_state.to_dictionary() if recovery_state != null else {}
 	var events: Array = []
 	var recovery_ended := false
 	if recovery_state != null and recovery_state.is_recovering():
@@ -222,6 +223,15 @@ func execute_end_turn() -> Dictionary:
 				"normal_hand_baseline": recovery_state.normal_hand_baseline,
 			}))
 	var intent_result = resolve_enemy_intent()
+	if not bool(intent_result.get("accepted", false)):
+		_restore_recovery_state(before_recovery)
+		return {
+			"accepted": false,
+			"status": str(intent_result.get("status", "INTENT_RESOLUTION_REJECTED")),
+			"message": "The enemy Intent could not be resolved.",
+			"events": [],
+			"data": {"intent": intent_result},
+		}
 	events.append_array(intent_result.events)
 	return {
 		"accepted": true,
@@ -429,8 +439,19 @@ func _execute_settlement_result(turn_result) -> Dictionary:
 func resolve_enemy_intent():
 	if combat_resolver == null:
 		return {"accepted": false, "status": "COMBAT_RESOLVER_NOT_READY", "events": []}
+	var before_state: Dictionary = _capture_battle_transaction()
 	var result = combat_resolver.resolve_enemy_intent(combat_state)
 	var events: Array = result.events.duplicate()
+	if not result.is_resolved():
+		if not _restore_battle_transaction(before_state):
+			push_error("Enemy Intent rejection could not restore its battle and RNG checkpoint.")
+			return {
+				"accepted": false,
+				"status": "INTENT_ROLLBACK_FAILED",
+				"events": events,
+				"data": result.to_dictionary(),
+			}
+		return {"accepted": false, "status": result.status, "events": events, "data": result.to_dictionary()}
 	if result.is_resolved() and reserve_service != null and combat_state.is_active():
 		events.append_array(reserve_service.natural_decay())
 	return {"accepted": result.is_resolved(), "status": result.status, "events": events, "data": result.to_dictionary()}
@@ -495,6 +516,58 @@ func rng_snapshot() -> Dictionary:
 		streams["enemy"] = combat_state.intent_rng.snapshot()
 	return {"version": 1, "streams": streams}
 
+func _capture_battle_transaction() -> Dictionary:
+	return {
+		"checkpoint": checkpoint(),
+		"rng": rng_snapshot(),
+		"next_sequence_index": combat_state._next_sequence_index if combat_state != null else 0,
+	}
+
+func _restore_battle_transaction(snapshot: Dictionary) -> bool:
+	var checkpoint_snapshot: Variant = snapshot.get("checkpoint", null)
+	var rng_state: Variant = snapshot.get("rng", null)
+	if not checkpoint_snapshot is Dictionary or not rng_state is Dictionary:
+		return false
+	var checkpoint_restored := restore_checkpoint(checkpoint_snapshot)
+	if not checkpoint_restored:
+		var combat_checkpoint: Variant = checkpoint_snapshot.get("combat_state", null)
+		var recovery_checkpoint: Variant = checkpoint_snapshot.get("recovery", null)
+		if combat_checkpoint is Dictionary and recovery_checkpoint is Dictionary:
+			checkpoint_restored = _restore_combat_checkpoint(combat_checkpoint) and _restore_recovery_state(recovery_checkpoint)
+	var rng_restored := _restore_rng_snapshot(rng_state)
+	if combat_state != null:
+		combat_state._next_sequence_index = int(snapshot.get("next_sequence_index", combat_state._next_sequence_index))
+	return checkpoint_restored and rng_restored
+
+func _restore_recovery_state(snapshot: Dictionary) -> bool:
+	if not snapshot is Dictionary:
+		return false
+	if recovery_state == null:
+		return snapshot.is_empty()
+	recovery_state.normal_hand_baseline = int(snapshot.get("normal_hand_baseline", recovery_state.normal_hand_baseline))
+	recovery_state.recovery_baseline = int(snapshot.get("recovery_baseline", recovery_state.recovery_baseline))
+	recovery_state.minimum_recovery_turns = int(snapshot.get("minimum_recovery_turns", recovery_state.minimum_recovery_turns))
+	recovery_state.turns_elapsed = int(snapshot.get("turns_elapsed", 0))
+	recovery_state.active = bool(snapshot.get("active", false))
+	return true
+
+func _restore_rng_snapshot(snapshot: Dictionary) -> bool:
+	if _rng_streams != null and _rng_streams.has_method("restore"):
+		return _rng_streams.restore(snapshot)
+	var stream_snapshots: Variant = snapshot.get("streams", null)
+	if not stream_snapshots is Dictionary:
+		return false
+	if stream_snapshots.has("draw_wall"):
+		var draw_wall_rng = draw_wall.get("_draw_wall_rng") if draw_wall != null else null
+		if draw_wall_rng == null or not draw_wall_rng.has_method("restore") or not draw_wall_rng.restore(stream_snapshots["draw_wall"]):
+			return false
+	if stream_snapshots.has("enemy"):
+		if combat_state == null or combat_state.intent_rng == null or not combat_state.intent_rng.has_method("restore"):
+			return false
+		if not combat_state.intent_rng.restore(stream_snapshots["enemy"]):
+			return false
+	return rng_snapshot() == snapshot
+
 func restore_checkpoint(snapshot: Dictionary) -> bool:
 	if int(snapshot.get("schema_version", -1)) != 2:
 		return false
@@ -537,14 +610,8 @@ func restore_checkpoint(snapshot: Dictionary) -> bool:
 	if not _valid_complete_hand_destination():
 		return false
 	var recovery = snapshot.get("recovery", {})
-	if not recovery is Dictionary:
+	if not _restore_recovery_state(recovery):
 		return false
-	if recovery_state != null:
-		recovery_state.normal_hand_baseline = int(recovery.get("normal_hand_baseline", recovery_state.normal_hand_baseline))
-		recovery_state.recovery_baseline = int(recovery.get("recovery_baseline", recovery_state.recovery_baseline))
-		recovery_state.minimum_recovery_turns = int(recovery.get("minimum_recovery_turns", recovery_state.minimum_recovery_turns))
-		recovery_state.turns_elapsed = int(recovery.get("turns_elapsed", 0))
-		recovery_state.active = bool(recovery.get("active", false))
 	return true
 
 func _restore_zone_orders(zone_checkpoints) -> bool:
