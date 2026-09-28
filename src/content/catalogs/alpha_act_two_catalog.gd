@@ -28,6 +28,7 @@ const ACT_TWO_NORMAL_ENEMY_IDS := [
 ]
 const ACT_TWO_ELITE_ENEMY_ID := "alpha.enemy.act_two.elite.ledger_mimic"
 const ACT_TWO_BOSS_ENEMY_ID := "alpha.boss.act_two.final_index"
+const ACT_TWO_ALTERNATE_BOSS_ENEMY_ID := "alpha.boss.act_two.tidal_archive"
 const ACT_TWO_NORMAL_ENCOUNTER_IDS := [
 	"alpha.encounter.act_two.normal.intro",
 	"alpha.encounter.act_two.normal.left",
@@ -36,6 +37,7 @@ const ACT_TWO_NORMAL_ENCOUNTER_IDS := [
 ]
 const ACT_TWO_ELITE_ENCOUNTER_ID := "alpha.encounter.act_two.elite"
 const ACT_TWO_BOSS_ENCOUNTER_ID := "alpha.encounter.act_two.boss"
+const ACT_TWO_ALTERNATE_BOSS_ENCOUNTER_ID := "alpha.encounter.act_two.boss.c"
 const ACT_TWO_EVENT_IDS := [
 	"alpha.event.act_two.tile_surgery",
 	"alpha.event.act_two.risk_bargain",
@@ -45,7 +47,7 @@ const ACT_TWO_EVENT_IDS := [
 	"alpha.event.act_two.rule_memory",
 ]
 const CONTENT_BUNDLE_ID := "alpha.act_two"
-const CONTENT_BUNDLE_VERSION := "v3"
+const CONTENT_BUNDLE_VERSION := "v4"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -152,6 +154,18 @@ static func _enemy_definitions() -> Array:
 			{},
 			_boss_phases(),
 		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_ALTERNATE_BOSS_ENEMY_ID,
+			_loop_graph("act_two.tidal_archive", [
+				["float", "Float the Index", 2, EnemyIntentScript.PRESSURE],
+				["bury", "Bury the Record", 2, EnemyIntentScript.CONTAMINATION],
+			]),
+			EnemyDefinitionScript.BOSS,
+			46,
+			{"pressure_limit": 16, "draw_tax": 1},
+			{},
+			_tidal_archive_boss_phases(),
+		),
 	]
 
 static func _encounter_definitions() -> Array:
@@ -164,6 +178,12 @@ static func _encounter_definitions() -> Array:
 		))
 	result.append_array(_encounter_variants(ACT_TWO_ELITE_ENCOUNTER_ID, ACT_TWO_ELITE_ENEMY_ID, EncounterDefinitionScript.ELITE))
 	result.append_array(_encounter_variants(ACT_TWO_BOSS_ENCOUNTER_ID, ACT_TWO_BOSS_ENEMY_ID, EncounterDefinitionScript.BOSS))
+	result.append(EncounterDefinitionScript.new(
+		ACT_TWO_ALTERNATE_BOSS_ENCOUNTER_ID,
+		[ACT_TWO_ALTERNATE_BOSS_ENEMY_ID],
+		EncounterDefinitionScript.BOSS,
+		{"act": 2, "variant": "c"},
+	))
 	return result
 
 static func _encounter_variants(base_id: String, enemy_id: String, kind: String) -> Array:
@@ -276,6 +296,43 @@ static func _boss_phases() -> Array:
 			"intent_graph": _loop_graph("act_two.final_index.final_entry", [
 				["rewrite", "Write the Final Entry", 3, EnemyIntentScript.PRESSURE],
 				["seal", "Seal the Index", 2, "RULE_BREAKER"],
+			]),
+		},
+	]
+
+static func _tidal_archive_boss_phases() -> Array:
+	return [
+		{
+			"phase_id": "high_water",
+			"phase_role": "high_water",
+			"max_hp": 20,
+			"pressure_limit": 16,
+			"pressure_relief": 1,
+			"intent_graph": _loop_graph("act_two.tidal_archive.high_water", [
+				["log", "Log the Current", 2, EnemyIntentScript.AUDIT],
+				["rise", "Raise the Waterline", 3, EnemyIntentScript.PRESSURE],
+			]),
+		},
+		{
+			"phase_id": "undertow",
+			"phase_role": "undertow",
+			"max_hp": 15,
+			"pressure_limit": 14,
+			"pressure_relief": 2,
+			"intent_graph": _loop_graph("act_two.tidal_archive.undertow", [
+				["pull", "Pull at the Reserve", 2, EnemyIntentScript.WALL_TAX],
+				["crack", "Crack the Keel", 2, EnemyIntentScript.INTEGRITY],
+			]),
+		},
+		{
+			"phase_id": "ebb",
+			"phase_role": "ebb",
+			"max_hp": 11,
+			"pressure_limit": 12,
+			"pressure_relief": 3,
+			"intent_graph": _loop_graph("act_two.tidal_archive.ebb", [
+				["rewrite", "Rewrite the Ledger", 3, EnemyIntentScript.RULE_BREAKER],
+				["close", "Close the Archive", 2, EnemyIntentScript.REWARD_TAX],
 			]),
 		},
 	]

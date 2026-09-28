@@ -9,6 +9,7 @@ const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_cat
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
+const Phase2V1SuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
 const Effect = preload("res://src/domain/effects/effect.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
@@ -254,13 +255,15 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(phase2_version == "content.slice.v4", "Phase 2 Technique reaction semantics use a new explicit content identity", failures)
 	assert_true(phase2_version != "content.slice.v3", "old Phase 2 v3 content cannot share the updated gameplay identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
-	assert_true(act_two_version.contains("alpha.act_two@v3") and act_two_version.contains("phase2@v4"), "Act 2 and shared Phase 2 Technique semantics both carry their updated versions", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v4") and act_two_version.contains("phase2@v4"), "Act 2 and shared Phase 2 Technique semantics both carry their updated versions", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	assert_true(scale_version.contains("alpha.scale@v10"), "the Scale bundle identity advances for the Stage 4 encounter roster", failures)
-	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
-	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
+	assert_true(scale_version.contains("alpha.scale@v11"), "the Scale bundle identity advances for the Stage 4 Boss roster", failures)
+	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot(Phase2V1SuspendSnapshotFixture.suspend_snapshot(), act_two_registry)
+	assert_true(alpha_migration_target.get("accepted", false), "the Phase 2 v1 migration explicitly accepts the current Act Two-only identity", failures)
+	if alpha_migration_target.get("accepted", false):
+		assert_true(alpha_migration_target.data.content_version == act_two_registry.content_version(), "the Phase 2 v1 migration stamps the exact Act Two-only identity", failures)
 
 func test_catalogued_build_techniques_declare_battle_timings(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
@@ -365,7 +368,11 @@ func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[S
 				mapped_event_ids[event_id] = true
 	var sorted_mapped_enemies: Array = mapped_enemy_ids.keys()
 	sorted_mapped_enemies.sort()
-	var expected_enemies := expected_normal_enemy_ids + ["alpha.enemy.act_two.elite.ledger_mimic", "alpha.boss.act_two.final_index"]
+	var expected_enemies := expected_normal_enemy_ids + [
+		"alpha.enemy.act_two.elite.ledger_mimic",
+		"alpha.boss.act_two.final_index",
+		AlphaActTwoCatalog.ACT_TWO_ALTERNATE_BOSS_ENEMY_ID,
+	]
 	expected_enemies.sort()
 	assert_true(sorted_mapped_enemies == expected_enemies, "the Act 2 Map reaches exactly its four Normal enemies, Elite, and Boss", failures)
 	var sorted_mapped_events: Array = mapped_event_ids.keys()

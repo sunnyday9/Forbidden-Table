@@ -7,6 +7,8 @@ const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catal
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
+const RunMapState = preload("res://src/domain/run/run_map_state.gd")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
@@ -46,6 +48,8 @@ func run() -> Array[String]:
 	test_authored_graph_is_bounded_and_route_safe(failures)
 	test_act_two_authored_graph_meets_the_same_topology_contract(failures)
 	test_act_two_map_payload_starts_its_authored_encounter(failures)
+	test_each_act_selects_two_reachable_bosses_from_one_terminal_node(failures)
+	test_alternate_bosses_resolve_through_the_two_act_run(failures)
 	test_contract_choice_initializes_visible_deterministic_map(failures)
 	test_mandatory_intro_battle_is_played_and_resumeable_for_both_acts(failures)
 	test_valid_route_reaches_boss_and_records_stable_edge_path(failures)
@@ -376,6 +380,152 @@ func test_act_two_map_payload_starts_its_authored_encounter(failures: Array[Stri
 		assert_true(boss_battle.enemy_definition.content_id == "alpha.boss.act_two.final_index", "the Act 2 Boss payload resolves to its own EnemyDefinition", failures)
 		assert_true(boss_battle.combat_state.boss_phase_count >= 3, "the Act 2 Boss installs its multi-phase combat state", failures)
 
+func test_each_act_selects_two_reachable_bosses_from_one_terminal_node(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var act_definitions: Array = [
+		{
+			"act": 1,
+			"definition": MiniActMapCatalog.definition_for_act(1, registry),
+			"expected_boss_ids": ["base.boss.table_breaker", "alpha.boss.act_one.harbor_arbiter"],
+			"expected_encounters": ["base.encounter.boss.a", "base.encounter.boss.b", "base.encounter.boss.c"],
+			"legacy_boss_id": "base.boss.table_breaker",
+		},
+		{
+			"act": 2,
+			"definition": MiniActMapCatalog.definition_for_act(2, registry),
+			"expected_boss_ids": ["alpha.boss.act_two.final_index", "alpha.boss.act_two.tidal_archive"],
+			"expected_encounters": ["alpha.encounter.act_two.boss", "alpha.encounter.act_two.boss.a", "alpha.encounter.act_two.boss.b", "alpha.encounter.act_two.boss.c"],
+			"legacy_boss_id": "alpha.boss.act_two.final_index",
+		},
+	]
+	for act_data in act_definitions:
+		var act_index := int(act_data["act"])
+		var map_definition = act_data["definition"]
+		var boss_nodes: Array[String] = []
+		for node_id in map_definition.node_ids:
+			if map_definition.node_definition(node_id).node_kind == "BOSS":
+				boss_nodes.append(node_id)
+		assert_true(boss_nodes.size() == 1, "Act %d keeps exactly one terminal Boss node" % act_index, failures)
+		if boss_nodes.size() != 1:
+			continue
+		var boss_node = map_definition.node_definition(boss_nodes[0])
+		assert_true(boss_node.next_node_ids.is_empty(), "Act %d Boss remains terminal" % act_index, failures)
+		assert_true(boss_node.payload_options == act_data["expected_encounters"], "Act %d keeps its existing Boss payloads and adds the alternate encounter through the same node" % act_index, failures)
+
+		var payload_boss_ids: Dictionary = {}
+		for encounter_id in boss_node.payload_options:
+			var encounter = registry.resolve(encounter_id)
+			assert_true(encounter != null, "Act %d Boss payload %s resolves" % [act_index, encounter_id], failures)
+			if encounter == null:
+				continue
+			assert_true(encounter.encounter_kind == "BOSS" and encounter.enemy_ids.size() == 1, "Act %d payload %s remains one Boss encounter" % [act_index, encounter_id], failures)
+			payload_boss_ids[str(encounter.enemy_ids[0])] = true
+			if not str(encounter_id).ends_with(".c"):
+				assert_true(encounter.enemy_ids == [act_data["legacy_boss_id"]], "Act %d preserves the existing Boss variant target for %s" % [act_index, encounter_id], failures)
+		var expected_boss_ids: Array = act_data["expected_boss_ids"].duplicate()
+		expected_boss_ids.sort()
+		var authored_boss_ids: Array = payload_boss_ids.keys()
+		authored_boss_ids.sort()
+		assert_true(authored_boss_ids == expected_boss_ids, "Act %d terminal payloads reference exactly two distinct production Boss definitions" % act_index, failures)
+
+		var reachable_boss_ids: Dictionary = {}
+		for seed in range(64):
+			var map_state := RunMapState.new()
+			map_state.initialize(map_definition, DomainRngStreams.new(seed).map)
+			var selected_encounter = registry.resolve(str(map_state.payload_ids[boss_nodes[0]]))
+			if selected_encounter != null:
+				for enemy_id in selected_encounter.enemy_ids:
+					reachable_boss_ids[str(enemy_id)] = true
+		var selected_boss_ids: Array = reachable_boss_ids.keys()
+		selected_boss_ids.sort()
+		assert_true(selected_boss_ids == expected_boss_ids, "Act %d deterministic map payload selection can reach both Boss definitions" % act_index, failures)
+
+		var domain_reachable_boss_ids: Dictionary = {}
+		for seed in range(64):
+			var domain := _boss_variant_domain(registry, act_index, seed)
+			var selected_payload_id: String = str(domain.state.map_state.payload_ids[boss_nodes[0]])
+			var selected_encounter = registry.resolve(selected_payload_id)
+			if selected_encounter == null:
+				continue
+			var selected_boss_id: String = str(selected_encounter.enemy_ids[0])
+			if domain_reachable_boss_ids.has(selected_boss_id):
+				continue
+			var selected = domain.execute(SelectMapNodeCommand.new(
+				"map.boss.variant.%d.%d" % [act_index, seed],
+				boss_nodes[0],
+			))
+			assert_true(selected.accepted, "Act %d selected Boss payload %s starts through RunDomain (%s)" % [act_index, selected_payload_id, selected.validation.code], failures)
+			if not selected.accepted or domain.current_battle == null:
+				continue
+			assert_true(domain.current_battle.encounter_id == selected_payload_id, "Act %d RunDomain creates the selected map Boss encounter" % act_index, failures)
+			assert_true(domain.current_battle.enemy_definition.content_id == selected_boss_id, "Act %d RunDomain creates the mapped production Boss definition" % act_index, failures)
+			assert_true(domain.current_battle.combat_state.boss_phase_count >= 3, "Act %d selected Boss installs its multi-phase combat state" % act_index, failures)
+			domain_reachable_boss_ids[selected_boss_id] = true
+		var selected_domain_boss_ids: Array = domain_reachable_boss_ids.keys()
+		selected_domain_boss_ids.sort()
+		assert_true(selected_domain_boss_ids == expected_boss_ids, "Act %d RunDomain selection instantiates both reachable Boss definitions" % act_index, failures)
+
+func test_alternate_bosses_resolve_through_the_two_act_run(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var alternate_seed := _seed_with_alternate_bosses_in_both_acts(registry)
+	assert_true(alternate_seed >= 0, "one deterministic Run seed selects the new Boss variant in both Acts", failures)
+	if alternate_seed < 0:
+		return
+	var domain = RunDomain.new_alpha_run("map.alt-boss.two-act", alternate_seed, registry)
+	domain.execute(ChooseCharacterCommand.new("map.alt-boss.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("map.alt-boss.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var act_one_boss_id := "base.map_node.boss"
+	var act_one_boss_encounter_id := "base.encounter.boss.c"
+	var act_one_boss_enemy_id := AlphaScaleCatalog.ACT_ONE_BOSS_ENEMY_ID
+	assert_true(domain.state.map_state.payload_ids[act_one_boss_id] == act_one_boss_encounter_id, "the current Act 1 Run map selects the alternate Boss payload", failures)
+	domain.state.map_state.current_node_id = ELITE
+	var act_one_selection = domain.execute(SelectMapNodeCommand.new("map.alt-boss.act-one.select", act_one_boss_id))
+	assert_true(act_one_selection.accepted, "the Act 1 alternate Boss starts through RunDomain", failures)
+	if not act_one_selection.accepted or domain.current_battle == null:
+		return
+	assert_true(domain.current_battle.enemy_definition.content_id == act_one_boss_enemy_id, "the Act 1 alternate payload creates Harbor Arbiter combat", failures)
+	_assert_boss_victory_resolves_all_phases(domain, "Act 1 alternate Boss", failures)
+	assert_true(domain.state.phase == RunPhase.BOSS_REWARD, "Act 1 alternate Boss victory opens the existing Boss reward phase", failures)
+	assert_true(domain.state.boss_progress == [{"act_index": 1, "encounter_id": act_one_boss_encounter_id}], "the Act 1 alternate victory records exactly one defeated Boss", failures)
+	_assert_current_act_boss_reward(domain, AlphaScaleCatalog.ACT_ONE_BOSS_RULE_BREAKER_IDS, "Act 1", failures)
+	var duplicate_act_one = domain.execute(SelectMapNodeCommand.new("map.alt-boss.act-one.duplicate", act_one_boss_id))
+	assert_true(not duplicate_act_one.accepted and duplicate_act_one.validation.code == "INVALID_PHASE", "a second Act 1 Boss cannot start while its Boss reward is pending", failures)
+	var act_one_draft = domain.state.reward_draft
+	var act_one_reward = domain.execute(ChooseRewardCommand.new("map.alt-boss.act-one.reward", act_one_draft.options[0].option_id, act_one_draft.draft_id))
+	assert_true(act_one_reward.accepted and domain.state.act_index == 2, "choosing the Act 1 reward advances this Run into Act 2", failures)
+	assert_true(domain.state.phase == RunPhase.MAP_CHOICE and domain.state.map_state.map_definition_id == "base.map.act_two", "Act 1 reward enters the existing Act 2 map", failures)
+	assert_true(domain.state.boss_progress.size() == 1, "the Act transition retains one Boss record for Act 1", failures)
+	var old_act_boss = domain.execute(SelectMapNodeCommand.new("map.alt-boss.act-one.after-transition", act_one_boss_id))
+	assert_true(not old_act_boss.accepted and old_act_boss.validation.code == "INVALID_MAP_NODE_ID", "the completed Act 1 Boss node is absent from the Act 2 map", failures)
+	var act_two_boss_id := "base.map_node.act_two.boss"
+	var act_two_boss_encounter_id := AlphaActTwoCatalog.ACT_TWO_ALTERNATE_BOSS_ENCOUNTER_ID
+	var act_two_boss_enemy_id := AlphaActTwoCatalog.ACT_TWO_ALTERNATE_BOSS_ENEMY_ID
+	assert_true(domain.state.map_state.payload_ids[act_two_boss_id] == act_two_boss_encounter_id, "the transitioned Act 2 Run map selects the alternate Boss payload", failures)
+	domain.state.map_state.current_node_id = "base.map_node.act_two.elite"
+	var act_two_selection = domain.execute(SelectMapNodeCommand.new("map.alt-boss.act-two.select", act_two_boss_id))
+	assert_true(act_two_selection.accepted, "the Act 2 alternate Boss starts through RunDomain", failures)
+	if not act_two_selection.accepted or domain.current_battle == null:
+		return
+	assert_true(domain.current_battle.enemy_definition.content_id == act_two_boss_enemy_id, "the Act 2 alternate payload creates Tidal Archive combat", failures)
+	_assert_boss_victory_resolves_all_phases(domain, "Act 2 alternate Boss", failures)
+	assert_true(domain.state.phase == RunPhase.BOSS_REWARD, "Act 2 alternate Boss victory opens the existing Boss reward phase", failures)
+	assert_true(domain.state.boss_progress.size() == 2 and domain.state.boss_progress[1].get("act_index", 0) == 2 and domain.state.boss_progress[1].get("encounter_id", "") == act_two_boss_encounter_id, "the Act 2 alternate victory records one Boss after the Act 1 record", failures)
+	_assert_current_act_boss_reward(domain, AlphaScaleCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS, "Act 2", failures)
+	var duplicate_act_two = domain.execute(SelectMapNodeCommand.new("map.alt-boss.act-two.duplicate", act_two_boss_id))
+	assert_true(not duplicate_act_two.accepted and duplicate_act_two.validation.code == "INVALID_PHASE", "a second Act 2 Boss cannot start while its Boss reward is pending", failures)
+	var act_two_draft = domain.state.reward_draft
+	var act_two_reward = domain.execute(ChooseRewardCommand.new("map.alt-boss.act-two.reward", act_two_draft.options[0].option_id, act_two_draft.draft_id))
+	assert_true(act_two_reward.accepted and domain.state.phase == RunPhase.RUN_SUMMARY, "the Act 2 reward completes the existing two-Act Run", failures)
+	assert_true(domain.state.terminal_summary.outcome == "VICTORY" and domain.state.terminal_summary.reason == "BOSS_DEFEATED", "the alternate Boss Run ends in its normal victory summary", failures)
+	assert_true(domain.state.act_index == 2 and domain.state.act_count == 2, "the two-Act Run ends without advancing to an Act 3", failures)
+	assert_true(domain.state.terminal_summary.summary_data.get("act_progress", {}).get("bosses_defeated", []).size() == 2, "the final Run summary contains exactly the two per-Act Boss victories", failures)
+
 func test_contract_choice_initializes_visible_deterministic_map(failures: Array[String]) -> void:
 	var domain := _prepared_domain("map.visibility", 101)
 	var map_state = domain.state.map_state
@@ -577,6 +727,57 @@ func test_map_command_serializes_stable_node_id(failures: Array[String]) -> void
 	assert_true(data["command_type"] == "SelectMapNode", "map command has a stable command type", failures)
 	assert_true(data["node_id"] == LEFT, "map command serializes a stable node ID", failures)
 	assert_true(not data.has("node_index"), "map command does not serialize a UI index", failures)
+
+func _boss_variant_domain(registry, act_index: int, seed: int) -> RunDomain:
+	var run_id := "map.boss.variant.%d.%d" % [act_index, seed]
+	var domain = RunDomain.new_alpha_run(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, Phase2Catalog.CONTRACT_IDS[0]))
+	if act_index == 2:
+		domain.state.act_index = 2
+		domain.map_definition = MiniActMapCatalog.definition_for_act(2, registry)
+		domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
+	domain.state.map_state.current_node_id = ELITE if act_index == 1 else "base.map_node.act_two.elite"
+	return domain
+
+func _seed_with_alternate_bosses_in_both_acts(registry) -> int:
+	var act_one_definition = MiniActMapCatalog.definition_for_act(1, registry)
+	var act_two_definition = MiniActMapCatalog.definition_for_act(2, registry)
+	for seed in range(512):
+		var streams := DomainRngStreams.new(seed)
+		var act_one_map := RunMapState.new()
+		act_one_map.initialize(act_one_definition, streams.map)
+		if str(act_one_map.payload_ids.get(BOSS, "")) != AlphaScaleCatalog.ACT_ONE_BOSS_ENCOUNTER_ID:
+			continue
+		var act_two_map := RunMapState.new()
+		act_two_map.initialize(act_two_definition, streams.map)
+		if str(act_two_map.payload_ids.get("base.map_node.act_two.boss", "")) == AlphaActTwoCatalog.ACT_TWO_ALTERNATE_BOSS_ENCOUNTER_ID:
+			return seed
+	return -1
+
+func _assert_boss_victory_resolves_all_phases(domain: RunDomain, label: String, failures: Array[String]) -> void:
+	var battle = domain.current_battle
+	if battle == null:
+		assert_true(false, "%s has an active production BattleDomain" % label, failures)
+		return
+	var phase_count: int = battle.combat_state.boss_phase_count
+	assert_true(phase_count >= 3, "%s has at least three authored combat phases" % label, failures)
+	for phase_index in range(phase_count):
+		battle.combat_state.enemy_hp = 1
+		var phase_result = battle.combat_resolver.resolve_player_action(battle.combat_state, 17)
+		var expected_outcome := "VICTORY" if phase_index == phase_count - 1 else "ONGOING"
+		assert_true(phase_result.terminal_outcome == expected_outcome, "%s resolves phase %d with outcome %s" % [label, phase_index + 1, expected_outcome], failures)
+	var outcome_events: Array = domain.apply_battle_outcome()
+	assert_true(not outcome_events.is_empty(), "%s transfers its resolved Boss victory through RunDomain" % label, failures)
+	assert_true(domain.current_battle == null, "%s disposes its BattleDomain after the outcome transfer" % label, failures)
+
+func _assert_current_act_boss_reward(domain: RunDomain, expected_pool: Array, label: String, failures: Array[String]) -> void:
+	var draft = domain.state.reward_draft
+	assert_true(draft != null and draft.options.size() == 3, "%s Boss victory offers three Rule Breaker choices" % label, failures)
+	if draft == null:
+		return
+	for option in draft.options:
+		assert_true(expected_pool.has(option.content_id), "%s Boss reward %s comes from its current-Act pool" % [label, option.content_id], failures)
 
 func _prepared_domain(run_id: String, seed: int) -> RunDomain:
 	var domain := RunDomain.new(run_id, seed, _registry())

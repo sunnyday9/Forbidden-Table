@@ -151,7 +151,9 @@ const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v10"
+const CONTENT_BUNDLE_VERSION := "v11"
+const ACT_ONE_BOSS_ENEMY_ID := "alpha.boss.act_one.harbor_arbiter"
+const ACT_ONE_BOSS_ENCOUNTER_ID := "base.encounter.boss.c"
 const ACT_ONE_NORMAL_ENEMY_IDS := [
 	"alpha.enemy.act_one.fog_caller",
 	"alpha.enemy.act_one.margin_taker",
@@ -287,6 +289,18 @@ static func _enemy_definitions() -> Array:
 			19,
 			{"pressure_limit": 13, "reward_multiplier": 2},
 		),
+		EnemyDefinitionScript.new(
+			ACT_ONE_BOSS_ENEMY_ID,
+			_loop_graph("act_one.harbor_arbiter", [
+				["survey", "Survey the Harbor", 1, EnemyIntentScript.AUDIT],
+				["press", "Press the Margin", 3, EnemyIntentScript.PRESSURE],
+			]),
+			EnemyDefinitionScript.BOSS,
+			40,
+			{"pressure_limit": 15, "draw_tax": 1},
+			{},
+			_harbor_arbiter_boss_phases(),
+		),
 	]
 
 static func _encounter_definitions() -> Array:
@@ -319,7 +333,50 @@ static func _encounter_definitions() -> Array:
 			EncounterDefinitionScript.ELITE,
 			{"act": 2, "variant": "scale"},
 		))
+	result.append(EncounterDefinitionScript.new(
+			ACT_ONE_BOSS_ENCOUNTER_ID,
+			[ACT_ONE_BOSS_ENEMY_ID],
+			EncounterDefinitionScript.BOSS,
+			{"act": 1, "variant": "c"},
+		))
 	return result
+
+static func _harbor_arbiter_boss_phases() -> Array:
+	return [
+		{
+			"phase_id": "soundings",
+			"phase_role": "soundings",
+			"max_hp": 18,
+			"pressure_limit": 15,
+			"pressure_relief": 1,
+			"intent_graph": _loop_graph("act_one.harbor_arbiter.soundings", [
+				["measure", "Measure the Channel", 1, EnemyIntentScript.AUDIT],
+				["draft", "Draw the Current", 2, EnemyIntentScript.PRESSURE],
+			]),
+		},
+		{
+			"phase_id": "crosswind",
+			"phase_role": "crosswind",
+			"max_hp": 13,
+			"pressure_limit": 13,
+			"pressure_relief": 2,
+			"intent_graph": _loop_graph("act_one.harbor_arbiter.crosswind", [
+				["thin", "Thin the Wall", 2, EnemyIntentScript.WALL_TAX],
+				["collect", "Collect the Shortfall", 2, EnemyIntentScript.INTEGRITY],
+			]),
+		},
+		{
+			"phase_id": "low_tide",
+			"phase_role": "low_tide",
+			"max_hp": 9,
+			"pressure_limit": 11,
+			"pressure_relief": 3,
+			"intent_graph": _loop_graph("act_one.harbor_arbiter.low_tide", [
+				["seal", "Seal the Channel", 2, EnemyIntentScript.RULE_BREAKER],
+				["claim", "Claim the Margin", 1, EnemyIntentScript.REWARD_TAX],
+			]),
+		},
+	]
 
 static func _loop_graph(prefix: String, definitions: Array) -> IntentGraphScript:
 	var intents: Array = []

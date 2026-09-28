@@ -60,6 +60,7 @@ func run() -> Array[String]:
 	test_migrations_are_sequential(failures)
 	test_restored_domains_rebind_service_and_summary_flows(failures)
 	test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures)
+	test_phase2_v1_migrates_to_both_act_two_catalog_identities(failures)
 	test_phase2_v1_migration_rejects_active_event_semantic_changes(failures)
 	test_v2_migration_rejects_unverifiable_active_effect_state(failures)
 	test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures)
@@ -300,6 +301,14 @@ func test_v2_act_two_suspend_migration_preserves_bundle_identity(failures: Array
 		source.authoritative_state.content_version = old_version
 		source.run_state.content_version = old_version
 		source.checkpoint_metadata.state_hash = _run_state_hash(source.authoritative_state)
+		if include_scale:
+			var no_scale_registry := ContentRegistry.new()
+			Phase2Catalog.register_all(no_scale_registry)
+			AlphaActTwoCatalog.register_all(no_scale_registry)
+			var scaled_source_before: Dictionary = source.duplicate(true)
+			var scale_downgrade = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, no_scale_registry)
+			assert_true(not scale_downgrade.accepted and scale_downgrade.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "a Scale v2 source cannot silently migrate into the Act Two-only registry", failures)
+			assert_true(source == scaled_source_before, "a rejected Scale-to-Act-Two-only migration preserves its source snapshot", failures)
 		var migrated = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, registry)
 		var bundle_label := "Act Two+Scale" if include_scale else "Act Two"
 		assert_true(migrated.accepted, "explicit v2 migration accepts an unchanged %s snapshot (%s: %s)" % [bundle_label, migrated.get("code", ""), migrated.get("errors", [])], failures)
@@ -467,6 +476,21 @@ func test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures
 	var invalid_hash_result = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(invalid_hash, _registry())
 	assert_true(not invalid_hash_result.accepted and invalid_hash_result.code == "SOURCE_STATE_HASH_MISMATCH", "content migration rejects a fixture whose source state hash is invalid", failures)
 	assert_true(invalid_hash == invalid_hash_copy, "rejected hash migration leaves its supplied snapshot untouched", failures)
+
+func test_phase2_v1_migrates_to_both_act_two_catalog_identities(failures: Array[String]) -> void:
+	for include_scale in [false, true]:
+		var registry := ContentRegistry.new()
+		Phase2Catalog.register_all(registry)
+		AlphaActTwoCatalog.register_all(registry)
+		if include_scale:
+			AlphaScaleCatalog.register_all(registry)
+		var source: Dictionary = Phase2V1SuspendSnapshotFixture.suspend_snapshot()
+		var migration = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(source, registry)
+		var registry_label := "Act Two + Phase 2 + Alpha Scale" if include_scale else "Act Two + Phase 2"
+		assert_true(migration.accepted, "Phase 2 v1 migrates into the %s registry (%s)" % [registry_label, migration.get("code", "")], failures)
+		if migration.accepted:
+			assert_true(migration.snapshot.content_version == registry.content_version(), "%s migration uses the exact registered content identity" % registry_label, failures)
+			assert_true(migration.domain.state.content_version == registry.content_version(), "%s RunState and registry identities agree after migration" % registry_label, failures)
 
 func test_phase2_v1_migration_rejects_active_event_semantic_changes(failures: Array[String]) -> void:
 	var source: Dictionary = Phase2V1SuspendSnapshotFixture.suspend_snapshot()

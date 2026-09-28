@@ -57,6 +57,8 @@ static func _definition(map_id: String, node_prefix: String, edge_prefix: String
 	var mid_variants: Array[String] = _encounter_variants(mid_encounter) if act_two else _string_array(["base.encounter.normal.mid.a", "base.encounter.normal.mid.b"])
 	var elite_variants: Array[String] = _encounter_variants(elite_encounter) if act_two else _string_array(["base.encounter.elite.a", "base.encounter.elite.b"])
 	var boss_variants: Array[String] = _encounter_variants(boss_encounter) if act_two else _string_array(["base.encounter.boss.a", "base.encounter.boss.b"])
+	if act_two or include_scale_encounters:
+		boss_variants.append("%s.c" % boss_encounter)
 	var left_event := "alpha.event.act_two.tile_surgery" if act_two else "base.event.risk_bargain"
 	var left_event_variants: Array[String] = _string_array(["alpha.event.act_two.tile_surgery", "alpha.event.act_two.risk_bargain", "alpha.event.act_two.gold_exchange"]) if act_two else _string_array(["base.event.risk_bargain", "base.event.gold_exchange"])
 	var right_event := "alpha.event.act_two.map_reveal" if act_two else "base.event.map_reveal"

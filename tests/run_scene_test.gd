@@ -156,7 +156,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		current_scene.free()
 		return
 	var full_registry = registry_result.registry
-	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V11, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
+	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V12, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
 	var current_domain = _migration_source_domain(full_registry, "run.scene.current-identity", 761, true, failures)
 	var current_snapshot = SaveMapperScript.suspend_snapshot(current_domain)
 	var current_bytes: String = current_snapshot.serialize()
@@ -190,6 +190,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V8,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V9,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V10,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V11,
 	]
 	for index in range(legacy_versions.size()):
 		var legacy_version: String = legacy_versions[index]
@@ -202,7 +203,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 			scene.free()
 			continue
 		var scene_registry = full_result.registry
-		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V11, "%s migration targets the complete player registry" % legacy_version, failures)
+		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V12, "%s migration targets the complete player registry" % legacy_version, failures)
 		var source_data: Dictionary
 		var source_bytes := ""
 		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
@@ -220,7 +221,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 				continue
 			source_data = fixture_parse.data
 		else:
-			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3, ContentVersionMigrationScript.ACT_TWO_SCALE_V4, ContentVersionMigrationScript.ACT_TWO_SCALE_V5, ContentVersionMigrationScript.ACT_TWO_SCALE_V6, ContentVersionMigrationScript.ACT_TWO_SCALE_V7, ContentVersionMigrationScript.ACT_TWO_SCALE_V8, ContentVersionMigrationScript.ACT_TWO_SCALE_V9]
+			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3, ContentVersionMigrationScript.ACT_TWO_SCALE_V4, ContentVersionMigrationScript.ACT_TWO_SCALE_V5, ContentVersionMigrationScript.ACT_TWO_SCALE_V6, ContentVersionMigrationScript.ACT_TWO_SCALE_V7, ContentVersionMigrationScript.ACT_TWO_SCALE_V8, ContentVersionMigrationScript.ACT_TWO_SCALE_V9, ContentVersionMigrationScript.ACT_TWO_SCALE_V10, ContentVersionMigrationScript.ACT_TWO_SCALE_V11]
 			var source_domain = _migration_source_domain(scene_registry, "run.scene.legacy.%d" % index, 770 + index, alpha_source, failures)
 			source_data = SaveMapperScript.suspend_snapshot(source_domain).to_dictionary()
 			_set_snapshot_content_identity(source_data, legacy_version)

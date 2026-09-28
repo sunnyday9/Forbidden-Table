@@ -28,6 +28,8 @@ const ACT_TWO_SCALE_V8 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v7+pha
 const ACT_TWO_SCALE_V9 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v8+phase2@v4"
 const ACT_TWO_SCALE_V10 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v9+phase2@v4"
 const ACT_TWO_SCALE_V11 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v10+phase2@v4"
+const ACT_TWO_CURRENT := "content.bundle.v1.alpha.act_two@v4+phase2@v4"
+const ACT_TWO_SCALE_V12 := "content.bundle.v1.alpha.act_two@v4+alpha.scale@v11+phase2@v4"
 const CHANGED_EVENT_MODIFIER_IDS := [
 	"event.risk_bargain.accept",
 	"event.contract_clause.apply",
@@ -42,7 +44,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 	if not content_registry.has_method("content_version"):
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	var target_version := str(content_registry.content_version())
-	if target_version not in [PHASE2_V4, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11]:
+	if target_version not in [PHASE2_V4, ACT_TWO_CURRENT, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12]:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -114,11 +116,13 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	var source_version := str(source.get("content_version", ""))
 	var target_version := _phase2_v2_migration_target(source_version)
 	var registry_version := str(content_registry.content_version())
-	# RunScene always loads the complete Phase 2 + Act Two + Alpha Scale
-	# registry. These source identities are explicitly allowlisted above; when
-	# present they migrate to that exact full identity after semantic guards and
-	# the normal LoadValidator checks every saved content reference.
-	if not target_version.is_empty() and registry_version in [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11]:
+	var compatible_registry_versions := [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12]
+	if source_version in [PHASE2_V2, ACT_TWO_V2]:
+		compatible_registry_versions.append(ACT_TWO_CURRENT)
+	# The active registry may include Alpha Scale or be Act Two-only. Preserve
+	# that distinction: a Scale source can migrate only to a registry that keeps
+	# Scale, while Phase 2-only and Act Two-only sources may use either target.
+	if not target_version.is_empty() and registry_version in compatible_registry_versions:
 		target_version = registry_version
 	if target_version.is_empty() or registry_version != target_version:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
@@ -165,28 +169,31 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	}
 
 static func migrate_full_v3_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V3, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V3, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v4_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v5_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v6_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v7_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v8_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v9_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V12)
 
 static func migrate_full_v10_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11)
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V12)
+
+static func migrate_full_v11_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12)
 
 static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_registry, source_version: String, target_version: String) -> Dictionary:
 	if content_registry == null:
