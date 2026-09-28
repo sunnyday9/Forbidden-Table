@@ -6,6 +6,7 @@ const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
@@ -61,6 +62,8 @@ func run() -> Array[String]:
 func test_act_one_boss_reward_starts_a_fresh_act_two_map(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
 	var v1_snapshot = Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot()
 	var migrated = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(v1_snapshot, registry)
 	if not migrated.accepted:
@@ -74,6 +77,7 @@ func test_act_one_boss_reward_starts_a_fresh_act_two_map(failures: Array[String]
 		"RUN",
 	))
 	migrated.domain.state.build_ownership.owned_relic_ids.append("base.relic.open_hand")
+	migrated.domain.state.build_ownership.owned_relic_ids.append(AlphaScaleCatalog.ACT_ONE_RELIC_IDS[0])
 	migrated.domain.state.build_ownership.run_technique_ids.append("base.technique.draw_surge")
 	var stable_save = SaveCoordinator.new().save(migrated.domain)
 	if not stable_save.accepted:
@@ -111,6 +115,7 @@ func test_act_one_boss_reward_starts_a_fresh_act_two_map(failures: Array[String]
 	assert_true(domain.state.act_index == 2, "the existing RunState advances to Act 2", failures)
 	assert_true(domain.state.tile_pool.to_dictionary() == tile_pool_before, "the Run-owned Tile Pool carries unchanged across the Act boundary", failures)
 	assert_true(domain.state.build_ownership.owned_relic_ids == build_before.owned_relic_ids, "owned Relics carry unchanged across the Act boundary", failures)
+	assert_true(domain.state.build_ownership.owned_relic_ids.has(AlphaScaleCatalog.ACT_ONE_RELIC_IDS[0]), "a newly added Act 1 Relic remains owned in Act 2", failures)
 	assert_true(domain.state.build_ownership.run_technique_ids == build_before.run_technique_ids, "owned Run Techniques carry unchanged across the Act boundary", failures)
 	assert_true(domain.state.build_ownership.acquired_rule_breaker_ids.size() == 1 and domain.state.build_ownership.acquired_rule_breaker_ids[0] == draft.options[0].content_id, "the selected Act 1 Boss Rule Breaker remains owned in Act 2", failures)
 	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "applying the Act 1 Boss reward enters Act 2 instead of Run Summary", failures)

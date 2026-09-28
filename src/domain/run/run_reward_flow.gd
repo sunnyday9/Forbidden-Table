@@ -6,6 +6,7 @@ const CommandValidationScript = preload("res://src/domain/commands/command_valid
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
+const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
@@ -57,13 +58,17 @@ func create_draft(encounter_kind: String, encounter_id: String, previous_phase: 
 			"draft": state.reward_draft.to_dictionary(),
 		}))
 	elif encounter_kind == EncounterDefinitionScript.ELITE:
+		var elite_build_pool_id := Phase2CatalogScript.REWARD_POOL_ID
+		var scale_pool_id := AlphaScaleCatalogScript.ACT_ONE_BUILD_POOL_ID if state.act_index < 2 else AlphaScaleCatalogScript.ACT_TWO_BUILD_POOL_ID
+		if content_registry.resolve(scale_pool_id) != null:
+			elite_build_pool_id = scale_pool_id
 		state.reward_draft = reward_draft_selector.create_elite_build_draft(
 			state,
 			content_registry,
 			rng_streams.reward,
 			encounter_id,
 			draft_index,
-			Phase2CatalogScript.REWARD_POOL_ID,
+			elite_build_pool_id,
 			AlphaContractEffectsScript.elite_skip_gold(economy.elite_skip_gold, content_registry, state.contract_id),
 			AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, state.contract_id),
 		)
@@ -111,6 +116,8 @@ func validate_choice(selected_draft_id: String, selected_option_id: String) -> R
 			var relic = content_registry.resolve(elite_option.content_id)
 			if not relic is RelicDefinitionScript:
 				return CommandValidationScript.new(false, "INVALID_REWARD_CONTENT", "The Elite Relic option is not a registered RelicDefinition.")
+			if relic.available_from_act > state.act_index:
+				return CommandValidationScript.new(false, "RELIC_NOT_AVAILABLE_IN_ACT", "The Elite Relic is not available in this Act.")
 			if state.build_ownership.owned_relic_ids.has(relic.content_id):
 				return CommandValidationScript.new(false, "DUPLICATE_RELIC", "The Run already owns this Relic.")
 			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id, "content_id": relic.content_id})

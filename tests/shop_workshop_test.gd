@@ -5,14 +5,21 @@ const CharacterDefinition = preload("res://src/content/definitions/character_def
 const ContentDefinition = preload("res://src/content/definitions/content_definition.gd")
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
+const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunState = preload("res://src/domain/run/run_state.gd")
 const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
 const RunScene = preload("res://scenes/run/run_scene.tscn")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const ShopOffer = preload("res://src/domain/run/shop_offer.gd")
+const ShopOfferSelector = preload("res://src/domain/run/shop_offer_selector.gd")
 const ShopState = preload("res://src/domain/run/shop_state.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
@@ -47,6 +54,7 @@ func run() -> Array[String]:
 	test_workshop_copy_limits_and_service_availability(failures)
 	test_rejected_shop_and_workshop_actions_are_atomic(failures)
 	test_service_commands_serialize_stable_ids(failures)
+	test_shop_relics_respect_act_availability(failures)
 	return failures
 
 func test_shop_entry_is_deterministic_and_checkpointable(failures: Array[String]) -> void:
@@ -520,6 +528,30 @@ func test_service_commands_serialize_stable_ids(failures: Array[String]) -> void
 	assert_true(use.to_dictionary()["command_type"] == "UseWorkshopService", "Workshop command has a stable type", failures)
 	assert_true(use.to_dictionary()["service_id"] == UseWorkshopServiceCommand.TRANSFORM, "Workshop command serializes the stable service ID", failures)
 	assert_true(use.to_dictionary()["instance_id"] == "run.tile.7" and use.to_dictionary()["value_id"] == "base.tile.bamboo.1", "Workshop command serializes stable Tile and content IDs", failures)
+
+func test_shop_relics_respect_act_availability(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var selector := ShopOfferSelector.new()
+	var economy := RunEconomy.new()
+	var slots: Array[int] = []
+	for index in 100:
+		slots.append(index)
+	for act_index in [1, 2]:
+		var state := RunState.new("shop.act.%d" % act_index, 1290 + act_index, registry.content_version())
+		state.act_index = act_index
+		var streams := DomainRngStreams.new(1290 + act_index)
+		var offers: Array = selector.create_offers(state, registry, streams.shop, "shop.act.%d" % act_index, 0, slots, {}, economy)
+		var offered_ids: Dictionary = {}
+		for offer in offers:
+			if offer.kind == ShopOffer.RELIC:
+				offered_ids[offer.content_id] = true
+		for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+			assert_true(offered_ids.has(relic_id), "%s is included by the Act %d Shop selector" % [relic_id, act_index], failures)
+		for relic_id in AlphaScaleCatalog.RELIC_IDS:
+			assert_true(offered_ids.has(relic_id) == (act_index == 2), "%s appears only after its Act 2 introduction" % relic_id, failures)
 
 func _shop_domain(run_id: String, seed: int) -> RunDomain:
 	var domain := RunDomain.new(run_id, seed, _registry())

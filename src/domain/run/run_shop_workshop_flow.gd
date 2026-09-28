@@ -180,8 +180,11 @@ func _validate_buy_shop_offer(selected_entry_id: String, selected_offer_id: Stri
 	if state.gold < offer.price:
 		return CommandValidationScript.new(false, "INSUFFICIENT_GOLD", "The run does not have enough Gold for this Shop offer.")
 	if offer.kind == ShopOfferScript.RELIC:
-		if not content_registry.resolve(offer.content_id) is RelicDefinitionScript:
+		var relic = content_registry.resolve(offer.content_id)
+		if not relic is RelicDefinitionScript:
 			return CommandValidationScript.new(false, "INVALID_SHOP_CONTENT", "The Shop Relic content ID is not registered.")
+		if relic.available_from_act > state.act_index:
+			return CommandValidationScript.new(false, "RELIC_NOT_AVAILABLE_IN_ACT", "The Shop Relic is not available in this Act.")
 		if state.build_ownership.owned_relic_ids.has(offer.content_id):
 			return CommandValidationScript.new(false, "OFFER_ALREADY_OWNED", "The run already owns this Relic.")
 	elif offer.kind == ShopOfferScript.TECHNIQUE:

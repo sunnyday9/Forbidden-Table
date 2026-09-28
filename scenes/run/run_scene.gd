@@ -175,6 +175,8 @@ func _load_suspend_contents(contents: String, registry) -> Dictionary:
 			return SaveMapperScript.load_full_v4_suspend_snapshot_into_domain(contents, registry)
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V5:
 			return SaveMapperScript.load_full_v5_suspend_snapshot_into_domain(contents, registry)
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V6:
+			return SaveMapperScript.load_full_v6_suspend_snapshot_into_domain(contents, registry)
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V3:
 			return SaveMapperScript.load_full_v3_suspend_snapshot_into_domain(contents, registry)
 		_:

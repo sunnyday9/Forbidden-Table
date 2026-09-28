@@ -53,6 +53,24 @@ const YAKU_IDS := [
 	"alpha.yaku.character_majority",
 	"alpha.yaku.dot_majority",
 ]
+const ACT_ONE_RELIC_IDS := [
+	"alpha.relic.act_one.tide_whistle",
+	"alpha.relic.act_one.ceramic_dial",
+	"alpha.relic.act_one.harbor_notch",
+	"alpha.relic.act_one.settlement_chart",
+	"alpha.relic.act_one.steady_keel",
+	"alpha.relic.act_one.clean_wake",
+	"alpha.relic.act_one.trade_current",
+]
+const NEW_ACT_TWO_RELIC_IDS := [
+	"alpha.relic.act_two.echo_lens",
+	"alpha.relic.act_two.crosswind_signal",
+	"alpha.relic.act_two.deep_reserve",
+	"alpha.relic.act_two.settlement_chart",
+	"alpha.relic.act_two.pressure_rivet",
+	"alpha.relic.act_two.ink_filter",
+	"alpha.relic.act_two.cargo_ledger",
+]
 const RELIC_IDS := [
 	"alpha.relic.act_two.echo_index",
 	"alpha.relic.act_two.twin_current",
@@ -72,6 +90,13 @@ const RELIC_IDS := [
 	"alpha.relic.act_two.draw_wick",
 	"alpha.relic.act_two.pressure_bell",
 	"alpha.relic.act_two.final_margin",
+	"alpha.relic.act_two.echo_lens",
+	"alpha.relic.act_two.crosswind_signal",
+	"alpha.relic.act_two.deep_reserve",
+	"alpha.relic.act_two.settlement_chart",
+	"alpha.relic.act_two.pressure_rivet",
+	"alpha.relic.act_two.ink_filter",
+	"alpha.relic.act_two.cargo_ledger",
 ]
 const RUN_TECHNIQUE_IDS := [
 	"alpha.technique.river_step",
@@ -92,7 +117,7 @@ const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v5"
+const CONTENT_BUNDLE_VERSION := "v6"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -117,8 +142,8 @@ static func definitions() -> Array:
 	return result
 
 static func pool_membership() -> Dictionary:
-	var baseline_build := _sorted_ids(Phase2CatalogScript.RELIC_IDS + Phase2CatalogScript.RUN_TECHNIQUE_IDS + RUN_TECHNIQUE_IDS)
-	var scale_build := _sorted_ids(Phase2CatalogScript.RELIC_IDS + RELIC_IDS + Phase2CatalogScript.RUN_TECHNIQUE_IDS + RUN_TECHNIQUE_IDS)
+	var baseline_build := _sorted_ids(Phase2CatalogScript.RELIC_IDS + ACT_ONE_RELIC_IDS + Phase2CatalogScript.RUN_TECHNIQUE_IDS + RUN_TECHNIQUE_IDS)
+	var scale_build := _sorted_ids(Phase2CatalogScript.RELIC_IDS + ACT_ONE_RELIC_IDS + RELIC_IDS + Phase2CatalogScript.RUN_TECHNIQUE_IDS + RUN_TECHNIQUE_IDS)
 	return {
 		ACT_ONE_BUILD_POOL_ID: baseline_build,
 		ACT_TWO_BUILD_POOL_ID: scale_build,
@@ -221,13 +246,38 @@ static func _yaku(identifier: String, label: String, scope: String, family: Stri
 	return YakuDefinitionScript.new(identifier, label, scope, family, model, config, local_score, complete_score)
 
 static func _relic_definitions() -> Array:
+	var act_one_configurations := [
+		["DrawTile", 1],
+		["GainTP", 1],
+		["ModifyReserveCapacity", 1],
+		["ModifySettlementCapacity", 1],
+		["GainStability", 2],
+		["PurgeContamination", 1],
+		["ModifyRunCurrency", 1],
+	]
 	var configurations := [
-		["DrawTile", 1], ["GainTP", 1], ["ModifyReserveCapacity", 1], ["GainStability", 2],		["DrawTile", 1], ["GainTP", 1], ["ModifySettlementCapacity", 1], ["GainStability", 1],
+		["DrawTile", 1], ["GainTP", 1], ["ModifyReserveCapacity", 1], ["GainStability", 2],
+		["DrawTile", 1], ["GainTP", 1], ["ModifySettlementCapacity", 1], ["GainStability", 1],
 		["PurgeContamination", 1], ["GainTP", 2], ["DrawTile", 1], ["GainStability", 2],
 		["GainTP", 1], ["ModifyReserveCapacity", 1], ["GainStability", 3], ["DrawTile", 1],
 		["GainStability", 2], ["GainTP", 2],
+		["GainTP", 2],
+		["DrawTile", 1],
+		["ModifyReserveCapacity", 2],
+		["ModifySettlementCapacity", 1],
+		["GainStability", 3],
+		["PurgeContamination", 2],
+		["ModifyRunCurrency", 2],
 	]
 	var result: Array = []
+	for index in ACT_ONE_RELIC_IDS.size():
+		result.append(RelicDefinitionScript.new(
+			ACT_ONE_RELIC_IDS[index],
+			[Phase2CatalogScript.typed_effect("content.%s" % ACT_ONE_RELIC_IDS[index], str(act_one_configurations[index][0]), int(act_one_configurations[index][1]))],
+			false,
+			[],
+			1,
+		))
 	for index in RELIC_IDS.size():
 		var configuration: Array = configurations[index]
 		result.append(RelicDefinitionScript.new(

@@ -40,6 +40,7 @@ func run() -> Array[String]:
 	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
+	test_scale_relic_act_groups_and_pool_membership(failures)
 	test_no_core_code_content_can_be_added_and_validated(failures)
 	return failures
 
@@ -255,6 +256,7 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
+	assert_true(scale_version.contains("alpha.scale@v6"), "the Scale bundle identity advances for the expanded Relic roster", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
 
@@ -409,6 +411,50 @@ func test_pools_have_stable_deterministic_membership(failures: Array[String]) ->
 		assert_true(pool.entry_ids() == first_membership[pool_id], "%s has stable ordered membership" % pool_id, failures)
 		for content_id in pool.entry_ids():
 			assert_true(registry.resolve(content_id) != null, "%s only contains registered content IDs" % pool_id, failures)
+
+func test_scale_relic_act_groups_and_pool_membership(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(registration.is_valid() and registry.validate().is_valid(), "the expanded Scale catalog remains valid typed content", failures)
+	assert_true(AlphaScaleCatalog.ACT_ONE_RELIC_IDS.size() == 7, "Scale adds seven Relics eligible from Act 1", failures)
+	assert_true(AlphaScaleCatalog.NEW_ACT_TWO_RELIC_IDS.size() == 7, "Scale adds seven Relics introduced in Act 2", failures)
+	assert_true(AlphaScaleCatalog.RELIC_IDS.size() == 25, "the Act 2 introduction group contains its original eighteen plus seven additions", failures)
+	for relic_id in AlphaScaleCatalog.NEW_ACT_TWO_RELIC_IDS:
+		assert_true(AlphaScaleCatalog.RELIC_IDS.has(relic_id), "%s is listed in the Act 2 introduction group" % relic_id, failures)
+	var production_relic_ids: Array = Phase2Catalog.RELIC_IDS + AlphaScaleCatalog.ACT_ONE_RELIC_IDS + AlphaScaleCatalog.RELIC_IDS
+	var unique_relic_ids: Dictionary = {}
+	var act_one_count := 0
+	var act_two_count := 0
+	for relic_id in production_relic_ids:
+		assert_true(not unique_relic_ids.has(relic_id), "%s appears only once in the production roster" % relic_id, failures)
+		unique_relic_ids[relic_id] = true
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition, "%s resolves in the full production catalog" % relic_id, failures)
+		if relic is RelicDefinition:
+			act_one_count += int(relic.available_from_act == 1)
+			act_two_count += int(relic.available_from_act == 2)
+	assert_true(unique_relic_ids.size() == 50, "the production Relic roster contains exactly fifty unique IDs", failures)
+	assert_true(act_one_count == 25 and act_two_count == 25, "the production Relic roster splits exactly 25 Act 1 eligible and 25 Act 2 introduced", failures)
+	for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition and relic.available_from_act == 1 and not relic.active, "%s is a Normal Relic available from Act 1" % relic_id, failures)
+		if relic is RelicDefinition:
+			_assert_all_typed_effects(relic.effects, relic_id, failures)
+	for relic_id in AlphaScaleCatalog.RELIC_IDS:
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition and relic.available_from_act == 2 and not relic.active, "%s is a Normal Relic introduced in Act 2" % relic_id, failures)
+		if relic is RelicDefinition:
+			_assert_all_typed_effects(relic.effects, relic_id, failures)
+	var membership: Dictionary = AlphaScaleCatalog.pool_membership()
+	for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+		assert_true(membership[AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID].has(relic_id), "%s joins the Act 1 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_BUILD_POOL_ID].has(relic_id), "%s remains available in the Act 2 build pool" % relic_id, failures)
+	for relic_id in AlphaScaleCatalog.RELIC_IDS:
+		assert_true(not membership[AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID].has(relic_id), "%s is excluded from the Act 1 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_BUILD_POOL_ID].has(relic_id), "%s joins the Act 2 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_SHOP_POOL_ID].has(relic_id), "%s joins the Act 2 Shop pool" % relic_id, failures)
 
 func test_no_core_code_content_can_be_added_and_validated(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

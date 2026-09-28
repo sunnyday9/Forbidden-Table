@@ -40,6 +40,7 @@ func create_elite_build_draft(
 			owned_techniques[str(content_id)] = true
 	var relic_candidates: Array = []
 	var technique_candidates: Array = []
+	var current_act := maxi(1, int(run_state.act_index)) if run_state != null else 1
 	for entry in pool.entries:
 		if not entry is Dictionary:
 			continue
@@ -48,7 +49,7 @@ func create_elite_build_draft(
 		if content_id.is_empty() or weight <= 0:
 			continue
 		var definition = content_registry.resolve(content_id)
-		if definition is RelicDefinitionScript and not owned_relics.has(content_id):
+		if definition is RelicDefinitionScript and definition.available_from_act <= current_act and not owned_relics.has(content_id):
 			relic_candidates.append({"definition": definition, "weight": weight, "kind": RewardOptionScript.RELIC})
 		elif definition is TechniqueDefinitionScript and definition.technique_kind != TechniqueDefinitionScript.CORE and not owned_techniques.has(content_id):
 			technique_candidates.append({"definition": definition, "weight": weight, "kind": RewardOptionScript.RUN_TECHNIQUE})
