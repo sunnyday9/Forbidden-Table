@@ -2,7 +2,7 @@
 
 **Status:** Content-budget decision accepted; measurable Beta gates remain open in [#76](https://github.com/sunnyday9/Forbidden-Table/issues/76). This is not the completed Stage 4 specification or an implementation authorization.
 
-**Decision source:** The maintainer accepted the recommendation recorded in [#75](https://github.com/sunnyday9/Forbidden-Table/issues/75#issuecomment-5866818223) on 2026-09-28. The optional final Act is deferred beyond 1.0 by [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74).
+**Decision source:** The maintainer accepted the recommendation in [the #75 proposal](https://github.com/sunnyday9/Forbidden-Table/issues/75#issuecomment-5866818223), with the decision recorded in [the #75 acceptance comment](https://github.com/sunnyday9/Forbidden-Table/issues/75#issuecomment-5867795290) on 2026-09-28. The optional final Act is deferred beyond 1.0 by [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74).
 
 ## 1. Scope and guardrails
 
