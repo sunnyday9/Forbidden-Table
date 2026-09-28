@@ -69,6 +69,9 @@ static func load_full_v8_suspend_snapshot_into_domain(serialized, content_regist
 static func load_full_v9_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
 	return _load_into_domain(serialized, content_registry, "FULL_V9")
 
+static func load_full_v10_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V10")
+
 static func _load_into_domain(serialized, content_registry, requested_content_migration: String) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
@@ -106,6 +109,8 @@ static func _load_into_domain(serialized, content_registry, requested_content_mi
 			content_migration = ContentVersionMigrationScript.migrate_full_v8_suspend_snapshot(data, content_registry)
 		elif requested_content_migration == "FULL_V9":
 			content_migration = ContentVersionMigrationScript.migrate_full_v9_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V10":
+			content_migration = ContentVersionMigrationScript.migrate_full_v10_suspend_snapshot(data, content_registry)
 		else:
 			return _reject("UNSUPPORTED_CONTENT_MIGRATION")
 		if not content_migration.accepted:
@@ -119,7 +124,7 @@ static func _load_into_domain(serialized, content_registry, requested_content_mi
 	var state = _state_from_dictionary(data.get("authoritative_state", data.get("run_state", {})), data)
 	var domain := RunDomainScript.new(str(data.run_id), int(data.run_seed), content_registry, str(data.content_version))
 	domain.rebind_state(state)
-	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index)
+	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index, content_registry)
 	if domain.map_definition == null:
 		return _reject("INVALID_ACT_INDEX")
 	if state.phase == RunPhaseScript.BATTLE:

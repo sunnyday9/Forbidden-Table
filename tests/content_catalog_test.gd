@@ -35,6 +35,7 @@ func run() -> Array[String]:
 	test_boss_reward_rule_breakers_are_registered_and_typed(failures)
 	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
 	test_act_two_encounters_events_and_map_payloads_are_typed(failures)
+	test_stage_four_enemy_rosters_use_existing_act_payloads(failures)
 	test_content_version_identifies_registered_catalog_bundles(failures)
 	test_catalogued_build_techniques_declare_battle_timings(failures)
 	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
@@ -257,7 +258,7 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	assert_true(scale_version.contains("alpha.scale@v9"), "the Scale bundle identity advances for the Stage 4 Tile Modifier roster", failures)
+	assert_true(scale_version.contains("alpha.scale@v10"), "the Scale bundle identity advances for the Stage 4 encounter roster", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
 
@@ -372,6 +373,72 @@ func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[S
 	expected_event_ids.sort()
 	assert_true(sorted_mapped_events == expected_event_ids, "the Act 2 Event nodes expose all six existing Event families", failures)
 	assert_true(registry.validate().is_valid(), "all Act 2 map payload references pass typed registry validation", failures)
+
+func test_stage_four_enemy_rosters_use_existing_act_payloads(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var act_one_map = MiniActMapCatalog.definition_for_act(1, registry)
+	var act_two_map = MiniActMapCatalog.definition_for_act(2, registry)
+	for encounter_id in AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS:
+		assert_true(_map_has_payload(act_one_map, encounter_id), "%s is selectable from the Act 1 map payloads" % encounter_id, failures)
+		assert_true(not _map_has_payload(act_two_map, encounter_id), "%s is excluded from the Act 2 map payloads" % encounter_id, failures)
+	for encounter_id in AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS:
+		assert_true(_map_has_payload(act_two_map, encounter_id), "%s is selectable from the Act 2 map payloads" % encounter_id, failures)
+		assert_true(not _map_has_payload(act_one_map, encounter_id), "%s is excluded from the Act 1 map payloads" % encounter_id, failures)
+	var act_two_only_encounters := _encounter_variant_ids(AlphaActTwoCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS)
+	act_two_only_encounters.append_array(_encounter_variant_ids([
+		AlphaActTwoCatalog.ACT_TWO_ELITE_ENCOUNTER_ID,
+		AlphaActTwoCatalog.ACT_TWO_BOSS_ENCOUNTER_ID,
+	]))
+	act_two_only_encounters.append_array(AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS)
+	act_two_only_encounters.append_array(AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS)
+	for encounter_id in act_two_only_encounters:
+		assert_true(not _map_has_payload(act_one_map, encounter_id), "Act 1 cannot select the Act 2-only encounter %s" % encounter_id, failures)
+	var existing_normal_ids: Array = Phase2Catalog.NORMAL_ENEMY_IDS + AlphaActTwoCatalog.ACT_TWO_NORMAL_ENEMY_IDS
+	var new_normal_ids: Array = AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS + AlphaScaleCatalog.ACT_TWO_NORMAL_ENEMY_IDS
+	for enemy_id in existing_normal_ids + new_normal_ids:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition and enemy.role == EnemyDefinition.NORMAL, "%s remains a registered Normal enemy" % enemy_id, failures)
+	var existing_elite_ids: Array = [Phase2Catalog.ELITE_ENEMY_ID, AlphaActTwoCatalog.ACT_TWO_ELITE_ENEMY_ID]
+	var new_elite_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENEMY_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENEMY_IDS
+	for enemy_id in existing_elite_ids + new_elite_ids:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition and enemy.role == EnemyDefinition.ELITE, "%s remains a registered Elite" % enemy_id, failures)
+	for index in AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.NORMAL and encounter.enemy_ids == [AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS[index]], "%s resolves to its intended Act 1 Normal" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.NORMAL and encounter.enemy_ids == [AlphaScaleCatalog.ACT_TWO_NORMAL_ENEMY_IDS[index]], "%s resolves to its intended Act 2 Normal" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.ELITE and encounter.enemy_ids == [AlphaScaleCatalog.ACT_ONE_ELITE_ENEMY_IDS[index]], "%s resolves to its intended Act 1 Elite" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.ELITE and encounter.enemy_ids == [AlphaScaleCatalog.ACT_TWO_ELITE_ENEMY_IDS[index]], "%s resolves to its intended Act 2 Elite" % encounter_id, failures)
+	assert_true(registry.validate().is_valid(), "new encounter references and existing Act content remain valid", failures)
+
+func _map_has_payload(map_definition, target_payload_id: String) -> bool:
+	for node_id in map_definition.node_ids:
+		var node = map_definition.node_definition(node_id)
+		if node.payload_options.has(target_payload_id):
+			return true
+	return false
+
+
+func _encounter_variant_ids(base_ids: Array) -> Array:
+	var variants: Array = []
+	for value in base_ids:
+		variants.append(str(value))
+		variants.append("%s.a" % value)
+		variants.append("%s.b" % value)
+	return variants
 
 func test_failed_catalog_registration_does_not_change_bundle_identity(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

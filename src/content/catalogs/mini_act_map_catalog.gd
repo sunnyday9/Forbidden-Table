@@ -21,15 +21,19 @@ static func definition() -> MapDefinitionScript:
 static func act_two_definition() -> MapDefinitionScript:
 	return _definition("base.map.act_two", "base.map_node.act_two.", "act_two.", true)
 
-static func definition_for_act(act_index: int) -> MapDefinitionScript:
+static func definition_for_act(act_index: int, content_registry = null) -> MapDefinitionScript:
+	var include_scale_encounters := _has_scale_encounters(content_registry)
 	match act_index:
 		1:
-			return definition()
+			return _definition("base.map.act_one", "base.map_node.", "", false, include_scale_encounters)
 		2:
-			return act_two_definition()
+			return _definition("base.map.act_two", "base.map_node.act_two.", "act_two.", true, include_scale_encounters)
 	return null
 
-static func _definition(map_id: String, node_prefix: String, edge_prefix: String, act_two: bool) -> MapDefinitionScript:
+static func _has_scale_encounters(content_registry) -> bool:
+	return content_registry != null and content_registry.resolve("alpha.encounter.act_one.normal.fog_caller") != null
+
+static func _definition(map_id: String, node_prefix: String, edge_prefix: String, act_two: bool, include_scale_encounters: bool = false) -> MapDefinitionScript:
 	var intro := node_prefix + "intro"
 	var left := node_prefix + "normal.left"
 	var right := node_prefix + "normal.right"
@@ -57,6 +61,23 @@ static func _definition(map_id: String, node_prefix: String, edge_prefix: String
 	var left_event_variants: Array[String] = _string_array(["alpha.event.act_two.tile_surgery", "alpha.event.act_two.risk_bargain", "alpha.event.act_two.gold_exchange"]) if act_two else _string_array(["base.event.risk_bargain", "base.event.gold_exchange"])
 	var right_event := "alpha.event.act_two.map_reveal" if act_two else "base.event.map_reveal"
 	var right_event_variants: Array[String] = _string_array(["alpha.event.act_two.map_reveal", "alpha.event.act_two.contract_clause", "alpha.event.act_two.rule_memory"]) if act_two else _string_array(["base.event.map_reveal", "base.event.contract_clause"])
+	if include_scale_encounters:
+		if act_two:
+			intro_variants.append("alpha.encounter.act_two.normal.contract_harrier")
+			left_variants.append("alpha.encounter.act_two.normal.echo_courier")
+			right_variants.append("alpha.encounter.act_two.normal.lien_keeper")
+			elite_variants.append_array([
+				"alpha.encounter.act_two.elite.margin_enforcer",
+				"alpha.encounter.act_two.elite.infernal_index",
+			])
+		else:
+			intro_variants.append("alpha.encounter.act_one.normal.fog_caller")
+			left_variants.append("alpha.encounter.act_one.normal.margin_taker")
+			right_variants.append("alpha.encounter.act_one.normal.signal_keeper")
+			elite_variants.append_array([
+				"alpha.encounter.act_one.elite.clockwork_auditor",
+				"alpha.encounter.act_one.elite.drift_captain",
+			])
 	nodes[intro] = _node(intro, MapNodeDefinitionScript.BATTLE, [left, right], intro_encounter, intro_variants, ["edge.%sintro.left" % edge_prefix, "edge.%sintro.right" % edge_prefix])
 	nodes[left] = _node(left, MapNodeDefinitionScript.BATTLE, [shop, event_left], left_encounter, left_variants, ["edge.%sleft.shop" % edge_prefix, "edge.%sleft.event" % edge_prefix])
 	nodes[right] = _node(right, MapNodeDefinitionScript.BATTLE, [workshop, event_right], right_encounter, right_variants, ["edge.%sright.workshop" % edge_prefix, "edge.%sright.event" % edge_prefix])

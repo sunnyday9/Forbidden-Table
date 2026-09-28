@@ -46,6 +46,7 @@ func run() -> Array[String]:
 	test_reward_selection_replays_from_the_elite_boundary(failures)
 	test_relic_eligibility_in_elite_reward_selection(failures)
 	test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures)
+	test_stage_four_elites_use_existing_reward_path(failures)
 	return failures
 
 func test_elite_victory_presents_three_distinct_acquisitions_plus_skip(failures: Array[String]) -> void:
@@ -290,6 +291,28 @@ func test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures:
 	assert_true(result.accepted and result.replayable, "the existing typed reward command accepts the new Technique choice", failures)
 	assert_true(domain.state.build_ownership.run_technique_ids.has(technique_id), "the selected Technique joins Run ownership through the existing acquisition flow", failures)
 
+func test_stage_four_elites_use_existing_reward_path(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var elite_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS
+	for index in elite_encounter_ids.size():
+		var encounter_id: String = elite_encounter_ids[index]
+		var act_index := 1 if index < AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS.size() else 2
+		var domain := _elite_battle_domain("elite.reward.stage4.%d" % index, 5390 + index, true, encounter_id)
+		domain.state.act_index = act_index
+		assert_true(domain.current_battle != null and domain.current_battle.encounter_id == encounter_id, "%s resolves through the existing Elite battle path" % encounter_id, failures)
+		if domain.current_battle == null:
+			continue
+		domain.current_battle.combat_state.enemy_hp = 1
+		var victory = domain.current_battle.combat_resolver.resolve_player_action(domain.current_battle.combat_state, 2)
+		domain.apply_battle_outcome()
+		var draft = domain.state.reward_draft
+		assert_true(victory.terminal_outcome == "VICTORY", "%s victory is resolved by the existing combat resolver" % encounter_id, failures)
+		assert_true(domain.state.phase == RunPhase.ELITE_REWARD and draft != null, "%s victory enters the existing Elite reward phase" % encounter_id, failures)
+		assert_true(draft != null and draft.encounter_kind == EncounterDefinition.ELITE and draft.options.size() == 4, "%s creates the standard three acquisitions plus Skip" % encounter_id, failures)
+
 func _find_option(draft, kind: String):
 	if draft == null:
 		return null
@@ -332,7 +355,7 @@ func _elite_reward_domain(run_id: String, seed: int, act_index: int = 1, include
 	domain.apply_battle_outcome()
 	return domain
 
-func _elite_battle_domain(run_id: String, seed: int, include_scale: bool = false) -> RunDomain:
+func _elite_battle_domain(run_id: String, seed: int, include_scale: bool = false, requested_encounter_id: String = "") -> RunDomain:
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
 	if include_scale:
@@ -360,7 +383,7 @@ func _elite_battle_domain(run_id: String, seed: int, include_scale: bool = false
 		"edge.mid.elite",
 	]
 	domain.state.map_state.path_edge_ids = elite_path_edges
-	var encounter_id := str(domain.state.map_state.payload_ids.get(ELITE_NODE_ID, "base.encounter.elite"))
+	var encounter_id := requested_encounter_id if not requested_encounter_id.is_empty() else str(domain.state.map_state.payload_ids.get(ELITE_NODE_ID, "base.encounter.elite"))
 	domain.current_battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, EncounterDefinition.ELITE)
 	domain.state.phase = RunPhase.BATTLE
 	return domain

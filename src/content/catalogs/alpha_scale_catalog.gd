@@ -6,6 +6,8 @@ const CharacterDefinitionScript = preload("res://src/content/definitions/charact
 const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/character_passive_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
 const EventDefinitionScript = preload("res://src/content/definitions/event_definition.gd")
+const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
+const EnemyDefinitionScript = preload("res://src/content/definitions/enemy_definition.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
 const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
@@ -13,6 +15,9 @@ const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const YakuDefinitionScript = preload("res://src/content/definitions/yaku_definition.gd")
+const EnemyIntentScript = preload("res://src/domain/combat/enemy_intent.gd")
+const IntentGraphScript = preload("res://src/domain/combat/intent_graph.gd")
+const IntentTransitionScript = preload("res://src/domain/combat/intent_transition.gd")
 
 const CHARACTER_ID := "alpha.character.harbor_reader"
 const CORE_TECHNIQUE_ID := "alpha.technique.core.harbor_read"
@@ -146,7 +151,43 @@ const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v9"
+const CONTENT_BUNDLE_VERSION := "v10"
+const ACT_ONE_NORMAL_ENEMY_IDS := [
+	"alpha.enemy.act_one.fog_caller",
+	"alpha.enemy.act_one.margin_taker",
+	"alpha.enemy.act_one.signal_keeper",
+]
+const ACT_TWO_NORMAL_ENEMY_IDS := [
+	"alpha.enemy.act_two.contract_harrier",
+	"alpha.enemy.act_two.echo_courier",
+	"alpha.enemy.act_two.lien_keeper",
+]
+const ACT_ONE_ELITE_ENEMY_IDS := [
+	"alpha.enemy.act_one.elite.clockwork_auditor",
+	"alpha.enemy.act_one.elite.drift_captain",
+]
+const ACT_TWO_ELITE_ENEMY_IDS := [
+	"alpha.enemy.act_two.elite.margin_enforcer",
+	"alpha.enemy.act_two.elite.infernal_index",
+]
+const ACT_ONE_NORMAL_ENCOUNTER_IDS := [
+	"alpha.encounter.act_one.normal.fog_caller",
+	"alpha.encounter.act_one.normal.margin_taker",
+	"alpha.encounter.act_one.normal.signal_keeper",
+]
+const ACT_TWO_NORMAL_ENCOUNTER_IDS := [
+	"alpha.encounter.act_two.normal.contract_harrier",
+	"alpha.encounter.act_two.normal.echo_courier",
+	"alpha.encounter.act_two.normal.lien_keeper",
+]
+const ACT_ONE_ELITE_ENCOUNTER_IDS := [
+	"alpha.encounter.act_one.elite.clockwork_auditor",
+	"alpha.encounter.act_one.elite.drift_captain",
+]
+const ACT_TWO_ELITE_ENCOUNTER_IDS := [
+	"alpha.encounter.act_two.elite.margin_enforcer",
+	"alpha.encounter.act_two.elite.infernal_index",
+]
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -168,9 +209,132 @@ static func definitions() -> Array:
 	result.append_array(_run_technique_definitions())
 	result.append_array(_modifier_definitions())
 	result.append_array(_rule_breaker_definitions())
+	result.append_array(_enemy_definitions())
+	result.append_array(_encounter_definitions())
 	result.append_array(_pool_definitions())
 	result.append_array(_boss_rule_breaker_pool_definitions())
 	return result
+
+static func _enemy_definitions() -> Array:
+	return [
+		EnemyDefinitionScript.new(
+			ACT_ONE_NORMAL_ENEMY_IDS[0],
+			_loop_graph("fog_caller", [["seed", "Call the Fog", 1, EnemyIntentScript.CONTAMINATION], ["press", "Press Through the Fog", 2, EnemyIntentScript.PRESSURE]]),
+			EnemyDefinitionScript.NORMAL,
+			8,
+			{"pressure_limit": 10},
+		),
+		EnemyDefinitionScript.new(
+			ACT_ONE_NORMAL_ENEMY_IDS[1],
+			_loop_graph("margin_taker", [["tax", "Take the Margin", 1, EnemyIntentScript.WALL_TAX], ["collect", "Collect the Shortfall", 2, EnemyIntentScript.INTEGRITY]]),
+			EnemyDefinitionScript.NORMAL,
+			9,
+			{"draw_tax": 1, "pressure_limit": 10, "integrity_damage": 1},
+		),
+		EnemyDefinitionScript.new(
+			ACT_ONE_NORMAL_ENEMY_IDS[2],
+			_loop_graph("signal_keeper", [["audit", "Audit the Signal", 1, EnemyIntentScript.AUDIT], ["press", "Enforce the Signal", 2, EnemyIntentScript.PRESSURE]]),
+			EnemyDefinitionScript.NORMAL,
+			8,
+			{"pressure_limit": 10},
+		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_NORMAL_ENEMY_IDS[0],
+			_loop_graph("contract_harrier", [["audit", "Read the Contract", 1, EnemyIntentScript.AUDIT], ["hunt", "Enforce the Clause", 3, EnemyIntentScript.HUNT]]),
+			EnemyDefinitionScript.NORMAL,
+			10,
+			{"pressure_limit": 11},
+		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_NORMAL_ENEMY_IDS[1],
+			_loop_graph("echo_courier", [["echo", "Send the Echo", 1, EnemyIntentScript.CONTAMINATION], ["thin", "Thin the Wall", 2, EnemyIntentScript.WALL_TAX]]),
+			EnemyDefinitionScript.NORMAL,
+			10,
+			{"pressure_limit": 11, "draw_tax": 1},
+		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_NORMAL_ENEMY_IDS[2],
+			_loop_graph("lien_keeper", [["lien", "Record the Lien", 2, EnemyIntentScript.INTEGRITY], ["collect", "Collect the Lien", 1, EnemyIntentScript.REWARD_TAX]]),
+			EnemyDefinitionScript.NORMAL,
+			11,
+			{"pressure_limit": 12, "integrity_damage": 1},
+		),
+		EnemyDefinitionScript.new(
+			ACT_ONE_ELITE_ENEMY_IDS[0],
+			_loop_graph("clockwork_auditor", [["audit", "Audit the Run", 2, EnemyIntentScript.AUDIT], ["collect", "Collect the Fee", 1, EnemyIntentScript.REWARD_TAX], ["hunt", "Hunt the Weak Line", 3, EnemyIntentScript.HUNT]]),
+			EnemyDefinitionScript.ELITE,
+			15,
+			{"pressure_limit": 12, "draw_tax": 1, "reward_multiplier": 2},
+		),
+		EnemyDefinitionScript.new(
+			ACT_ONE_ELITE_ENEMY_IDS[1],
+			_loop_graph("drift_captain", [["hunt", "Hunt the Current", 3, EnemyIntentScript.HUNT], ["tax", "Tax the Wall", 2, EnemyIntentScript.WALL_TAX], ["press", "Drive the Fleet", 2, EnemyIntentScript.PRESSURE]]),
+			EnemyDefinitionScript.ELITE,
+			16,
+			{"pressure_limit": 12, "draw_tax": 1, "reward_multiplier": 2},
+		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_ELITE_ENEMY_IDS[0],
+			_loop_graph("margin_enforcer", [["audit", "Audit the Margin", 2, EnemyIntentScript.AUDIT], ["tax", "Enforce the Margin", 2, EnemyIntentScript.WALL_TAX], ["integrity", "Close the Margin", 2, EnemyIntentScript.INTEGRITY]]),
+			EnemyDefinitionScript.ELITE,
+			18,
+			{"pressure_limit": 13, "draw_tax": 1, "integrity_damage": 1, "reward_multiplier": 2},
+		),
+		EnemyDefinitionScript.new(
+			ACT_TWO_ELITE_ENEMY_IDS[1],
+			_loop_graph("infernal_index", [["index", "Index the Table", 2, EnemyIntentScript.CONTAMINATION], ["burn", "Burn the Record", 3, EnemyIntentScript.PRESSURE], ["audit", "Audit the Ashes", 2, EnemyIntentScript.AUDIT]]),
+			EnemyDefinitionScript.ELITE,
+			19,
+			{"pressure_limit": 13, "reward_multiplier": 2},
+		),
+	]
+
+static func _encounter_definitions() -> Array:
+	var result: Array = []
+	for index in ACT_ONE_NORMAL_ENEMY_IDS.size():
+		result.append(EncounterDefinitionScript.new(
+			ACT_ONE_NORMAL_ENCOUNTER_IDS[index],
+			[ACT_ONE_NORMAL_ENEMY_IDS[index]],
+			EncounterDefinitionScript.NORMAL,
+			{"act": 1, "variant": "scale"},
+		))
+	for index in ACT_TWO_NORMAL_ENEMY_IDS.size():
+		result.append(EncounterDefinitionScript.new(
+			ACT_TWO_NORMAL_ENCOUNTER_IDS[index],
+			[ACT_TWO_NORMAL_ENEMY_IDS[index]],
+			EncounterDefinitionScript.NORMAL,
+			{"act": 2, "variant": "scale"},
+		))
+	for index in ACT_ONE_ELITE_ENEMY_IDS.size():
+		result.append(EncounterDefinitionScript.new(
+			ACT_ONE_ELITE_ENCOUNTER_IDS[index],
+			[ACT_ONE_ELITE_ENEMY_IDS[index]],
+			EncounterDefinitionScript.ELITE,
+			{"act": 1, "variant": "scale"},
+		))
+	for index in ACT_TWO_ELITE_ENEMY_IDS.size():
+		result.append(EncounterDefinitionScript.new(
+			ACT_TWO_ELITE_ENCOUNTER_IDS[index],
+			[ACT_TWO_ELITE_ENEMY_IDS[index]],
+			EncounterDefinitionScript.ELITE,
+			{"act": 2, "variant": "scale"},
+		))
+	return result
+
+static func _loop_graph(prefix: String, definitions: Array) -> IntentGraphScript:
+	var intents: Array = []
+	for index in definitions.size():
+		var definition: Array = definitions[index]
+		var current_id := "%s.%s" % [prefix, definition[0]]
+		var next_id := "%s.%s" % [prefix, definitions[(index + 1) % definitions.size()][0]]
+		intents.append(EnemyIntentScript.new(
+			current_id,
+			str(definition[1]),
+			int(definition[2]),
+			str(definition[3]),
+			[IntentTransitionScript.fixed("%s.next" % current_id, next_id)],
+		))
+	return IntentGraphScript.new("%s.%s" % [prefix, definitions[0][0]], intents)
 
 static func pool_membership() -> Dictionary:
 	var baseline_build := _sorted_ids(Phase2CatalogScript.RELIC_IDS + ACT_ONE_RELIC_IDS + Phase2CatalogScript.RUN_TECHNIQUE_IDS + RUN_TECHNIQUE_IDS)

@@ -32,6 +32,7 @@ const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_ene
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const UseTechniqueCommand = preload("res://src/domain/commands/use_technique_command.gd")
 const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
+const TileInstance = preload("res://src/domain/tiles/tile_instance.gd")
 const TileZone = preload("res://src/domain/tiles/tile_zone.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
@@ -57,6 +58,7 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
 	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
+	test_stage_four_enemy_encounters_resolve_through_catalog_path(failures)
 	test_owned_passive_technique_applies_once_on_battle_entry(failures)
 	test_stage_four_run_techniques_resolve_through_existing_commands_and_resume_replay(failures)
 	test_reaction_techniques_resolve_only_in_matching_windows(failures)
@@ -237,6 +239,78 @@ func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Arra
 		var boss_result = boss_battle.combat_resolver.resolve_enemy_intent(boss_battle.combat_state)
 		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
 		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
+
+func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var phase2_registration = Phase2Catalog.register_all(registry)
+	var act_two_registration = AlphaActTwoCatalog.register_all(registry)
+	var scale_registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(phase2_registration.is_valid() and act_two_registration.is_valid() and scale_registration.is_valid(), "the full catalogs register the Stage 4 encounter roster", failures)
+	if not phase2_registration.is_valid() or not act_two_registration.is_valid() or not scale_registration.is_valid():
+		return
+	var domain := RunDomain.new("run.stage4.enemy.encounters", 8410, registry)
+	domain.execute(ChooseCharacterCommand.new("stage4.enemy.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("stage4.enemy.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var new_normal_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS
+	var new_elite_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS
+	for encounter_id in new_normal_encounter_ids + new_elite_encounter_ids:
+		var encounter = registry.resolve(encounter_id)
+		var expected_kind := EncounterDefinition.ELITE if new_elite_encounter_ids.has(encounter_id) else EncounterDefinition.NORMAL
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == expected_kind, "%s resolves to its authored encounter kind" % encounter_id, failures)
+		if not encounter is EncounterDefinition:
+			continue
+		var battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, expected_kind)
+		assert_true(battle != null, "%s creates a BattleDomain through EncounterFactory" % encounter_id, failures)
+		if battle == null:
+			continue
+		assert_true(battle.encounter_id == encounter_id and battle.enemy_definition.content_id == encounter.enemy_ids[0], "%s resolves its authored EnemyDefinition into combat" % encounter_id, failures)
+		var starting_intent = battle.combat_state.current_intent
+		var pressure_before: int = battle.combat_state.pressure
+		var draw_capacity_before: int = battle.combat_state.draw_capacity
+		var fatigue_before: int = battle.combat_state.fatigue
+		var reward_tax_before: int = battle.combat_state.reward_tax
+		var draw_wall_before: int = battle.zones.size(TileZone.DRAW_WALL)
+		if starting_intent != null and starting_intent.action_type in [EnemyIntent.INTEGRITY, EnemyIntent.HUNT]:
+			battle.zones.add(TileInstance.new("stage4.reserve.%s" % encounter_id, "base.tile.characters.1"), TileZone.RESERVE)
+		var intent_result = battle.combat_resolver.resolve_enemy_intent(battle.combat_state)
+		assert_true(intent_result.is_resolved(), "%s resolves its starting authored enemy intent" % encounter_id, failures)
+		if starting_intent == null:
+			continue
+		match starting_intent.action_type:
+			EnemyIntent.PRESSURE:
+				assert_true(battle.combat_state.pressure > pressure_before, "%s applies its authored Pressure action" % encounter_id, failures)
+			EnemyIntent.WALL_TAX:
+				assert_true(battle.combat_state.draw_capacity < draw_capacity_before, "%s applies its authored Wall Tax action" % encounter_id, failures)
+			EnemyIntent.CONTAMINATION:
+				assert_true(battle.zones.size(TileZone.DRAW_WALL) > draw_wall_before, "%s adds authored contamination to the Draw Wall" % encounter_id, failures)
+				var contamination_applied = _event_of_type(intent_result.events, DomainEvent.CONTAMINATION_APPLIED)
+				assert_true(contamination_applied != null and contamination_applied.data.get("contamination_id", "") == "base.contamination.clutter", "%s applies the supported Clutter contamination" % encounter_id, failures)
+			EnemyIntent.AUDIT:
+				assert_true(battle.combat_state.fatigue > fatigue_before, "%s applies its authored Audit action" % encounter_id, failures)
+			EnemyIntent.REWARD_TAX:
+				assert_true(battle.combat_state.reward_tax > reward_tax_before, "%s applies its authored Reward Tax action" % encounter_id, failures)
+			EnemyIntent.INTEGRITY, EnemyIntent.HUNT:
+				assert_true(_event_of_type(intent_result.events, DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
+
+	var persisted_domain := RunDomain.new("run.stage4.enemy.resume", 8411, registry)
+	persisted_domain.execute(ChooseCharacterCommand.new("stage4.enemy.resume.character", Phase2Catalog.CHARACTER_IDS[0]))
+	persisted_domain.execute(ChooseContractCommand.new("stage4.enemy.resume.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var selected_encounter_id: String = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS[0]
+	var intro_node_id: String = persisted_domain.map_definition.start_node_id
+	persisted_domain.state.map_state.payload_ids[intro_node_id] = selected_encounter_id
+	var selected = persisted_domain.execute(SelectMapNodeCommand.new("stage4.enemy.resume.select", intro_node_id))
+	assert_true(selected.is_accepted() and persisted_domain.current_battle.encounter_id == selected_encounter_id, "a new Act 1 Normal is selectable through the RunDomain map path", failures)
+	if not selected.is_accepted():
+		return
+	var saved = SaveCoordinator.new().save(persisted_domain)
+	assert_true(saved.get("accepted", false), "a new-enemy battle saves through the existing Suspend path", failures)
+	if not saved.get("accepted", false):
+		return
+	var loaded: Dictionary = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), registry)
+	assert_true(loaded.get("accepted", false), "a new-enemy battle resumes through the existing persistence path", failures)
+	if loaded.get("accepted", false):
+		assert_true(loaded.domain.current_battle.encounter_id == selected_encounter_id, "Resume restores the exact selected Stage 4 encounter", failures)
+		assert_true(loaded.domain.current_battle.enemy_definition.content_id == AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS[0], "Resume restores its authored enemy definition", failures)
 
 func test_owned_passive_technique_applies_once_on_battle_entry(failures: Array[String]) -> void:
 	var registry := _registry()
