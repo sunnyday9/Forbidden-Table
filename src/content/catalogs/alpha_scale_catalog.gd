@@ -20,6 +20,14 @@ const CONTRACT_IDS := [
 	"alpha.contract.quiet_current",
 	"alpha.contract.open_ledger",
 	"alpha.contract.brittle_compass",
+	"alpha.contract.long_current",
+	"alpha.contract.house_tithe",
+]
+## These are the Scale Contracts present in persisted Stage 3 unlock profiles.
+const STAGE_3_CONTRACT_IDS := [
+	"alpha.contract.quiet_current",
+	"alpha.contract.open_ledger",
+	"alpha.contract.brittle_compass",
 ]
 const YAKU_IDS := [
 	"alpha.yaku.double_sequence",
@@ -70,7 +78,7 @@ const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v3"
+const CONTENT_BUNDLE_VERSION := "v4"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -149,6 +157,20 @@ static func _contract_definitions() -> Array:
 			{"elite_skip_gold_penalty": 2, "workshop_refinement_gold_surcharge": 1},
 			{"refinement_tokens_on_contract_selection": 1, "extra_modified_tile_choice": true},
 			{"path": "brittle_compass", "flexibility": "route-dependent", "preferred_tile_ids": ["base.tile.dots.4", "base.tile.dots.5", "base.tile.dots.6"]},
+		),
+		ContractDefinitionScript.new(
+			CONTRACT_IDS[3],
+			ContractDefinitionScript.PRESSURE,
+			{"initial_pressure_per_battle": 3},
+			{"starting_tp_per_battle": 2},
+			{"path": "long_current", "flexibility": "steady", "preferred_tile_ids": ["base.tile.honors.west", "base.tile.honors.north"]},
+		),
+		ContractDefinitionScript.new(
+			CONTRACT_IDS[4],
+			ContractDefinitionScript.REFINEMENT_DEBT,
+			{"elite_skip_gold_penalty": 4},
+			{"refinement_tokens_on_elite_skip": 2},
+			{"path": "house_tithe", "flexibility": "route-dependent", "preferred_tile_ids": ["base.tile.bamboo.2", "base.tile.bamboo.3"]},
 		),
 	]
 

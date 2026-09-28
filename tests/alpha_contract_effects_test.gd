@@ -18,6 +18,7 @@ const RewardDraftSelector = preload("res://src/domain/run/reward_draft_selector.
 const RewardOption = preload("res://src/domain/run/reward_option.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
 const RunState = preload("res://src/domain/run/run_state.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
 const RunTilePoolState = preload("res://src/domain/run/run_tile_pool_state.gd")
@@ -30,6 +31,8 @@ const WorkshopState = preload("res://src/domain/run/workshop_state.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	test_long_current_is_selectable_and_changes_battle_start(failures)
+	test_house_tithe_changes_elite_skip_economy(failures)
 	test_contract_selection_effects_and_invalid_selection_are_atomic(failures)
 	test_quiet_current_applies_battle_start_pressure_and_tp(failures)
 	test_open_ledger_filters_and_biases_normal_tile_choices(failures)
@@ -41,6 +44,66 @@ func run() -> Array[String]:
 	test_phase_2_contract_defaults_remain_unchanged(failures)
 	test_scale_version_rejects_inert_v1_snapshot(failures)
 	return failures
+
+func test_long_current_is_selectable_and_changes_battle_start(failures: Array[String]) -> void:
+	var contract_id := "alpha.contract.long_current"
+	var registry := _registry()
+	var definition = registry.resolve(contract_id)
+	assert_true(definition is ContractDefinition and definition.validate().is_valid(), "Long Current registers as a valid ContractDefinition", failures)
+	var domain: RunDomain = RunDomain.new_alpha_run(
+		"contract.long-current.run-start",
+		151,
+		registry,
+		"",
+		null,
+		null,
+		MetaProgressState.all_unlocked_test_profile(),
+	)
+	var controller := RunPresentationController.new(domain)
+	var character_result = controller.confirm("character:%s" % Phase2Catalog.CHARACTER_IDS[0])
+	assert_true(character_result.accepted, "the Run-start Contract fixture selects a Character", failures)
+	var action_id := "contract:%s" % contract_id
+	var offered_actions: Array = controller.action_descriptors().filter(func(action): return action.get("id", "") == action_id)
+	assert_true(offered_actions.size() == 1, "Long Current is offered through the normal Run-start Contract selection", failures)
+	var contract_result = controller.confirm(action_id)
+	assert_true(contract_result.accepted and domain.state.contract_id == contract_id, "Long Current can be selected through its stable Run-start action", failures)
+	var battle_result = domain.execute(SelectMapNodeCommand.new("contract.long-current.battle", domain.map_definition.start_node_id))
+	assert_true(battle_result.accepted and domain.current_battle != null, "Long Current enters the first battle", failures)
+	if domain.current_battle != null:
+		assert_true(domain.current_battle.combat_state.pressure == 3, "Long Current starts each battle with three Pressure", failures)
+		assert_true(domain.current_battle.combat_state.tp == 2, "Long Current grants two TP at each battle start", failures)
+
+func test_house_tithe_changes_elite_skip_economy(failures: Array[String]) -> void:
+	var contract_id := "alpha.contract.house_tithe"
+	var registry := _registry()
+	var definition = registry.resolve(contract_id)
+	assert_true(definition is ContractDefinition and definition.validate().is_valid(), "House Tithe registers as a valid ContractDefinition", failures)
+	var domain: RunDomain = RunDomain.new_alpha_run(
+		"contract.house-tithe.run-start",
+		152,
+		registry,
+		"",
+		null,
+		null,
+		MetaProgressState.all_unlocked_test_profile(),
+	)
+	var controller := RunPresentationController.new(domain)
+	var character_result = controller.confirm("character:%s" % Phase2Catalog.CHARACTER_IDS[0])
+	assert_true(character_result.accepted, "the House Tithe fixture selects a Character", failures)
+	var action_id := "contract:%s" % contract_id
+	var offered_actions: Array = controller.action_descriptors().filter(func(action): return action.get("id", "") == action_id)
+	assert_true(offered_actions.size() == 1, "House Tithe is offered through the normal Run-start Contract selection", failures)
+	var contract_result = controller.confirm(action_id)
+	assert_true(contract_result.accepted and domain.state.contract_id == contract_id, "House Tithe can be selected through its stable Run-start action", failures)
+	if not contract_result.accepted:
+		return
+	_open_elite_reward(domain, "house-tithe")
+	var skip_option = _option_by_kind(domain.state.reward_draft, RewardOption.SKIP)
+	assert_true(skip_option != null and skip_option.gold_delta == 6 and skip_option.refinement_token_delta == 2, "House Tithe trades four Elite Skip Gold for two Refinement Tokens", failures)
+	if skip_option != null:
+		var skip_result = domain.execute(ChooseRewardCommand.new("contract.house-tithe.skip", skip_option.option_id, domain.state.reward_draft.draft_id))
+		assert_true(skip_result.accepted, "House Tithe Elite Skip is accepted", failures)
+		assert_true(domain.state.gold == 6 and domain.state.refinement_tokens == 2, "House Tithe applies the Elite Skip Gold and Token tradeoff", failures)
 
 func test_contract_selection_effects_and_invalid_selection_are_atomic(failures: Array[String]) -> void:
 	var hint_domain := _domain_with_character("contract.open-ledger.hint", _registry(), MetaProgressState.all_unlocked_test_profile())
@@ -259,7 +322,7 @@ func test_scale_version_rejects_inert_v1_snapshot(failures: Array[String]) -> vo
 	var registry := _registry()
 	var active_version := registry.content_version()
 	var old_scale_version := "content.bundle.v1.alpha.act_two@v1+alpha.scale@v1+phase2@v2"
-	assert_true(active_version != old_scale_version and active_version.contains("alpha.scale@v3"), "activating Alpha Technique trigger metadata advances the Scale bundle identity", failures)
+	assert_true(active_version != old_scale_version and active_version.contains("alpha.scale@v4"), "the expanded Contract catalog advances the Scale bundle identity", failures)
 	var domain := _alpha_domain("contract.version.snapshot", AlphaScaleCatalog.CONTRACT_IDS[2])
 	var snapshot = SaveMapper.suspend_snapshot(domain).to_dictionary()
 	snapshot["content_version"] = old_scale_version

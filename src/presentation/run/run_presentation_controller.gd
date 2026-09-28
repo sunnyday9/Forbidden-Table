@@ -102,7 +102,7 @@ func submit(command):
 			suspend_feedback = "This action succeeded, but a Suspend Save could not be prepared (%s)." % str(save_result.get("code", "SUSPEND_SAVE_FAILED"))
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
-		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–6 are now available for later Runs."
+		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–8 are now available for later Runs."
 		presentation_changed.emit()
 	elif unlock_result.has("code") and not unlock_result.get("persisted", false):
 		state.feedback = "Unlock progress could not be saved. The game will retry the next time this Run is recorded."
