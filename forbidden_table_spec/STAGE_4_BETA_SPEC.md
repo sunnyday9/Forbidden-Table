@@ -1,8 +1,8 @@
 # Stage 4 — Beta Content Scope
 
-**Status:** Content-budget decision accepted; measurable Beta gates remain open in [#76](https://github.com/sunnyday9/Forbidden-Table/issues/76). This is not the completed Stage 4 specification or an implementation authorization.
+**Status:** Content budget and Beta gates accepted; the implementation issue graph is being recorded. Stage 4 completion is not a release or publication decision.
 
-**Decision source:** The maintainer accepted the recommendation in [the #75 proposal](https://github.com/sunnyday9/Forbidden-Table/issues/75#issuecomment-5866818223), with the decision recorded in [the #75 acceptance comment](https://github.com/sunnyday9/Forbidden-Table/issues/75#issuecomment-5867795290) on 2026-09-28. The optional final Act is deferred beyond 1.0 by [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74).
+**Decision source:** The maintainer accepted the content budget in [#75](https://github.com/sunnyday9/Forbidden-Table/issues/75) and the Beta gate recommendation in [#76](https://github.com/sunnyday9/Forbidden-Table/issues/76#issuecomment-5868942424) on 2026-09-28. The optional final Act is deferred beyond 1.0 by [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74).
 
 ## 1. Scope and guardrails
 
@@ -54,8 +54,59 @@ The accepted Stage 3 inventory reports 18 registered Yaku IDs: eight `prototype.
 4. Keep numerical balance values in content data. Do not edit core systems to make ordinary content work without a documented #44 evidence case.
 5. The Project Spec's ~60–90 minute full-Run duration remains a design target. [#57](https://github.com/sunnyday9/Forbidden-Table/issues/57) and [#68](https://github.com/sunnyday9/Forbidden-Table/issues/68) prohibit human playtesting before the first actual MVP release. Therefore, observed player duration remains **unverified** through pre-release Beta; automated simulation throughput is not player duration. The maintainer may evaluate this target through the already planned post-release study if that study is run.
 
-## 5. Remaining Stage 4 decisions
+## 5. Beta entry gate
 
-This document records content scope only. [#76](https://github.com/sunnyday9/Forbidden-Table/issues/76) must define measurable Beta entry and exit gates for balance/build viability, onboarding/UX, controller flow, accessibility, localization readiness, defects, performance, presentation/audio, and content/save/replay compatibility. It must preserve the pre-release evidence boundaries in #57/#68. The finished Stage 4 specification and implementation issue graph follow after those gates are accepted.
+Enter Beta evaluation only when all of the following are true:
+
+1. The approved content scope in this document is implemented: counts, canonical production IDs, and intended Act/pool/map availability validate.
+2. A candidate build is frozen with exact application, content, and save-schema versions.
+3. The full automated suite, aggregate content checks, and applicable Phase 2/Alpha regressions pass.
+4. The supported save/replay format window is declared. Immutable fixtures exist for the Phase 2 v1 save and every player-distributed Alpha/Beta format in that window; migration and replay checks pass for those fixtures.
+5. There are no known unresolved P0/P1 defects under the definitions in §6.
+
+The maintainer records the candidate version and authorizes Beta evaluation. This gate does not mean that human or device evidence has been collected.
+
+## 6. Beta exit evidence
+
+### Content and integration
+
+- Every approved category count, uniqueness rule, and Act allocation in §2–3 passes registry, pool, and map/event reachability validation.
+- Every new content family has a focused interaction regression against existing systems; an aggregate count alone does not prove behavior.
+- The production roster, build/content version, evidence owner, and any known deferred item are recorded.
+
+### Balance and build viability
+
+- Run a fixed, reproducible corpus of 1,000 complete two-Act simulations across Partial, Complete, and Hybrid policies. Stratify coverage across all 24 Character×Contract pairs under each policy.
+- Repeat each declared seed/policy and require matching checkpoint hashes, RNG states, events, and terminal outcomes. Require zero crashes, invalid authoritative state, soft-locks/infinite resolution, or unexplained replay divergence. Defeat is a valid outcome.
+- Report outcomes, strategy distributions, and content-use coverage. The content owner reviews and dispositions visible outliers. Do not impose a win-rate quota or claim player-validated balance before the post-release study.
+
+### Onboarding, UX, and controller flow
+
+- Script the new-profile onboarding path, Character and Contract selection, tutorial reset/disable behavior, critical in-Run decisions, both Act boundaries, and Run Summary.
+- Scripted keyboard and controller mappings reach every critical action; no critical action is drag-only; visible focus and back/cancel behavior remain correct.
+- Report scripted results separately from player comprehension and physical-device usability. Those are not established by automated flows.
+
+### Accessibility and localization readiness
+
+- A screen-by-screen project checklist passes for visible focus, keyboard/controller reachability, non-color-only critical information, readable and non-clipped text at supported UI scale, tutorial reset/disable, and high-priority cues retained in Normal/Fast/Instant presentation modes.
+- English is the source locale. All player-facing text is extracted through stable localization keys, interpolation is validated, and a pseudo-localized expansion pass finds no missing keys or clipped critical UI. This gate does not require a translated locale.
+- Record exceptions with an owner and explicit disposition. Do not claim external accessibility-standard conformance without selecting and testing a standard.
+
+### Defects and performance
+
+- **P0:** crash, data loss, soft-lock, invalid authoritative state, or determinism/replay corruption. **P1:** a required Run, reward, input, save, or replay path is blocked. Require zero open P0/P1 issues.
+- Every remaining **P2** has an owner and explicit fix, defer, or accepted-risk disposition. P2 covers non-blocking UX, balance, localization, and presentation/audio issues.
+- Preserve the native PC/Steam Deck measurement waiver in [#57](https://github.com/sunnyday9/Forbidden-Table/issues/57). Record the fixed headless two-Act benchmark as coarse process context only; it is not device performance evidence. Native frame-time and feedback-latency evidence is labelled **waived**, not passed or measured.
+- Verify that Domain state and critical input feedback do not wait for presentation animation. Reopen native-device evidence only through an explicit scope decision that names hardware, workload, measures, thresholds, owner, and schedule.
+
+### Presentation, audio, save, and replay
+
+- No broken asset references or undocumented placeholders remain on a required player path. Each production item has its approved label/description and required cue or documented fallback; review Normal/Fast/Instant modes and preserve high-priority Complete Hand, Boss-transition, and victory cues.
+- Preserve the Phase 2 v1 fixture and immutable fixtures for every player-distributed Alpha/Beta format in the declared support window. Verify sequential migrations without source overwrite, stable-boundary Suspend/Resume, content-version-correct replay, and exact checkpoint/RNG/event/outcome reproduction.
+
+### Run duration and evidence report
+
+- The ~60–90 minute full-Run length remains a design target. Under [#57](https://github.com/sunnyday9/Forbidden-Table/issues/57) and [#68](https://github.com/sunnyday9/Forbidden-Table/issues/68), do not conduct human playtesting before the first actual MVP release. Observed player duration is therefore **unverified** through pre-release Beta; simulation throughput is not player time. The maintainer may evaluate duration in the planned post-release study if that study is run.
+- The Beta report lists exact application/content/schema versions, test commands and seed-corpus results, content/Act coverage, compatibility fixtures, defect dispositions, checklist results, and a `passed`, `failed`, or `waived/unverified` status for each area. The maintainer records the pass/fail decision.
 
 Stage 4 completion remains separate from Stage 5 Release Candidate, MVP release, publication, or distribution.
