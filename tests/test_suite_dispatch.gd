@@ -8,6 +8,7 @@ const SUITES := [
 	{"id": "meta-progress", "flag": "--meta-progress", "default": true},
 	{"id": "character-passive", "flag": "--character-passive", "default": true},
 	{"id": "run-summary", "flag": "--run-summary", "default": true},
+	{"id": "stage4-content", "flag": "--stage4-content", "default": true},
 ]
 
 static func select_suite_ids(test_arguments: PackedStringArray, focused_test_requested: bool) -> Array[String]:
