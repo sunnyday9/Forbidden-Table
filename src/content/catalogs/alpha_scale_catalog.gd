@@ -128,6 +128,14 @@ const MODIFIER_IDS := [
 	"alpha.modifier.trade_mark",
 	"alpha.modifier.refinement_trace",
 ]
+const ACT_ONE_EVENT_IDS := [
+	"alpha.event.act_one.tile_surgery",
+	"alpha.event.act_one.risk_bargain",
+	"alpha.event.act_one.gold_exchange",
+	"alpha.event.act_one.map_reveal",
+	"alpha.event.act_one.contract_clause",
+	"alpha.event.act_one.rule_memory",
+]
 
 const ACT_ONE_BOSS_RULE_BREAKER_IDS := [
 	"base.rule_breaker.open_table",
@@ -151,7 +159,7 @@ const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v11"
+const CONTENT_BUNDLE_VERSION := "v12"
 const ACT_ONE_BOSS_ENEMY_ID := "alpha.boss.act_one.harbor_arbiter"
 const ACT_ONE_BOSS_ENCOUNTER_ID := "base.encounter.boss.c"
 const ACT_ONE_NORMAL_ENEMY_IDS := [
@@ -213,9 +221,69 @@ static func definitions() -> Array:
 	result.append_array(_rule_breaker_definitions())
 	result.append_array(_enemy_definitions())
 	result.append_array(_encounter_definitions())
+	result.append_array(_event_definitions())
 	result.append_array(_pool_definitions())
 	result.append_array(_boss_rule_breaker_pool_definitions())
 	return result
+
+static func _event_definitions() -> Array:
+	return [
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[0], [
+			{
+				"choice_id": "trade_gold",
+				"label": "Trade 2 Gold for a Refinement Token",
+				"effects": [_event_currency_effect("GOLD", -2), _event_currency_effect("REFINEMENT_TOKENS", 1)],
+			},
+			{"choice_id": "leave", "label": "Leave the entry untouched", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[1], [
+			{
+				"choice_id": "take_advance",
+				"label": "Stake a Refinement Token on the Harbor's advance",
+				"effects": [_event_currency_effect("REFINEMENT_TOKENS", -1)],
+				"alternatives": [
+					{"alternative_id": "paid_on_time", "weight": 1, "effects": [_event_currency_effect("GOLD", 6)]},
+					{"alternative_id": "missed_payment", "weight": 1, "effects": [_event_currency_effect("GOLD", -2)]},
+				],
+			},
+			{"choice_id": "leave", "label": "Decline the advance", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[2], [
+			{
+				"choice_id": "exchange",
+				"label": "Exchange 3 Gold for a Refinement Token",
+				"effects": [_event_currency_effect("GOLD", -3), _event_currency_effect("REFINEMENT_TOKENS", 1)],
+			},
+			{"choice_id": "leave", "label": "Keep the current funds", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[3], [
+			{"choice_id": "reveal_route", "label": "Read the terminal route", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.elite", "base.map_node.boss"]}]},
+			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[4], [
+			{"choice_id": "carry_clause", "label": "Carry +1 Settlement Capacity into later battles this Run", "effects": [_event_modifier_effect("event.contract_clause.apply", "RUN", 1, "REPLACE")]},
+			{"choice_id": "leave", "label": "Decline the clause", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[5], [
+			{"choice_id": "remember_rule", "label": "Record the Rule: +1 TP in later battles this Run and +1 Refinement Token", "effects": [_event_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE"), _event_currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": "Leave the old rule undisturbed", "is_skip": true, "effects": []},
+		]),
+	]
+
+static func _event_currency_effect(currency: String, amount: int) -> Dictionary:
+	return {"kind": currency, "amount": amount}
+
+static func _event_modifier_effect(modifier_id: String, scope: String, duration_amount: int, stack_policy: String) -> Dictionary:
+	return {
+		"kind": "RUN_MODIFIER",
+		"modifier_id": modifier_id,
+		"value": 1,
+		"scope": scope,
+		"duration_amount": duration_amount,
+		"stack_policy": stack_policy,
+		"source_id": modifier_id,
+		"parameters": {},
+	}
 
 static func _enemy_definitions() -> Array:
 	return [

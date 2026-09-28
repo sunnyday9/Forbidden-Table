@@ -56,6 +56,7 @@ func run() -> Array[String]:
 	test_validator_rejects_identity_boundary_and_missing_registry(failures)
 	test_v2_suspend_snapshot_is_rejected_by_current_bundle(failures)
 	test_v2_act_two_suspend_migration_preserves_bundle_identity(failures)
+	test_issue_85_content_identities_migrate_without_changing_bundle_scope(failures)
 	test_invalid_snapshot_is_rejected_atomically(failures)
 	test_migrations_are_sequential(failures)
 	test_restored_domains_rebind_service_and_summary_flows(failures)
@@ -315,6 +316,65 @@ func test_v2_act_two_suspend_migration_preserves_bundle_identity(failures: Array
 		if migrated.accepted:
 			assert_true(migrated.snapshot.content_version == registry.content_version(), "%s migration uses the exact active bundle combination" % bundle_label, failures)
 			assert_true(migrated.domain.verify_replay().is_match(), "the migrated %s replay starts at a reproducible checkpoint" % bundle_label, failures)
+
+func test_issue_85_content_identities_migrate_without_changing_bundle_scope(failures: Array[String]) -> void:
+	for include_scale in [false, true]:
+		var registry := ContentRegistry.new()
+		Phase2Catalog.register_all(registry)
+		AlphaActTwoCatalog.register_all(registry)
+		if include_scale:
+			AlphaScaleCatalog.register_all(registry)
+		var run_id := "persist.issue-85-current%s" % ("-scale" if include_scale else "-act-two")
+		var domain: RunDomain = RunDomain.new_alpha_run(run_id, 1280 if include_scale else 1281, registry) if include_scale else RunDomain.new(run_id, 1281, registry)
+		assert_true(domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence")).accepted, "%s legacy checkpoint selects its Character" % run_id, failures)
+		assert_true(domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure")).accepted, "%s legacy checkpoint selects its Contract" % run_id, failures)
+		var source: Dictionary = SaveMapper.suspend_snapshot(domain).to_dictionary()
+		var source_state: Dictionary = source.authoritative_state.duplicate(true)
+		var map_state: Dictionary = source_state.get("map_state", {}).duplicate(true)
+		var payload_ids: Dictionary = map_state.get("payload_ids", {}).duplicate(true)
+		var old_act_one_ids := [
+			"base.event.tile_surgery", "base.event.risk_bargain", "base.event.gold_exchange",
+			"base.event.map_reveal", "base.event.contract_clause", "base.event.rule_memory",
+		]
+		for event_index in AlphaScaleCatalog.ACT_ONE_EVENT_IDS.size():
+			for node_id in payload_ids.keys():
+				if str(payload_ids[node_id]) == AlphaScaleCatalog.ACT_ONE_EVENT_IDS[event_index]:
+					payload_ids[node_id] = old_act_one_ids[event_index]
+		for event_index in AlphaActTwoCatalog.ACT_TWO_ADDITIONAL_EVENT_IDS.size():
+			for node_id in payload_ids.keys():
+				if str(payload_ids[node_id]) == AlphaActTwoCatalog.ACT_TWO_ADDITIONAL_EVENT_IDS[event_index]:
+					payload_ids[node_id] = AlphaActTwoCatalog.ACT_TWO_EVENT_IDS[event_index]
+		map_state["payload_ids"] = payload_ids
+		source_state["map_state"] = map_state
+		var prior_rule_memory := ActiveEffectInstance.new(
+			"event.act_two.rule_memory",
+			DurationSpec.new(DurationSpec.RUN, 1),
+			StackPolicy.new(StackPolicy.UNIQUE),
+			"event.act_two.rule_memory",
+			1,
+			-1,
+			-1,
+			"run.modifier.event.act_two.rule_memory",
+			0,
+			{"modifier_id": "event.act_two.rule_memory"},
+		)
+		source_state["active_effects"] = [prior_rule_memory.to_dictionary()]
+		var legacy_identity := "content.bundle.v1.alpha.act_two@v4+alpha.scale@v11+phase2@v4" if include_scale else "content.bundle.v1.alpha.act_two@v4+phase2@v4"
+		source["content_version"] = legacy_identity
+		source_state["content_version"] = legacy_identity
+		source["authoritative_state"] = source_state
+		source["run_state"] = source_state.duplicate(true)
+		var metadata: Dictionary = source.checkpoint_metadata.duplicate(true)
+		metadata["state_hash"] = _run_state_hash(source_state)
+		source["checkpoint_metadata"] = metadata
+		var migrated = SaveMapper.load_full_v12_suspend_snapshot_into_domain(source, registry) if include_scale else SaveMapper.load_act_two_v4_suspend_snapshot_into_domain(source, registry)
+		var scope := "Act Two + Scale" if include_scale else "Act Two only"
+		assert_true(migrated.accepted, "the #85 %s identity migrates from a stable save (%s: %s)" % [scope, migrated.get("code", ""), migrated.get("errors", [])], failures)
+		if migrated.accepted:
+			assert_true(migrated.snapshot.content_version == registry.content_version(), "the #85 %s save adopts the exact current identity" % scope, failures)
+			assert_true(migrated.snapshot.content_version.contains("alpha.scale") == include_scale, "the #85 %s save keeps its original bundle scope" % scope, failures)
+			assert_true(migrated.domain.rng_snapshot() == source.rng_state, "the #85 %s migration preserves all RNG streams" % scope, failures)
+			assert_true(migrated.domain.state.active_modifier("event.act_two.rule_memory") != null, "the #85 %s migration preserves an existing Rule Memory modifier" % scope, failures)
 
 func test_v2_migration_rejects_unverifiable_active_effect_state(failures: Array[String]) -> void:
 	var domain := RunDomain.new("persist.old-v2-malformed-effects", 1221, _phase2_registry())

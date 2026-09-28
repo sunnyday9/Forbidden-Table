@@ -29,6 +29,7 @@ const ContentVersionMigrationScript = preload("res://src/infrastructure/persiste
 const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const Phase2V1SuspendSnapshotFixtureScript = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
@@ -156,7 +157,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		current_scene.free()
 		return
 	var full_registry = registry_result.registry
-	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V12, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
+	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V13, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
 	var current_domain = _migration_source_domain(full_registry, "run.scene.current-identity", 761, true, failures)
 	var current_snapshot = SaveMapperScript.suspend_snapshot(current_domain)
 	var current_bytes: String = current_snapshot.serialize()
@@ -180,6 +181,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 	var legacy_versions: Array[String] = [
 		ContentVersionMigrationScript.PHASE2_V1,
 		ContentVersionMigrationScript.PHASE2_V2,
+		ContentVersionMigrationScript.ACT_TWO_BUNDLE_V4,
 		ContentVersionMigrationScript.ACT_TWO_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V3,
@@ -191,6 +193,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V9,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V10,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V11,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V12,
 	]
 	for index in range(legacy_versions.size()):
 		var legacy_version: String = legacy_versions[index]
@@ -203,7 +206,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 			scene.free()
 			continue
 		var scene_registry = full_result.registry
-		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V12, "%s migration targets the complete player registry" % legacy_version, failures)
+		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V13, "%s migration targets the complete player registry" % legacy_version, failures)
 		var source_data: Dictionary
 		var source_bytes := ""
 		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
@@ -220,10 +223,20 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 				scene.free()
 				continue
 			source_data = fixture_parse.data
+		elif legacy_version == ContentVersionMigrationScript.ACT_TWO_BUNDLE_V4:
+			var no_scale_registry = ContentRegistryScript.new()
+			Phase2CatalogScript.register_all(no_scale_registry)
+			AlphaActTwoCatalogScript.register_all(no_scale_registry)
+			var no_scale_domain = _migration_source_domain(no_scale_registry, "run.scene.legacy.%d" % index, 770 + index, false, failures)
+			source_data = SaveMapperScript.suspend_snapshot(no_scale_domain).to_dictionary()
+			_remap_issue_86_event_payloads_to_legacy_ids(source_data)
+			_set_snapshot_content_identity(source_data, legacy_version)
+			source_bytes = SuspendSnapshotScript.from_dictionary(source_data).serialize()
 		else:
-			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3, ContentVersionMigrationScript.ACT_TWO_SCALE_V4, ContentVersionMigrationScript.ACT_TWO_SCALE_V5, ContentVersionMigrationScript.ACT_TWO_SCALE_V6, ContentVersionMigrationScript.ACT_TWO_SCALE_V7, ContentVersionMigrationScript.ACT_TWO_SCALE_V8, ContentVersionMigrationScript.ACT_TWO_SCALE_V9, ContentVersionMigrationScript.ACT_TWO_SCALE_V10, ContentVersionMigrationScript.ACT_TWO_SCALE_V11]
+			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3, ContentVersionMigrationScript.ACT_TWO_SCALE_V4, ContentVersionMigrationScript.ACT_TWO_SCALE_V5, ContentVersionMigrationScript.ACT_TWO_SCALE_V6, ContentVersionMigrationScript.ACT_TWO_SCALE_V7, ContentVersionMigrationScript.ACT_TWO_SCALE_V8, ContentVersionMigrationScript.ACT_TWO_SCALE_V9, ContentVersionMigrationScript.ACT_TWO_SCALE_V10, ContentVersionMigrationScript.ACT_TWO_SCALE_V11, ContentVersionMigrationScript.ACT_TWO_SCALE_V12]
 			var source_domain = _migration_source_domain(scene_registry, "run.scene.legacy.%d" % index, 770 + index, alpha_source, failures)
 			source_data = SaveMapperScript.suspend_snapshot(source_domain).to_dictionary()
+			_remap_issue_86_event_payloads_to_legacy_ids(source_data)
 			_set_snapshot_content_identity(source_data, legacy_version)
 			source_bytes = SuspendSnapshotScript.from_dictionary(source_data).serialize()
 		var expected_state: Dictionary = source_data.authoritative_state.duplicate(true)
@@ -288,6 +301,8 @@ func test_scene_rejects_active_changed_event_migration_and_preserves_source(fail
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V7,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V8,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V9,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V10,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V11,
 	]
 	for index in range(legacy_full_versions.size()):
 		var legacy_version: String = legacy_full_versions[index]
@@ -901,6 +916,27 @@ func _set_snapshot_content_identity(snapshot: Dictionary, content_version: Strin
 	var metadata: Dictionary = snapshot.get("checkpoint_metadata", {}).duplicate(true)
 	metadata["state_hash"] = _run_state_hash(state)
 	snapshot["checkpoint_metadata"] = metadata
+
+func _remap_issue_86_event_payloads_to_legacy_ids(snapshot: Dictionary) -> void:
+	var state: Dictionary = snapshot.get("authoritative_state", {}).duplicate(true)
+	var map_state: Dictionary = state.get("map_state", {}).duplicate(true)
+	var payload_ids: Dictionary = map_state.get("payload_ids", {}).duplicate(true)
+	var old_act_one_ids := [
+		"base.event.tile_surgery", "base.event.risk_bargain", "base.event.gold_exchange",
+		"base.event.map_reveal", "base.event.contract_clause", "base.event.rule_memory",
+	]
+	for event_index in AlphaScaleCatalogScript.ACT_ONE_EVENT_IDS.size():
+		for node_id in payload_ids.keys():
+			if str(payload_ids[node_id]) == AlphaScaleCatalogScript.ACT_ONE_EVENT_IDS[event_index]:
+				payload_ids[node_id] = old_act_one_ids[event_index]
+	for event_index in AlphaActTwoCatalogScript.ACT_TWO_ADDITIONAL_EVENT_IDS.size():
+		for node_id in payload_ids.keys():
+			if str(payload_ids[node_id]) == AlphaActTwoCatalogScript.ACT_TWO_ADDITIONAL_EVENT_IDS[event_index]:
+				payload_ids[node_id] = AlphaActTwoCatalogScript.ACT_TWO_EVENT_IDS[event_index]
+	map_state["payload_ids"] = payload_ids
+	state["map_state"] = map_state
+	snapshot["authoritative_state"] = state
+	snapshot["run_state"] = state.duplicate(true)
 
 func _run_state_hash(state: Dictionary) -> String:
 	var deterministic_state: Dictionary = state.duplicate(true)

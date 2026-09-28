@@ -22,18 +22,18 @@ static func act_two_definition() -> MapDefinitionScript:
 	return _definition("base.map.act_two", "base.map_node.act_two.", "act_two.", true)
 
 static func definition_for_act(act_index: int, content_registry = null) -> MapDefinitionScript:
-	var include_scale_encounters := _has_scale_encounters(content_registry)
+	var include_scale_content := _has_scale_content(content_registry)
 	match act_index:
 		1:
-			return _definition("base.map.act_one", "base.map_node.", "", false, include_scale_encounters)
+			return _definition("base.map.act_one", "base.map_node.", "", false, include_scale_content)
 		2:
-			return _definition("base.map.act_two", "base.map_node.act_two.", "act_two.", true, include_scale_encounters)
+			return _definition("base.map.act_two", "base.map_node.act_two.", "act_two.", true, include_scale_content)
 	return null
 
-static func _has_scale_encounters(content_registry) -> bool:
+static func _has_scale_content(content_registry) -> bool:
 	return content_registry != null and content_registry.resolve("alpha.encounter.act_one.normal.fog_caller") != null
 
-static func _definition(map_id: String, node_prefix: String, edge_prefix: String, act_two: bool, include_scale_encounters: bool = false) -> MapDefinitionScript:
+static func _definition(map_id: String, node_prefix: String, edge_prefix: String, act_two: bool, include_scale_content: bool = false) -> MapDefinitionScript:
 	var intro := node_prefix + "intro"
 	var left := node_prefix + "normal.left"
 	var right := node_prefix + "normal.right"
@@ -57,13 +57,24 @@ static func _definition(map_id: String, node_prefix: String, edge_prefix: String
 	var mid_variants: Array[String] = _encounter_variants(mid_encounter) if act_two else _string_array(["base.encounter.normal.mid.a", "base.encounter.normal.mid.b"])
 	var elite_variants: Array[String] = _encounter_variants(elite_encounter) if act_two else _string_array(["base.encounter.elite.a", "base.encounter.elite.b"])
 	var boss_variants: Array[String] = _encounter_variants(boss_encounter) if act_two else _string_array(["base.encounter.boss.a", "base.encounter.boss.b"])
-	if act_two or include_scale_encounters:
+	if act_two or include_scale_content:
 		boss_variants.append("%s.c" % boss_encounter)
 	var left_event := "alpha.event.act_two.tile_surgery" if act_two else "base.event.risk_bargain"
 	var left_event_variants: Array[String] = _string_array(["alpha.event.act_two.tile_surgery", "alpha.event.act_two.risk_bargain", "alpha.event.act_two.gold_exchange"]) if act_two else _string_array(["base.event.risk_bargain", "base.event.gold_exchange"])
 	var right_event := "alpha.event.act_two.map_reveal" if act_two else "base.event.map_reveal"
 	var right_event_variants: Array[String] = _string_array(["alpha.event.act_two.map_reveal", "alpha.event.act_two.contract_clause", "alpha.event.act_two.rule_memory"]) if act_two else _string_array(["base.event.map_reveal", "base.event.contract_clause"])
-	if include_scale_encounters:
+	if act_two:
+		left_event_variants.append_array([
+			"alpha.event.act_two.tile_surgery.sealed_entry",
+			"alpha.event.act_two.risk_bargain.shadow_account",
+			"alpha.event.act_two.gold_exchange.long_margin",
+		])
+		right_event_variants.append_array([
+			"alpha.event.act_two.map_reveal.final_annotation",
+			"alpha.event.act_two.contract_clause.amended_clause",
+			"alpha.event.act_two.rule_memory.cross_reference",
+		])
+	if include_scale_content:
 		if act_two:
 			intro_variants.append("alpha.encounter.act_two.normal.contract_harrier")
 			left_variants.append("alpha.encounter.act_two.normal.echo_courier")
@@ -73,6 +84,18 @@ static func _definition(map_id: String, node_prefix: String, edge_prefix: String
 				"alpha.encounter.act_two.elite.infernal_index",
 			])
 		else:
+			left_event_variants.append_array([
+				"base.event.tile_surgery",
+				"alpha.event.act_one.tile_surgery",
+				"alpha.event.act_one.risk_bargain",
+				"alpha.event.act_one.gold_exchange",
+			])
+			right_event_variants.append_array([
+				"base.event.rule_memory",
+				"alpha.event.act_one.map_reveal",
+				"alpha.event.act_one.contract_clause",
+				"alpha.event.act_one.rule_memory",
+			])
 			intro_variants.append("alpha.encounter.act_one.normal.fog_caller")
 			left_variants.append("alpha.encounter.act_one.normal.margin_taker")
 			right_variants.append("alpha.encounter.act_one.normal.signal_keeper")

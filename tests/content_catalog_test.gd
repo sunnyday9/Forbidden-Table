@@ -255,11 +255,11 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(phase2_version == "content.slice.v4", "Phase 2 Technique reaction semantics use a new explicit content identity", failures)
 	assert_true(phase2_version != "content.slice.v3", "old Phase 2 v3 content cannot share the updated gameplay identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
-	assert_true(act_two_version.contains("alpha.act_two@v4") and act_two_version.contains("phase2@v4"), "Act 2 and shared Phase 2 Technique semantics both carry their updated versions", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v5") and act_two_version.contains("phase2@v4"), "Act 2 production Events and shared Phase 2 Technique semantics both carry their updated versions", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	assert_true(scale_version.contains("alpha.scale@v11"), "the Scale bundle identity advances for the Stage 4 Boss roster", failures)
+	assert_true(scale_version.contains("alpha.scale@v12"), "the Scale bundle identity advances for the Act 1 production Events", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot(Phase2V1SuspendSnapshotFixture.suspend_snapshot(), act_two_registry)
 	assert_true(alpha_migration_target.get("accepted", false), "the Phase 2 v1 migration explicitly accepts the current Act Two-only identity", failures)
 	if alpha_migration_target.get("accepted", false):
@@ -375,10 +375,8 @@ func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[S
 	]
 	expected_enemies.sort()
 	assert_true(sorted_mapped_enemies == expected_enemies, "the Act 2 Map reaches exactly its four Normal enemies, Elite, and Boss", failures)
-	var sorted_mapped_events: Array = mapped_event_ids.keys()
-	sorted_mapped_events.sort()
-	expected_event_ids.sort()
-	assert_true(sorted_mapped_events == expected_event_ids, "the Act 2 Event nodes expose all six existing Event families", failures)
+	for event_id in expected_event_ids:
+		assert_true(mapped_event_ids.has(event_id), "%s remains reachable from the Act 2 Event nodes" % event_id, failures)
 	assert_true(registry.validate().is_valid(), "all Act 2 map payload references pass typed registry validation", failures)
 
 func test_stage_four_enemy_rosters_use_existing_act_payloads(failures: Array[String]) -> void:

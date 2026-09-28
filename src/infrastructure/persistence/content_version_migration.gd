@@ -28,8 +28,10 @@ const ACT_TWO_SCALE_V8 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v7+pha
 const ACT_TWO_SCALE_V9 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v8+phase2@v4"
 const ACT_TWO_SCALE_V10 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v9+phase2@v4"
 const ACT_TWO_SCALE_V11 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v10+phase2@v4"
-const ACT_TWO_CURRENT := "content.bundle.v1.alpha.act_two@v4+phase2@v4"
+const ACT_TWO_BUNDLE_V4 := "content.bundle.v1.alpha.act_two@v4+phase2@v4"
+const ACT_TWO_V5 := "content.bundle.v1.alpha.act_two@v5+phase2@v4"
 const ACT_TWO_SCALE_V12 := "content.bundle.v1.alpha.act_two@v4+alpha.scale@v11+phase2@v4"
+const ACT_TWO_SCALE_V13 := "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4"
 const CHANGED_EVENT_MODIFIER_IDS := [
 	"event.risk_bargain.accept",
 	"event.contract_clause.apply",
@@ -44,7 +46,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 	if not content_registry.has_method("content_version"):
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	var target_version := str(content_registry.content_version())
-	if target_version not in [PHASE2_V4, ACT_TWO_CURRENT, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12]:
+	if target_version not in [PHASE2_V4, ACT_TWO_BUNDLE_V4, ACT_TWO_V5, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12, ACT_TWO_SCALE_V13]:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -116,9 +118,10 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	var source_version := str(source.get("content_version", ""))
 	var target_version := _phase2_v2_migration_target(source_version)
 	var registry_version := str(content_registry.content_version())
-	var compatible_registry_versions := [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12]
+	var compatible_registry_versions := [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12, ACT_TWO_SCALE_V13]
 	if source_version in [PHASE2_V2, ACT_TWO_V2]:
-		compatible_registry_versions.append(ACT_TWO_CURRENT)
+		compatible_registry_versions.append(ACT_TWO_BUNDLE_V4)
+		compatible_registry_versions.append(ACT_TWO_V5)
 	# The active registry may include Alpha Scale or be Act Two-only. Preserve
 	# that distinction: a Scale source can migrate only to a registry that keeps
 	# Scale, while Phase 2-only and Act Two-only sources may use either target.
@@ -169,33 +172,46 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	}
 
 static func migrate_full_v3_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V3, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V3, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v4_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v5_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v6_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V6, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v7_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V7, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v8_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V8, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v9_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V9, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v10_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V10, ACT_TWO_SCALE_V13)
 
 static func migrate_full_v11_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
-	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V12)
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V11, ACT_TWO_SCALE_V13)
 
-static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_registry, source_version: String, target_version: String) -> Dictionary:
+static func migrate_full_v12_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	# This step only appends Event definitions; existing active modifiers keep their semantics.
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V12, ACT_TWO_SCALE_V13, false)
+
+static func migrate_act_two_v4_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	if content_registry == null or not content_registry.has_method("content_version"):
+		return _reject("CONTENT_REGISTRY_REQUIRED")
+	var target_version := str(content_registry.content_version())
+	if target_version not in [ACT_TWO_V5, ACT_TWO_SCALE_V13]:
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
+	# Act Two v5 only appends Event definitions, preserving active modifier semantics.
+	return _migrate_content_identity_suspend_snapshot(source, content_registry, ACT_TWO_BUNDLE_V4, target_version, false)
+
+static func _migrate_content_identity_suspend_snapshot(source: Dictionary, content_registry, source_version: String, target_version: String, reject_changed_modifier_ids: bool = true) -> Dictionary:
 	if content_registry == null:
 		return _reject("CONTENT_REGISTRY_REQUIRED")
 	if not content_registry.has_method("content_version") or str(content_registry.content_version()) != target_version:
@@ -224,7 +240,7 @@ static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_reg
 		return _reject("SOURCE_STATE_HASH_MISSING")
 	if str(metadata.get("state_hash", "")) != _run_state_hash(state):
 		return _reject("SOURCE_STATE_HASH_MISMATCH")
-	var active_effect_validation := _validate_active_event_migration_state(state)
+	var active_effect_validation := _validate_active_event_migration_state(state, reject_changed_modifier_ids)
 	if not active_effect_validation.accepted:
 		return active_effect_validation
 	var migrated_state: Dictionary = state.duplicate(true)
@@ -254,7 +270,7 @@ static func _phase2_v2_migration_target(source_version: String) -> String:
 		_:
 			return ""
 
-static func _validate_active_event_migration_state(state: Dictionary) -> Dictionary:
+static func _validate_active_event_migration_state(state: Dictionary, reject_changed_modifier_ids: bool = true) -> Dictionary:
 	if not state.has("active_effects"):
 		return _reject("UNVERIFIABLE_ACTIVE_EVENT_MODIFIER_STATE")
 	var active_effects = state.get("active_effects", [])
@@ -280,6 +296,8 @@ static func _validate_active_event_migration_state(state: Dictionary) -> Diction
 			str(effect.get("definition_id", "")),
 			str(effect.get("source_id", "")),
 		]
+		if not reject_changed_modifier_ids:
+			continue
 		for serialized_id in serialized_ids:
 			for changed_modifier_id in CHANGED_EVENT_MODIFIER_IDS:
 				if str(serialized_id) == str(changed_modifier_id) or str(serialized_id).contains(str(changed_modifier_id)):

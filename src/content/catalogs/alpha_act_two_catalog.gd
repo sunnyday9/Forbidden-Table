@@ -46,8 +46,16 @@ const ACT_TWO_EVENT_IDS := [
 	"alpha.event.act_two.contract_clause",
 	"alpha.event.act_two.rule_memory",
 ]
+const ACT_TWO_ADDITIONAL_EVENT_IDS := [
+	"alpha.event.act_two.tile_surgery.sealed_entry",
+	"alpha.event.act_two.risk_bargain.shadow_account",
+	"alpha.event.act_two.gold_exchange.long_margin",
+	"alpha.event.act_two.map_reveal.final_annotation",
+	"alpha.event.act_two.contract_clause.amended_clause",
+	"alpha.event.act_two.rule_memory.cross_reference",
+]
 const CONTENT_BUNDLE_ID := "alpha.act_two"
-const CONTENT_BUNDLE_VERSION := "v4"
+const CONTENT_BUNDLE_VERSION := "v5"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -221,6 +229,33 @@ static func _event_definitions() -> Array:
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[5], [
 			{"choice_id": "study_yaku", "label": "Record: +1 TP in later battles this Run and +1 Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
 			{"choice_id": "leave", "label": "Leave the old rule undisturbed", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[0], [
+			{"choice_id": "repair_with_token", "label": "Spend 1 Refinement Token to recover 3 Gold", "effects": [_currency_effect("REFINEMENT_TOKENS", -1), _currency_effect("GOLD", 3)]},
+			{"choice_id": "leave", "label": "Leave the sealed entry untouched", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[1], [
+			{"choice_id": "stake_hidden_account", "label": "Risk 2 Gold on the hidden account", "effects": [_currency_effect("GOLD", -2)], "alternatives": [
+				{"alternative_id": "favorable_entry", "weight": 1, "effects": [_currency_effect("GOLD", 5)]},
+				{"alternative_id": "misread_entry", "weight": 1, "effects": [_currency_effect("GOLD", -3)]},
+			]},
+			{"choice_id": "leave", "label": "Decline the hidden account", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[2], [
+			{"choice_id": "trade_margin", "label": "Exchange 6 Gold for 2 Refinement Tokens", "effects": [_currency_effect("GOLD", -6), _currency_effect("REFINEMENT_TOKENS", 2)]},
+			{"choice_id": "leave", "label": "Keep the current funds", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[3], [
+			{"choice_id": "reveal_route", "label": "Read the last annotation", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.act_two.elite", "base.map_node.act_two.boss"]}]},
+			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[4], [
+			{"choice_id": "carry_clause", "label": "Carry +1 Reserve Capacity into later battles this Act", "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "leave", "label": "Decline the amended clause", "is_skip": true, "effects": []},
+		]),
+		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[5], [
+			{"choice_id": "cross_reference", "label": "Record +1 TP in later battles this Run and gain 1 Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": "Leave the rule uncopied", "is_skip": true, "effects": []},
 		]),
 	]
 
