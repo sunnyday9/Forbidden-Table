@@ -256,7 +256,7 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	assert_true(scale_version.contains("alpha.scale@v7"), "the Scale bundle identity advances for the Stage 4 Boss Rule Breaker roster", failures)
+	assert_true(scale_version.contains("alpha.scale@v8"), "the Scale bundle identity advances for the Stage 4 Run Technique roster", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
 

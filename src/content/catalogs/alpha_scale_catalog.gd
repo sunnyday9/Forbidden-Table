@@ -106,6 +106,13 @@ const RUN_TECHNIQUE_IDS := [
 	"alpha.technique.cleansing_call",
 	"alpha.technique.settlement_mirror",
 	"alpha.technique.last_measure",
+	"alpha.technique.draw_capacity",
+	"alpha.technique.pressure_dividend",
+	"alpha.technique.harbor_strike",
+	"alpha.technique.tide_draw",
+	"alpha.technique.ledger_wind",
+	"alpha.technique.refinement_practice",
+	"alpha.technique.first_measure",
 ]
 const MODIFIER_IDS := [
 	"alpha.modifier.harbor_mark",
@@ -135,7 +142,7 @@ const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v7"
+const CONTENT_BUNDLE_VERSION := "v8"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -319,6 +326,19 @@ static func _run_technique_definitions() -> Array:
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[3], TechniqueDefinitionScript.REACTION, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[3], "PurgeContamination", 1)], [], TechniqueDefinitionScript.REACTION_ENEMY_CONTAMINATION_ADDED),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[4], TechniqueDefinitionScript.SETTLEMENT, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[4], "ModifySettlementCapacity", 1)]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[5], TechniqueDefinitionScript.ACTIVE, 3, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[5], "DealDamage", 2)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[6], TechniqueDefinitionScript.ACTIVE, 1, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[6], "ModifyDrawCapacity", 1)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[7], TechniqueDefinitionScript.ACTIVE, 2, [
+			Phase2CatalogScript.typed_effect("content.%s.tp" % RUN_TECHNIQUE_IDS[7], "GainTP", 3),
+			Phase2CatalogScript.typed_effect("content.%s.pressure" % RUN_TECHNIQUE_IDS[7], "GainPressure", 1),
+		]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[8], TechniqueDefinitionScript.ACTIVE, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[8], "DealDamage", 4)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[9], TechniqueDefinitionScript.ACTIVE, 2, [
+			Phase2CatalogScript.typed_effect("content.%s.draw" % RUN_TECHNIQUE_IDS[9], "DrawTile", 1),
+			Phase2CatalogScript.typed_effect("content.%s.stability" % RUN_TECHNIQUE_IDS[9], "GainStability", 1),
+		]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[10], TechniqueDefinitionScript.PASSIVE, 0, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[10], "ModifyRunCurrency", 1)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[11], TechniqueDefinitionScript.PASSIVE, 0, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[11], "ModifyRefinementTokens", 1)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[12], TechniqueDefinitionScript.PASSIVE, 0, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[12], "GainTP", 1)]),
 	]
 
 static func _modifier_definitions() -> Array:

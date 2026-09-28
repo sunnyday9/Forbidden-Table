@@ -26,6 +26,16 @@ const TechniqueDefinition = preload("res://src/content/definitions/technique_def
 
 const ELITE_NODE_ID := "base.map_node.elite"
 
+class FixedRewardRolls extends RefCounted:
+	var rolls: Array[int]
+
+	func _init(initial_rolls: Array[int]) -> void:
+		rolls = initial_rolls.duplicate()
+
+	func next_int(minimum: int, maximum: int) -> int:
+		var roll: int = int(rolls.pop_front()) if not rolls.is_empty() else minimum
+		return clampi(roll, minimum, maximum)
+
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_elite_victory_presents_three_distinct_acquisitions_plus_skip(failures)
@@ -35,6 +45,7 @@ func run() -> Array[String]:
 	test_pending_draft_survives_suspend_resume(failures)
 	test_reward_selection_replays_from_the_elite_boundary(failures)
 	test_relic_eligibility_in_elite_reward_selection(failures)
+	test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures)
 	return failures
 
 func test_elite_victory_presents_three_distinct_acquisitions_plus_skip(failures: Array[String]) -> void:
@@ -249,6 +260,35 @@ func test_relic_eligibility_in_elite_reward_selection(failures: Array[String]) -
 		if option.kind == "RELIC":
 			var relic = act_two_run.content_registry.resolve(option.content_id)
 			assert_true(relic.available_from_act <= 2, "the Act 2 Run reward flow accepts both available Relic groups", failures)
+
+func test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures: Array[String]) -> void:
+	var domain := _elite_reward_domain("elite.reward.stage4.technique", 5385, 1, true)
+	var existing_draft = domain.state.reward_draft
+	var technique_id := "alpha.technique.draw_capacity"
+	var selectable_draft = domain.reward_draft_selector.create_elite_build_draft(
+		domain.state,
+		domain.content_registry,
+		FixedRewardRolls.new([1, 2, 1]),
+		existing_draft.encounter_id,
+		domain.state.reward_draft_sequence - 1,
+		AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID,
+	)
+	assert_true(selectable_draft != null, "the existing Elite selector creates a draft with a controlled valid reward roll", failures)
+	if selectable_draft == null:
+		return
+	domain.state.reward_draft = selectable_draft
+	var technique_option = null
+	for option in selectable_draft.options:
+		if option.kind == "RUN_TECHNIQUE" and option.content_id == technique_id:
+			technique_option = option
+	assert_true(technique_option != null, "the new production Technique is selectable from the existing Act 1 Elite reward pool", failures)
+	if technique_option == null:
+		return
+	_reset_replay_at_current_state(domain)
+	var controller := RunPresentationController.new(domain)
+	var result = controller.confirm("reward:%s" % technique_option.option_id)
+	assert_true(result.accepted and result.replayable, "the existing typed reward command accepts the new Technique choice", failures)
+	assert_true(domain.state.build_ownership.run_technique_ids.has(technique_id), "the selected Technique joins Run ownership through the existing acquisition flow", failures)
 
 func _find_option(draft, kind: String):
 	if draft == null:
