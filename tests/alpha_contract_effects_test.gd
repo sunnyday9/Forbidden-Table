@@ -322,7 +322,7 @@ func test_scale_version_rejects_inert_v1_snapshot(failures: Array[String]) -> vo
 	var registry := _registry()
 	var active_version := registry.content_version()
 	var old_scale_version := "content.bundle.v1.alpha.act_two@v1+alpha.scale@v1+phase2@v2"
-	assert_true(active_version != old_scale_version and active_version.contains("alpha.scale@v4"), "the expanded Contract catalog advances the Scale bundle identity", failures)
+	assert_true(active_version != old_scale_version and active_version.contains("alpha.scale@v5"), "the expanded Stage 4 Yaku catalog advances the Scale bundle identity", failures)
 	var domain := _alpha_domain("contract.version.snapshot", AlphaScaleCatalog.CONTRACT_IDS[2])
 	var snapshot = SaveMapper.suspend_snapshot(domain).to_dictionary()
 	snapshot["content_version"] = old_scale_version

@@ -22,6 +22,7 @@ const ACT_TWO_SCALE_V3 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v2+pha
 const ACT_TWO_V4 := "content.bundle.v1.alpha.act_two@v3+phase2@v4"
 const ACT_TWO_SCALE_V4 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v3+phase2@v4"
 const ACT_TWO_SCALE_V5 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v4+phase2@v4"
+const ACT_TWO_SCALE_V6 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v5+phase2@v4"
 const CHANGED_EVENT_MODIFIER_IDS := [
 	"event.risk_bargain.accept",
 	"event.contract_clause.apply",
@@ -36,7 +37,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 	if not content_registry.has_method("content_version"):
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	var target_version := str(content_registry.content_version())
-	if target_version not in [PHASE2_V4, ACT_TWO_SCALE_V5]:
+	if target_version not in [PHASE2_V4, ACT_TWO_SCALE_V6]:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -112,7 +113,7 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	# registry. These source identities are explicitly allowlisted above; when
 	# present they migrate to that exact full identity after semantic guards and
 	# the normal LoadValidator checks every saved content reference.
-	if not target_version.is_empty() and registry_version in [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5]:
+	if not target_version.is_empty() and registry_version in [ACT_TWO_SCALE_V4, ACT_TWO_SCALE_V5, ACT_TWO_SCALE_V6]:
 		target_version = registry_version
 	if target_version.is_empty() or registry_version != target_version:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
@@ -164,10 +165,13 @@ static func migrate_full_v3_suspend_snapshot(source: Dictionary, content_registr
 static func migrate_full_v4_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
 	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V4)
 
+static func migrate_full_v5_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	return _migrate_full_scale_suspend_snapshot(source, content_registry, ACT_TWO_SCALE_V5)
+
 static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_registry, source_version: String) -> Dictionary:
 	if content_registry == null:
 		return _reject("CONTENT_REGISTRY_REQUIRED")
-	if not content_registry.has_method("content_version") or str(content_registry.content_version()) != ACT_TWO_SCALE_V5:
+	if not content_registry.has_method("content_version") or str(content_registry.content_version()) != ACT_TWO_SCALE_V6:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -197,9 +201,9 @@ static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_reg
 	if not active_effect_validation.accepted:
 		return active_effect_validation
 	var migrated_state: Dictionary = state.duplicate(true)
-	migrated_state["content_version"] = ACT_TWO_SCALE_V5
+	migrated_state["content_version"] = ACT_TWO_SCALE_V6
 	var migrated: Dictionary = source.duplicate(true)
-	migrated["content_version"] = ACT_TWO_SCALE_V5
+	migrated["content_version"] = ACT_TWO_SCALE_V6
 	migrated["authoritative_state"] = migrated_state
 	if migrated.has("run_state"):
 		migrated["run_state"] = migrated_state.duplicate(true)
@@ -209,7 +213,7 @@ static func _migrate_full_scale_suspend_snapshot(source: Dictionary, content_reg
 	return {
 		"accepted": true,
 		"data": migrated,
-		"migration": "Explicit Content Migration: %s -> %s" % [source_version, ACT_TWO_SCALE_V5],
+		"migration": "Explicit Content Migration: %s -> %s" % [source_version, ACT_TWO_SCALE_V6],
 	}
 
 static func _phase2_v2_migration_target(source_version: String) -> String:

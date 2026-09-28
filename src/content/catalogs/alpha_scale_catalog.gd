@@ -38,6 +38,20 @@ const YAKU_IDS := [
 	"alpha.yaku.dotted_river",
 	"alpha.yaku.sequence_pair",
 	"alpha.yaku.mixed_quartet",
+	"alpha.yaku.sequence_cascade",
+	"alpha.yaku.triplet_duet",
+	"alpha.yaku.quad_duet",
+	"alpha.yaku.pair_triad",
+	"alpha.yaku.sequence_triplet",
+	"alpha.yaku.sequence_quad",
+	"alpha.yaku.triplet_quad",
+	"alpha.yaku.triplet_pair",
+	"alpha.yaku.quad_pair",
+	"alpha.yaku.sequence_triplet_pair",
+	"alpha.yaku.honor_beacon",
+	"alpha.yaku.honor_gathering",
+	"alpha.yaku.character_majority",
+	"alpha.yaku.dot_majority",
 ]
 const RELIC_IDS := [
 	"alpha.relic.act_two.echo_index",
@@ -78,7 +92,7 @@ const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v4"
+const CONTENT_BUNDLE_VERSION := "v5"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -184,6 +198,21 @@ static func _yaku_definitions() -> Array:
 	result.append(_yaku(YAKU_IDS[5], "Dotted River", YakuDefinitionScript.BOTH, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 9, "label": "dot tile"}, 9, 17))
 	result.append(_yaku(YAKU_IDS[6], "Sequence Pair", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Pair"], "local_pattern_types": ["Sequence", "Pair"]}, 10, 18))
 	result.append(_yaku(YAKU_IDS[7], "Mixed Quartet", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Quad", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Quad", "Pair"]}, 13, 22))
+	result.append(_yaku(YAKU_IDS[8], "Sequence Cascade", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Sequence", "target": 3, "label": "sequence", "local_pattern_types": ["Sequence"]}, 9, 16))
+	result.append(_yaku(YAKU_IDS[9], "Triplet Duet", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Triplet", "target": 2, "label": "triplet", "local_pattern_types": ["Triplet", "Quad"]}, 9, 16))
+	result.append(_yaku(YAKU_IDS[10], "Quad Duet", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Quad", "target": 2, "label": "quad", "local_pattern_types": ["Quad"]}, 12, 0))
+	result.append(_yaku(YAKU_IDS[11], "Pair Triad", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Pair", "target": 3, "label": "pair", "local_pattern_types": ["Pair"]}, 10, 0))
+	result.append(_yaku(YAKU_IDS[12], "Sequence and Triplet", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet"], "local_pattern_types": ["Sequence", "Triplet"]}, 10, 18))
+	result.append(_yaku(YAKU_IDS[13], "Sequence and Quad", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Quad"], "local_pattern_types": ["Sequence", "Quad"]}, 12, 20))
+	result.append(_yaku(YAKU_IDS[14], "Triplet and Quad", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Quad"], "local_pattern_types": ["Triplet", "Quad"]}, 12, 20))
+	# Complete Hand interpretations store their pair separately from `groups`, so pair-shaped Yaku stay local.
+	result.append(_yaku(YAKU_IDS[15], "Triplet and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Pair"], "local_pattern_types": ["Triplet", "Pair"]}, 9, 0))
+	result.append(_yaku(YAKU_IDS[16], "Quad and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Quad", "Pair"], "local_pattern_types": ["Quad", "Pair"]}, 11, 0))
+	result.append(_yaku(YAKU_IDS[17], "Sequence, Triplet and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Pair"]}, 12, 0))
+	result.append(_yaku(YAKU_IDS[18], "Honor Beacon", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 3, "label": "honor tile"}, 0, 16))
+	result.append(_yaku(YAKU_IDS[19], "Honor Gathering", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 7, "label": "honor tile"}, 0, 24))
+	result.append(_yaku(YAKU_IDS[20], "Character Majority", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "characters", "target": 12, "label": "character tile"}, 0, 22))
+	result.append(_yaku(YAKU_IDS[21], "Dot Majority", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 12, "label": "dot tile"}, 0, 22))
 	return result
 
 static func _yaku(identifier: String, label: String, scope: String, family: String, model: String, config: Dictionary, local_amount: int, complete_amount: int):

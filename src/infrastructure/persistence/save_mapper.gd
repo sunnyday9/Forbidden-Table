@@ -54,6 +54,9 @@ static func load_full_v3_suspend_snapshot_into_domain(serialized, content_regist
 static func load_full_v4_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
 	return _load_into_domain(serialized, content_registry, "FULL_V4")
 
+static func load_full_v5_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V5")
+
 static func _load_into_domain(serialized, content_registry, requested_content_migration: String) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
@@ -81,6 +84,8 @@ static func _load_into_domain(serialized, content_registry, requested_content_mi
 			content_migration = ContentVersionMigrationScript.migrate_full_v3_suspend_snapshot(data, content_registry)
 		elif requested_content_migration == "FULL_V4":
 			content_migration = ContentVersionMigrationScript.migrate_full_v4_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V5":
+			content_migration = ContentVersionMigrationScript.migrate_full_v5_suspend_snapshot(data, content_registry)
 		else:
 			return _reject("UNSUPPORTED_CONTENT_MIGRATION")
 		if not content_migration.accepted:
