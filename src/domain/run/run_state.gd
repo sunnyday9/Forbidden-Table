@@ -17,6 +17,8 @@ const EventStateScript = preload("res://src/domain/run/event_state.gd")
 var run_id: String
 var seed: int
 var content_version: String
+var act_index: int
+var act_count: int
 var phase: String
 var character_id: String
 var contract_id: String
@@ -35,6 +37,13 @@ var build_ownership: RunBuildState
 var tutorial_state: RunTutorialState
 var terminal_summary: RunTerminalSummary
 var current_battle_snapshot: RefCounted
+var run_started_at_unix_seconds: int
+var pattern_counts: Dictionary
+var yaku_counts: Dictionary
+var complete_hand_count: int
+var maximum_mahjong_score: int
+var boss_progress: Array[Dictionary]
+var milestones: Array[String]
 
 func _init(
 	initial_run_id: String,
@@ -42,10 +51,13 @@ func _init(
 	initial_content_version: String,
 	initial_tile_pool: RunTilePoolState = null,
 	initial_current_battle_snapshot: RefCounted = null,
+	initial_act_count: int = 1,
 ) -> void:
 	run_id = initial_run_id
 	seed = initial_seed
 	content_version = initial_content_version
+	act_index = 1
+	act_count = initial_act_count
 	phase = RunPhaseScript.CHARACTER_SELECT
 	character_id = ""
 	contract_id = ""
@@ -64,12 +76,21 @@ func _init(
 	tutorial_state = RunTutorialStateScript.new()
 	terminal_summary = RunTerminalSummaryScript.new()
 	current_battle_snapshot = initial_current_battle_snapshot if initial_current_battle_snapshot == null or initial_current_battle_snapshot is RunBattleSnapshotScript else null
+	run_started_at_unix_seconds = int(Time.get_unix_time_from_system())
+	pattern_counts = {}
+	yaku_counts = {}
+	complete_hand_count = 0
+	maximum_mahjong_score = 0
+	boss_progress = []
+	milestones = []
 
 func to_dictionary() -> Dictionary:
-	return {
+	var result := {
 		"run_id": run_id,
 		"seed": seed,
 		"content_version": content_version,
+		"act_index": act_index,
+		"act_count": act_count,
 		"phase": phase,
 		"character_id": character_id,
 		"contract_id": contract_id,
@@ -89,6 +110,21 @@ func to_dictionary() -> Dictionary:
 		"terminal_summary": terminal_summary.to_dictionary(),
 		"current_battle_snapshot": current_battle_snapshot.to_dictionary() if current_battle_snapshot != null else {},
 	}
+	if run_started_at_unix_seconds > 0:
+		result["run_started_at_unix_seconds"] = run_started_at_unix_seconds
+	if not pattern_counts.is_empty():
+		result["pattern_counts"] = pattern_counts.duplicate(true)
+	if not yaku_counts.is_empty():
+		result["yaku_counts"] = yaku_counts.duplicate(true)
+	if complete_hand_count > 0:
+		result["complete_hand_count"] = complete_hand_count
+	if maximum_mahjong_score > 0:
+		result["maximum_mahjong_score"] = maximum_mahjong_score
+	if not boss_progress.is_empty():
+		result["boss_progress"] = boss_progress.duplicate(true)
+	if not milestones.is_empty():
+		result["milestones"] = milestones.duplicate()
+	return result
 
 func active_modifier(modifier_id: String):
 	for effect_key in _sorted_effect_keys():

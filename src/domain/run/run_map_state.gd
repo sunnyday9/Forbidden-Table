@@ -53,8 +53,8 @@ func initialize(definition, map_rng) -> void:
 		node_kinds[node_id] = node.node_kind
 		payload_ids[node_id] = node.payload_id_for(map_rng)
 	current_node_id = definition.start_node_id
-	visited_node_ids = [current_node_id]
-	ordered_path = [current_node_id]
+	visited_node_ids = []
+	ordered_path = []
 	path_edge_ids = []
 	last_events = []
 	_refresh_knowledge(definition)
@@ -69,9 +69,28 @@ func is_visited(node_id: String) -> bool:
 func is_terminal() -> bool:
 	return node_kinds.get(current_node_id, "") == "BOSS"
 
-func is_adjacent(node_id: String, definition) -> bool:
+func is_pending_entry(definition) -> bool:
+	return (
+		current_node_id == definition.start_node_id
+		and visited_node_ids.is_empty()
+		and ordered_path.is_empty()
+	)
+
+func selectable_node_ids(definition) -> Array[String]:
+	var selectable: Array[String] = []
+	if is_pending_entry(definition):
+		selectable.append(current_node_id)
+		return selectable
 	var node = definition.node_definition(current_node_id)
-	return node != null and node.next_node_ids.has(node_id)
+	if node == null:
+		return selectable
+	for next_node_id in node.next_node_ids:
+		if not is_visited(next_node_id):
+			selectable.append(next_node_id)
+	return selectable
+
+func is_adjacent(node_id: String, definition) -> bool:
+	return selectable_node_ids(definition).has(node_id)
 
 func visible_payload_id(node_id: String) -> String:
 	return str(payload_ids.get(node_id, "")) if knowledge_state.get(node_id, PARTIAL) == EXACT else ""
@@ -85,7 +104,8 @@ func select_node(node_id: String, definition) -> String:
 	current_node_id = node_id
 	visited_node_ids.append(node_id)
 	ordered_path.append(node_id)
-	path_edge_ids.append(edge_id)
+	if not edge_id.is_empty():
+		path_edge_ids.append(edge_id)
 	_refresh_knowledge(definition)
 	return edge_id
 

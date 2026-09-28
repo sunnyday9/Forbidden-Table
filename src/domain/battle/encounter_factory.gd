@@ -3,6 +3,7 @@ extends RefCounted
 
 const BattleContextScript = preload("res://src/domain/battle/battle_context.gd")
 const BattleDomainScript = preload("res://src/domain/battle/battle_domain.gd")
+const BuildEffectResolverScript = preload("res://src/domain/battle/build_effect_resolver.gd")
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const CombatConversionProfileScript = preload("res://src/domain/combat/combat_conversion_profile.gd")
 const CombatConversionResolverScript = preload("res://src/domain/combat/combat_conversion_resolver.gd")
@@ -10,6 +11,7 @@ const CombatResolverScript = preload("res://src/domain/combat/combat_resolver.gd
 const CombatStateScript = preload("res://src/domain/combat/combat_state.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const DrawWallScript = preload("res://src/domain/tiles/draw_wall.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const EnemyDefinitionScript = preload("res://src/content/definitions/enemy_definition.gd")
@@ -69,6 +71,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	if not validation.get("accepted", false):
 		last_error = validation.duplicate(true)
 		return null
+	var rng_before_creation: Dictionary = domain_rng_streams.snapshot() if domain_rng_streams != null and domain_rng_streams.has_method("snapshot") else {}
 	var encounter = validation["encounter"]
 	var enemies: Array = []
 	for enemy_id in encounter.enemy_ids:
@@ -77,6 +80,8 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	var values: Dictionary = primary_enemy.battle_values.duplicate(true)
 	for key in encounter.battle_values.keys():
 		values[key] = encounter.battle_values[key]
+	values["initial_pressure"] = int(values.get("initial_pressure", 0)) + AlphaContractEffectsScript.initial_pressure_per_battle(content_registry, run_state.contract_id)
+	values["tp"] = int(values.get("tp", 0)) + AlphaContractEffectsScript.starting_tp_per_battle(content_registry, run_state.contract_id)
 	var contamination: Dictionary = primary_enemy.contamination_config.duplicate(true)
 	for key in encounter.contamination_config.keys():
 		contamination[key] = encounter.contamination_config[key]
@@ -125,8 +130,9 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 		return null
 	var pattern_evaluator := PatternEvaluatorScript.new(content_registry)
 	var settlement_window := SettlementWindowScript.new(pattern_evaluator, zones, SettlementCapacityScript.new(state.settlement_capacity))
-	var settlement_context := EffectContextScript.new(state, zones, draw_wall, tile_actions.reserve_service)
-	var settlement_turn := SettlementTurnScript.new(settlement_window, tile_actions, zones, int(values.get("normal_hand_baseline", 13)), null, settlement_context)
+	var settlement_context := EffectContextScript.new(state, zones, draw_wall, tile_actions.reserve_service, null, run_state)
+	var build_effect_resolver := BuildEffectResolverScript.new(content_registry)
+	var settlement_turn := SettlementTurnScript.new(settlement_window, tile_actions, zones, int(values.get("normal_hand_baseline", 13)), null, settlement_context, build_effect_resolver)
 	var domain := BattleDomainScript.new(
 		zones,
 		draw_wall,
@@ -157,6 +163,20 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	domain.enemy_definition = primary_enemy
 	domain.enemy_definitions = enemies
 	domain.context = context
+	domain.build_effect_resolver = build_effect_resolver
+	context.run_state = run_state
+	if run_state.current_battle_snapshot == null:
+		var entry_effects: Dictionary = build_effect_resolver.resolve_battle_entry(run_state, domain)
+		if not entry_effects.get("accepted", false):
+			if not rng_before_creation.is_empty() and domain_rng_streams.has_method("restore"):
+				domain_rng_streams.restore(rng_before_creation)
+			last_error = _error(
+				"BUILD_EFFECT_REJECTED",
+				"An owned build effect could not resolve at the battle-entry boundary.",
+				{"effect_id": str(entry_effects.get("effect_id", "")), "reason": str(entry_effects.get("reason", "BUILD_EFFECT_REJECTED"))},
+			)
+			return null
+		domain.battle_start_effect_events = entry_effects.get("events", []).duplicate()
 	return domain
 
 func create_battle(run_state, encounter_id: String, domain_rng_streams, expected_kind: String = ""):

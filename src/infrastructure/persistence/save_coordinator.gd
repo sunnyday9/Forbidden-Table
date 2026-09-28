@@ -4,7 +4,7 @@ extends RefCounted
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 
-const STABLE_BOUNDARIES := ["MAP_NODE", "BATTLE_START", "TURN_START", "DRAW_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE", "SHOP", "WORKSHOP", "EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER", "REWARD", "RUN_SUMMARY", "RUN_COMPLETE"]
+const STABLE_BOUNDARIES := ["MAP_NODE", "BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE", "SHOP", "WORKSHOP", "EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER", "REWARD", "RUN_SUMMARY", "RUN_COMPLETE"]
 const UNSTABLE_BOUNDARIES := ["EFFECT_QUEUE", "REACTION_WINDOW", "PATTERN_RESOLUTION", "BOSS_TRANSITION"]
 
 func can_save(domain, boundary: String = "") -> Dictionary:

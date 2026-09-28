@@ -2,6 +2,26 @@ class_name EnemyIntent
 extends RefCounted
 
 const PRESSURE := "PRESSURE"
+const WALL_TAX := "WALL_TAX"
+const INTEGRITY := "INTEGRITY"
+const CONTAMINATION := "CONTAMINATION"
+const TABLE_INTERFERENCE := "TABLE_INTERFERENCE"
+const RULE_BREAKER := "RULE_BREAKER"
+const AUDIT := "AUDIT"
+const HUNT := "HUNT"
+const REWARD_TAX := "REWARD_TAX"
+
+const ACTION_TYPES: Array[String] = [
+	PRESSURE,
+	WALL_TAX,
+	INTEGRITY,
+	CONTAMINATION,
+	TABLE_INTERFERENCE,
+	RULE_BREAKER,
+	AUDIT,
+	HUNT,
+	REWARD_TAX,
+]
 
 var intent_id: String
 var display_name: String
@@ -21,6 +41,9 @@ func _init(
 	pressure_amount = maxi(0, result_pressure_amount)
 	action_type = result_action_type
 	transitions = result_transitions.duplicate()
+
+static func is_supported_action_type(candidate: String) -> bool:
+	return ACTION_TYPES.has(candidate)
 
 func to_dictionary() -> Dictionary:
 	return {

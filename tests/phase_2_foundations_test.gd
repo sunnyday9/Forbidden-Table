@@ -83,8 +83,8 @@ func test_registry_rejects_invalid_namespaces_and_definition_type_prefixes(failu
 
 func test_registry_exposes_phase_2_content_version(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
-	assert_true(ContentRegistry.CONTENT_VERSION == "content.slice.v1", "Phase 2 content version is content.slice.v1", failures)
-	assert_true(registry.content_version() == "content.slice.v1", "registry exposes the Phase 2 content version", failures)
+	assert_true(ContentRegistry.CONTENT_VERSION == "content.slice.v4", "Phase 2 content version advances for authored Technique reactions", failures)
+	assert_true(registry.content_version() == "content.slice.v4", "registry exposes the updated Phase 2 content version", failures)
 
 func test_registry_rejects_duplicate_ids_and_missing_references(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

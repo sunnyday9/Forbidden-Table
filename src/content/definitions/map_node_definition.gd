@@ -26,6 +26,10 @@ func _init(
 	var references := next_nodes.duplicate()
 	if not content_reference.is_empty():
 		references.append(content_reference)
+	if kind in [BATTLE, ELITE, EVENT, BOSS]:
+		for payload_id in payloads:
+			if not references.has(payload_id):
+				references.append(payload_id)
 	super(definition_id, references)
 	node_kind = kind
 	next_node_ids = next_nodes.duplicate()
@@ -63,6 +67,13 @@ func reference_requirements() -> Array[Dictionary]:
 		elif node_kind == EVENT:
 			expected_types = ["EventDefinition"]
 		requirements.append(_reference_requirement(content_reference_id, expected_types, "content_reference_id"))
+	for payload_id in payload_options:
+		var payload_types: Array[String] = []
+		if node_kind in [BATTLE, ELITE, BOSS]:
+			payload_types = ["EncounterDefinition"]
+		elif node_kind == EVENT:
+			payload_types = ["EventDefinition"]
+		requirements.append(_reference_requirement(payload_id, payload_types, "payload_options"))
 	return requirements
 
 func payload_id_for(map_rng) -> String:

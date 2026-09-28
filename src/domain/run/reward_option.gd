@@ -3,6 +3,9 @@ extends RefCounted
 
 const ADD_TILE := "ADD_TILE"
 const MODIFIED_TILE := "MODIFIED_TILE"
+const RULE_BREAKER := "RULE_BREAKER"
+const RELIC := "RELIC"
+const RUN_TECHNIQUE := "RUN_TECHNIQUE"
 const SKIP := "SKIP"
 
 const SYNERGY := "SYNERGY"
@@ -57,7 +60,7 @@ func is_skip() -> bool:
 	return kind == SKIP
 
 func is_acquisition() -> bool:
-	return kind in [ADD_TILE, MODIFIED_TILE]
+	return kind in [ADD_TILE, MODIFIED_TILE, RULE_BREAKER, RELIC, RUN_TECHNIQUE]
 
 func to_dictionary() -> Dictionary:
 	return {

@@ -9,6 +9,7 @@ const ContentValidationIssueScript = preload("res://src/content/validation/conte
 
 const PRODUCTION_NAMESPACE := "base"
 const COMPATIBILITY_NAMESPACE := "prototype"
+const ALPHA_NAMESPACE := "alpha"
 
 func _init(definition_id: String = "", references: Array[String] = []) -> void:
 	content_id = definition_id
@@ -22,11 +23,11 @@ func validate():
 			content_id,
 			"Content ID must use lowercase dot-separated namespaces."
 		))
-	elif not [PRODUCTION_NAMESPACE, COMPATIBILITY_NAMESPACE].has(content_id.get_slice(".", 0)):
+	elif not [PRODUCTION_NAMESPACE, COMPATIBILITY_NAMESPACE, ALPHA_NAMESPACE].has(content_id.get_slice(".", 0)):
 		report.add_issue(ContentValidationIssueScript.new(
 			"invalid_namespace",
 			content_id,
-			"Content ID must use the base or prototype namespace."
+			"Content ID must use the base, prototype, or alpha namespace."
 		))
 	var expected_families := expected_id_families()
 	if not expected_families.is_empty() and _content_family() not in expected_families:

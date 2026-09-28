@@ -3,9 +3,11 @@ extends RefCounted
 
 const AlphaFailureClassifierScript = preload("res://src/infrastructure/simulation/alpha_failure_classifier.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
+const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 const ReplayVerifierScript = preload("res://src/infrastructure/replay/replay_verifier.gd")
 const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save_coordinator.gd")
@@ -26,22 +28,22 @@ const ChooseEventOptionCommandScript = preload("res://src/domain/commands/choose
 const ChooseRewardCommandScript = preload("res://src/domain/commands/choose_reward_command.gd")
 const UseWorkshopServiceCommandScript = preload("res://src/domain/commands/use_workshop_service_command.gd")
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
+const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
 const EndTurnCommandScript = preload("res://src/domain/commands/end_turn_command.gd")
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
-const MAX_DRAWS_PER_TURN := 16
-const POLICY_RULE_VERSION := "v5"
+const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
+const POLICY_RULE_VERSION := "v7"
+const COMPLETE_POLICY_RULE_VERSION := "v8"
 
 var _domain
 var _attempt_case: Dictionary
 var _manifest_hash := ""
 var _command_limit := 0
 var _command_sequence := 0
-var _draws_this_turn := 0
-var _draws_since_last_settlement := 0
 var _accepted_action_counts: Dictionary = {}
 var _partial_settlement_count := 0
 var _complete_hand_count := 0
@@ -56,21 +58,33 @@ var _unavailable_content_paths: Array[String] = []
 func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit: int = 1024) -> Dictionary:
 	_reset_attempt(attempt_case, manifest_hash, command_limit)
 	var registry = ContentRegistryScript.new()
-	var registration_report = Phase2CatalogScript.register_all(registry)
-	var alpha_act_two_registration_report = AlphaActTwoCatalogScript.register_all(registry)
+	var registration_reports: Dictionary = _register_content_bundles(registry, str(_attempt_case.get("gate_id", "")))
+	var registration_report = registration_reports.get("phase2")
+	var alpha_act_two_registration_report = registration_reports.get("act_two")
+	var scale_roster_gate := str(_attempt_case.get("gate_id", "")) in SCALE_ROSTER_GATE_IDS
+	var alpha_scale_registration_report = registration_reports.get("scale") if scale_roster_gate else null
 	var attempt_id := str(_attempt_case.get("attempt_id", "attempt.%05d" % int(_attempt_case.get("attempt_index", 0))))
 	var run_id := "alpha.%s.%s" % [str(_attempt_case.get("gate_id", "unknown")), attempt_id]
 	var seed := int(_attempt_case.get("seed", 0))
-	_domain = RunDomainScript.new_alpha_run(run_id, seed, registry, registry.content_version())
+	_domain = RunDomainScript.new_alpha_run(
+		run_id,
+		seed,
+		registry,
+		registry.content_version(),
+		null,
+		null,
+		MetaProgressStateScript.all_unlocked_test_profile(),
+	)
 
 	if (
 		registration_report == null
 		or not registration_report.is_valid()
 		or alpha_act_two_registration_report == null
 		or not alpha_act_two_registration_report.is_valid()
+		or (scale_roster_gate and (alpha_scale_registration_report == null or not alpha_scale_registration_report.is_valid()))
 	):
 		_content_available = false
-		_failure_detail = "The Phase 2 and Act 2 Boss reward content bundles could not be registered."
+		_failure_detail = "The required Phase 2, Act 2, or Scale content bundles could not be registered."
 	elif str(_attempt_case.get("policy_id", "")) not in SUPPORTED_POLICIES:
 		_content_available = false
 		_failure_detail = "The scheduled policy is not supported by the Alpha runner."
@@ -86,12 +100,7 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 			str(_attempt_case.get("character_id", "")),
 			character.starting_tile_pool_bias,
 		)
-		var pool_initialized := not starting_pool.is_empty()
-		for tile_record in starting_pool:
-			if not _domain.state.tile_pool.add_tile_instance(tile_record):
-				pool_initialized = false
-				break
-		if not pool_initialized:
+		if starting_pool.is_empty():
 			_content_available = false
 			_failure_detail = "The versioned starting-pool fixture could not be materialized from the selected Character bias."
 		else:
@@ -100,8 +109,10 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 				str(_attempt_case.get("character_id", "")),
 				character.starting_tile_pool_bias,
 			)
-			_reset_initial_replay_checkpoint(_domain)
 			_execute_command(ChooseCharacterCommandScript.new(_next_command_id("character"), str(_attempt_case.get("character_id", ""))))
+			if _domain.state.tile_pool.tile_instances.size() != _starting_pool_tile_count:
+				_content_available = false
+				_failure_detail = "RunDomain did not apply the versioned starting-pool fixture during Character selection."
 		if not _command_rejected and _content_available:
 			_execute_command(ChooseContractCommandScript.new(_next_command_id("contract"), str(_attempt_case.get("contract_id", ""))))
 
@@ -147,8 +158,6 @@ func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_lim
 	_manifest_hash = manifest_hash
 	_command_limit = maxi(0, command_limit)
 	_command_sequence = 0
-	_draws_this_turn = 0
-	_draws_since_last_settlement = 0
 	_accepted_action_counts = {}
 	_partial_settlement_count = 0
 	_complete_hand_count = 0
@@ -163,22 +172,38 @@ func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_lim
 static func is_unavailable_act_two_boss_reward(phase: String, act_index: int, act_count: int, reward_draft) -> bool:
 	return phase == RunPhaseScript.BOSS_REWARD and act_index == 2 and act_count >= 2 and reward_draft == null
 
+static func content_version_for_gate(gate_id: String) -> String:
+	var registry = ContentRegistryScript.new()
+	var registration_reports: Dictionary = _register_content_bundles(registry, gate_id)
+	for registration in registration_reports.values():
+		if registration == null or not registration.is_valid():
+			return ""
+	return registry.content_version()
+
+static func _register_content_bundles(registry, gate_id: String) -> Dictionary:
+	var registration_reports := {
+		"phase2": Phase2CatalogScript.register_all(registry),
+		"act_two": AlphaActTwoCatalogScript.register_all(registry),
+	}
+	if gate_id in SCALE_ROSTER_GATE_IDS:
+		registration_reports["scale"] = AlphaScaleCatalogScript.register_all(registry)
+	return registration_reports
+
 func _reset_initial_replay_checkpoint(domain) -> void:
 	domain.replay_record = ReplayRecordScript.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
 	domain.replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), "ONGOING")
 
 func _replay_factory(replay_seed: int, replay_content_version: String):
 	var run_id := str(_domain.state.run_id)
-	var character_id := str(_attempt_case.get("character_id", ""))
-	var replay_domain = RunDomainScript.new_alpha_run(run_id, replay_seed, _domain.content_registry, replay_content_version)
-	var character = replay_domain.content_registry.resolve(character_id)
-	if not character is CharacterDefinitionScript:
-		return null
-	for tile_record in AlphaSimulationStartingPoolFixtureScript.create(character_id, character.starting_tile_pool_bias):
-		if not replay_domain.state.tile_pool.add_tile_instance(tile_record):
-			return null
-	_reset_initial_replay_checkpoint(replay_domain)
-	return replay_domain
+	return RunDomainScript.new_alpha_run(
+		run_id,
+		replay_seed,
+		_domain.content_registry,
+		replay_content_version,
+		null,
+		null,
+		MetaProgressStateScript.all_unlocked_test_profile(),
+	)
 
 func _step_map_choice() -> bool:
 	var node_id := str(_domain.state.map_state.current_node_id)
@@ -196,7 +221,7 @@ func _step_map_choice() -> bool:
 			if not _domain.state.event_state.has_completed_node(node_id):
 				return _execute_command(EnterEventCommandScript.new(_next_command_id("event.enter")))
 
-	var next_node_ids: Array = current_node.next_node_ids.duplicate()
+	var next_node_ids: Array = _domain.state.map_state.selectable_node_ids(_domain.map_definition)
 	if next_node_ids.is_empty():
 		return false
 	var selected_node_id := _select_route_node(next_node_ids)
@@ -243,7 +268,7 @@ func _step_battle() -> bool:
 	if battle.recovery_state != null and battle.recovery_state.is_recovering():
 		var hand_size := int(battle.zones.size(TileZoneScript.HAND))
 		var recovery_baseline := int(battle.recovery_state.normal_hand_baseline)
-		if hand_size < recovery_baseline and draw_sources_available:
+		if hand_size < recovery_baseline and draw_sources_available and battle.combat_state.draw_actions_remaining() > 0:
 			var drew_recovery_tile := _execute_command(DrawCommandScript.new(_next_command_id("battle.recovery.draw")))
 			if drew_recovery_tile and int(battle.zones.size(TileZoneScript.HAND)) <= hand_size:
 				_soft_lock_detected = true
@@ -252,20 +277,21 @@ func _step_battle() -> bool:
 			return drew_recovery_tile
 		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.recovery.end_turn")))
 
-	var candidates: Array = battle.settlement_window.candidates() if battle.settlement_window != null and battle.settlement_window.has_capacity() else []
 	var policy_id := str(_attempt_case.get("policy_id", ""))
+	if policy_id in ["Partial", "Hybrid"] and _should_discard_excess_hand_tile(battle):
+		var discard_target := _lowest_instance_id_in_hand(battle)
+		if not discard_target.is_empty():
+			return _execute_command(DiscardTileCommandScript.new(
+				_next_command_id("battle.discard.excess"),
+				discard_target,
+			))
+
+	var candidates: Array = battle.settlement_window.candidates() if battle.settlement_window != null and battle.settlement_window.has_capacity() else []
 	var complete_hand_window: bool = policy_id != "Partial" and battle.recovery_state != null and battle.recovery_state.can_complete_hand()
 	var complete_hands: Array = battle.complete_hand_interpretations() if complete_hand_window else []
 	var has_complete_hand := not complete_hands.is_empty()
 	var selected_partial = _best_partial_candidate(candidates)
 	var has_partial := selected_partial != null
-	if policy_id == "Complete" and not has_complete_hand and draw_sources_available:
-		var store_target := _next_complete_hand_store_target(battle)
-		if not store_target.is_empty():
-			return _execute_command(StoreTileCommandScript.new(
-				_next_command_id("battle.reserve.store"),
-				store_target,
-			))
 	var pressure := int(battle.combat_state.pressure)
 	var pressure_limit := maxi(1, int(battle.combat_state.pressure_limit))
 	var decision := ""
@@ -277,7 +303,7 @@ func _step_battle() -> bool:
 		"Complete":
 			if has_complete_hand:
 				decision = "COMPLETE_HAND"
-			elif has_partial and (_draws_since_last_settlement >= MAX_DRAWS_PER_TURN or battle.draw_wall.size() == 0):
+			elif has_partial and (battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available):
 				decision = "PARTIAL_SETTLEMENT"
 		"Hybrid":
 			if has_complete_hand and (pressure * 2 < pressure_limit or not has_partial):
@@ -303,8 +329,29 @@ func _step_battle() -> bool:
 				_next_command_id("battle.complete"),
 				interpretation.interpretation_id,
 			))
+	if (
+		policy_id == "Complete"
+		and not has_complete_hand
+		and battle.combat_state.draw_actions_used_this_turn > 0
+		and not battle.combat_state.tile_manipulation_used_this_draw
+	):
+		var reserve_has_room := int(battle.zones.size(TileZoneScript.RESERVE)) < int(battle.combat_state.reserve_capacity)
+		if reserve_has_room:
+			var store_target := _next_complete_hand_store_target(battle, candidates)
+			if not store_target.is_empty():
+				return _execute_command(StoreTileCommandScript.new(
+					_next_command_id("battle.reserve.store"),
+					store_target,
+				))
+		if _should_discard_excess_hand_tile(battle):
+			var discard_target := _lowest_instance_id_in_hand(battle)
+			if not discard_target.is_empty():
+				return _execute_command(DiscardTileCommandScript.new(
+					_next_command_id("battle.discard.excess"),
+					discard_target,
+				))
 
-	if _draws_this_turn >= MAX_DRAWS_PER_TURN or not draw_sources_available:
+	if battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available:
 		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.end_turn")))
 	return _execute_command(DrawCommandScript.new(_next_command_id("battle.draw")))
 
@@ -319,22 +366,37 @@ func _best_partial_candidate(candidates: Array):
 	)
 	return sorted[0] if not sorted.is_empty() else null
 
-func _next_complete_hand_store_target(battle) -> String:
-	if battle == null or battle.zones == null or battle.complete_hand_evaluator == null:
+func _should_discard_excess_hand_tile(battle) -> bool:
+	if battle == null or battle.combat_state == null or battle.zones == null or battle.recovery_state == null:
+		return false
+	if battle.combat_state.draw_actions_used_this_turn <= 0 or battle.combat_state.tile_manipulation_used_this_draw:
+		return false
+	var maximum_policy_hand_size := int(battle.recovery_state.normal_hand_baseline) + 1
+	return battle.zones.size(TileZoneScript.HAND) > maximum_policy_hand_size
+
+func _lowest_instance_id_in_hand(battle) -> String:
+	if battle == null or battle.zones == null:
+		return ""
+	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
+	var selected_instance_id := ""
+	for tile in hand:
+		if tile == null:
+			continue
+		var candidate_id := str(tile.instance_id)
+		if selected_instance_id.is_empty() or candidate_id < selected_instance_id:
+			selected_instance_id = candidate_id
+	return selected_instance_id
+
+func _next_complete_hand_store_target(battle, candidates: Array) -> String:
+	if battle == null or battle.zones == null:
 		return ""
 	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
 	hand.sort_custom(func(left, right): return str(left.instance_id) < str(right.instance_id))
 	var available_reserve_slots := int(battle.combat_state.reserve_capacity) - int(battle.zones.size(TileZoneScript.RESERVE))
-	var maximum_store_count := mini(available_reserve_slots, hand.size() - 14)
 	if available_reserve_slots < 1 or hand.size() < 14:
 		return ""
-	for store_count in range(1, maximum_store_count + 1):
-		var target := _find_complete_hand_store_target_for_count(battle, hand, store_count)
-		if not target.is_empty():
-			return target
-
 	var candidate_usage: Dictionary = {}
-	for candidate in battle.settlement_window.candidates():
+	for candidate in candidates:
 		for tile in candidate.tile_instances:
 			var instance_id := str(tile.instance_id)
 			candidate_usage[instance_id] = int(candidate_usage.get(instance_id, 0)) + 1
@@ -347,31 +409,6 @@ func _next_complete_hand_store_target(battle) -> String:
 			lowest_candidate_usage = usage
 			unmatched_target = instance_id
 	return unmatched_target
-
-func _find_complete_hand_store_target_for_count(battle, hand: Array, store_count: int) -> String:
-	if store_count == 1:
-		for first in range(hand.size()):
-			if _is_complete_hand_without_stored_indices(battle, hand, [first]):
-				return str(hand[first].instance_id)
-	elif store_count == 2:
-		for first in range(hand.size()):
-			for second in range(first + 1, hand.size()):
-				if _is_complete_hand_without_stored_indices(battle, hand, [first, second]):
-					return str(hand[first].instance_id)
-	elif store_count == 3:
-		for first in range(hand.size()):
-			for second in range(first + 1, hand.size()):
-				for third in range(second + 1, hand.size()):
-					if _is_complete_hand_without_stored_indices(battle, hand, [first, second, third]):
-						return str(hand[first].instance_id)
-	return ""
-
-func _is_complete_hand_without_stored_indices(battle, hand: Array, stored_indices: Array) -> bool:
-	var candidate_hand: Array = []
-	for index in range(hand.size()):
-		if index not in stored_indices:
-			candidate_hand.append(hand[index])
-	return not battle.complete_hand_evaluator.evaluate(candidate_hand).is_empty()
 
 func _pattern_rank(pattern_type: String) -> int:
 	match pattern_type:
@@ -487,15 +524,8 @@ func _execute_command(command) -> bool:
 	_accepted_action_counts[command_type] = int(_accepted_action_counts.get(command_type, 0)) + 1
 	if command_type == "SettlePattern":
 		_partial_settlement_count += 1
-		_draws_since_last_settlement = 0
 	elif command_type == "SettleCompleteHand":
 		_complete_hand_count += 1
-		_draws_since_last_settlement = 0
-	if command_type == "Draw":
-		_draws_this_turn += 1
-		_draws_since_last_settlement += 1
-	elif command_type == "EndTurn":
-		_draws_this_turn = 0
 	return true
 
 func _next_command_id(action: String) -> String:
@@ -582,14 +612,17 @@ func _build_attempt_record() -> Dictionary:
 	var strategy_rule := "Partial: settle the highest-ranked legal Partial Pattern; never choose Complete Hand."
 	match str(_attempt_case.get("policy_id", "")):
 		"Complete":
-			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available, deterministically store the least-patterned Hand tile in Reserve and draw a replacement when a slot and draw source are available; otherwise accumulate up to the draw budget between settlements, then settle the highest-ranked legal Partial Pattern when the draw wall is exhausted or the budget is reached."
+			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it. Once per normal Draw, store the Hand tile with the fewest legal Partial Pattern candidates while Reserve has room; when Reserve is full, discard the lowest instance ID only if Hand exceeds its normal baseline plus one. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
+	if str(_attempt_case.get("policy_id", "")) in ["Partial", "Hybrid"]:
+		strategy_rule += " After a Draw, discard the lowest instance ID when Hand exceeds the normal baseline plus one, before settlement candidate evaluation."
 	strategy_rule += " End Turn rather than request a Draw when both Draw Wall and Discard are empty, including during Recovery."
 	strategy_rule += " Route SERVICE through an authored Workshop node; use the first deterministic legal Modifier when affordable, banking a Normal Reward skip only when it will reach that price."
+	var policy_rule_version := COMPLETE_POLICY_RULE_VERSION if str(_attempt_case.get("policy_id", "")) == "Complete" else POLICY_RULE_VERSION
 	var strategy := {
 		"policy_id": str(_attempt_case.get("policy_id", "")),
-		"policy_rule_id": "alpha.%s.%s" % [str(_attempt_case.get("policy_id", "unsupported")).to_lower(), POLICY_RULE_VERSION],
+		"policy_rule_id": "alpha.%s.%s" % [str(_attempt_case.get("policy_id", "unsupported")).to_lower(), policy_rule_version],
 		"decision_rule": strategy_rule,
 		"accepted_action_counts": _accepted_action_counts.duplicate(true),
 		"partial_settlements": _partial_settlement_count,

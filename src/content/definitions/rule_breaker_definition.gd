@@ -28,4 +28,5 @@ func validate():
 	_required_string(report, rule_key, "missing_rule_key", "Rule Breaker rule key")
 	if permission_level < 1:
 		report.add_issue(_issue("invalid_permission_level", "Rule Breaker permission level must be positive."))
+	_validate_typed_effects(report, effects, "effects")
 	return report

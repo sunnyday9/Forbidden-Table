@@ -7,8 +7,18 @@ var draw_wall
 var draw_resolver
 var reserve_service
 var contamination_service
+var run_state
+var target_instance_id: String
 
-func _init(effect_state, effect_zones = null, effect_draw_wall = null, effect_reserve_service = null, effect_contamination_service = null) -> void:
+func _init(
+	effect_state,
+	effect_zones = null,
+	effect_draw_wall = null,
+	effect_reserve_service = null,
+	effect_contamination_service = null,
+	effect_run_state = null,
+	effect_target_instance_id: String = "",
+) -> void:
 	state = effect_state
 	zones = effect_zones
 	draw_wall = effect_draw_wall
@@ -18,6 +28,8 @@ func _init(effect_state, effect_zones = null, effect_draw_wall = null, effect_re
 		draw_wall = effect_state.get("draw_wall")
 	reserve_service = effect_reserve_service
 	contamination_service = effect_contamination_service
+	run_state = effect_run_state
+	target_instance_id = effect_target_instance_id
 
 func resolve_draw_resolver():
 	if draw_resolver == null and draw_wall != null:
@@ -39,4 +51,6 @@ func to_dictionary() -> Dictionary:
 		"has_draw_resolver": resolve_draw_resolver() != null,
 		"has_reserve_service": reserve_service != null,
 		"has_contamination_service": resolve_contamination_service() != null,
+		"has_run_state": run_state != null,
+		"target_instance_id": target_instance_id,
 	}

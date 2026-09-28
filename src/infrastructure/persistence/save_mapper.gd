@@ -4,9 +4,12 @@ extends RefCounted
 const SuspendSnapshotScript = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
 const RunRecordScript = preload("res://src/infrastructure/persistence/run_record.gd")
 const MigrationPipelineScript = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
+const ContentVersionMigrationScript = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const LoadValidatorScript = preload("res://src/infrastructure/persistence/load_validator.gd")
+const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const RunStateScript = preload("res://src/domain/run/run_state.gd")
 const RunMapStateScript = preload("res://src/domain/run/run_map_state.gd")
 const RunTilePoolStateScript = preload("res://src/domain/run/run_tile_pool_state.gd")
@@ -24,6 +27,7 @@ const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
 const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
+const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 
 static func suspend_snapshot(domain, checkpoint_metadata: Dictionary = {}):
 	var metadata := checkpoint_metadata.duplicate(true)
@@ -36,12 +40,24 @@ static func run_record(domain, checkpoint_metadata: Dictionary = {}):
 	return RunRecordScript.new(snapshot.content_version, snapshot.run_id, snapshot.run_seed, snapshot.authoritative_state, snapshot.rng_state, snapshot.checkpoint_metadata)
 
 static func load_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "")
+
+static func load_phase2_v1_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "PHASE2_V1")
+
+static func load_phase2_v2_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "PHASE2_V2")
+
+static func load_full_v3_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V3")
+
+static func _load_into_domain(serialized, content_registry, requested_content_migration: String) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
-		var json = JSON.parse_string(serialized)
-		if not json is Dictionary:
-			return _reject("PARSE_FAILED")
-		parsed = json
+		var json_parse := JsonIntegerCodecScript.parse(serialized)
+		if not json_parse.accepted or not json_parse.data is Dictionary:
+			return _reject(str(json_parse.get("code", "PARSE_FAILED")))
+		parsed = json_parse.data
 	elif serialized is Dictionary:
 		parsed = serialized.duplicate(true)
 	else:
@@ -51,20 +67,49 @@ static func load_into_domain(serialized, content_registry, _target_domain = null
 	if not migrated.accepted:
 		return migrated
 	var data: Dictionary = migrated.data
+	var pipeline: Array[String] = ["Parse", "Schema Migration"]
+	if not requested_content_migration.is_empty():
+		var content_migration: Dictionary
+		if requested_content_migration == "PHASE2_V1":
+			content_migration = ContentVersionMigrationScript.migrate_phase2_v1_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "PHASE2_V2":
+			content_migration = ContentVersionMigrationScript.migrate_phase2_v2_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V3":
+			content_migration = ContentVersionMigrationScript.migrate_full_v3_suspend_snapshot(data, content_registry)
+		else:
+			return _reject("UNSUPPORTED_CONTENT_MIGRATION")
+		if not content_migration.accepted:
+			return content_migration
+		data = content_migration.data
+		pipeline.append(content_migration.migration)
 	var validation := LoadValidatorScript.new().validate(data, content_registry)
 	if not validation.accepted:
-		return {"accepted": false, "code": "VALIDATION_FAILED", "errors": validation.errors}
+		return {"accepted": false, "code": "VALIDATION_FAILED", "errors": validation.errors, "pipeline": pipeline.duplicate()}
 	# Content IDs are resolved by the validator before any runtime object is constructed.
 	var state = _state_from_dictionary(data.get("authoritative_state", data.get("run_state", {})), data)
 	var domain := RunDomainScript.new(str(data.run_id), int(data.run_seed), content_registry, str(data.content_version))
-	domain.state = state
+	domain.rebind_state(state)
+	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index)
+	if domain.map_definition == null:
+		return _reject("INVALID_ACT_INDEX")
 	if state.phase == RunPhaseScript.BATTLE:
 		var battle_reconstruction := _reconstruct_battle(domain)
 		if not battle_reconstruction.accepted:
 			return battle_reconstruction
 	if not domain.rng_streams.restore(data.rng_state):
 		return _reject("INVALID_RNG_STATE")
-	return {"accepted": true, "domain": domain, "snapshot": SuspendSnapshotScript.from_dictionary(data), "pipeline": ["Parse", "Migrate", "Validate", "Resolve Content IDs", "Reconstruct"]}
+	# A Suspend Save starts a new accepted-command replay segment at the restored
+	# authoritative checkpoint. This leaves older replay fixture semantics alone.
+	var resumed_snapshot = suspend_snapshot(domain, data.get("checkpoint_metadata", {}))
+	var resumed_replay = ReplayRecordScript.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
+	resumed_replay.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), str(domain.state.terminal_summary.outcome))
+	var replay_factory := func(_replay_seed: int, _replay_content_version: String):
+		var replay_loaded: Dictionary = load_into_domain(resumed_snapshot.serialize(), content_registry)
+		return replay_loaded.domain if replay_loaded.get("accepted", false) else null
+	resumed_replay.restored_replay_factory = replay_factory
+	domain.replay_record = resumed_replay
+	pipeline.append_array(["Validate", "Resolve Content IDs", "Reconstruct"])
+	return {"accepted": true, "domain": domain, "snapshot": SuspendSnapshotScript.from_dictionary(data), "pipeline": pipeline}
 
 static func _reconstruct_battle(domain) -> Dictionary:
 	var node = domain.map_definition.node_definition(domain.state.map_state.current_node_id)
@@ -87,10 +132,24 @@ static func load(serialized, content_registry) -> Dictionary:
 static func _state_from_dictionary(data: Dictionary, envelope: Dictionary):
 	var state := RunStateScript.new(str(envelope.get("run_id", data.get("run_id", ""))), int(envelope.get("run_seed", data.get("seed", 0))), str(envelope.get("content_version", data.get("content_version", ""))))
 	state.phase = str(data.get("phase", state.phase))
+	state.act_index = int(data.get("act_index", 1))
+	state.act_count = int(data.get("act_count", 1))
 	state.character_id = str(data.get("character_id", ""))
 	state.contract_id = str(data.get("contract_id", ""))
 	state.gold = int(data.get("gold", 0))
 	state.refinement_tokens = int(data.get("refinement_tokens", 0))
+	state.run_started_at_unix_seconds = int(data.get("run_started_at_unix_seconds", 0))
+	state.pattern_counts = data.get("pattern_counts", {}).duplicate(true) if data.get("pattern_counts", {}) is Dictionary else {}
+	state.yaku_counts = data.get("yaku_counts", {}).duplicate(true) if data.get("yaku_counts", {}) is Dictionary else {}
+	state.complete_hand_count = maxi(0, int(data.get("complete_hand_count", 0)))
+	state.maximum_mahjong_score = maxi(0, int(data.get("maximum_mahjong_score", 0)))
+	state.boss_progress.clear()
+	var boss_progress_value: Variant = data.get("boss_progress", [])
+	if boss_progress_value is Array:
+		for boss_progress_item in boss_progress_value:
+			if boss_progress_item is Dictionary:
+				state.boss_progress.append(boss_progress_item.duplicate(true))
+	state.milestones = _string_array(data.get("milestones", []))
 	state.reward_draft_sequence = int(data.get("reward_draft_sequence", 0))
 	state.tile_instance_sequence = int(data.get("tile_instance_sequence", 0))
 	state.map_state = _map_from_dictionary(data.get("map_state", {}))

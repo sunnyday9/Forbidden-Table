@@ -25,6 +25,7 @@ const ChooseContractCommand = preload("res://src/domain/commands/choose_contract
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_run_state_contains_typed_persistent_state(failures)
+	test_phase2_and_alpha_run_profiles_keep_distinct_act_counts(failures)
 	test_checkpoint_retains_tile_pool_and_current_battle_snapshot(failures)
 	test_character_selection_advances_the_authoritative_run(failures)
 	test_contract_selection_advances_to_map_choice(failures)
@@ -43,6 +44,7 @@ func test_run_state_contains_typed_persistent_state(failures: Array[String]) -> 
 	assert_true(state.run_id == "run.state", "RunState stores the run ID", failures)
 	assert_true(state.seed == 101, "RunState stores the run seed", failures)
 	assert_true(state.content_version == ContentRegistry.CONTENT_VERSION, "RunState stores the content version", failures)
+	assert_true(state.act_count == 1, "the Phase 2 RunDomain constructor preserves the one-Act default", failures)
 	assert_true(state.phase == RunPhase.CHARACTER_SELECT, "RunState starts in Character Select", failures)
 	assert_true(state.character_id.is_empty() and state.contract_id.is_empty(), "RunState starts without selections", failures)
 	assert_true(state.map_state is RunMapState, "RunState owns typed map/path state", failures)
@@ -53,6 +55,16 @@ func test_run_state_contains_typed_persistent_state(failures: Array[String]) -> 
 	assert_true(state.tutorial_state is RunTutorialState, "RunState owns typed tutorial state", failures)
 	assert_true(state.terminal_summary is RunTerminalSummary, "RunState owns typed terminal summary state", failures)
 	assert_true(state.to_dictionary().has("map_state"), "RunState checkpoint includes map/path state", failures)
+	assert_true(state.to_dictionary().get("act_count", 0) == 1, "RunState checkpoint records its one-Act profile", failures)
+
+func test_phase2_and_alpha_run_profiles_keep_distinct_act_counts(failures: Array[String]) -> void:
+	var registry = _registry()
+	var phase2_domain := RunDomain.new("run.phase2-profile", 102, registry)
+	var alpha_domain = RunDomain.new_alpha_run("run.alpha-profile", 103, registry)
+	assert_true(phase2_domain.state.act_count == 1, "the compatibility constructor creates a one-Act Phase 2 Run", failures)
+	assert_true(alpha_domain.state.act_count == 2, "the named Alpha factory creates a two-Act Run", failures)
+	assert_true(alpha_domain.checkpoint().run_state.act_count == 2, "the Alpha profile is present in the first replay checkpoint", failures)
+	assert_true(alpha_domain.replay_record.checkpoints[0].domain_snapshot.data == alpha_domain.checkpoint(), "the Alpha replay's initial snapshot includes its two-Act profile", failures)
 
 func test_checkpoint_retains_tile_pool_and_current_battle_snapshot(failures: Array[String]) -> void:
 	var domain := RunDomain.new("run.child-state", 111, _registry())
@@ -223,20 +235,27 @@ func test_terminal_summary_acknowledgment_is_authoritative(failures: Array[Strin
 
 func _registry():
 	var registry := ContentRegistry.new()
-	registry.register(TileDefinition.new("base.tile.characters.1", "characters", 1))
+	for tile_id in [
+		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3",
+		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
+		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
+		"base.tile.honors.east", "base.tile.honors.white",
+	]:
+		var parts: PackedStringArray = tile_id.split(".")
+		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))
 	registry.register(CharacterDefinition.new(
 		"base.character.sequence",
-		["base.tile.characters.1"],
+		["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"],
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",
 	))
 	registry.register(CharacterDefinition.new(
 		"base.character.triplet",
-		["base.tile.characters.1"],
+		["base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3"],
 		"base.relic.open_hand",
 		"base.technique.core.sequence_line",
 		"base.passive.sequence",

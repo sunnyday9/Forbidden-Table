@@ -4,7 +4,6 @@ extends RefCounted
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
-const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
@@ -32,6 +31,7 @@ const EventDefinitionScript = preload("res://src/content/definitions/event_defin
 const MapDefinitionScript = preload("res://src/content/definitions/map_definition.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
+const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
@@ -120,18 +120,22 @@ const EVENT_IDS := [
 	"base.event.rule_memory",
 ]
 
+const BOSS_RULE_BREAKER_IDS := [
+	"base.rule_breaker.open_table",
+	"base.rule_breaker.reserve_witness",
+	"base.rule_breaker.draw_twice",
+]
+
 const REWARD_POOL_ID := "base.reward_pool.normal"
+const BOSS_RULE_BREAKER_POOL_ID := "base.reward_pool.boss_rule_breaker"
 const SHOP_POOL_ID := "base.shop_pool.act_one"
 const WORKSHOP_POOL_ID := "base.workshop_pool.act_one"
-const POOL_IDS := [REWARD_POOL_ID, SHOP_POOL_ID, WORKSHOP_POOL_ID]
+const POOL_IDS := [REWARD_POOL_ID, BOSS_RULE_BREAKER_POOL_ID, SHOP_POOL_ID, WORKSHOP_POOL_ID]
+const CONTENT_BUNDLE_ID := "phase2"
+const CONTENT_BUNDLE_VERSION := "v4"
 
 static func register_all(registry) -> RefCounted:
-	var report = ContentValidationReportScript.new()
-	for definition in definitions():
-		var registration = registry.register(definition)
-		for issue in registration.issues:
-			report.add_issue(issue)
-	return report
+	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
 
 static func definitions() -> Array:
 	var result: Array = []
@@ -140,6 +144,7 @@ static func definitions() -> Array:
 	result.append_array(_character_definitions())
 	result.append_array(_contract_definitions())
 	result.append_array(_yaku_definitions())
+	result.append_array(_rule_breaker_definitions())
 	result.append_array(_relic_definitions())
 	result.append_array(_technique_definitions())
 	result.append_array(_modifier_definitions())
@@ -154,6 +159,7 @@ static func pool_membership() -> Dictionary:
 	var obtainable := _sorted_ids(RELIC_IDS + RUN_TECHNIQUE_IDS)
 	return {
 		REWARD_POOL_ID: obtainable.duplicate(),
+		BOSS_RULE_BREAKER_POOL_ID: _sorted_ids(BOSS_RULE_BREAKER_IDS),
 		SHOP_POOL_ID: obtainable.duplicate(),
 		WORKSHOP_POOL_ID: _sorted_ids(MODIFIER_IDS),
 	}
@@ -323,6 +329,28 @@ static func _relic_definitions() -> Array:
 		))
 	return result
 
+static func _rule_breaker_definitions() -> Array:
+	return [
+		RuleBreakerDefinitionScript.new(
+			BOSS_RULE_BREAKER_IDS[0],
+			"SETTLEMENT_CAPACITY",
+			1,
+			[typed_effect("content.%s" % BOSS_RULE_BREAKER_IDS[0], "ModifySettlementCapacity")],
+		),
+		RuleBreakerDefinitionScript.new(
+			BOSS_RULE_BREAKER_IDS[1],
+			"RESERVE_CAPACITY",
+			1,
+			[typed_effect("content.%s" % BOSS_RULE_BREAKER_IDS[1], "ModifyReserveCapacity")],
+		),
+		RuleBreakerDefinitionScript.new(
+			BOSS_RULE_BREAKER_IDS[2],
+			"DRAW_ACTIONS",
+			1,
+			[typed_effect("content.%s" % BOSS_RULE_BREAKER_IDS[2], "ModifyDrawCapacity")],
+		),
+	]
+
 static func _technique_definitions() -> Array:
 	var result: Array = [
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[0], TechniqueDefinitionScript.ACTIVE, 1, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[0], "DrawTile")]),
@@ -330,9 +358,9 @@ static func _technique_definitions() -> Array:
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[2], TechniqueDefinitionScript.SETTLEMENT, 2, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[2], "ModifySettlementCapacity")]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[3], TechniqueDefinitionScript.ACTIVE, 1, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[3], "GainStability")]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[4], TechniqueDefinitionScript.ACTIVE, 2, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[4], "GainStability", 2)]),
-		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[5], TechniqueDefinitionScript.REACTION, 1, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[5], "PurgeContamination")]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[5], TechniqueDefinitionScript.REACTION, 1, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[5], "PurgeContamination")], [], TechniqueDefinitionScript.REACTION_ENEMY_CONTAMINATION_ADDED),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[6], TechniqueDefinitionScript.ACTIVE, 1, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[6], "GainTP")]),
-		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[7], TechniqueDefinitionScript.REACTION, 2, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[7], "GainStability")]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[7], TechniqueDefinitionScript.REACTION, 2, [typed_effect("content.%s" % RUN_TECHNIQUE_IDS[7], "GainStability")], [], TechniqueDefinitionScript.REACTION_ENEMY_STABILITY_LOST),
 		TechniqueDefinitionScript.new(CORE_TECHNIQUE_IDS[0], TechniqueDefinitionScript.CORE, 0, [typed_effect("content.%s" % CORE_TECHNIQUE_IDS[0], "GainTP")]),
 		TechniqueDefinitionScript.new(CORE_TECHNIQUE_IDS[1], TechniqueDefinitionScript.CORE, 0, [typed_effect("content.%s" % CORE_TECHNIQUE_IDS[1], "ModifyReserveCapacity")]),
 	]
@@ -491,7 +519,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[1], [
-			{"choice_id": "accept", "label": "Accept the Risk", "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
+			{"choice_id": "accept", "label": "Accept: +1 starting Pressure in later battles; +2 Gold per victory this Run", "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[2], [
@@ -503,7 +531,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry the Clause", "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
+			{"choice_id": "carry_clause", "label": "Carry: +1 Settlement Capacity in every later battle this Run", "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
 			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[5], [
@@ -524,6 +552,7 @@ static func _pool_definitions() -> Array:
 	var membership := pool_membership()
 	return [
 		RewardPoolDefinitionScript.new(REWARD_POOL_ID, _pool_entries(membership[REWARD_POOL_ID]), [], RewardPoolDefinitionScript.REWARD),
+		RewardPoolDefinitionScript.new(BOSS_RULE_BREAKER_POOL_ID, _pool_entries(membership[BOSS_RULE_BREAKER_POOL_ID]), [], RewardPoolDefinitionScript.REWARD),
 		RewardPoolDefinitionScript.new(SHOP_POOL_ID, _pool_entries(membership[SHOP_POOL_ID]), [], RewardPoolDefinitionScript.SHOP),
 		RewardPoolDefinitionScript.new(WORKSHOP_POOL_ID, _pool_entries(membership[WORKSHOP_POOL_ID]), [], RewardPoolDefinitionScript.WORKSHOP),
 	]

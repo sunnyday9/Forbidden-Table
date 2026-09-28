@@ -37,10 +37,15 @@ var terminal_outcome: String
 var queue_index: int
 var state_based_check_count: int
 var tp: int
+var triggered_signature_passive_ids: Array[String]
 var stability: int
 var draw_capacity: int
+var draw_actions_used_this_turn: int
+var tile_manipulation_used_this_draw: bool
+var core_technique_used_this_turn: bool
 var settlement_capacity: int
 var reserve_capacity: int
+var reward_tax: int
 var active_effects: Dictionary
 var zones
 var draw_wall
@@ -88,10 +93,15 @@ func _init(
 	queue_index = 0
 	state_based_check_count = 0
 	tp = maxi(0, initial_tp)
+	triggered_signature_passive_ids = []
 	stability = maxi(0, initial_stability)
 	draw_capacity = maxi(0, initial_draw_capacity)
+	draw_actions_used_this_turn = 0
+	tile_manipulation_used_this_draw = false
+	core_technique_used_this_turn = false
 	settlement_capacity = maxi(0, initial_settlement_capacity)
 	reserve_capacity = maxi(0, initial_reserve_capacity)
+	reward_tax = 0
 	active_effects = {}
 	zones = null
 	draw_wall = null
@@ -102,6 +112,9 @@ func _init(
 
 func is_active() -> bool:
 	return terminal_outcome == ONGOING
+
+func draw_actions_remaining() -> int:
+	return maxi(0, draw_capacity - maxi(0, draw_actions_used_this_turn))
 
 func intent_loop() -> Array:
 	return intent_graph.intents()
@@ -177,10 +190,16 @@ func public_battle_state() -> Dictionary:
 		"starvation_count": starvation_count,
 		"starvation_active": starvation_active,
 		"tp": tp,
+		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
+		"draw_actions_used_this_turn": draw_actions_used_this_turn,
+		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"core_technique_used_this_turn": core_technique_used_this_turn,
+		"draw_actions_remaining": draw_actions_remaining(),
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
+		"reward_tax": reward_tax,
 		"terminal_outcome": terminal_outcome,
 		"boss_phase_index": boss_phase_index,
 		"boss_phase_id": boss_phase_id,
@@ -215,10 +234,15 @@ func to_dictionary() -> Dictionary:
 		"queue_index": queue_index,
 		"state_based_check_count": state_based_check_count,
 		"tp": tp,
+		"triggered_signature_passive_ids": triggered_signature_passive_ids.duplicate(),
 		"stability": stability,
 		"draw_capacity": draw_capacity,
+		"draw_actions_used_this_turn": draw_actions_used_this_turn,
+		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"core_technique_used_this_turn": core_technique_used_this_turn,
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
+		"reward_tax": reward_tax,
 		"active_effects": _sorted_effect_ids(),
 		"active_effect_details": _sorted_effect_details(),
 		"battle_end_cleanup_done": battle_end_cleanup_done,

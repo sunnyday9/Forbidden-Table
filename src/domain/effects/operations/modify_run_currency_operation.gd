@@ -15,21 +15,30 @@ func _init(currency_id: String, delta: int, transaction_source_id: String = "") 
 	source_id = transaction_source_id
 
 func validate(context, _targets: Dictionary) -> String:
-	if not _has_state(context):
+	var run_state = _run_state(context)
+	if run_state == null:
 		return "NO_STATE"
 	if currency not in [RunEconomyScript.GOLD, RunEconomyScript.REFINEMENT_TOKENS]:
 		return "INVALID_CURRENCY"
-	if amount < 0 and _read_currency(context.state) < -amount:
+	if amount < 0 and _read_currency(run_state) < -amount:
 		return "INSUFFICIENT_%s" % currency
 	return ""
 
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
+	var run_state = _run_state(context)
+	if run_state == null:
+		return [_event(DomainEventScript.EFFECT_REJECTED, {
+			"effect_id": effect_id,
+			"operation_id": operation_id,
+			"reason": "NO_RUN_STATE",
+			"sequence_index": sequence_index,
+		})]
 	var economy := RunEconomyScript.new()
 	var transaction: Dictionary
 	if amount >= 0:
-		transaction = economy.apply_source(context.state, currency, amount, source_id if not source_id.is_empty() else RunEconomyScript.SOURCE_HIGH_RISK_CONTENT)
+		transaction = economy.apply_source(run_state, currency, amount, source_id if not source_id.is_empty() else RunEconomyScript.SOURCE_HIGH_RISK_CONTENT)
 	else:
-		transaction = economy.apply_sink(context.state, currency, -amount, RunEconomyScript.SINK_EVENT_TRADE)
+		transaction = economy.apply_sink(run_state, currency, -amount, RunEconomyScript.SINK_EVENT_TRADE)
 	if transaction.is_empty():
 		return [_event(DomainEventScript.EFFECT_REJECTED, {
 			"effect_id": effect_id,
@@ -41,8 +50,7 @@ func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String
 		})]
 	transaction["effect_id"] = effect_id
 	transaction["sequence_index"] = sequence_index
-	var event_type := DomainEventScript.GOLD_CHANGED if currency == RunEconomyScript.GOLD else DomainEventScript.REFINEMENT_TOKENS_CHANGED
-	return [_event(event_type, transaction)]
+	return [RunEconomyScript.event_for_transaction(transaction)]
 
 func to_dictionary() -> Dictionary:
 	return {
@@ -54,6 +62,11 @@ func to_dictionary() -> Dictionary:
 
 func _read_currency(run_state) -> int:
 	return run_state.gold if currency == RunEconomyScript.GOLD else run_state.refinement_tokens
+
+func _run_state(context):
+	if context == null:
+		return null
+	return context.run_state if context.get("run_state") != null else context.state
 
 func _event(event_type: String, data: Dictionary):
 	return DomainEventScript.new(event_type, data)

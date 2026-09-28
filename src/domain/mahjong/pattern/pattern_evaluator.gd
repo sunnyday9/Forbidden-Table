@@ -2,6 +2,7 @@ class_name PatternEvaluator
 extends RefCounted
 
 const PatternCandidateScript = preload("res://src/domain/mahjong/pattern/pattern_candidate.gd")
+const CombinationEnumeratorScript = preload("res://src/domain/mahjong/combination_enumerator.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 
@@ -58,23 +59,8 @@ func _append_identical_candidates(
 	required_count: int,
 	pattern_type: String,
 ) -> void:
-	for tile_combination in _combinations(identical_tiles, required_count):
+	for tile_combination in CombinationEnumeratorScript.combinations(identical_tiles, required_count):
 		candidates.append(PatternCandidateScript.new(pattern_type, tile_combination))
-
-func _combinations(tiles: Array, required_count: int) -> Array:
-	return _combinations_from(tiles, required_count, 0, [])
-
-func _combinations_from(tiles: Array, required_count: int, start_index: int, selected: Array) -> Array:
-	if selected.size() == required_count:
-		return [selected.duplicate()]
-
-	var combinations: Array = []
-	var remaining_count := required_count - selected.size()
-	for index in range(start_index, tiles.size() - remaining_count + 1):
-		selected.append(tiles[index])
-		combinations.append_array(_combinations_from(tiles, required_count, index + 1, selected))
-		selected.pop_back()
-	return combinations
 
 func _is_sequence(first_definition, second_definition, third_definition) -> bool:
 	var definitions: Array = [first_definition, second_definition, third_definition]

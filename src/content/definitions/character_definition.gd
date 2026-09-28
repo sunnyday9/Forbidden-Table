@@ -37,7 +37,8 @@ func validate():
 		report.add_issue(_issue("missing_tile_pool_bias", "CharacterDefinition must declare a starting Tile Pool bias."))
 	_required_string(report, starting_relic_id, "missing_starting_relic", "Starting Relic ID")
 	_required_string(report, core_technique_id, "missing_core_technique", "Core Technique ID")
-	_required_string(report, signature_passive_id, "missing_signature_passive", "Signature Passive ID")
+	if signature_passive_id.is_empty():
+		report.add_issue(_issue("missing_signature_passive", "CharacterDefinition must declare a Signature Passive ID."))
 	return report
 
 func reference_requirements() -> Array[Dictionary]:
@@ -46,4 +47,10 @@ func reference_requirements() -> Array[Dictionary]:
 		requirements.append(_reference_requirement(tile_id, ["TileDefinition"], "starting_tile_pool_bias"))
 	requirements.append(_reference_requirement(starting_relic_id, ["RelicDefinition"], "starting_relic_id"))
 	requirements.append(_reference_requirement(core_technique_id, ["TechniqueDefinition"], "core_technique_id"))
+	# Phase 2 passives are catalog placeholders represented by ContentDefinition;
+	# Alpha-authored passives use the typed effect definition.
+	var passive_types: Array[String] = ["CharacterPassiveDefinition", "ContentDefinition"]
+	if signature_passive_id.begins_with("alpha.passive."):
+		passive_types = ["CharacterPassiveDefinition"]
+	requirements.append(_reference_requirement(signature_passive_id, passive_types, "signature_passive_id"))
 	return requirements

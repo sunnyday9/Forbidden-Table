@@ -38,7 +38,10 @@ func run() -> Array[String]:
 	test_replay_excludes_rejected_and_preview_commands(failures)
 	test_identical_replay_reproduces_checkpoints_and_terminal_outcome(failures)
 	test_changed_command_is_structured_divergence(failures)
-	test_changed_content_version_is_structured_divergence(failures)
+	test_replay_game_and_schema_versions_are_validated(failures)
+	test_unavailable_content_version_is_structured(failures)
+	test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures)
+	test_phase2_v2_replay_is_unavailable_under_updated_events(failures)
 	test_rng_divergence_is_structured(failures)
 	test_run_domain_records_only_accepted_commands_and_events(failures)
 	test_run_replay_is_byte_stable_and_reproducible(failures)
@@ -50,6 +53,7 @@ func run() -> Array[String]:
 
 func run_run_replay() -> Array[String]:
 	var failures: Array[String] = []
+	test_phase2_v2_replay_is_unavailable_under_updated_events(failures)
 	test_run_domain_records_only_accepted_commands_and_events(failures)
 	test_run_replay_is_byte_stable_and_reproducible(failures)
 	test_run_command_factory_round_trips_stable_payloads(failures)
@@ -108,13 +112,61 @@ func test_changed_command_is_structured_divergence(failures: Array[String]) -> v
 	assert_true(report.is_diverged(), "a changed command diverges", failures)
 	assert_true(report.reason == "COMMAND_MISMATCH", "command divergence has a structured reason", failures)
 
-func test_changed_content_version_is_structured_divergence(failures: Array[String]) -> void:
+func test_unavailable_content_version_is_structured(failures: Array[String]) -> void:
 	var controller := BattleController.new(13, "content.replay.test")
 	controller.replay_record.content_version = "content.replay.changed"
 	var report = controller.verify_replay()
 
-	assert_true(report.is_diverged(), "a changed content version diverges", failures)
-	assert_true(report.reason == "CONTENT_VERSION_MISMATCH", "content divergence has a structured reason", failures)
+	assert_true(report.is_unavailable(), "a missing matching content version makes replay unavailable", failures)
+	assert_true(report.reason == "CONTENT_VERSION_UNAVAILABLE", "unavailable replay has a distinct structured reason", failures)
+
+func test_replay_game_and_schema_versions_are_validated(failures: Array[String]) -> void:
+	var record := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture")
+	var record_data: Dictionary = record.to_dictionary()
+	assert_true(record_data.get("game_version", "") == "game.phase2.v1", "ReplayRecord stores the specified game version", failures)
+	var round_tripped = ReplayRecord.from_dictionary(record_data)
+	assert_true(round_tripped.to_dictionary() == record_data, "ReplayRecord game-version metadata round-trips", failures)
+
+	var unsupported_game := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture", "game.unavailable")
+	var unsupported_game_serialization := unsupported_game.serialize()
+	var game_report = ReplayVerifier.verify(unsupported_game, Callable())
+	assert_true(game_report.is_unavailable() and game_report.reason == "GAME_VERSION_UNAVAILABLE", "replay verification rejects an unavailable game version", failures)
+	assert_true(unsupported_game.serialize() == unsupported_game_serialization, "game-version rejection leaves the replay record unchanged", failures)
+
+	var missing_game_data: Dictionary = record_data.duplicate(true)
+	missing_game_data.erase("game_version")
+	var missing_game = ReplayRecord.from_dictionary(missing_game_data)
+	var missing_game_report = ReplayVerifier.verify(missing_game, Callable())
+	assert_true(missing_game.game_version.is_empty(), "a missing legacy game version is not silently defaulted", failures)
+	assert_true(missing_game_report.is_unavailable() and missing_game_report.reason == "GAME_VERSION_UNAVAILABLE", "a replay without a game version reports reproduction unavailable", failures)
+	assert_true(not missing_game_data.has("game_version"), "decoding an unversioned replay does not rewrite its source record", failures)
+
+	var unsupported_schema := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture")
+	unsupported_schema.schema_version = 99
+	var schema_report = ReplayVerifier.verify(unsupported_schema, Callable())
+	assert_true(schema_report.is_unavailable() and schema_report.reason == "REPLAY_SCHEMA_VERSION_UNAVAILABLE", "replay verification rejects an unavailable schema version", failures)
+
+func test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures: Array[String]) -> void:
+	var record := ReplayRecord.new(2039, "content.slice.v1", "phase2.v1.fixture")
+	var original_serialization := record.serialize()
+	var report = ReplayVerifier.verify(record, Callable(), ContentRegistry.CONTENT_VERSION)
+	assert_true(report.is_unavailable(), "a v1 replay cannot claim reproduction under the active v3 bundle", failures)
+	assert_true(report.status == "UNAVAILABLE", "a missing historical bundle has a distinct structured status", failures)
+	assert_true(report.reason == "CONTENT_VERSION_UNAVAILABLE", "an unavailable v1 replay bundle is not misreported as behavioral divergence", failures)
+	assert_true(record.content_version == "content.slice.v1", "verification does not relabel the original replay content version", failures)
+	assert_true(record.serialize() == original_serialization, "verification does not rewrite the old replay record", failures)
+
+func test_phase2_v2_replay_is_unavailable_under_updated_events(failures: Array[String]) -> void:
+	var old_controller := BattleController.new(2040, "content.slice.v2")
+	var original_serialization: String = old_controller.replay_record.serialize()
+	var report = ReplayVerifier.verify(
+		old_controller.replay_record,
+		func(replay_seed: int, replay_content_version: String): return BattleController.new(replay_seed, replay_content_version),
+		ContentRegistry.CONTENT_VERSION,
+	)
+	assert_true(report.is_unavailable(), "a Phase 2 v2 replay is unavailable under current Event rules", failures)
+	assert_true(report.reason == "CONTENT_VERSION_UNAVAILABLE", "an old replay reports the explicit content-version boundary", failures)
+	assert_true(old_controller.replay_record.serialize() == original_serialization, "version rejection does not rewrite the archived replay", failures)
 
 func test_run_domain_records_only_accepted_commands_and_events(failures: Array[String]) -> void:
 	var domain := _run_domain("replay.run.accepted", 9001)
@@ -185,15 +237,18 @@ func test_run_replay_crosses_suspend_resume(failures: Array[String]) -> void:
 	var domain := _run_domain("replay.run.resume", 9004)
 	domain.execute(ChooseCharacterCommand.new("resume.character", "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("resume.contract", "base.contract.pressure"))
+	var resume_diagnostics: Array[Dictionary] = []
 	var resume_factory := func(controller):
 		var checkpoint: Dictionary = controller.checkpoint()
 		if not ["MAP_NODE", "BATTLE_START", "SHOP", "WORKSHOP", "REWARD", "EVENT_CHOICE_BEFORE"].has(checkpoint.get("stable_boundary", "")):
 			return controller
 		var loaded = SaveMapper.load_into_domain(SaveMapper.suspend_snapshot(controller).to_dictionary(), controller.content_registry)
+		if not loaded.accepted:
+			resume_diagnostics.append(loaded.duplicate(true))
 		return loaded.domain if loaded.accepted else null
 	var report = domain.verify_replay(domain.replay_record, resume_factory)
 
-	assert_true(report.is_match(), "Run Replay crossing Suspend/Resume matches uninterrupted execution (%s)" % report.reason, failures)
+	assert_true(report.is_match(), "Run Replay crossing Suspend/Resume matches uninterrupted execution (%s; resume=%s)" % [report.reason, resume_diagnostics], failures)
 
 func _assert_accepted(domain: RunDomain, command, label: String, failures: Array[String]) -> void:
 	var result = domain.execute(command)
@@ -203,7 +258,7 @@ func test_run_replay_records_bounded_battle_command(failures: Array[String]) -> 
 	var domain := _phase2_battle_domain("replay.bounded.battle", 9101)
 	_assert_accepted(domain, ChooseCharacterCommand.new("bounded.character", "base.character.sequence"), "Character selection", failures)
 	_assert_accepted(domain, ChooseContractCommand.new("bounded.contract", "base.contract.pressure"), "Contract selection", failures)
-	_assert_accepted(domain, SelectMapNodeCommand.new("bounded.normal.left", "base.map_node.normal.left"), "Normal battle Map selection", failures)
+	_assert_accepted(domain, SelectMapNodeCommand.new("bounded.normal.intro", "base.map_node.intro"), "mandatory intro Normal Map selection", failures)
 	var battle_result = domain.execute(DrawCommand.new("bounded.battle.draw", "player.1"))
 	if not battle_result.accepted:
 		battle_result = domain.execute(ResolveEnemyIntentCommand.new("bounded.battle.intent"))

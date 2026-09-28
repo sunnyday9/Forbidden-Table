@@ -31,7 +31,7 @@ func test_real_character_contract_map_and_battle_flow(failures: Array[String]) -
 	var contract = controller.confirm("contract:base.contract.pressure")
 	assert_true(contract.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "focused Contract action delegates to RunDomain", failures)
 	var map_actions := controller.action_descriptors()
-	assert_true(map_actions.size() == 2 and map_actions[0].get("kind") == "MAP_NODE", "Map exposes stable adjacent node actions", failures)
+	assert_true(map_actions.size() == 1 and map_actions[0].get("kind") == "MAP_NODE" and map_actions[0].get("target_id") == domain.map_definition.start_node_id, "Map exposes only its mandatory introductory Normal before branching", failures)
 	var battle = controller.confirm(map_actions[0]["id"])
 	assert_true(battle.accepted and domain.state.phase == RunPhase.BATTLE, "Map action starts a real BattleDomain", failures)
 	assert_true(controller.snapshot().authoritative_snapshot.has("run_state"), "presentation keeps a copied authoritative checkpoint", failures)
