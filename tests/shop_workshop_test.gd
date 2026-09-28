@@ -49,6 +49,7 @@ func run() -> Array[String]:
 	test_shop_refresh_replaces_only_unpurchased_slots(failures)
 	test_workshop_services_preserve_tile_identity_and_ownership(failures)
 	test_workshop_add_and_replace_modifier_services_are_available(failures)
+	test_stage_four_modifiers_are_offered_and_workshop_rejections_are_atomic(failures)
 	test_workshop_presentation_actions_include_legal_inputs(failures)
 	test_workshop_selection_resets_when_exiting(failures)
 	test_workshop_copy_limits_and_service_availability(failures)
@@ -222,6 +223,76 @@ func test_workshop_add_and_replace_modifier_services_are_available(failures: Arr
 	))
 	assert_true(replace.accepted, "Workshop Replace Modifier accepts an existing modifier slot", failures)
 	assert_true(replace_domain.state.build_ownership.persistent_tile_modifier_state[replace_target_id] == ["base.modifier.recycling"], "Replace Modifier updates only the selected TileInstance modifier state", failures)
+
+func test_stage_four_modifiers_are_offered_and_workshop_rejections_are_atomic(failures: Array[String]) -> void:
+	var modifier_ids := [
+		"alpha.modifier.wide_channel",
+		"alpha.modifier.sharp_current",
+		"alpha.modifier.trade_mark",
+		"alpha.modifier.refinement_trace",
+	]
+	var domain := _alpha_workshop_domain("workshop.stage-four-modifiers", 1220)
+	domain.state.gold = 100
+	var controller := RunPresentationController.new(domain)
+	var add_service := _find_workshop_service_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER)
+	assert_true(not add_service.is_empty(), "the production Workshop exposes Add Modifier", failures)
+	if add_service.is_empty():
+		return
+	controller.confirm(str(add_service.get("id", "")))
+	var tile_id: String = domain.state.tile_pool.tile_instances[0].instance_id
+	var target_action := _find_workshop_target_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id)
+	assert_true(not target_action.is_empty(), "the production Workshop lets Add Modifier target a persistent TileInstance", failures)
+	if target_action.is_empty():
+		return
+	controller.confirm(str(target_action.get("id", "")))
+	for modifier_id in modifier_ids:
+		var action := _find_workshop_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id, "", modifier_id)
+		assert_true(not action.is_empty(), "%s is a selectable production Workshop Modifier" % modifier_id, failures)
+		if not action.is_empty():
+			assert_true(int(action.get("details", {}).get("price", -1)) == domain.economy.workshop_modifier_price, "%s uses the existing Workshop Modifier price" % modifier_id, failures)
+	var selected_id: String = modifier_ids[0]
+	var selected_action := _find_workshop_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id, "", selected_id)
+	if selected_action.is_empty():
+		return
+	var applied = controller.confirm(str(selected_action.get("id", "")))
+	assert_true(applied.accepted, "a newly offered production Modifier applies through the existing Workshop command", failures)
+	assert_true(domain.state.build_ownership.persistent_tile_modifier_state.get(tile_id, []) == [selected_id], "Workshop persists the selected Modifier on the exact TileInstance", failures)
+	assert_true(domain.state.gold == 100 - domain.economy.workshop_modifier_price, "Workshop consumes the established Modifier price", failures)
+
+	var rejected_domain := _alpha_workshop_domain("workshop.stage-four-modifier.rejected", 1221)
+	rejected_domain.state.gold = rejected_domain.economy.workshop_modifier_price - 1
+	var rejected_tile_id: String = rejected_domain.state.tile_pool.tile_instances[0].instance_id
+	var before_rejection: Dictionary = rejected_domain.checkpoint()
+	var rejected = rejected_domain.execute(UseWorkshopServiceCommand.new(
+		"workshop.stage-four-modifier.rejected.add",
+		UseWorkshopServiceCommand.ADD_MODIFIER,
+		rejected_tile_id,
+		"",
+		modifier_ids[1],
+	))
+	assert_true(not rejected.accepted and rejected.validation.code == "INSUFFICIENT_GOLD", "an unaffordable new Modifier is rejected by existing Workshop validation", failures)
+	assert_true(rejected_domain.checkpoint() == before_rejection, "a rejected new Modifier purchase leaves the checkpoint unchanged", failures)
+
+	var replacement_domain := _alpha_workshop_domain("workshop.stage-four-modifier.replacement", 1222)
+	replacement_domain.state.gold = 100
+	var replacement_tile_id: String = replacement_domain.state.tile_pool.tile_instances[0].instance_id
+	replacement_domain.state.build_ownership.persistent_tile_modifier_state[replacement_tile_id] = ["base.modifier.flexible_identity"]
+	var replacement_validation = replacement_domain.validate_use_workshop_service(
+		UseWorkshopServiceCommand.REPLACE_MODIFIER,
+		replacement_tile_id,
+		"",
+		modifier_ids[3],
+	)
+	assert_true(replacement_validation.is_valid() and int(replacement_validation.details.get("price", -1)) == replacement_domain.economy.workshop_modifier_price, "Replace Modifier validates a new production ID with the shared Workshop price", failures)
+	var replacement = replacement_domain.execute(UseWorkshopServiceCommand.new(
+		"workshop.stage-four-modifier.replacement.replace",
+		UseWorkshopServiceCommand.REPLACE_MODIFIER,
+		replacement_tile_id,
+		"",
+		modifier_ids[3],
+	))
+	assert_true(replacement.accepted, "a new production Modifier uses the existing Replace service", failures)
+	assert_true(replacement_domain.state.build_ownership.persistent_tile_modifier_state[replacement_tile_id] == [modifier_ids[3]], "replacement preserves one stable Modifier ID on its original TileInstance", failures)
 
 func test_workshop_presentation_actions_include_legal_inputs(failures: Array[String]) -> void:
 	var transform_domain := _workshop_domain("workshop.presentation.transform", 1212, 14)
@@ -577,6 +648,18 @@ func _workshop_domain(run_id: String, seed: int, tile_count: int) -> RunDomain:
 			"RUN",
 			"RUN",
 		))
+	return domain
+
+func _alpha_workshop_domain(run_id: String, seed: int) -> RunDomain:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var domain: RunDomain = RunDomain.new_alpha_run(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	domain.state.phase = RunPhase.WORKSHOP
+	domain.state.workshop_state.begin(WORKSHOP, "%s.entry" % run_id)
 	return domain
 
 func _registry() -> ContentRegistry:

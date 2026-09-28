@@ -118,6 +118,10 @@ const MODIFIER_IDS := [
 	"alpha.modifier.harbor_mark",
 	"alpha.modifier.double_edge",
 	"alpha.modifier.quiet_surface",
+	"alpha.modifier.wide_channel",
+	"alpha.modifier.sharp_current",
+	"alpha.modifier.trade_mark",
+	"alpha.modifier.refinement_trace",
 ]
 
 const ACT_ONE_BOSS_RULE_BREAKER_IDS := [
@@ -142,7 +146,7 @@ const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
 const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v8"
+const CONTENT_BUNDLE_VERSION := "v9"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -346,6 +350,16 @@ static func _modifier_definitions() -> Array:
 		TileModifierDefinitionScript.new(MODIFIER_IDS[0], "HONOR_MARK", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[0], "GainTP", 1)]),
 		TileModifierDefinitionScript.new(MODIFIER_IDS[1], "DOUBLE_EDGE", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[1], "GainStability", 1)]),
 		TileModifierDefinitionScript.new(MODIFIER_IDS[2], "QUIET_SURFACE", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[2], "PurgeContamination", 1)]),
+		TileModifierDefinitionScript.new(MODIFIER_IDS[3], "WIDE_CHANNEL", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[3], "ModifyDrawCapacity", 1)]),
+		TileModifierDefinitionScript.new(MODIFIER_IDS[4], "SHARP_CURRENT", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[4], "DealDamage", 1)]),
+		TileModifierDefinitionScript.new(MODIFIER_IDS[5], "TRADE_MARK", 1, [
+			Phase2CatalogScript.typed_effect("content.%s.gold" % MODIFIER_IDS[5], "ModifyRunCurrency", 1),
+			Phase2CatalogScript.typed_effect("content.%s.stability" % MODIFIER_IDS[5], "GainStability", 1),
+		]),
+		TileModifierDefinitionScript.new(MODIFIER_IDS[6], "REFINEMENT_TRACE", 1, [
+			Phase2CatalogScript.typed_effect("content.%s.tokens" % MODIFIER_IDS[6], "ModifyRefinementTokens", 1),
+			Phase2CatalogScript.typed_effect("content.%s.tp" % MODIFIER_IDS[6], "GainTP", 1),
+		]),
 	]
 
 static func _rule_breaker_definitions() -> Array:

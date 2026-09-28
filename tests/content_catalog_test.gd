@@ -41,6 +41,7 @@ func run() -> Array[String]:
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
 	test_scale_relic_act_groups_and_pool_membership(failures)
+	test_stage_four_modifiers_are_typed_shared_workshop_content(failures)
 	test_no_core_code_content_can_be_added_and_validated(failures)
 	return failures
 
@@ -256,7 +257,7 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	assert_true(scale_version.contains("alpha.scale@v8"), "the Scale bundle identity advances for the Stage 4 Run Technique roster", failures)
+	assert_true(scale_version.contains("alpha.scale@v9"), "the Scale bundle identity advances for the Stage 4 Tile Modifier roster", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
 
@@ -455,6 +456,45 @@ func test_scale_relic_act_groups_and_pool_membership(failures: Array[String]) ->
 		assert_true(not membership[AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID].has(relic_id), "%s is excluded from the Act 1 build pool" % relic_id, failures)
 		assert_true(membership[AlphaScaleCatalog.ACT_TWO_BUILD_POOL_ID].has(relic_id), "%s joins the Act 2 build pool" % relic_id, failures)
 		assert_true(membership[AlphaScaleCatalog.ACT_TWO_SHOP_POOL_ID].has(relic_id), "%s joins the Act 2 Shop pool" % relic_id, failures)
+
+func test_stage_four_modifiers_are_typed_shared_workshop_content(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(registration.is_valid() and registry.validate().is_valid(), "Scale modifiers register as valid typed content", failures)
+	var expected_operations := {
+		"alpha.modifier.wide_channel": ["ModifyDrawCapacity"],
+		"alpha.modifier.sharp_current": ["DealDamage"],
+		"alpha.modifier.trade_mark": ["ModifyRunCurrency", "GainStability"],
+		"alpha.modifier.refinement_trace": ["ModifyRunCurrency", "GainTP"],
+	}
+	var membership: Dictionary = AlphaScaleCatalog.pool_membership()
+	var workshop_pool = registry.resolve(AlphaScaleCatalog.WORKSHOP_POOL_ID)
+	for modifier_id in expected_operations:
+		assert_true(AlphaScaleCatalog.MODIFIER_IDS.has(modifier_id), "%s is in the Scale production Modifier roster" % modifier_id, failures)
+		var modifier = registry.resolve(modifier_id)
+		assert_true(modifier is TileModifierDefinition and modifier.validate().is_valid(), "%s has valid Tile Modifier metadata" % modifier_id, failures)
+		if not modifier is TileModifierDefinition:
+			continue
+		assert_true(not modifier.modifier_kind.is_empty() and modifier.max_per_tile == 1, "%s declares a kind and the existing one-per-tile limit" % modifier_id, failures)
+		var expected_modifier_operations: Array = expected_operations[modifier_id]
+		assert_true(modifier.effects.size() == expected_modifier_operations.size(), "%s configures its distinct existing operation set" % modifier_id, failures)
+		if modifier.effects.size() != expected_modifier_operations.size():
+			continue
+		for effect_index in expected_modifier_operations.size():
+			var effect = modifier.effects[effect_index]
+			assert_true(effect.operations.size() == 1, "%s keeps each operation in its own typed Effect" % modifier_id, failures)
+			if effect.operations.size() != 1:
+				continue
+			var operation = effect.operations[0]
+			assert_true(operation.operation_id == expected_modifier_operations[effect_index], "%s uses its authored existing operation" % modifier_id, failures)
+			if modifier_id == "alpha.modifier.trade_mark" and effect_index == 0:
+				assert_true(operation.currency == "GOLD", "%s grants the existing Gold currency" % modifier_id, failures)
+			elif modifier_id == "alpha.modifier.refinement_trace" and effect_index == 0:
+				assert_true(operation.currency == "REFINEMENT_TOKENS", "%s grants the existing Refinement Token currency" % modifier_id, failures)
+		assert_true(membership[AlphaScaleCatalog.WORKSHOP_POOL_ID].has(modifier_id), "%s is available in the shared Workshop pool membership" % modifier_id, failures)
+		assert_true(workshop_pool is RewardPoolDefinition and workshop_pool.entry_ids().has(modifier_id), "%s is published through the registered shared Workshop pool" % modifier_id, failures)
 
 func test_no_core_code_content_can_be_added_and_validated(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

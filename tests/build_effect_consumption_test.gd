@@ -35,6 +35,7 @@ func run() -> Array[String]:
 	test_act_two_rule_breaker_effect_applies_only_when_owned(failures)
 	test_stage_four_rule_breakers_apply_distinct_existing_effects(failures)
 	test_tile_modifier_effect_is_scoped_to_settled_instance_and_replays(failures)
+	test_stage_four_tile_modifiers_apply_distinct_existing_effects_and_replay(failures)
 	test_tile_modifier_effect_resolves_for_complete_hand(failures)
 	test_invalid_tile_modifier_rejects_settlement_atomically(failures)
 	test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures)
@@ -209,6 +210,103 @@ func test_tile_modifier_effect_is_scoped_to_settled_instance_and_replays(failure
 		return replay_domain
 	var replay = ReplayVerifierScript.verify(domain.replay_record, replay_factory, domain.state.content_version)
 	assert_true(replay.is_match(), "the modifier settlement event, state, and RNG replay deterministically", failures)
+
+func test_stage_four_tile_modifiers_apply_distinct_existing_effects_and_replay(failures: Array[String]) -> void:
+	var effect_cases: Array[Dictionary] = [
+		{"modifier_id": "alpha.modifier.wide_channel", "operation_ids": ["ModifyDrawCapacity"], "board_outcome": "draw_capacity", "resource_outcome": ""},
+		{"modifier_id": "alpha.modifier.sharp_current", "operation_ids": ["DealDamage"], "board_outcome": "damage", "resource_outcome": ""},
+		{"modifier_id": "alpha.modifier.trade_mark", "operation_ids": ["ModifyRunCurrency", "GainStability"], "board_outcome": "stability", "resource_outcome": "gold"},
+		{"modifier_id": "alpha.modifier.refinement_trace", "operation_ids": ["ModifyRunCurrency", "GainTP"], "board_outcome": "tp", "resource_outcome": "refinement_tokens"},
+	]
+	var observed_board_outcomes: Dictionary = {}
+	for index in effect_cases.size():
+		var effect_case: Dictionary = effect_cases[index]
+		var modifier_id := str(effect_case.modifier_id)
+		var run_id := "build-effects.stage-four-modifier.%d" % index
+		var registry := _alpha_registry()
+		var definition = registry.resolve(modifier_id)
+		var expected_operation_ids: Array = effect_case.operation_ids
+		assert_true(definition != null and definition.effects.size() == expected_operation_ids.size(), "%s has the authored Modifier Effect set" % modifier_id, failures)
+		if definition == null or definition.effects.size() != expected_operation_ids.size():
+			continue
+		for effect_index in expected_operation_ids.size():
+			var effect = definition.effects[effect_index]
+			assert_true(effect.operations.size() == 1, "%s keeps each operation in its own typed Effect" % modifier_id, failures)
+			if effect.operations.size() != 1:
+				continue
+			var operation = effect.operations[0]
+			assert_true(operation.operation_id == expected_operation_ids[effect_index], "%s uses its intended existing %s operation" % [modifier_id, expected_operation_ids[effect_index]], failures)
+			if modifier_id == "alpha.modifier.trade_mark" and effect_index == 0:
+				assert_true(operation.currency == RunEconomyScript.GOLD, "%s is authored to grant Run Gold" % modifier_id, failures)
+			elif modifier_id == "alpha.modifier.refinement_trace" and effect_index == 0:
+				assert_true(operation.currency == RunEconomyScript.REFINEMENT_TOKENS, "%s is authored to grant Refinement Tokens" % modifier_id, failures)
+
+		var domain: RunDomainScript = _prepared_modifier_domain(run_id, 7840 + index, registry)
+		var battle = domain.current_battle
+		var candidates: Array = battle.settlement_window.candidates()
+		assert_true(not candidates.is_empty(), "%s fixture has a legal settlement candidate" % modifier_id, failures)
+		if candidates.is_empty() or candidates[0].tile_instances.is_empty():
+			continue
+		var candidate = candidates[0]
+		var target_instance_id: String = candidate.tile_instances[0].instance_id
+		domain.state.build_ownership.persistent_tile_modifier_state[target_instance_id] = [modifier_id]
+		domain.state.current_battle_snapshot = preload("res://src/domain/run/run_battle_snapshot.gd").new(battle.checkpoint())
+		_record_replay_segment(domain)
+
+		var draw_capacity_before: int = battle.combat_state.draw_capacity
+		var enemy_hp_before: int = battle.combat_state.enemy_hp
+		var stability_before: int = battle.combat_state.stability
+		var tp_before: int = battle.combat_state.tp
+		var gold_before: int = domain.state.gold
+		var tokens_before: int = domain.state.refinement_tokens
+		var result = domain.execute(SettlePatternCommandScript.new(
+			"%s.settle" % run_id,
+			[],
+			"",
+			"",
+			false,
+			candidate.candidate_id,
+		))
+		assert_true(result.accepted, "%s is validated and resolves when its owning TileInstance settles" % modifier_id, failures)
+		match str(effect_case.board_outcome):
+			"draw_capacity":
+				assert_true(battle.combat_state.draw_capacity == draw_capacity_before + 1, "%s visibly increases the battle Draw capacity" % modifier_id, failures)
+			"damage":
+				assert_true(battle.combat_state.enemy_hp == enemy_hp_before - 1, "%s visibly damages the current enemy" % modifier_id, failures)
+			"stability":
+				assert_true(battle.combat_state.stability == stability_before + 1, "%s visibly restores one battle Stability" % modifier_id, failures)
+			"tp":
+				assert_true(battle.combat_state.tp == tp_before + 1, "%s visibly grants one battle TP" % modifier_id, failures)
+		match str(effect_case.resource_outcome):
+			"gold":
+				assert_true(domain.state.gold == gold_before + 1, "%s visibly grants one Run Gold" % modifier_id, failures)
+			"refinement_tokens":
+				assert_true(domain.state.refinement_tokens == tokens_before + 1, "%s visibly grants one Refinement Token" % modifier_id, failures)
+		assert_true(not observed_board_outcomes.has(effect_case.board_outcome), "%s has a battle outcome distinct from the other additions" % modifier_id, failures)
+		observed_board_outcomes[effect_case.board_outcome] = true
+
+		var saved = SaveCoordinatorScript.new().save(domain)
+		assert_true(saved.accepted, "%s settlement with persistent Modifier state saves" % modifier_id, failures)
+		if saved.accepted:
+			var resumed = SaveMapperScript.load_into_domain(saved.snapshot.to_dictionary(), registry)
+			assert_true(resumed.accepted, "%s settlement resumes through the public save pipeline" % modifier_id, failures)
+			if resumed.accepted:
+				assert_true(resumed.domain.state.build_ownership.persistent_tile_modifier_state == domain.state.build_ownership.persistent_tile_modifier_state, "%s retains its exact TileInstance Modifier owner on resume" % modifier_id, failures)
+				assert_true(resumed.domain.checkpoint() == domain.checkpoint(), "%s resume preserves its settled state without replaying the Modifier" % modifier_id, failures)
+
+		var replay_factory := func(replay_seed: int, _replay_content_version: String):
+			var replay_domain: RunDomainScript = _prepared_modifier_domain(run_id, replay_seed, registry)
+			var replay_candidates: Array = replay_domain.current_battle.settlement_window.candidates()
+			if replay_candidates.is_empty() or replay_candidates[0].tile_instances.is_empty():
+				return replay_domain
+			var replay_target_id: String = replay_candidates[0].tile_instances[0].instance_id
+			replay_domain.state.build_ownership.persistent_tile_modifier_state[replay_target_id] = [modifier_id]
+			replay_domain.state.current_battle_snapshot = preload("res://src/domain/run/run_battle_snapshot.gd").new(replay_domain.current_battle.checkpoint())
+			_record_replay_segment(replay_domain)
+			return replay_domain
+		var replay = ReplayVerifierScript.verify(domain.replay_record, replay_factory, domain.state.content_version)
+		assert_true(replay.is_match(), "%s's observable settlement effect reproduces through replay" % modifier_id, failures)
+	assert_true(observed_board_outcomes.size() == effect_cases.size(), "all four additions produce distinct observable battle outcomes", failures)
 
 func test_tile_modifier_effect_resolves_for_complete_hand(failures: Array[String]) -> void:
 	var registry := ContentRegistryScript.new()
