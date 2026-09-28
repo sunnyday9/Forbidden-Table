@@ -1,0 +1,97 @@
+{
+  "checked_on": "2026-09-29",
+  "fixture_hash_encoding": "UTF-8 fixture text with CRLF normalized to LF before SHA-256; the checked-in Git blob remains the authoritative source content.",
+  "support_window": {
+    "milestone": "Stage 4 Beta",
+    "starts": "Earliest supported source boundary is the Phase 2 v1 baseline required by #45; the continuous window includes distributed Alpha formats from Alpha support and carries them through Stage 4 Beta exit.",
+    "ends": "Stage 4 Beta exit decision",
+    "includes": "Every player-distributed Alpha format still within the interval and every Stage 4 Beta format distributed before Beta exit.",
+    "distribution_evidence": "No GitHub Release, tag, or out-of-band Alpha/Beta save or replay artifact was identified as of checked_on.",
+    "baseline_policy": "Carry the Phase 2 v1 SuspendSnapshot required by issue #45. This is a compatibility baseline, not evidence of a public distribution. Test-generated content identities are not distribution evidence."
+  },
+  "candidate": {
+    "game_version": "game.phase2.v1",
+    "content_targets": {
+      "default_run_scene": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "act_two_without_scale": "content.bundle.v1.alpha.act_two@v5+phase2@v4"
+    },
+    "record_schemas": {
+      "suspend_snapshot": 1,
+      "meta_progress": 2,
+      "replay_record": 1
+    }
+  },
+  "supported_source_formats": [
+    {
+      "id": "phase2-v1-suspend",
+      "record": "SuspendSnapshot",
+      "schema_version": 1,
+      "game_version": "game.phase2.v1",
+      "content_version": "content.slice.v1",
+      "source_schema_to_candidate_schema": "1 -> 1",
+      "source_content_migration": "Explicit migration to the selected current candidate registry; schema migration alone preserves content_version.",
+      "fixtures": [
+        {
+          "path": "tests/fixtures/phase2_v1_suspend_snapshot.gd",
+          "purpose": "Typed stable MAP_NODE baseline",
+          "sha256_lf_canonical": "f6570bdda8d22b170b8232b8cfe44cfc31049e71d8665098889201d4f0c067a3"
+        },
+        {
+          "path": "tests/fixtures/phase2_v1_serialized_suspend_snapshot.json",
+          "purpose": "Serialized Phase 2 v1 stable checkpoint",
+          "sha256_lf_canonical": "c720d065338a75a22657b54c0745bbf8d2aa2412b55d69f5d86e0fcd15877150"
+        },
+        {
+          "path": "tests/fixtures/phase2_v1_archived_valid_suspend_snapshot.json",
+          "purpose": "Archived-validator-accepted Phase 2 v1 checkpoint",
+          "sha256_lf_canonical": "c720d065338a75a22657b54c0745bbf8d2aa2412b55d69f5d86e0fcd15877150"
+        },
+        {
+          "path": "tests/fixtures/phase2_v1_boss_reward_suspend_snapshot.gd",
+          "purpose": "Typed stable REWARD boundary with a pending Boss reward",
+          "sha256_lf_canonical": "d7aba10ae87decd95fb38056a77fc12a59c4ea90860cbea0569dc6767b4274cb"
+        }
+      ]
+    }
+  ],
+  "source_defined_without_player_distribution_evidence": [
+    {
+      "record": "MetaProgressSnapshot",
+      "source_schema": 1,
+      "candidate_schema": 2,
+      "source_content_version": "alpha.meta.v1",
+      "immutable_source_fixture": false,
+      "note": "The v1 input is constructed by tests; no player-distributed artifact is evidenced."
+    },
+    {
+      "record": "ReplayRecord",
+      "source_schema": 1,
+      "candidate_schema": 1,
+      "game_version": "game.phase2.v1",
+      "immutable_source_fixture": false,
+      "note": "Replay records are source-defined and exercised in tests; no player-distributed artifact is evidenced."
+    }
+  ],
+  "verification": {
+    "commands": [
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --persistence",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --meta-progress",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --replay",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --map",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --run-scene",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --reward-economy",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --elite-reward",
+      "GODOT_BIN=/home/ubuntu/.codex/recovery/forbidden-table-review-remediation/.cache/godot/4.7.2/Godot_v4.7.2-stable_linux.x86_64 ./scripts/test.sh --boss-rule-breaker-reward"
+    ],
+    "result_by_flag": {
+      "--persistence": "PASS",
+      "--meta-progress": "PASS",
+      "--replay": "PASS",
+      "--map": "PASS",
+      "--run-scene": "PASS",
+      "--reward-economy": "PASS",
+      "--elite-reward": "PASS",
+      "--boss-rule-breaker-reward": "PASS"
+    }
+  }
+}

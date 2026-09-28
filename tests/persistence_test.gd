@@ -28,8 +28,11 @@ const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalo
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SuspendSnapshot = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
 const MetaProgressSnapshot = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
+const MetaProgressStore = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const RunRecord = preload("res://src/infrastructure/persistence/run_record.gd")
+const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const MigrationPipeline = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
+const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
@@ -48,6 +51,7 @@ const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/p
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures)
 	test_suspend_snapshot_has_explicit_v1_envelope_and_round_trips(failures)
 	test_run_record_and_meta_progress_are_distinct_records(failures)
 	test_load_reconstructs_without_mutating_a_live_domain(failures)
@@ -69,6 +73,77 @@ func run() -> Array[String]:
 	test_phase2_v1_pending_boss_reward_migrates_deterministically(failures)
 	test_save_coordinator_accepts_stable_and_rejects_unstable_boundaries(failures)
 	return failures
+
+func test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures: Array[String]) -> void:
+	var manifest_path := "res://tests/fixtures/stage4_beta_compatibility_manifest.json"
+	var manifest_file := FileAccess.open(manifest_path, FileAccess.READ)
+	assert_true(manifest_file != null, "the Stage 4 Beta compatibility manifest is available", failures)
+	if manifest_file == null:
+		return
+	var manifest_text := manifest_file.get_as_text()
+	manifest_file.close()
+	var parsed = JSON.parse_string(manifest_text)
+	assert_true(parsed is Dictionary, "the Stage 4 Beta compatibility manifest parses as JSON", failures)
+	if not parsed is Dictionary:
+		return
+	var manifest: Dictionary = parsed
+	var candidate: Dictionary = manifest.get("candidate", {})
+	var candidate_schemas: Dictionary = candidate.get("record_schemas", {})
+	assert_true(int(candidate_schemas.get("suspend_snapshot", -1)) == SuspendSnapshot.SCHEMA_VERSION, "the manifest records the current SuspendSnapshot schema", failures)
+	assert_true(int(candidate_schemas.get("meta_progress", -1)) == MetaProgressStore.CURRENT_SCHEMA_VERSION, "the manifest records the current MetaProgress schema", failures)
+	assert_true(int(candidate_schemas.get("replay_record", -1)) == ReplayRecord.SCHEMA_VERSION, "the manifest records the current ReplayRecord schema", failures)
+
+	var content_targets: Dictionary = candidate.get("content_targets", {})
+	var default_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(default_registry)
+	AlphaActTwoCatalog.register_all(default_registry)
+	AlphaScaleCatalog.register_all(default_registry)
+	assert_true(default_registry.content_version() == str(content_targets.get("default_run_scene", "")), "the full candidate identity matches the default RunScene content registry", failures)
+	var act_two_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(act_two_registry)
+	AlphaActTwoCatalog.register_all(act_two_registry)
+	assert_true(act_two_registry.content_version() == str(content_targets.get("act_two_without_scale", "")), "the no-Scale candidate identity matches the Act Two registry", failures)
+	assert_true(ContentVersionMigration.ACT_TWO_SCALE_V13 == str(content_targets.get("default_run_scene", "")), "the default candidate identity matches its explicit migration target", failures)
+	assert_true(ContentVersionMigration.ACT_TWO_V5 == str(content_targets.get("act_two_without_scale", "")), "the no-Scale candidate identity matches its explicit migration target", failures)
+
+	var supported_formats: Array = manifest.get("supported_source_formats", [])
+	assert_true(supported_formats.size() == 1, "the manifest claims only the mandated Phase 2 v1 source format", failures)
+	for source_format in supported_formats:
+		if not source_format is Dictionary:
+			assert_true(false, "each supported source format is a dictionary", failures)
+			continue
+		var source: Dictionary = source_format
+		assert_true(source.get("record", "") == "SuspendSnapshot" and int(source.get("schema_version", -1)) == 1, "the supported source fixture format is Phase 2 SuspendSnapshot schema 1", failures)
+		assert_true(source.get("game_version", "") == "game.phase2.v1" and source.get("content_version", "") == "content.slice.v1", "the supported source fixture keeps the Phase 2 v1 envelope", failures)
+		for fixture_value in source.get("fixtures", []):
+			if not fixture_value is Dictionary:
+				assert_true(false, "each frozen fixture entry is a dictionary", failures)
+				continue
+			var fixture: Dictionary = fixture_value
+			var fixture_path := "res://%s" % str(fixture.get("path", ""))
+			var fixture_file := FileAccess.open(fixture_path, FileAccess.READ)
+			assert_true(fixture_file != null, "%s remains available as an immutable source fixture" % fixture_path, failures)
+			if fixture_file == null:
+				continue
+			var fixture_bytes := fixture_file.get_buffer(fixture_file.get_length())
+			fixture_file.close()
+			var fixture_text := fixture_bytes.get_string_from_utf8()
+			var actual_hash := _sha256(_canonical_lf_bytes(fixture_text))
+			assert_true(actual_hash == str(fixture.get("sha256_lf_canonical", "")), "%s matches its pinned canonical-LF Phase 2 v1 fixture hash" % fixture_path, failures)
+			var canonical_lf_text := _canonical_lf_bytes(fixture_text).get_string_from_utf8()
+			var simulated_windows_text := canonical_lf_text.replace("\n", "\r\n")
+			assert_true(_sha256(_canonical_lf_bytes(simulated_windows_text)) == actual_hash, "%s has the same fixture hash after simulated Windows CRLF checkout conversion" % fixture_path, failures)
+
+func _canonical_lf_bytes(fixture_text: String) -> PackedByteArray:
+	return fixture_text.replace("\r\n", "\n").to_utf8_buffer()
+
+func _sha256(source_bytes: PackedByteArray) -> String:
+	var hash_context := HashingContext.new()
+	if hash_context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	if hash_context.update(source_bytes) != OK:
+		return ""
+	return hash_context.finish().hex_encode()
 
 func test_suspend_snapshot_has_explicit_v1_envelope_and_round_trips(failures: Array[String]) -> void:
 	var domain := _domain("persist.roundtrip", 1201)
