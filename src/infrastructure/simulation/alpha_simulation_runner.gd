@@ -37,7 +37,7 @@ const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_com
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
 const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
 const POLICY_RULE_VERSION := "v7"
-const COMPLETE_POLICY_RULE_VERSION := "v7"
+const COMPLETE_POLICY_RULE_VERSION := "v8"
 
 var _domain
 var _attempt_case: Dictionary
@@ -332,17 +332,24 @@ func _step_battle() -> bool:
 	if (
 		policy_id == "Complete"
 		and not has_complete_hand
-		and draw_sources_available
-		and battle.combat_state.draw_actions_remaining() > 0
 		and battle.combat_state.draw_actions_used_this_turn > 0
 		and not battle.combat_state.tile_manipulation_used_this_draw
 	):
-		var store_target := _next_complete_hand_store_target(battle)
-		if not store_target.is_empty():
-			return _execute_command(StoreTileCommandScript.new(
-				_next_command_id("battle.reserve.store"),
-				store_target,
-			))
+		var reserve_has_room := int(battle.zones.size(TileZoneScript.RESERVE)) < int(battle.combat_state.reserve_capacity)
+		if reserve_has_room:
+			var store_target := _next_complete_hand_store_target(battle, candidates)
+			if not store_target.is_empty():
+				return _execute_command(StoreTileCommandScript.new(
+					_next_command_id("battle.reserve.store"),
+					store_target,
+				))
+		if _should_discard_excess_hand_tile(battle):
+			var discard_target := _lowest_instance_id_in_hand(battle)
+			if not discard_target.is_empty():
+				return _execute_command(DiscardTileCommandScript.new(
+					_next_command_id("battle.discard.excess"),
+					discard_target,
+				))
 
 	if battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available:
 		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.end_turn")))
@@ -380,22 +387,16 @@ func _lowest_instance_id_in_hand(battle) -> String:
 			selected_instance_id = candidate_id
 	return selected_instance_id
 
-func _next_complete_hand_store_target(battle) -> String:
-	if battle == null or battle.zones == null or battle.complete_hand_evaluator == null:
+func _next_complete_hand_store_target(battle, candidates: Array) -> String:
+	if battle == null or battle.zones == null:
 		return ""
 	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
 	hand.sort_custom(func(left, right): return str(left.instance_id) < str(right.instance_id))
 	var available_reserve_slots := int(battle.combat_state.reserve_capacity) - int(battle.zones.size(TileZoneScript.RESERVE))
-	var maximum_store_count := mini(available_reserve_slots, hand.size() - 14)
 	if available_reserve_slots < 1 or hand.size() < 14:
 		return ""
-	for store_count in range(1, maximum_store_count + 1):
-		var target := _find_complete_hand_store_target_for_count(battle, hand, store_count)
-		if not target.is_empty():
-			return target
-
 	var candidate_usage: Dictionary = {}
-	for candidate in battle.settlement_window.candidates():
+	for candidate in candidates:
 		for tile in candidate.tile_instances:
 			var instance_id := str(tile.instance_id)
 			candidate_usage[instance_id] = int(candidate_usage.get(instance_id, 0)) + 1
@@ -408,31 +409,6 @@ func _next_complete_hand_store_target(battle) -> String:
 			lowest_candidate_usage = usage
 			unmatched_target = instance_id
 	return unmatched_target
-
-func _find_complete_hand_store_target_for_count(battle, hand: Array, store_count: int) -> String:
-	if store_count == 1:
-		for first in range(hand.size()):
-			if _is_complete_hand_without_stored_indices(battle, hand, [first]):
-				return str(hand[first].instance_id)
-	elif store_count == 2:
-		for first in range(hand.size()):
-			for second in range(first + 1, hand.size()):
-				if _is_complete_hand_without_stored_indices(battle, hand, [first, second]):
-					return str(hand[first].instance_id)
-	elif store_count == 3:
-		for first in range(hand.size()):
-			for second in range(first + 1, hand.size()):
-				for third in range(second + 1, hand.size()):
-					if _is_complete_hand_without_stored_indices(battle, hand, [first, second, third]):
-						return str(hand[first].instance_id)
-	return ""
-
-func _is_complete_hand_without_stored_indices(battle, hand: Array, stored_indices: Array) -> bool:
-	var candidate_hand: Array = []
-	for index in range(hand.size()):
-		if index not in stored_indices:
-			candidate_hand.append(hand[index])
-	return not battle.complete_hand_evaluator.evaluate(candidate_hand).is_empty()
 
 func _pattern_rank(pattern_type: String) -> int:
 	match pattern_type:
@@ -636,7 +612,7 @@ func _build_attempt_record() -> Dictionary:
 	var strategy_rule := "Partial: settle the highest-ranked legal Partial Pattern; never choose Complete Hand."
 	match str(_attempt_case.get("policy_id", "")):
 		"Complete":
-			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it, then at most once per accepted normal Draw deterministically store a Hand tile while Reserve has room. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
+			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it. Once per normal Draw, store the Hand tile with the fewest legal Partial Pattern candidates while Reserve has room; when Reserve is full, discard the lowest instance ID only if Hand exceeds its normal baseline plus one. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
 	if str(_attempt_case.get("policy_id", "")) in ["Partial", "Hybrid"]:

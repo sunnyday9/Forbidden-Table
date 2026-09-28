@@ -18,9 +18,10 @@ func run() -> Array[String]:
 	test_act_two_boss_reward_gap_is_content_unavailable_not_a_soft_lock(failures)
 	test_runner_emits_a_real_replayable_run_attempt(failures)
 	test_hybrid_discards_excess_hand_with_bounded_work(failures)
+	test_complete_discards_when_reserve_is_full_and_hand_grows(failures)
 	test_runner_content_version_tracks_conditional_scale_bundle(failures)
 	test_complete_policy_completes_real_two_act_run_and_reward_flow(failures)
-	test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures)
+	test_act_two_seed_57001_is_a_replayable_victory_within_draw_budget(failures)
 	test_runner_ends_turn_when_draw_sources_are_empty(failures)
 	test_service_route_reaches_a_workshop(failures)
 	return failures
@@ -187,12 +188,12 @@ func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) ->
 	assert_true(not str(attempt.get("starting_pool_hash", "")).is_empty(), "the attempt records a deterministic hash for the initial tile pool", failures)
 	assert_true(attempt.get("terminal", false), "a complete gameplay attempt reaches its actual Run Summary", failures)
 	assert_true(attempt.get("configured_act_count", 0) == 2, "the attempt records that the Run uses the two-Act profile", failures)
-	assert_true(attempt.get("act_reached", 0) == 1, "the fixed seed's actual terminal Defeat occurs in Act 1", failures)
-	assert_true(attempt.get("progress_status", "") == "TERMINAL_BEFORE_FINAL_ACT", "the attempt does not overclaim that it reached Act 2", failures)
-	assert_true(attempt.get("outcome", "") in ["VICTORY", "DEFEAT"], "the attempt records a valid Victory or Defeat", failures)
+	assert_true(attempt.get("act_reached", 0) == 2, "seed 8803's actual terminal Defeat occurs in Act 2", failures)
+	assert_true(attempt.get("progress_status", "") == "TERMINAL_AFTER_FINAL_ACT", "the attempt records its real Act 2 terminal outcome", failures)
+	assert_true(attempt.get("outcome", "") == "DEFEAT", "seed 8803 reaches a real terminal Act 2 Defeat", failures)
 	assert_true(attempt.get("failure_classification", "") == "NONE", "a terminal Victory or Defeat is not classified as a harness failure", failures)
 	assert_true(_has_event(attempt.get("events", []), "RunSummaryReached"), "the attempt records its final Run Summary event", failures)
-	assert_true(not _has_event(attempt.get("events", []), "ActTransitioned"), "the attempt does not fabricate an Act transition it never reached", failures)
+	assert_true(_has_event(attempt.get("events", []), "ActTransitioned"), "the attempt reaches Act 2 through its real Act transition", failures)
 	assert_true(attempt.get("authoritative_state_validation_status", "") == "VALID", "the terminal authoritative state passes the real stable-save validator", failures)
 	assert_true(attempt.get("accepted_command_count", -1) == attempt.get("accepted_commands", []).size(), "the attempt count equals the recorded accepted authoritative commands", failures)
 	assert_true(checkpoints.size() == attempt.get("accepted_command_count", -2) + 1, "the record includes the initial and every accepted-command checkpoint", failures)
@@ -241,6 +242,44 @@ func test_hybrid_discards_excess_hand_with_bounded_work(failures: Array[String])
 	assert_true(attempt.get("failure_classification", "") in ["NONE", "INCOMPLETE_RUN"], "the bounded policy prefix reaches no rejected-command or invalid-replay state", failures)
 	assert_true(attempt.get("replay_status", "") == "MATCH", "the bounded Hybrid prefix replays exactly after policy discards", failures)
 
+func test_complete_discards_when_reserve_is_full_and_hand_grows(failures: Array[String]) -> void:
+	var config := {
+		"schema_version": 1,
+		"content_version": AlphaSimulationRunnerScript.content_version_for_gate("hardening"),
+		"gate_profiles": [{
+			"gate_id": "hardening",
+			"attempt_count": 1,
+			"seed_start": 57003,
+			"policy_ids": ["Complete"],
+			"character_ids": ["base.character.reserve"],
+			"contract_ids": ["base.contract.pool_bias"],
+			"route_ids": ["SERVICE"],
+		}],
+	}
+	var manifest = SimulationManifestScript.new(config, Phase2CatalogScript.CHARACTER_IDS, Phase2CatalogScript.CONTRACT_IDS)
+	var attempt_case: Dictionary = manifest.to_dictionary().get("gates", {}).get("hardening", {}).get("cases", [])[0]
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, manifest.manifest_hash(), 128)
+	var checkpoints: Array = attempt.get("checkpoints", [])
+	var max_hand := 0
+	var baseline := 13
+	for checkpoint_value in checkpoints:
+		if not checkpoint_value is Dictionary:
+			continue
+		var run_state: Dictionary = checkpoint_value.get("domain_snapshot", {}).get("data", {}).get("run_state", {})
+		var battle_snapshot: Dictionary = run_state.get("current_battle_snapshot", {})
+		var hand: Variant = battle_snapshot.get("zones", {}).get("Hand", null)
+		if hand is Array:
+			max_hand = maxi(max_hand, hand.size())
+			baseline = int(battle_snapshot.get("recovery", {}).get("normal_hand_baseline", baseline))
+	var action_counts: Dictionary = attempt.get("strategy", {}).get("accepted_action_counts", {})
+
+	assert_true(attempt.get("accepted_command_count", -1) == 128, "the Complete policy stress prefix is bounded to 128 accepted commands", failures)
+	assert_true(max_hand <= baseline + 2, "Complete keeps Hand near its public recovery baseline after Reserve fills", failures)
+	assert_true(int(action_counts.get("DiscardTile", 0)) > 0, "Complete uses the authoritative DiscardTile command when Reserve is full", failures)
+	assert_true(attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.complete.v8", "bounded Complete storage uses its explicit policy version", failures)
+	assert_true(attempt.get("failure_classification", "") == "INCOMPLETE_RUN", "the stress prefix remains an honest bounded incomplete attempt", failures)
+	assert_true(attempt.get("replay_status", "") == "MATCH", "the bounded Complete policy trace replays after tile discards", failures)
+
 func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array[String]) -> void:
 	var attempt_case := {
 		"attempt_id": "version.identity",
@@ -268,7 +307,7 @@ func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array
 	assert_true(scale_version == AlphaSimulationRunnerScript.content_version_for_gate("scale"), "the Scale manifest identity matches the run's registered bundles", failures)
 
 func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: Array[String]) -> void:
-	# Act 2's new encounter package makes this a new v4 workload; v3 timing is not directly comparable.
+	# Complete policy v8 bounds deterministic tile manipulation while preserving the real two-Act flow.
 	var attempt_case := {
 		"attempt_id": "readiness.00002",
 		"attempt_index": 1,
@@ -314,8 +353,13 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 			var draw_capacity := int(draw_state.get("draw_capacity", 0))
 			if used_actions < 1 or used_actions > draw_capacity:
 				draw_budget_respected = false
-	assert_true(attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.complete.v7", "the Draw-gated Complete policy uses its own new explicit version", failures)
-	assert_true(str(attempt.get("strategy", {}).get("decision_rule", "")).contains("at most once per accepted normal Draw"), "the policy text states its one-Store-per-Draw budget", failures)
+	assert_true(attempt.get("strategy", {}).get("policy_rule_id", "") == "alpha.complete.v8", "the bounded Complete tile policy uses its own explicit version", failures)
+	var decision_rule := str(attempt.get("strategy", {}).get("decision_rule", ""))
+	assert_true(
+		decision_rule.contains("Once per normal Draw") and decision_rule.contains("when Reserve is full, discard"),
+		"the policy text states its one-manipulation-per-Draw budget and full-Reserve fallback",
+		failures,
+	)
 	assert_true(store_budget_respected, "every accepted Store follows an unused normal-Draw manipulation allowance", failures)
 	if checkpoints.size() == commands.size() + 1:
 		for checkpoint_index in range(1, checkpoints.size()):
@@ -430,9 +474,9 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 		failures,
 	)
 
-func test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures: Array[String]) -> void:
+func test_act_two_seed_57001_is_a_replayable_victory_within_draw_budget(failures: Array[String]) -> void:
 	var attempt_case := {
-		"attempt_id": "readiness.act-two-defeat.57001",
+		"attempt_id": "readiness.act-two-victory.57001",
 		"attempt_index": 0,
 		"gate_id": "readiness",
 		"seed": 57001,
@@ -442,12 +486,13 @@ func test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures:
 		"route_id": "SERVICE",
 		"starting_pool_fixture_id": AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID,
 	}
-	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-defeat.seed-57001", 1024)
-	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-defeat.seed-57001", 1024)
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-victory.seed-57001", 1024)
+	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.act-two-victory.seed-57001", 1024)
 	var commands: Array = attempt.get("accepted_commands", [])
 	var checkpoints: Array = attempt.get("checkpoints", [])
-	var in_act_two := false
-	var act_two_elite_defeat := false
+	var reached_act_two := false
+	var act_two_boss_victory := false
+	var run_summary_seen := false
 	var draw_budget_respected := checkpoints.size() == commands.size() + 1
 	if checkpoints.size() == commands.size() + 1:
 		for index in range(commands.size()):
@@ -465,19 +510,22 @@ func test_act_two_seed_57001_is_a_replayable_defeat_within_draw_budget(failures:
 				var event_type := str(event.get("event_type", ""))
 				var event_data: Dictionary = event.get("data", {})
 				if event_type == "ActTransitioned" and int(event_data.get("to_act", 0)) == 2:
-					in_act_two = true
-				elif in_act_two and event_type == "BattleOutcomeTransferred":
-					act_two_elite_defeat = (
-						str(event_data.get("encounter_kind", "")) == "ELITE"
-						and str(event_data.get("outcome", "")) == "DEFEAT"
+					reached_act_two = true
+				elif reached_act_two and event_type == "BattleOutcomeTransferred":
+					act_two_boss_victory = (
+						str(event_data.get("encounter_kind", "")) == "BOSS"
+						and str(event_data.get("outcome", "")) == "VICTORY"
 					)
-	assert_true(attempt.get("terminal", false) and attempt.get("outcome", "") == "DEFEAT", "seed 57001 records a terminal legal Act 2 defeat under the new encounter package", failures)
-	assert_true(int(attempt.get("act_reached", 0)) == 2 and act_two_elite_defeat, "seed 57001 reaches and loses to its Act 2 Elite encounter", failures)
-	assert_true(attempt.get("failure_classification", "") == "NONE", "seed 57001's defeat is a gameplay outcome rather than a harness failure", failures)
+				elif event_type == "RunSummaryReached":
+					run_summary_seen = true
+	assert_true(attempt.get("terminal", false) and attempt.get("outcome", "") == "VICTORY", "seed 57001 records a terminal two-Act Victory under Complete policy v8", failures)
+	assert_true(int(attempt.get("act_reached", 0)) == 2 and reached_act_two and act_two_boss_victory, "seed 57001 reaches Act 2 and defeats its Boss", failures)
+	assert_true(run_summary_seen, "seed 57001 reaches the authoritative Run Summary", failures)
+	assert_true(attempt.get("failure_classification", "") == "NONE", "seed 57001's Victory is not classified as a harness failure", failures)
 	assert_true(attempt.get("replay_status", "") == "MATCH", "seed 57001's accepted-command trace replays exactly", failures)
-	assert_true(attempt.get("authoritative_state_validation_status", "") == "VALID", "seed 57001's terminal defeat has a valid authoritative stable state", failures)
+	assert_true(attempt.get("authoritative_state_validation_status", "") == "VALID", "seed 57001's terminal Victory has a valid authoritative stable state", failures)
 	assert_true(draw_budget_respected, "every accepted Draw in seed 57001 stays within its combat Draw Action capacity", failures)
-	assert_true(AlphaAttemptComparatorScript.compare(attempt, repeated_attempt).get("matches", false), "repeating seed 57001 reproduces its defeat and accepted trace", failures)
+	assert_true(AlphaAttemptComparatorScript.compare(attempt, repeated_attempt).get("matches", false), "repeating seed 57001 reproduces its Victory and accepted trace", failures)
 
 func test_runner_ends_turn_when_draw_sources_are_empty(failures: Array[String]) -> void:
 	var attempt_case := {

@@ -93,7 +93,7 @@ def read_json_result(stdout: str, repetition: int) -> dict[str, Any]:
 
 
 def validate_attempt(record: dict[str, Any], repetition: int) -> tuple[dict[str, Any], dict[str, Any]]:
-    if record.get("benchmark_id") != "alpha.fixed-complete-run.v4":
+    if record.get("benchmark_id") != "alpha.fixed-complete-run.v5":
         fail(f"Godot repetition {repetition} returned an unexpected benchmark ID.")
     workload = record.get("workload")
     attempt = record.get("attempt")
@@ -294,7 +294,7 @@ def main() -> int:
         fail("The benchmark did not produce all five measured repetitions.")
 
     report = {
-        "benchmark_id": "alpha.fixed-complete-run.v4",
+        "benchmark_id": "alpha.fixed-complete-run.v5",
         "repetition_count": REPETITIONS,
         "workload": reference_workload,
         "build": {

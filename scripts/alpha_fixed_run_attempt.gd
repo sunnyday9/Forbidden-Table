@@ -4,7 +4,7 @@ const SimulationManifestScript = preload("res://src/infrastructure/simulation/si
 const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation/alpha_simulation_runner.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 
-const BENCHMARK_ID := "alpha.fixed-complete-run.v4"
+const BENCHMARK_ID := "alpha.fixed-complete-run.v5"
 const GATE_ID := "hardening"
 const SEED := 57002
 const POLICY_ID := "Complete"
@@ -49,7 +49,7 @@ static func fixed_workload_definition() -> Dictionary:
 			"contract_id": CONTRACT_ID,
 			"route_id": ROUTE_ID,
 			"command_limit": COMMAND_LIMIT,
-			"comparison_note": "Act 2 payloads changed in v4; v3 timing is not directly comparable.",
+			"comparison_note": "Act 2 payloads changed in v4; Complete policy v8 bounds tile manipulation in v5, so v4 timing is not directly comparable.",
 			"manifest_hash": manifest_hash,
 			"attempt_case": attempt_case,
 		},
