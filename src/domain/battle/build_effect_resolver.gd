@@ -13,6 +13,7 @@ const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
+const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
@@ -40,6 +41,7 @@ func resolve_battle_entry(run_state, battle) -> Dictionary:
 		run_state.build_ownership.acquired_rule_breaker_ids,
 		"RULE_BREAKER",
 	))
+	effects.append_array(_owned_passive_technique_effects(run_state.build_ownership.run_technique_ids))
 	effects.append_array(_run_modifier_effect_resolver.battle_entry_effects(run_state))
 	var rule_memory_amount := _rule_memory_entry_amount(run_state, effects)
 	if rule_memory_amount > 0:
@@ -146,6 +148,24 @@ func _owned_definition_effects(content_ids: Array, definition_kind: String) -> A
 		seen[identifier] = true
 		var definition = _content_registry.resolve(identifier) if _content_registry != null else null
 		if not _is_definition_kind(definition, definition_kind):
+			continue
+		for effect in definition.effects:
+			if effect != null and effect.trigger != null and effect.trigger.trigger_id == EffectTriggerScript.MANUAL:
+				effects.append(effect)
+	return effects
+
+func _owned_passive_technique_effects(content_ids: Array) -> Array:
+	var effects: Array = []
+	var ordered_content_ids: Array = content_ids.duplicate()
+	ordered_content_ids.sort()
+	var seen: Dictionary = {}
+	for content_id in ordered_content_ids:
+		var identifier := str(content_id)
+		if seen.has(identifier):
+			continue
+		seen[identifier] = true
+		var definition = _content_registry.resolve(identifier) if _content_registry != null else null
+		if not definition is TechniqueDefinitionScript or definition.technique_kind != TechniqueDefinitionScript.PASSIVE:
 			continue
 		for effect in definition.effects:
 			if effect != null and effect.trigger != null and effect.trigger.trigger_id == EffectTriggerScript.MANUAL:

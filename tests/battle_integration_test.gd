@@ -28,9 +28,11 @@ const DrawCommand = preload("res://src/domain/commands/draw_command.gd")
 const EndTurnCommand = preload("res://src/domain/commands/end_turn_command.gd")
 const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_enemy_intent_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
+const UseTechniqueCommand = preload("res://src/domain/commands/use_technique_command.gd")
 const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
+const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
 
 const LEFT := "base.map_node.intro"
 
@@ -40,6 +42,8 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
 	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
+	test_owned_passive_technique_applies_once_on_battle_entry(failures)
+	test_reaction_techniques_resolve_only_in_matching_windows(failures)
 	test_boss_phases_are_explicit_and_deterministic(failures)
 	test_factory_rejects_invalid_enemy_without_mutation(failures)
 	test_draw_actions_are_limited_and_reset_each_turn(failures)
@@ -217,6 +221,157 @@ func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Arra
 		var boss_result = boss_battle.combat_resolver.resolve_enemy_intent(boss_battle.combat_state)
 		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
 		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
+
+func test_owned_passive_technique_applies_once_on_battle_entry(failures: Array[String]) -> void:
+	var registry := _registry()
+	var passive := TechniqueDefinition.new(
+		"alpha.technique.reserve_survey",
+		TechniqueDefinition.PASSIVE,
+		0,
+		[Phase2Catalog.typed_effect("content.alpha.technique.reserve_survey", "ModifyReserveCapacity", 1)],
+	)
+	assert_true(registry.register(passive).is_valid(), "Reserve Survey is valid passive Technique content", failures)
+
+	var unowned_domain := _prepared_domain_with_registry("run.passive.unowned", registry)
+	var unowned_selection = unowned_domain.execute(SelectMapNodeCommand.new("passive.unowned.select", LEFT))
+	assert_true(unowned_selection.is_accepted(), "the unowned comparison enters a Battle", failures)
+	if unowned_selection.is_accepted():
+		assert_true(unowned_domain.current_battle.combat_state.reserve_capacity == 3, "a Run without Reserve Survey keeps baseline Reserve Capacity", failures)
+
+	var owned_domain := _prepared_domain_with_registry("run.passive.owned", registry)
+	owned_domain.state.build_ownership.run_technique_ids.append("alpha.technique.reserve_survey")
+	var owned_selection = owned_domain.execute(SelectMapNodeCommand.new("passive.owned.select", LEFT))
+	assert_true(owned_selection.is_accepted(), "the owned passive enters a Battle", failures)
+	if not owned_selection.is_accepted():
+		return
+	var battle = owned_domain.current_battle
+	assert_true(battle.combat_state.reserve_capacity == 4, "Reserve Survey grants one extra Reserve slot on entry", failures)
+	assert_true(battle.reserve_service.reserve_capacity == 4 and battle.zones.reserve_capacity == 4, "battle-entry passive capacity is synchronized to ReserveService and tile zones", failures)
+	assert_true(owned_selection.events.any(func(event): return event.event_type == DomainEvent.CAPACITY_CHANGED and event.data.get("capacity", "") == "reserve_capacity" and event.data.get("effect_id", "") == "content.alpha.technique.reserve_survey"), "battle entry reports the passive capacity change as a factual event", failures)
+
+	var snapshot = SaveMapper.suspend_snapshot(owned_domain)
+	var first_resume: Dictionary = SaveMapper.load_into_domain(snapshot.to_dictionary(), registry)
+	assert_true(first_resume.get("accepted", false), "the passive battle resumes from a stable BattleStart checkpoint", failures)
+	if not first_resume.get("accepted", false):
+		return
+	assert_true(first_resume.domain.current_battle.combat_state.reserve_capacity == 4, "save reconstruction restores the passive capacity without reapplying it", failures)
+	var second_snapshot = SaveMapper.suspend_snapshot(first_resume.domain)
+	var second_resume: Dictionary = SaveMapper.load_into_domain(second_snapshot.to_dictionary(), registry)
+	assert_true(second_resume.get("accepted", false), "a second passive battle reconstruction remains valid", failures)
+	if second_resume.get("accepted", false):
+		assert_true(second_resume.domain.current_battle.combat_state.reserve_capacity == 4, "repeated reconstruction never double-applies the passive", failures)
+
+func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[String]) -> void:
+	var contamination_graph := IntentGraph.new("contamination", [
+		EnemyIntent.new("contamination", "Contamination", 1, EnemyIntent.CONTAMINATION, [IntentTransition.fixed("contamination.loop", "contamination")]),
+	])
+	var clean_registry := _reaction_registry(contamination_graph, "base.technique.clean_table", TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED, TechniqueDefinition.REACTION, 1, "PurgeContamination")
+	var clean_domain := _prepared_domain_with_registry("run.reaction.clean", clean_registry)
+	clean_domain.state.build_ownership.run_technique_ids.append("base.technique.clean_table")
+	clean_domain.state.build_ownership.run_technique_ids.append("base.technique.tp_stability_support")
+	var clean_entry = clean_domain.execute(SelectMapNodeCommand.new("reaction.clean.select", LEFT))
+	assert_true(clean_entry.is_accepted(), "a contamination reaction enters a real Battle (%s: %s)" % [clean_entry.status, clean_entry.message], failures)
+	if not clean_entry.is_accepted():
+		return
+	var tp_setup = clean_domain.execute(UseTechniqueCommand.new("reaction.clean.setup_tp", "base.technique.tp_stability_support"))
+	assert_true(tp_setup.is_accepted() and clean_domain.current_battle.combat_state.tp == 3, "an accepted setup Technique supplies enough TP for a Reaction (%s: %s; TP=%d)" % [tp_setup.status, tp_setup.message, clean_domain.current_battle.combat_state.tp], failures)
+	if not tp_setup.is_accepted():
+		return
+	var clean_snapshot = SaveMapper.suspend_snapshot(clean_domain)
+	var clean_resume: Dictionary = SaveMapper.load_into_domain(clean_snapshot.to_dictionary(), clean_registry)
+	assert_true(clean_resume.get("accepted", false), "a saved Battle reconstructs before its Reaction window", failures)
+	if not clean_resume.get("accepted", false):
+		return
+	var clean_resumed: RunDomain = clean_resume.domain
+	var clean_turn = clean_resumed.execute(EndTurnCommand.new("reaction.clean.end_turn"))
+	assert_true(clean_turn.is_accepted(), "the matching enemy Contamination intent completes", failures)
+	var clean_used = _event_of_type(clean_turn.events, DomainEvent.TECHNIQUE_USED)
+	assert_true(clean_used != null and clean_used.data.get("technique_id", "") == "base.technique.clean_table", "Clean Table responds to the matching Contamination intent", failures)
+	assert_true(clean_used != null and clean_used.data.get("reaction_trigger_id", "") == TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED and clean_used.data.get("reaction_trigger_label", "") == "enemy Contamination is added", "the factual TechniqueUsed event names the declared trigger clearly", failures)
+	var reaction_feedback: String = RunPresentationController.new(clean_resumed)._feedback_for_events(clean_turn.events)
+	assert_true(reaction_feedback == "Clean Table responded when enemy Contamination is added.", "player-facing feedback explains when the Reaction responded (%s)" % reaction_feedback, failures)
+	assert_true(_has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_OPENED) and _has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_CLOSED), "the matching Reaction resolves inside a bounded opened and closed window", failures)
+	assert_true(_has_event(clean_turn.events, DomainEvent.TILE_PURGED), "Clean Table purges the newly added Contamination", failures)
+	var reaction_sequence_indexes: Array[int] = []
+	for event in clean_turn.events:
+		if event.event_type not in [DomainEvent.REACTION_WINDOW_OPENED, DomainEvent.TP_CHANGED, DomainEvent.TECHNIQUE_USED, DomainEvent.TILE_PURGED, DomainEvent.REACTION_WINDOW_CLOSED]:
+			continue
+		reaction_sequence_indexes.append(int(event.data.get("sequence_index", -1)))
+	var indexes_are_monotonic := reaction_sequence_indexes.size() >= 5
+	for index in range(1, reaction_sequence_indexes.size()):
+		indexes_are_monotonic = indexes_are_monotonic and reaction_sequence_indexes[index] > reaction_sequence_indexes[index - 1]
+	assert_true(indexes_are_monotonic, "Reaction event indexes increase monotonically from open through cost, effect, and close", failures)
+	assert_true(clean_resumed.current_battle.combat_state.tp == 2, "a resolving Reaction spends exactly its TP cost", failures)
+	assert_true(clean_resumed.verify_replay().is_match(), "the accepted Reaction after resume reproduces deterministically", failures)
+
+	var cleansing_registry := _reaction_registry(contamination_graph, "alpha.technique.cleansing_call", TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED, TechniqueDefinition.REACTION, 2, "PurgeContamination")
+	var cleansing_domain := _prepared_domain_with_registry("run.reaction.cleansing", cleansing_registry)
+	cleansing_domain.state.build_ownership.run_technique_ids.append("alpha.technique.cleansing_call")
+	cleansing_domain.state.build_ownership.run_technique_ids.append("base.technique.tp_stability_support")
+	var cleansing_entry = cleansing_domain.execute(SelectMapNodeCommand.new("reaction.cleansing.select", LEFT))
+	if cleansing_entry.is_accepted():
+		cleansing_domain.execute(UseTechniqueCommand.new("reaction.cleansing.setup_tp", "base.technique.tp_stability_support"))
+		var cleansing_turn = cleansing_domain.execute(EndTurnCommand.new("reaction.cleansing.end_turn"))
+		var cleansing_used = _event_of_type(cleansing_turn.events, DomainEvent.TECHNIQUE_USED)
+		assert_true(cleansing_turn.is_accepted() and cleansing_used != null and cleansing_used.data.get("technique_id", "") == "alpha.technique.cleansing_call", "Cleansing Call also responds to added enemy Contamination", failures)
+		assert_true(cleansing_domain.current_battle.combat_state.tp == 1, "Cleansing Call pays its own declared TP cost", failures)
+	else:
+		assert_true(false, "Cleansing Call enters a Battle for matching-trigger coverage", failures)
+
+	var nonmatching_registry := _reaction_registry(contamination_graph, "base.technique.reaction_guard", TechniqueDefinition.REACTION_ENEMY_STABILITY_LOST, TechniqueDefinition.REACTION, 2, "GainStability")
+	var nonmatching_domain := _prepared_domain_with_registry("run.reaction.nonmatching", nonmatching_registry)
+	nonmatching_domain.state.build_ownership.run_technique_ids.append("base.technique.reaction_guard")
+	nonmatching_domain.state.build_ownership.run_technique_ids.append("base.technique.tp_stability_support")
+	var nonmatching_entry = nonmatching_domain.execute(SelectMapNodeCommand.new("reaction.nonmatching.select", LEFT))
+	if nonmatching_entry.is_accepted():
+		nonmatching_domain.execute(UseTechniqueCommand.new("reaction.nonmatching.setup_tp", "base.technique.tp_stability_support"))
+		var nonmatching_turn = nonmatching_domain.execute(EndTurnCommand.new("reaction.nonmatching.end_turn"))
+		assert_true(nonmatching_turn.is_accepted() and not _has_event(nonmatching_turn.events, DomainEvent.TECHNIQUE_USED), "a Stability-loss Reaction does not answer a Contamination intent", failures)
+		assert_true(not _has_event(nonmatching_turn.events, DomainEvent.REACTION_WINDOW_OPENED) and not _has_event(nonmatching_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED), "a nonmatching intent opens no Reaction window and reports no attempted response", failures)
+		assert_true(nonmatching_domain.current_battle.combat_state.tp == 3, "a nonmatching Reaction spends no TP", failures)
+	else:
+		assert_true(false, "the nonmatching Reaction enters a Battle for trigger coverage", failures)
+
+	var insufficient_registry := _reaction_registry(contamination_graph, "base.technique.clean_table", TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED, TechniqueDefinition.REACTION, 1, "PurgeContamination")
+	var insufficient_domain := _prepared_domain_with_registry("run.reaction.insufficient", insufficient_registry)
+	insufficient_domain.state.build_ownership.run_technique_ids.append("base.technique.clean_table")
+	var insufficient_entry = insufficient_domain.execute(SelectMapNodeCommand.new("reaction.insufficient.select", LEFT))
+	if insufficient_entry.is_accepted():
+		var insufficient_turn = insufficient_domain.execute(EndTurnCommand.new("reaction.insufficient.end_turn"))
+		var skipped = _event_of_type(insufficient_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED)
+		assert_true(insufficient_turn.is_accepted() and skipped != null and skipped.data.get("reason", "") == "INSUFFICIENT_TP", "a matching Reaction with insufficient TP reports why it could not fire", failures)
+		var skipped_feedback: String = RunPresentationController.new(insufficient_domain)._feedback_for_events(insufficient_turn.events)
+		assert_true(skipped_feedback.contains("enemy Contamination is added") and skipped_feedback.contains("INSUFFICIENT_TP"), "player-facing feedback explains an unaffordable Reaction", failures)
+		assert_true(not _has_event(insufficient_turn.events, DomainEvent.TECHNIQUE_USED) and not _has_event(insufficient_turn.events, DomainEvent.REACTION_WINDOW_OPENED), "insufficient TP does not spend cost or open a response window", failures)
+		assert_true(insufficient_domain.current_battle.combat_state.tp == 0 and not _has_event(insufficient_turn.events, DomainEvent.TILE_PURGED), "an unaffordable Reaction leaves its effect unapplied and TP unchanged", failures)
+	else:
+		assert_true(false, "the unaffordable Reaction enters a Battle for TP coverage", failures)
+
+	var interference_graph := IntentGraph.new("interference", [
+		EnemyIntent.new("interference", "Table Interference", 1, EnemyIntent.TABLE_INTERFERENCE, [IntentTransition.fixed("interference.loop", "interference")]),
+	])
+	var guard_registry := _reaction_registry(interference_graph, "base.technique.reaction_guard", TechniqueDefinition.REACTION_ENEMY_STABILITY_LOST, TechniqueDefinition.REACTION, 2, "GainStability")
+	var guard_domain := _prepared_domain_with_registry("run.reaction.guard", guard_registry)
+	guard_domain.state.build_ownership.run_technique_ids.append("base.technique.reaction_guard")
+	guard_domain.state.build_ownership.run_technique_ids.append("base.technique.tp_stability_support")
+	var guard_entry = guard_domain.execute(SelectMapNodeCommand.new("reaction.guard.select", LEFT))
+	if guard_entry.is_accepted():
+		guard_domain.execute(UseTechniqueCommand.new("reaction.guard.setup_tp", "base.technique.tp_stability_support"))
+		var stability_before: int = guard_domain.current_battle.combat_state.stability
+		var guard_snapshot = SaveMapper.suspend_snapshot(guard_domain)
+		var guard_resume: Dictionary = SaveMapper.load_into_domain(guard_snapshot.to_dictionary(), guard_registry)
+		assert_true(guard_resume.get("accepted", false), "the Table Interference Battle resumes before its Reaction window", failures)
+		if not guard_resume.get("accepted", false):
+			return
+		guard_domain = guard_resume.domain
+		var guard_turn = guard_domain.execute(EndTurnCommand.new("reaction.guard.end_turn"))
+		var guard_used = _event_of_type(guard_turn.events, DomainEvent.TECHNIQUE_USED)
+		assert_true(guard_turn.is_accepted() and guard_used != null and guard_used.data.get("reaction_trigger_id", "") == TechniqueDefinition.REACTION_ENEMY_STABILITY_LOST, "Reaction Guard answers Stability loss caused by Table Interference", failures)
+		assert_true(guard_domain.current_battle.combat_state.stability == stability_before, "Reaction Guard restores the Stability lost by the matching intent", failures)
+		assert_true(guard_domain.current_battle.combat_state.tp == 1, "Table Interference Reaction spends the declared TP", failures)
+		assert_true(guard_domain.verify_replay().is_match(), "the accepted Table Interference Reaction reproduces deterministically", failures)
+	else:
+		assert_true(false, "Reaction Guard enters an interference Battle", failures)
 
 func test_boss_phases_are_explicit_and_deterministic(failures: Array[String]) -> void:
 	var first_domain := _prepared_domain("run.boss.first")
@@ -456,6 +611,19 @@ func _prepared_domain_with_registry(run_id: String, registry: ContentRegistry) -
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
 	return domain
+
+func _reaction_registry(graph, technique_id: String, trigger_id: String, kind: String, tp_cost: int, operation_id: String) -> ContentRegistry:
+	var registry := _registry(graph)
+	var effect_amount: int = 1 if operation_id == "GainStability" else 0
+	var reaction_effect: Variant = Phase2Catalog.typed_effect("content.%s" % technique_id, operation_id, effect_amount)
+	var reaction = TechniqueDefinition.new(technique_id, kind, tp_cost, [reaction_effect], [], trigger_id)
+	registry.register(reaction)
+	var support_effects: Array = [
+		Phase2Catalog.typed_effect("content.base.technique.tp_stability_support.tp", "GainTP", 3),
+		Phase2Catalog.typed_effect("content.base.technique.tp_stability_support.stability", "GainStability", 1),
+	]
+	registry.register(TechniqueDefinition.new("base.technique.tp_stability_support", TechniqueDefinition.ACTIVE, 0, support_effects))
+	return registry
 
 func _has_event(events: Array, event_type: String) -> bool:
 	for event in events:

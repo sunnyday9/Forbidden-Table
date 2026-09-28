@@ -14,17 +14,20 @@ const DeterministicSerializerScript = preload("res://src/infrastructure/serializ
 const PHASE2_V1 := "content.slice.v1"
 const PHASE2_V2 := "content.slice.v2"
 const PHASE2_V3 := "content.slice.v3"
+const PHASE2_V4 := "content.slice.v4"
 const ACT_TWO_V2 := "content.bundle.v1.alpha.act_two@v2+phase2@v2"
 const ACT_TWO_SCALE_V2 := "content.bundle.v1.alpha.act_two@v2+alpha.scale@v2+phase2@v2"
 const ACT_TWO_V3 := "content.bundle.v1.alpha.act_two@v3+phase2@v3"
 const ACT_TWO_SCALE_V3 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v2+phase2@v3"
+const ACT_TWO_V4 := "content.bundle.v1.alpha.act_two@v3+phase2@v4"
+const ACT_TWO_SCALE_V4 := "content.bundle.v1.alpha.act_two@v3+alpha.scale@v3+phase2@v4"
 const CHANGED_EVENT_MODIFIER_IDS := [
 	"event.risk_bargain.accept",
 	"event.contract_clause.apply",
 	"event.act_two.contract_clause",
 	"event.act_two.rule_memory",
 ]
-const MIGRATION_STEP := "Explicit Content Migration: content.slice.v1 -> content.slice.v3"
+const MIGRATION_STEP := "Explicit Content Migration: content.slice.v1 -> content.slice.v4"
 
 static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
 	if content_registry == null:
@@ -32,7 +35,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 	if not content_registry.has_method("content_version"):
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	var target_version := str(content_registry.content_version())
-	if target_version not in [PHASE2_V3, ACT_TWO_SCALE_V3]:
+	if target_version not in [PHASE2_V4, ACT_TWO_SCALE_V4]:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -92,7 +95,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 	migrated_metadata["state_hash"] = _run_state_hash(migrated_state)
 	migrated["checkpoint_metadata"] = migrated_metadata
 	var migration_step := MIGRATION_STEP
-	if target_version != PHASE2_V3:
+	if target_version != PHASE2_V4:
 		migration_step = "Explicit Content Migration: %s -> %s" % [PHASE2_V1, target_version]
 	return {"accepted": true, "data": migrated, "migration": migration_step}
 
@@ -108,8 +111,8 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 	# registry. These source identities are explicitly allowlisted above; when
 	# present they migrate to that exact full identity after semantic guards and
 	# the normal LoadValidator checks every saved content reference.
-	if not target_version.is_empty() and registry_version == ACT_TWO_SCALE_V3:
-		target_version = ACT_TWO_SCALE_V3
+	if not target_version.is_empty() and registry_version == ACT_TWO_SCALE_V4:
+		target_version = ACT_TWO_SCALE_V4
 	if target_version.is_empty() or registry_version != target_version:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
@@ -154,14 +157,62 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 		"migration": "Explicit Content Migration: %s -> %s" % [source_version, target_version],
 	}
 
+static func migrate_full_v3_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
+	if content_registry == null:
+		return _reject("CONTENT_REGISTRY_REQUIRED")
+	if not content_registry.has_method("content_version") or str(content_registry.content_version()) != ACT_TWO_SCALE_V4:
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
+	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
+	if str(source.get("save_kind", "")) != "SUSPEND":
+		return _reject("CONTENT_MIGRATION_REQUIRES_SUSPEND_SNAPSHOT")
+	if str(source.get("content_version", "")) != ACT_TWO_SCALE_V3:
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_SOURCE")
+	var state = source.get("authoritative_state", null)
+	if not state is Dictionary or str(state.get("content_version", "")) != ACT_TWO_SCALE_V3:
+		return _reject("CONTENT_MIGRATION_STATE_VERSION_MISMATCH")
+	if source.has("run_state"):
+		var run_state = source.get("run_state")
+		if not run_state is Dictionary:
+			return _reject("INVALID_RUN_STATE_ALIAS")
+		if DeterministicSerializerScript.serialize(run_state) != DeterministicSerializerScript.serialize(state):
+			return _reject("RUN_STATE_ALIAS_MISMATCH")
+	var metadata = source.get("checkpoint_metadata", null)
+	if not metadata is Dictionary or not bool(metadata.get("stable", false)):
+		return _reject("UNSTABLE_CHECKPOINT")
+	if str(metadata.get("stable_boundary", "")).is_empty():
+		return _reject("MISSING_STABLE_BOUNDARY")
+	if not metadata.has("state_hash"):
+		return _reject("SOURCE_STATE_HASH_MISSING")
+	if str(metadata.get("state_hash", "")) != _run_state_hash(state):
+		return _reject("SOURCE_STATE_HASH_MISMATCH")
+	var active_effect_validation := _validate_active_event_migration_state(state)
+	if not active_effect_validation.accepted:
+		return active_effect_validation
+	var migrated_state: Dictionary = state.duplicate(true)
+	migrated_state["content_version"] = ACT_TWO_SCALE_V4
+	var migrated: Dictionary = source.duplicate(true)
+	migrated["content_version"] = ACT_TWO_SCALE_V4
+	migrated["authoritative_state"] = migrated_state
+	if migrated.has("run_state"):
+		migrated["run_state"] = migrated_state.duplicate(true)
+	var migrated_metadata: Dictionary = metadata.duplicate(true)
+	migrated_metadata["state_hash"] = _run_state_hash(migrated_state)
+	migrated["checkpoint_metadata"] = migrated_metadata
+	return {
+		"accepted": true,
+		"data": migrated,
+		"migration": "Explicit Content Migration: %s -> %s" % [ACT_TWO_SCALE_V3, ACT_TWO_SCALE_V4],
+	}
+
 static func _phase2_v2_migration_target(source_version: String) -> String:
 	match source_version:
 		PHASE2_V2:
-			return PHASE2_V3
+			return PHASE2_V4
 		ACT_TWO_V2:
-			return ACT_TWO_V3
+			return ACT_TWO_V4
 		ACT_TWO_SCALE_V2:
-			return ACT_TWO_SCALE_V3
+			return ACT_TWO_SCALE_V4
 		_:
 			return ""
 

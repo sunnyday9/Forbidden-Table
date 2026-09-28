@@ -248,8 +248,8 @@ func test_v2_suspend_snapshot_is_rejected_by_current_bundle(failures: Array[Stri
 	assert_true(migrated.accepted, "explicit v2 migration accepts a stable snapshot with no changed Event modifier (%s: %s)" % [migrated.get("code", ""), migrated.get("errors", [])], failures)
 	assert_true(old_v2 == original, "successful v2 migration leaves the archived input unchanged", failures)
 	if migrated.accepted:
-		assert_true(migrated.snapshot.content_version == "content.slice.v3", "explicit v2 migration labels the new Event rules accurately", failures)
-		assert_true(migrated.pipeline.has("Explicit Content Migration: content.slice.v2 -> content.slice.v3"), "the load pipeline records explicit v2 migration", failures)
+		assert_true(migrated.snapshot.content_version == "content.slice.v4", "explicit v2 migration labels the authored Reaction rules accurately", failures)
+		assert_true(migrated.pipeline.has("Explicit Content Migration: content.slice.v2 -> content.slice.v4"), "the load pipeline records explicit v2 migration", failures)
 		assert_true(migrated.domain.replay_record.content_version == migrated.snapshot.content_version, "the resumed replay starts with the migrated content identity", failures)
 		assert_true(migrated.domain.replay_record.checkpoints.size() == 1, "the resumed replay starts from the migrated checkpoint", failures)
 		assert_true(migrated.domain.verify_replay().is_match(), "the migrated replay verifies from its new initial checkpoint", failures)
@@ -418,18 +418,18 @@ func test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures
 	if not explicit_load.accepted:
 		return
 
-	assert_true(explicit_load.snapshot.content_version == "content.slice.v3", "the migrated snapshot uses the active v3 content bundle", failures)
-	assert_true(explicit_load.domain.state.content_version == "content.slice.v3", "the reconstructed RunState uses the active v3 content bundle", failures)
-	assert_true(explicit_load.snapshot.to_dictionary().run_state.content_version == "content.slice.v3", "explicit content migration updates the full-DTO run_state alias", failures)
+	assert_true(explicit_load.snapshot.content_version == "content.slice.v4", "the migrated snapshot uses the active v4 content bundle", failures)
+	assert_true(explicit_load.domain.state.content_version == "content.slice.v4", "the reconstructed RunState uses the active v4 content bundle", failures)
+	assert_true(explicit_load.snapshot.to_dictionary().run_state.content_version == "content.slice.v4", "explicit content migration updates the full-DTO run_state alias", failures)
 	assert_true(explicit_load.domain.state.phase == "MAP_CHOICE", "migration resumes at the fixture's stable Map boundary", failures)
 	assert_true(explicit_load.domain.state.character_id == "base.character.sequence" and explicit_load.domain.state.contract_id == "base.contract.pressure", "migration preserves the selected Character and Contract", failures)
-	assert_true(explicit_load.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v3"), "the returned load pipeline identifies the explicit content migration", failures)
-	assert_true(explicit_load.domain.replay_record.content_version == "content.slice.v3" and explicit_load.domain.replay_record.checkpoints.size() == 1, "the resumed replay starts from the migrated v3 checkpoint", failures)
+	assert_true(explicit_load.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v4"), "the returned load pipeline identifies the explicit content migration", failures)
+	assert_true(explicit_load.domain.replay_record.content_version == "content.slice.v4" and explicit_load.domain.replay_record.checkpoints.size() == 1, "the resumed replay starts from the migrated v4 checkpoint", failures)
 	assert_true(explicit_load.domain.verify_replay().is_match(), "the migrated v1 replay verifies from its new initial checkpoint", failures)
 	assert_true(explicit_load.domain.validate_select_map_node("base.map_node.normal.left").is_valid(), "a valid next Map command remains available after migration", failures)
 
 	var expected_state: Dictionary = original.authoritative_state.duplicate(true)
-	expected_state["content_version"] = "content.slice.v3"
+	expected_state["content_version"] = "content.slice.v4"
 	expected_state["act_index"] = 1
 	expected_state["act_count"] = 1
 	assert_true(DeterministicSerializer.serialize(explicit_load.domain.state.to_dictionary()) == DeterministicSerializer.serialize(expected_state), "migration preserves the authoritative state apart from the content version and explicit one-Act profile fields", failures)
@@ -560,7 +560,7 @@ func test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures: 
 		unchanged_fixture_file.close()
 	if not explicit_load.accepted:
 		return
-	assert_true(explicit_load.snapshot.content_version == "content.slice.v3", "only the named migration advances the serialized fixture's content version", failures)
+	assert_true(explicit_load.snapshot.content_version == "content.slice.v4", "only the named migration advances the serialized fixture's content version", failures)
 	assert_true(explicit_load.snapshot.checkpoint_metadata.state_hash == DeterministicSerializer.hash(explicit_load.domain.state.to_dictionary()), "migrated serialized checkpoint hash matches reconstructed state", failures)
 	assert_true(explicit_load.domain.rng_snapshot() == source.rng_state, "every migrated serialized RNG stream restores its exact saved state", failures)
 	var expected_rng := DomainRngStreams.new(int(source.run_seed))
@@ -611,7 +611,7 @@ func test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failur
 		unchanged_fixture.close()
 	if not migrated.accepted:
 		return
-	assert_true(migrated.snapshot.content_version == "content.slice.v3", "only explicit migration advances the archived fixture content version", failures)
+	assert_true(migrated.snapshot.content_version == "content.slice.v4", "only explicit migration advances the archived fixture content version", failures)
 	assert_true(migrated.snapshot.checkpoint_metadata.state_hash == DeterministicSerializer.hash(migrated.domain.state.to_dictionary()), "the migrated archived fixture has a valid reconstructed state hash", failures)
 	assert_true(migrated.domain.rng_snapshot() == source.rng_state, "every archived stream state survives migration exactly", failures)
 	var expected_rng := DomainRngStreams.new(int(source.run_seed))
@@ -657,7 +657,7 @@ func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Arr
 	assert_true(first_snapshot == second_snapshot, "repeated migrations produce byte-equivalent migrated DTOs", failures)
 	assert_true(first.domain.state.to_dictionary() == second.domain.state.to_dictionary(), "repeated migrations reconstruct identical RunState", failures)
 	assert_true(first.domain.rng_snapshot() == second.domain.rng_snapshot(), "repeated migrations reconstruct identical post-draft RNG state", failures)
-	assert_true(first_snapshot.content_version == "content.slice.v3", "the explicit migration advances content_version", failures)
+	assert_true(first_snapshot.content_version == "content.slice.v4", "the explicit migration advances content_version", failures)
 	assert_true(first_snapshot.authoritative_state.phase == "BOSS_REWARD", "migration preserves the stable Boss reward phase", failures)
 	assert_true(first_snapshot.authoritative_state.act_index == 1 and first_snapshot.authoritative_state.act_count == 1, "Phase 2 content migration preserves its one-Act run profile", failures)
 	assert_true(first_snapshot.checkpoint_metadata.stable_boundary == "REWARD", "migration preserves the stable REWARD checkpoint boundary", failures)
@@ -679,7 +679,7 @@ func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Arr
 	assert_true(first_snapshot.checkpoint_metadata.state_hash == migrated_state_hash, "migration replaces the source checkpoint hash with the migrated state hash", failures)
 	assert_true(first.domain.checkpoint().state_hash == migrated_state_hash, "the resumed Domain reports the migrated checkpoint hash", failures)
 	assert_true(migrated_state_hash != original.checkpoint_metadata.state_hash, "the migrated checkpoint cannot retain the pre-migration hash", failures)
-	assert_true(first.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v3"), "the returned pipeline identifies the explicit content migration", failures)
+	assert_true(first.pipeline.has("Explicit Content Migration: content.slice.v1 -> content.slice.v4"), "the returned pipeline identifies the explicit content migration", failures)
 
 	var selected_option = draft.options[0]
 	var first_choice = first.domain.execute(ChooseRewardCommand.new("legacy.boss.choice", selected_option.option_id, draft.draft_id))

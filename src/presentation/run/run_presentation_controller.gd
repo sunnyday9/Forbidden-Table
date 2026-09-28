@@ -764,6 +764,23 @@ func _rejected_presentation_input(message: String):
 	return result
 
 func _feedback_for_events(events: Array) -> String:
+	var last_reaction_used = null
+	var last_reaction_skipped = null
+	for event in events:
+		if event == null:
+			continue
+		if event.event_type == DomainEventScript.TECHNIQUE_USED and not str(event.data.get("reaction_trigger_label", "")).is_empty():
+			last_reaction_used = event
+		elif event.event_type == DomainEventScript.TECHNIQUE_REACTION_SKIPPED:
+			last_reaction_skipped = event
+	if last_reaction_used != null:
+		return "%s responded when %s." % [_technique_label(str(last_reaction_used.data.get("technique_id", ""))), str(last_reaction_used.data.get("reaction_trigger_label", "the trigger occurred"))]
+	if last_reaction_skipped != null:
+		return "%s could not respond when %s (%s)." % [
+			_technique_label(str(last_reaction_skipped.data.get("technique_id", ""))),
+			str(last_reaction_skipped.data.get("reaction_trigger_label", "the trigger occurred")),
+			str(last_reaction_skipped.data.get("reason", "unavailable")),
+		]
 	var last_event = events[events.size() - 1]
 	match last_event.event_type:
 		DomainEventScript.CHARACTER_SELECTED: return "Character selected."
@@ -782,3 +799,8 @@ func _feedback_for_events(events: Array) -> String:
 		DomainEventScript.TECHNIQUE_USED:
 			return "Technique used: %s." % str(last_event.data.get("technique_id", ""))
 	return str(last_event.event_type)
+
+func _technique_label(technique_id: String) -> String:
+	var parts := technique_id.split(".")
+	var short_id: String = str(parts[parts.size() - 1]) if not parts.is_empty() else technique_id
+	return short_id.replace("_", " ").capitalize()

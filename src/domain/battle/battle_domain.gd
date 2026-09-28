@@ -23,6 +23,8 @@ const CharacterPassiveDefinitionScript = preload("res://src/content/definitions/
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
+const CombatReactionWindowScript = preload("res://src/domain/combat/combat_reaction_window.gd")
+const CombatResolutionEffectScript = preload("res://src/domain/combat/combat_resolution_effect.gd")
 
 var zones
 var draw_wall
@@ -702,7 +704,7 @@ func resolve_enemy_intent():
 	if combat_resolver == null:
 		return {"accepted": false, "status": "COMBAT_RESOLVER_NOT_READY", "events": []}
 	var before_state: Dictionary = _capture_battle_transaction()
-	var result = combat_resolver.resolve_enemy_intent(combat_state)
+	var result = combat_resolver.resolve_enemy_intent(combat_state, Callable(self, "_resolve_enemy_reaction_techniques"))
 	var events: Array = result.events.duplicate()
 	if not result.is_resolved():
 		if not _restore_battle_transaction(before_state):
@@ -717,6 +719,121 @@ func resolve_enemy_intent():
 	if result.is_resolved() and reserve_service != null and combat_state.is_active():
 		events.append_array(reserve_service.natural_decay())
 	return {"accepted": result.is_resolved(), "status": result.status, "events": events, "data": result.to_dictionary()}
+
+func _resolve_enemy_reaction_techniques(queue, state, sequence_index: int, action_type: String, intent_id: String, applied_amount: int) -> Array:
+	var trigger_id := ""
+	if action_type == "CONTAMINATION":
+		trigger_id = TechniqueDefinitionScript.REACTION_ENEMY_CONTAMINATION_ADDED
+	elif action_type == "TABLE_INTERFERENCE":
+		trigger_id = TechniqueDefinitionScript.REACTION_ENEMY_STABILITY_LOST
+	if trigger_id.is_empty() or applied_amount <= 0 or context == null or context.content_registry == null:
+		return []
+	var build_state: Dictionary = context.build_state if context.build_state is Dictionary else {}
+	var owned_ids: Variant = build_state.get("run_technique_ids", [])
+	if not owned_ids is Array:
+		return []
+	var sorted_ids: Array[String] = []
+	for value in owned_ids:
+		var technique_id := str(value)
+		if not technique_id.is_empty() and not sorted_ids.has(technique_id):
+			sorted_ids.append(technique_id)
+	sorted_ids.sort()
+	for technique_id in sorted_ids:
+		var definition = context.content_registry.resolve(technique_id)
+		if not definition is TechniqueDefinitionScript:
+			continue
+		if definition.technique_kind != TechniqueDefinitionScript.REACTION or definition.reaction_trigger_id != trigger_id:
+			continue
+		var effect := CombatResolutionEffectScript.new(
+			"technique.reaction.%s.%d" % [technique_id, sequence_index],
+			Callable(self, "_resolve_single_enemy_reaction").bind(technique_id, intent_id, action_type, trigger_id),
+		)
+		queue.enqueue_trigger(effect)
+	return []
+
+func _resolve_single_enemy_reaction(queue, state, sequence_index: int, technique_id: String, intent_id: String, action_type: String, trigger_id: String) -> Array:
+	var definition = context.content_registry.resolve(technique_id) if context != null and context.content_registry != null else null
+	var trigger_label := TechniqueDefinitionScript.reaction_trigger_label(trigger_id)
+	if not definition is TechniqueDefinitionScript or definition.technique_kind != TechniqueDefinitionScript.REACTION or definition.reaction_trigger_id != trigger_id:
+		queue.add_event(DomainEventScript.new(DomainEventScript.TECHNIQUE_REACTION_SKIPPED, {
+			"technique_id": technique_id,
+			"intent_id": intent_id,
+			"action_type": action_type,
+			"reaction_trigger_id": trigger_id,
+			"reaction_trigger_label": trigger_label,
+			"reason": "INVALID_REACTION_DEFINITION",
+			"sequence_index": sequence_index,
+		}))
+		return []
+	if state.tp < definition.tp_cost:
+		return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, "INSUFFICIENT_TP", sequence_index)
+	if not definition.effects is Array or definition.effects.is_empty() or definition.effects.size() > 256:
+		return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, "INVALID_REACTION_EFFECTS", sequence_index)
+	var effect_context = EffectContextScript.new(state, zones, draw_wall, reserve_service, contamination_service, context.run_state if context != null else null)
+	for effect in definition.effects:
+		if not effect is EffectScript or effect.trigger == null or effect.trigger.trigger_id != "MANUAL":
+			return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, "INVALID_REACTION_EFFECT_TIMING", sequence_index)
+		var validation: Dictionary = effect.validate_in_context(effect_context)
+		if not bool(validation.get("valid", false)):
+			return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, str(validation.get("reason", "REACTION_EFFECT_UNAVAILABLE")), sequence_index)
+	var window_id := "reaction.intent.%d.%s" % [state.queue_index, technique_id]
+	var window := CombatReactionWindowScript.new(window_id, technique_id, true, true)
+	if not queue.open_reaction_window(window):
+		return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, "REACTION_WINDOW_UNAVAILABLE", sequence_index)
+	var cost_sequence_index: int = state._next_effect_sequence_index()
+	var previous_tp: int = state.tp
+	state.tp -= definition.tp_cost
+	if definition.tp_cost > 0:
+		queue.add_event(DomainEventScript.new(DomainEventScript.TP_CHANGED, {
+			"source_id": technique_id,
+			"previous_tp": previous_tp,
+			"tp": state.tp,
+			"amount": -definition.tp_cost,
+			"sequence_index": cost_sequence_index,
+		}))
+	var technique_sequence_index: int = state._next_effect_sequence_index()
+	queue.add_event(DomainEventScript.new(DomainEventScript.TECHNIQUE_USED, {
+		"technique_id": technique_id,
+		"technique_kind": definition.technique_kind,
+		"tp_cost": definition.tp_cost,
+		"intent_id": intent_id,
+		"action_type": action_type,
+		"reaction_trigger_id": trigger_id,
+		"reaction_trigger_label": trigger_label,
+		"sequence_index": technique_sequence_index,
+	}))
+	for effect in definition.effects:
+		var effect_sequence_index: int = state._next_effect_sequence_index()
+		var effect_result = effect.resolve_in_context(effect_context, effect_sequence_index)
+		if not effect_result is EffectResolutionResultScript or not effect_result.is_resolved():
+			if effect_result is EffectResolutionResultScript:
+				for event in effect_result.events:
+					queue.add_event(event)
+			queue.close_reaction_window(window_id)
+			queue.fail("TECHNIQUE_REACTION_EFFECT_REJECTED", {
+				"code": "TECHNIQUE_REACTION_EFFECT_REJECTED",
+				"technique_id": technique_id,
+				"intent_id": intent_id,
+				"effect_id": effect.effect_id if effect != null else "",
+				"sequence_index": effect_sequence_index,
+			})
+			return []
+		for event in effect_result.events:
+			queue.add_event(event)
+	queue.close_reaction_window(window_id)
+	return []
+
+func _record_skipped_reaction(queue, technique_id: String, intent_id: String, action_type: String, trigger_id: String, trigger_label: String, reason: String, sequence_index: int) -> Array:
+	queue.add_event(DomainEventScript.new(DomainEventScript.TECHNIQUE_REACTION_SKIPPED, {
+		"technique_id": technique_id,
+		"intent_id": intent_id,
+		"action_type": action_type,
+		"reaction_trigger_id": trigger_id,
+		"reaction_trigger_label": trigger_label,
+		"reason": reason,
+		"sequence_index": sequence_index,
+	}))
+	return []
 
 func execute_enemy_intent() -> Dictionary:
 	return resolve_enemy_intent()

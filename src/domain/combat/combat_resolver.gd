@@ -44,7 +44,7 @@ func resolve_combat_conversion(state, combat_output):
 		),
 	])
 
-func resolve_enemy_intent(state):
+func resolve_enemy_intent(state, reaction_handler: Callable = Callable()):
 	if not state is CombatStateScript or not state.is_active():
 		return _terminal_result(state)
 	if state.intent_graph == null or not state.intent_graph.validation().is_valid():
@@ -63,7 +63,7 @@ func resolve_enemy_intent(state):
 	else:
 		queue.enqueue_effect(CombatResolutionEffectScript.new(
 			"intent.action.%s" % intent.intent_id,
-			Callable(self, "_resolve_enemy_intent_action"),
+			Callable(self, "_resolve_enemy_intent_action").bind(reaction_handler),
 		))
 	queue.enqueue_effect(CombatResolutionEffectScript.new(
 		"intent.transition.%s" % intent.intent_id,
@@ -72,7 +72,7 @@ func resolve_enemy_intent(state):
 	var result = queue.drain()
 	return result
 
-func _resolve_enemy_intent_action(queue, state, sequence_index: int) -> Array:
+func _resolve_enemy_intent_action(queue, state, sequence_index: int, reaction_handler: Callable = Callable()) -> Array:
 	var intent = state.current_intent
 	if intent == null:
 		return []
@@ -183,6 +183,11 @@ func _resolve_enemy_intent_action(queue, state, sequence_index: int) -> Array:
 		"target_instance_id": target_instance_id,
 		"sequence_index": sequence_index,
 	}))
+	if applied_amount > 0 and reaction_handler.is_valid() and intent.action_type in [EnemyIntentScript.CONTAMINATION, EnemyIntentScript.TABLE_INTERFERENCE]:
+		queue.enqueue_trigger(CombatResolutionEffectScript.new(
+			"intent.reactions.%s" % intent.intent_id,
+			reaction_handler.bind(intent.action_type, intent.intent_id, applied_amount),
+		))
 	return events
 
 func _fail_enemy_intent_action(queue, intent, reason: String, sequence_index: int) -> void:

@@ -107,9 +107,11 @@ func close_reaction_window(window_id: String) -> bool:
 	if not _open_reaction_windows.has(window_id) or _drained:
 		return false
 	_open_reaction_windows.erase(window_id)
+	var sequence_index: int = _state._next_effect_sequence_index()
 	_events.append(DomainEventScript.new(DomainEventScript.REACTION_WINDOW_CLOSED, {
 		"window_id": window_id,
 		"reason": "resolved",
+		"sequence_index": sequence_index,
 	}))
 	return true
 

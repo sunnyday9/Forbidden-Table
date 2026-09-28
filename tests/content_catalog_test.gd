@@ -36,6 +36,7 @@ func run() -> Array[String]:
 	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
 	test_act_two_encounters_events_and_map_payloads_are_typed(failures)
 	test_content_version_identifies_registered_catalog_bundles(failures)
+	test_catalogued_build_techniques_declare_battle_timings(failures)
 	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
@@ -48,7 +49,7 @@ func test_lower_bound_catalog_registers_and_validates(failures: Array[String]) -
 	assert_true(registration.is_valid(), "the lower-bound catalog registers every definition", failures)
 	var validation = registry.validate()
 	assert_true(validation.is_valid(), "the lower-bound catalog passes ContentRegistry validation", failures)
-	assert_true(registry.content_version() == "content.slice.v3", "the catalog versions current deterministic Event content", failures)
+	assert_true(registry.content_version() == "content.slice.v4", "the catalog versions current deterministic Reaction content", failures)
 
 func test_catalog_ids_and_roles_match_phase_2(failures: Array[String]) -> void:
 	assert_true(Phase2Catalog.CHARACTER_IDS == [
@@ -247,15 +248,34 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	Phase2Catalog.register_all(repeated_scale_registry)
 	var repeated_scale_version: String = repeated_scale_registry.content_version()
 
-	assert_true(phase2_version == "content.slice.v3", "Phase 2 Event semantics use a new explicit content identity", failures)
-	assert_true(phase2_version != "content.slice.v2", "old Phase 2 v2 content cannot share the updated gameplay identity", failures)
+	assert_true(phase2_version == "content.slice.v4", "Phase 2 Technique reaction semantics use a new explicit content identity", failures)
+	assert_true(phase2_version != "content.slice.v3", "old Phase 2 v3 content cannot share the updated gameplay identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
-	assert_true(act_two_version.contains("alpha.act_two@v3") and act_two_version.contains("phase2@v3"), "Act 2 and shared Phase 2 Event semantics both carry their updated versions", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v3") and act_two_version.contains("phase2@v4"), "Act 2 and shared Phase 2 Technique semantics both carry their updated versions", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
 	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
 	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
+
+func test_catalogued_build_techniques_declare_battle_timings(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var phase2_registration = Phase2Catalog.register_all(registry)
+	var scale_registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(phase2_registration.is_valid() and scale_registration.is_valid(), "both Technique bundles register with explicit reaction timings", failures)
+	if not phase2_registration.is_valid() or not scale_registration.is_valid():
+		return
+	var clean_table = registry.resolve("base.technique.clean_table")
+	var reaction_guard = registry.resolve("base.technique.reaction_guard")
+	var cleansing_call = registry.resolve("alpha.technique.cleansing_call")
+	var reserve_survey = registry.resolve("alpha.technique.reserve_survey")
+	assert_true(clean_table != null and clean_table.technique_kind == TechniqueDefinition.REACTION and clean_table.reaction_trigger_id == TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED, "Clean Table is a Contamination-triggered Reaction", failures)
+	assert_true(cleansing_call != null and cleansing_call.technique_kind == TechniqueDefinition.REACTION and cleansing_call.reaction_trigger_id == TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED, "Cleansing Call is a Contamination-triggered Reaction", failures)
+	assert_true(reaction_guard != null and reaction_guard.technique_kind == TechniqueDefinition.REACTION and reaction_guard.reaction_trigger_id == TechniqueDefinition.REACTION_ENEMY_STABILITY_LOST, "Reaction Guard responds only after enemy Stability loss", failures)
+	assert_true(reserve_survey != null and reserve_survey.technique_kind == TechniqueDefinition.PASSIVE and reserve_survey.reaction_trigger_id.is_empty(), "Reserve Survey remains a Passive without a manual Reaction trigger", failures)
+	var unconfigured_reaction := TechniqueDefinition.new("base.technique.unconfigured_reaction", TechniqueDefinition.REACTION, 1, [Phase2Catalog.typed_effect("content.unconfigured_reaction", "PurgeContamination")])
+	var unconfigured_report = unconfigured_reaction.validate()
+	assert_true(not unconfigured_report.is_valid() and unconfigured_report.has_code("invalid_reaction_trigger"), "catalog validation rejects a Reaction without explicit trigger metadata", failures)
 
 func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

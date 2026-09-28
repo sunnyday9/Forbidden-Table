@@ -4,7 +4,7 @@ extends RefCounted
 const ContentValidationIssueScript = preload("res://src/content/validation/content_validation_issue.gd")
 const ContentValidationReportScript = preload("res://src/content/validation/content_validation_report.gd")
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
-const CONTENT_VERSION := "content.slice.v3"
+const CONTENT_VERSION := "content.slice.v4"
 const BUNDLE_CONTENT_VERSION_PREFIX := "content.bundle.v1."
 
 var _definitions: Dictionary = {}
@@ -43,7 +43,7 @@ func content_version() -> String:
 	bundle_versions.sort()
 	if bundle_versions.is_empty():
 		return CONTENT_VERSION
-	if bundle_versions.size() == 1 and str(bundle_versions[0]) == "phase2@v3":
+	if bundle_versions.size() == 1 and str(bundle_versions[0]) == "phase2@v4":
 		return CONTENT_VERSION
 	var identity_parts := PackedStringArray()
 	for bundle_version in bundle_versions:

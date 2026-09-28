@@ -154,7 +154,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		current_scene.free()
 		return
 	var full_registry = registry_result.registry
-	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V3, "RunScene uses the complete Phase 2 + Act Two + Alpha Scale content identity", failures)
+	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V4, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
 	var current_domain = _migration_source_domain(full_registry, "run.scene.current-identity", 761, true, failures)
 	var current_snapshot = SaveMapperScript.suspend_snapshot(current_domain)
 	var current_bytes: String = current_snapshot.serialize()
@@ -180,6 +180,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		ContentVersionMigrationScript.PHASE2_V2,
 		ContentVersionMigrationScript.ACT_TWO_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V3,
 	]
 	for index in range(legacy_versions.size()):
 		var legacy_version: String = legacy_versions[index]
@@ -192,7 +193,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 			scene.free()
 			continue
 		var scene_registry = full_result.registry
-		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V3, "%s migration targets the complete player registry" % legacy_version, failures)
+		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V4, "%s migration targets the complete player registry" % legacy_version, failures)
 		var source_data: Dictionary
 		var source_bytes := ""
 		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
@@ -210,7 +211,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 				continue
 			source_data = fixture_parse.data
 		else:
-			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2]
+			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3]
 			var source_domain = _migration_source_domain(scene_registry, "run.scene.legacy.%d" % index, 770 + index, alpha_source, failures)
 			source_data = SaveMapperScript.suspend_snapshot(source_domain).to_dictionary()
 			_set_snapshot_content_identity(source_data, legacy_version)
@@ -268,47 +269,53 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 
 func test_scene_rejects_active_changed_event_migration_and_preserves_source(failures: Array[String]) -> void:
 	var suffix := str(Time.get_ticks_usec())
-	var suspend_path := "user://run_scene_changed_event_suspend_%s.json" % suffix
-	var profile_path := "user://run_scene_changed_event_profile_%s.json" % suffix
-	var scene = _new_isolated_run_scene(suspend_path, profile_path)
-	var registry_result: Dictionary = scene._validated_content_registry()
-	assert_true(registry_result.get("accepted", false), "the changed-Event fixture obtains the complete RunScene registry", failures)
-	if not registry_result.get("accepted", false):
+	var legacy_full_versions: Array[String] = [
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V3,
+	]
+	for index in range(legacy_full_versions.size()):
+		var legacy_version: String = legacy_full_versions[index]
+		var suspend_path := "user://run_scene_changed_event_suspend_%d_%s.json" % [index, suffix]
+		var profile_path := "user://run_scene_changed_event_profile_%d_%s.json" % [index, suffix]
+		var scene = _new_isolated_run_scene(suspend_path, profile_path)
+		var registry_result: Dictionary = scene._validated_content_registry()
+		assert_true(registry_result.get("accepted", false), "%s changed-Event fixture obtains the complete RunScene registry" % legacy_version, failures)
+		if not registry_result.get("accepted", false):
+			scene.free()
+			continue
+		var registry = registry_result.registry
+		var domain = _migration_source_domain(registry, "run.scene.changed-event.%d" % index, 781 + index, true, failures)
+		var source_data: Dictionary = SaveMapperScript.suspend_snapshot(domain).to_dictionary()
+		_set_snapshot_content_identity(source_data, legacy_version)
+		var changed_effect := {
+			"instance_id": "run.modifier.event.risk_bargain.accept",
+			"definition_id": "event.risk_bargain.accept",
+			"source_id": "event.risk_bargain.accept",
+			"runtime_parameters": {"modifier_id": "event.risk_bargain.accept"},
+		}
+		source_data.authoritative_state["active_effects"] = [changed_effect]
+		source_data.run_state = source_data.authoritative_state.duplicate(true)
+		source_data.checkpoint_metadata.state_hash = _run_state_hash(source_data.authoritative_state)
+		var source_bytes: String = SuspendSnapshotScript.from_dictionary(source_data).serialize()
+		var source_file := FileAccess.open(suspend_path, FileAccess.WRITE)
+		assert_true(source_file != null, "%s active changed-Event source can be stored" % legacy_version, failures)
+		if source_file == null:
+			scene.free()
+			continue
+		source_file.store_string(source_bytes)
+		source_file.close()
+		scene._ready()
+		assert_true(scene.controller == null and scene._pending_resume_domain == null, "RunScene refuses to activate a changed Event modifier from %s" % legacy_version, failures)
+		assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "%s rejected Event migration leaves the original save bytes unchanged" % legacy_version, failures)
+		var preserved_path := ProjectSettings.globalize_path(suspend_path) + ".rejected"
+		assert_true(FileAccess.file_exists(preserved_path), "RunScene preserves the %s active-Event source" % legacy_version, failures)
+		if FileAccess.file_exists(preserved_path):
+			assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "%s preserved Event source is byte-for-byte identical" % legacy_version, failures)
+		var status = scene.find_child("SuspendStatus", true, false)
+		assert_true(status is Label and str(status.text).contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "%s player sees the specific semantic migration rejection" % legacy_version, failures)
 		scene.free()
-		return
-	var registry = registry_result.registry
-	var domain = _migration_source_domain(registry, "run.scene.changed-event", 781, true, failures)
-	var source_data: Dictionary = SaveMapperScript.suspend_snapshot(domain).to_dictionary()
-	_set_snapshot_content_identity(source_data, ContentVersionMigrationScript.ACT_TWO_SCALE_V2)
-	var changed_effect := {
-		"instance_id": "run.modifier.event.risk_bargain.accept",
-		"definition_id": "event.risk_bargain.accept",
-		"source_id": "event.risk_bargain.accept",
-		"runtime_parameters": {"modifier_id": "event.risk_bargain.accept"},
-	}
-	source_data.authoritative_state["active_effects"] = [changed_effect]
-	source_data.run_state = source_data.authoritative_state.duplicate(true)
-	source_data.checkpoint_metadata.state_hash = _run_state_hash(source_data.authoritative_state)
-	var source_bytes: String = SuspendSnapshotScript.from_dictionary(source_data).serialize()
-	var source_file := FileAccess.open(suspend_path, FileAccess.WRITE)
-	assert_true(source_file != null, "the active changed-Event source can be stored", failures)
-	if source_file == null:
-		scene.free()
-		return
-	source_file.store_string(source_bytes)
-	source_file.close()
-	scene._ready()
-	assert_true(scene.controller == null and scene._pending_resume_domain == null, "RunScene refuses to activate a changed Event modifier from an old save", failures)
-	assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "rejected Event migration leaves the original save bytes unchanged", failures)
-	var preserved_path := ProjectSettings.globalize_path(suspend_path) + ".rejected"
-	assert_true(FileAccess.file_exists(preserved_path), "RunScene preserves the rejected active-Event source", failures)
-	if FileAccess.file_exists(preserved_path):
-		assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "the preserved Event source is byte-for-byte identical", failures)
-	var status = scene.find_child("SuspendStatus", true, false)
-	assert_true(status is Label and str(status.text).contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "the player sees the specific semantic migration rejection", failures)
-	scene.free()
-	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", preserved_path, profile_path]:
-		_clear_test_file(path)
+		for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", preserved_path, profile_path]:
+			_clear_test_file(path)
 
 func test_run_scene_persists_and_resumes_suspend_save(failures: Array[String]) -> void:
 	var suspend_path := "user://run_scene_suspend_%d.json" % Time.get_ticks_usec()
@@ -723,7 +730,7 @@ func test_owned_active_technique_is_available(failures: Array[String]) -> void:
 					assert_true(scene.controller.domain.checkpoint() == before_repeat_core and scene.controller.domain.rng_snapshot() == rng_before_repeat_core, "a repeated Core Technique preserves RunState and all RNG streams", failures)
 					var reserve_result = scene._on_action_pressed("battle.technique:base.technique.reserve_exchange")
 					assert_true(reserve_result.accepted, "the owned Reserve capacity Technique resolves", failures)
-					assert_true(battle.combat_state.reserve_capacity == 4 and battle.reserve_service.reserve_capacity == 4 and battle.zones.reserve_capacity == 4, "Reserve capacity effects immediately synchronize CombatState, ReserveService, and TileZoneContainer", failures)
+					assert_true(battle.combat_state.reserve_capacity == 5 and battle.reserve_service.reserve_capacity == 5 and battle.zones.reserve_capacity == 5, "owned Passive and Active Reserve capacity effects synchronize CombatState, ReserveService, and TileZoneContainer", failures)
 					assert_true(reserve_result.events.any(func(event): return event.event_type == DomainEventScript.CAPACITY_CHANGED and event.data.get("capacity", "") == "reserve_capacity"), "Reserve capacity activation emits the factual capacity event", failures)
 					var settlement_result = scene._on_action_pressed("battle.technique:base.technique.settlement_focus")
 					assert_true(settlement_result.accepted, "the owned Settlement Technique resolves while its Window is open", failures)

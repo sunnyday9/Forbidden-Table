@@ -555,7 +555,7 @@ func _registry() -> ContentRegistry:
 	for relic_id in ["base.relic.open_hand", "base.relic.sequence_lens"]:
 		registry.register(RelicDefinition.new(relic_id))
 	registry.register(TechniqueDefinition.new("base.technique.draw_surge", TechniqueDefinition.ACTIVE, 1))
-	registry.register(TechniqueDefinition.new("base.technique.reserve_exchange", TechniqueDefinition.REACTION, 1))
+	registry.register(TechniqueDefinition.new("base.technique.reserve_exchange", TechniqueDefinition.ACTIVE, 1))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(TileModifierDefinition.new("base.modifier.flexible_identity", "FLEXIBLE_IDENTITY", 1))
 	registry.register(TileModifierDefinition.new("base.modifier.recycling", "RECYCLING", 1))

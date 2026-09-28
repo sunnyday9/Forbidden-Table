@@ -70,7 +70,7 @@ const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v2"
+const CONTENT_BUNDLE_VERSION := "v3"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -193,7 +193,7 @@ static func _run_technique_definitions() -> Array:
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[0], TechniqueDefinitionScript.ACTIVE, 1, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[0], "GainStability", 1)]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[1], TechniqueDefinitionScript.ACTIVE, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[1], "GainTP", 1)]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[2], TechniqueDefinitionScript.PASSIVE, 0, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[2], "ModifyReserveCapacity", 1)]),
-		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[3], TechniqueDefinitionScript.REACTION, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[3], "PurgeContamination", 1)]),
+		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[3], TechniqueDefinitionScript.REACTION, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[3], "PurgeContamination", 1)], [], TechniqueDefinitionScript.REACTION_ENEMY_CONTAMINATION_ADDED),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[4], TechniqueDefinitionScript.SETTLEMENT, 2, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[4], "ModifySettlementCapacity", 1)]),
 		TechniqueDefinitionScript.new(RUN_TECHNIQUE_IDS[5], TechniqueDefinitionScript.ACTIVE, 3, [Phase2CatalogScript.typed_effect("content.%s" % RUN_TECHNIQUE_IDS[5], "DealDamage", 2)]),
 	]

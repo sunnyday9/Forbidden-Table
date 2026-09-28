@@ -7,10 +7,14 @@ const SETTLEMENT := "SETTLEMENT"
 const REACTION := "REACTION"
 const CORE := "CORE"
 const VALID_KINDS := [ACTIVE, PASSIVE, SETTLEMENT, REACTION, CORE]
+const REACTION_ENEMY_CONTAMINATION_ADDED := "ENEMY_CONTAMINATION_ADDED"
+const REACTION_ENEMY_STABILITY_LOST := "ENEMY_STABILITY_LOST"
+const VALID_REACTION_TRIGGERS := [REACTION_ENEMY_CONTAMINATION_ADDED, REACTION_ENEMY_STABILITY_LOST]
 
 @export var technique_kind: String
 @export var tp_cost: int
 @export var effects: Array
+@export var reaction_trigger_id: String
 
 func _init(
 	definition_id: String = "",
@@ -18,11 +22,13 @@ func _init(
 	cost: int = 0,
 	technique_effects: Array = [],
 	references: Array[String] = [],
+	technique_reaction_trigger_id: String = "",
 ) -> void:
 	super(definition_id, references)
 	technique_kind = kind
 	tp_cost = cost
 	effects = technique_effects.duplicate()
+	reaction_trigger_id = technique_reaction_trigger_id
 
 func definition_type_name() -> String:
 	return "TechniqueDefinition"
@@ -36,5 +42,18 @@ func validate():
 		report.add_issue(_issue("invalid_technique_kind", "TechniqueDefinition must declare a supported kind."))
 	if tp_cost < 0:
 		report.add_issue(_issue("invalid_technique_cost", "TechniqueDefinition TP cost cannot be negative."))
+	if technique_kind == REACTION and not VALID_REACTION_TRIGGERS.has(reaction_trigger_id):
+		report.add_issue(_issue("invalid_reaction_trigger", "Reaction Techniques must declare a supported trigger."))
+	elif technique_kind != REACTION and not reaction_trigger_id.is_empty():
+		report.add_issue(_issue("unexpected_reaction_trigger", "Only Reaction Techniques may declare a reaction trigger."))
 	_validate_typed_effects(report, effects, "effects")
 	return report
+
+static func reaction_trigger_label(trigger_id: String) -> String:
+	match trigger_id:
+		REACTION_ENEMY_CONTAMINATION_ADDED:
+			return "enemy Contamination is added"
+		REACTION_ENEMY_STABILITY_LOST:
+			return "enemy Table Interference reduces Stability"
+		_:
+			return "an unknown trigger"
