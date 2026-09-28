@@ -439,7 +439,7 @@ func _count_events(events: Array, event_type: String) -> int:
 class MutatingFailureCombatResolver:
 	extends RefCounted
 
-	func resolve_enemy_intent(state):
+	func resolve_enemy_intent(state, _reaction_handler: Callable = Callable()):
 		state.pressure += 1
 		state.intent_rng.next_int(1, 100)
 		state._next_sequence_index += 1
