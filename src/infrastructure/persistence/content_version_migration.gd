@@ -29,7 +29,10 @@ const MIGRATION_STEP := "Explicit Content Migration: content.slice.v1 -> content
 static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
 	if content_registry == null:
 		return _reject("CONTENT_REGISTRY_REQUIRED")
-	if not content_registry.has_method("content_version") or content_registry.content_version() != PHASE2_V3:
+	if not content_registry.has_method("content_version"):
+		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
+	var target_version := str(content_registry.content_version())
+	if target_version not in [PHASE2_V3, ACT_TWO_SCALE_V3]:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -71,7 +74,7 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 		migrated_rng_state = migrated_rng_state.duplicate(true)
 	var migrated_metadata: Dictionary = metadata.duplicate(true)
 	if str(migrated_state.get("phase", "")) == RunPhaseScript.BOSS_REWARD:
-		var boss_reward_migration := _migrate_legacy_boss_reward(migrated_state, source, content_registry)
+		var boss_reward_migration := _migrate_legacy_boss_reward(migrated_state, source, content_registry, target_version)
 		if not boss_reward_migration.accepted:
 			return boss_reward_migration
 		migrated_state = boss_reward_migration.state
@@ -79,16 +82,19 @@ static func migrate_phase2_v1_suspend_snapshot(source: Dictionary, content_regis
 		if migrated_metadata.has("checkpoint_sequence"):
 			migrated_metadata["checkpoint_sequence"] = int(migrated_state["reward_draft_sequence"]) + int(migrated_state["tile_instance_sequence"])
 
-	migrated_state["content_version"] = PHASE2_V3
+	migrated_state["content_version"] = target_version
 	var migrated: Dictionary = source.duplicate(true)
-	migrated["content_version"] = PHASE2_V3
+	migrated["content_version"] = target_version
 	migrated["authoritative_state"] = migrated_state
 	if migrated.has("run_state"):
 		migrated["run_state"] = migrated_state.duplicate(true)
 	migrated["rng_state"] = migrated_rng_state
 	migrated_metadata["state_hash"] = _run_state_hash(migrated_state)
 	migrated["checkpoint_metadata"] = migrated_metadata
-	return {"accepted": true, "data": migrated, "migration": MIGRATION_STEP}
+	var migration_step := MIGRATION_STEP
+	if target_version != PHASE2_V3:
+		migration_step = "Explicit Content Migration: %s -> %s" % [PHASE2_V1, target_version]
+	return {"accepted": true, "data": migrated, "migration": migration_step}
 
 static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_registry) -> Dictionary:
 	if content_registry == null:
@@ -97,7 +103,14 @@ static func migrate_phase2_v2_suspend_snapshot(source: Dictionary, content_regis
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	var source_version := str(source.get("content_version", ""))
 	var target_version := _phase2_v2_migration_target(source_version)
-	if target_version.is_empty() or content_registry.content_version() != target_version:
+	var registry_version := str(content_registry.content_version())
+	# RunScene always loads the complete Phase 2 + Act Two + Alpha Scale
+	# registry. These source identities are explicitly allowlisted above; when
+	# present they migrate to that exact full identity after semantic guards and
+	# the normal LoadValidator checks every saved content reference.
+	if not target_version.is_empty() and registry_version == ACT_TWO_SCALE_V3:
+		target_version = ACT_TWO_SCALE_V3
+	if target_version.is_empty() or registry_version != target_version:
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_TARGET")
 	if int(source.get("schema_version", -1)) != 1 or str(source.get("game_version", "")) != "game.phase2.v1":
 		return _reject("UNSUPPORTED_CONTENT_MIGRATION_ENVELOPE")
@@ -189,7 +202,7 @@ static func _run_state_hash(state: Dictionary) -> String:
 	deterministic_state.erase("run_started_at_unix_seconds")
 	return DeterministicSerializerScript.hash(deterministic_state)
 
-static func _migrate_legacy_boss_reward(state: Dictionary, source: Dictionary, content_registry) -> Dictionary:
+static func _migrate_legacy_boss_reward(state: Dictionary, source: Dictionary, content_registry, target_version: String) -> Dictionary:
 	var legacy_draft = state.get("reward_draft", null)
 	if not legacy_draft is Dictionary or not legacy_draft.is_empty():
 		return _reject("UNEXPECTED_LEGACY_BOSS_REWARD_DRAFT")
@@ -226,7 +239,7 @@ static func _migrate_legacy_boss_reward(state: Dictionary, source: Dictionary, c
 	var acquired_rule_breaker_ids = ownership.get("acquired_rule_breaker_ids", null)
 	if not acquired_rule_breaker_ids is Array:
 		return _reject("INVALID_LEGACY_BOSS_REWARD_OWNERSHIP")
-	var run_state = RunStateScript.new(str(state.get("run_id", "")), int(run_seed), PHASE2_V3)
+	var run_state = RunStateScript.new(str(state.get("run_id", "")), int(run_seed), target_version)
 	for rule_breaker_id in acquired_rule_breaker_ids:
 		run_state.build_ownership.acquired_rule_breaker_ids.append(str(rule_breaker_id))
 	var next_sequence := int(sequence) + 1

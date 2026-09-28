@@ -11,6 +11,8 @@ const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const RunSummaryPresenterScript = preload("res://src/presentation/run/run_summary_presenter.gd")
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
+const ContentVersionMigrationScript = preload("res://src/infrastructure/persistence/content_version_migration.gd")
+const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const SuspendSaveStoreScript = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
 
 var controller
@@ -109,7 +111,7 @@ func _load_suspend_or_start_new(registry) -> void:
 	if not stored.get("exists", false):
 		_start_new_run(registry)
 		return
-	var loaded: Dictionary = SaveMapperScript.load_into_domain(str(stored.get("contents", "")), registry)
+	var loaded: Dictionary = _load_suspend_contents(str(stored.get("contents", "")), registry)
 	if not loaded.get("accepted", false):
 		var preservation: Dictionary = suspend_store.preserve_source()
 		if preservation.get("accepted", false):
@@ -154,6 +156,29 @@ func _load_suspend_or_start_new(registry) -> void:
 	if finalized.has("cleanup_warning"):
 		cleanup_prefix = "The saved Run loaded, but interrupted-save cleanup needs attention (%s)." % str(finalized.get("cleanup_warning"))
 	_show_valid_suspend_choice(saved_domain, cleanup_prefix, true, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
+
+func _load_suspend_contents(contents: String, registry) -> Dictionary:
+	# Current content identities always use the exact-version generic loader.
+	var loaded: Dictionary = SaveMapperScript.load_into_domain(contents, registry)
+	if loaded.get("accepted", false) or not _has_load_validation_error(loaded, "UNSUPPORTED_CONTENT_VERSION"):
+		return loaded
+	var parsed: Dictionary = JsonIntegerCodecScript.parse(contents)
+	if not parsed.get("accepted", false) or not parsed.get("data") is Dictionary:
+		return loaded
+	var source_version := str(parsed.data.get("content_version", ""))
+	match source_version:
+		ContentVersionMigrationScript.PHASE2_V1:
+			return SaveMapperScript.load_phase2_v1_suspend_snapshot_into_domain(contents, registry)
+		ContentVersionMigrationScript.PHASE2_V2, ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2:
+			return SaveMapperScript.load_phase2_v2_suspend_snapshot_into_domain(contents, registry)
+		_:
+			return loaded
+
+func _has_load_validation_error(loaded: Dictionary, code: String) -> bool:
+	for issue in loaded.get("errors", []):
+		if issue is Dictionary and str(issue.get("code", "")) == code:
+			return true
+	return false
 
 func _suspend_load_error(loaded: Dictionary) -> String:
 	for issue in loaded.get("errors", []):

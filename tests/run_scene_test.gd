@@ -25,15 +25,22 @@ const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SuspendSaveStoreScript = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
 const SuspendSnapshotScript = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
+const ContentVersionMigrationScript = preload("res://src/infrastructure/persistence/content_version_migration.gd")
+const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
+const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const Phase2V1SuspendSnapshotFixtureScript = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
+const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
+const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_launch_scene_uses_the_two_act_presentation_flow(failures)
 	test_contract_choices_explain_alpha_tradeoffs(failures)
+	test_scene_dispatches_allowlisted_content_migrations_for_full_registry(failures)
+	test_scene_rejects_active_changed_event_migration_and_preserves_source(failures)
 	test_run_scene_persists_and_resumes_suspend_save(failures)
 	test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures)
 	test_interrupted_suspend_sources_are_not_rolled_back(failures)
@@ -136,6 +143,173 @@ func test_contract_choices_explain_alpha_tradeoffs(failures: Array[String]) -> v
 	assert_true(selected.accepted and domain.state.contract_id == "alpha.contract.open_ledger", "a detailed Contract remains selectable through its stable action ID", failures)
 	scene.free()
 
+func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(failures: Array[String]) -> void:
+	var suffix := str(Time.get_ticks_usec())
+	var current_suspend_path := "user://run_scene_current_identity_%s.json" % suffix
+	var current_profile_path := "user://run_scene_current_identity_profile_%s.json" % suffix
+	var current_scene = _new_isolated_run_scene(current_suspend_path, current_profile_path)
+	var registry_result: Dictionary = current_scene._validated_content_registry()
+	assert_true(registry_result.get("accepted", false), "the RunScene registry validates before save dispatch", failures)
+	if not registry_result.get("accepted", false):
+		current_scene.free()
+		return
+	var full_registry = registry_result.registry
+	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V3, "RunScene uses the complete Phase 2 + Act Two + Alpha Scale content identity", failures)
+	var current_domain = _migration_source_domain(full_registry, "run.scene.current-identity", 761, true, failures)
+	var current_snapshot = SaveMapperScript.suspend_snapshot(current_domain)
+	var current_bytes: String = current_snapshot.serialize()
+	var current_loaded: Dictionary = current_scene._load_suspend_contents(current_bytes, full_registry)
+	assert_true(current_loaded.get("accepted", false), "a current full-bundle save passes through the generic exact-version loader", failures)
+	assert_true(not current_loaded.get("pipeline", []).any(func(step): return str(step).begins_with("Explicit Content Migration:")), "current-version loading does not apply a content migration", failures)
+	var current_file := FileAccess.open(current_suspend_path, FileAccess.WRITE)
+	assert_true(current_file != null, "the current full-bundle source can be stored for the player path", failures)
+	if current_file != null:
+		current_file.store_string(current_bytes)
+		current_file.close()
+	current_scene._ready()
+	assert_true(current_scene._pending_resume_domain != null and current_scene.controller == null, "the player path holds an exact-version save for explicit Resume", failures)
+	assert_true(FileAccess.get_file_as_string(current_suspend_path) == current_bytes, "current-version loading leaves the source bytes unchanged", failures)
+	var current_resume_button = current_scene.find_child("ResumeRunButton", true, false)
+	if current_resume_button is Button:
+		current_resume_button.emit_signal("pressed")
+	assert_true(current_scene.controller != null and current_scene.controller.domain.state.content_version == full_registry.content_version(), "the exact-version save resumes with the same full content identity", failures)
+	current_scene.free()
+
+	var legacy_versions: Array[String] = [
+		ContentVersionMigrationScript.PHASE2_V1,
+		ContentVersionMigrationScript.PHASE2_V2,
+		ContentVersionMigrationScript.ACT_TWO_V2,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
+	]
+	for index in range(legacy_versions.size()):
+		var legacy_version: String = legacy_versions[index]
+		var suspend_path := "user://run_scene_legacy_%d_%s.json" % [index, suffix]
+		var profile_path := "user://run_scene_legacy_profile_%d_%s.json" % [index, suffix]
+		var scene = _new_isolated_run_scene(suspend_path, profile_path)
+		var full_result: Dictionary = scene._validated_content_registry()
+		assert_true(full_result.get("accepted", false), "%s migration test obtains the RunScene registry" % legacy_version, failures)
+		if not full_result.get("accepted", false):
+			scene.free()
+			continue
+		var scene_registry = full_result.registry
+		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V3, "%s migration targets the complete player registry" % legacy_version, failures)
+		var source_data: Dictionary
+		var source_bytes := ""
+		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
+			var fixture_file := FileAccess.open("res://tests/fixtures/phase2_v1_serialized_suspend_snapshot.json", FileAccess.READ)
+			assert_true(fixture_file != null, "the immutable serialized Phase 2 v1 fixture is available to RunScene", failures)
+			if fixture_file == null:
+				scene.free()
+				continue
+			source_bytes = fixture_file.get_as_text()
+			fixture_file.close()
+			var fixture_parse: Dictionary = JsonIntegerCodecScript.parse(source_bytes)
+			assert_true(fixture_parse.get("accepted", false) and fixture_parse.get("data") is Dictionary, "the archived Phase 2 v1 source parses losslessly", failures)
+			if not fixture_parse.get("accepted", false) or not fixture_parse.get("data") is Dictionary:
+				scene.free()
+				continue
+			source_data = fixture_parse.data
+		else:
+			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2]
+			var source_domain = _migration_source_domain(scene_registry, "run.scene.legacy.%d" % index, 770 + index, alpha_source, failures)
+			source_data = SaveMapperScript.suspend_snapshot(source_domain).to_dictionary()
+			_set_snapshot_content_identity(source_data, legacy_version)
+			source_bytes = SuspendSnapshotScript.from_dictionary(source_data).serialize()
+		var expected_state: Dictionary = source_data.authoritative_state.duplicate(true)
+		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
+			expected_state["act_index"] = 1
+			expected_state["act_count"] = 1
+		expected_state["content_version"] = scene_registry.content_version()
+		var expected_state_hash := _run_state_hash(expected_state)
+		var dispatched: Dictionary = scene._load_suspend_contents(source_bytes, scene_registry)
+		assert_true(dispatched.get("accepted", false), "%s is accepted only by its explicit RunScene content migration (%s: %s)" % [legacy_version, dispatched.get("code", ""), dispatched.get("errors", [])], failures)
+		if dispatched.get("accepted", false):
+			assert_true(dispatched.snapshot.content_version == scene_registry.content_version(), "%s migration stamps the exact full registry identity" % legacy_version, failures)
+			assert_true(dispatched.pipeline.any(func(step): return str(step).begins_with("Explicit Content Migration:")), "%s load records its explicit migration step" % legacy_version, failures)
+			assert_true(dispatched.snapshot.checkpoint_metadata.state_hash == expected_state_hash, "%s migration recalculates the checkpoint hash over the migrated state" % legacy_version, failures)
+			assert_true(dispatched.domain.checkpoint().state_hash == expected_state_hash, "%s reconstructed checkpoint matches the migrated state hash" % legacy_version, failures)
+			assert_true(dispatched.domain.rng_snapshot() == source_data.rng_state, "%s migration preserves every RNG stream" % legacy_version, failures)
+			assert_true(dispatched.domain.replay_record.content_version == scene_registry.content_version(), "%s restored replay adopts the migrated content identity" % legacy_version, failures)
+			assert_true(dispatched.domain.replay_record.checkpoints.size() == 1 and dispatched.domain.verify_replay().status == "MATCH", "%s replay starts from the migrated checkpoint and verifies" % legacy_version, failures)
+		var source_file := FileAccess.open(suspend_path, FileAccess.WRITE)
+		assert_true(source_file != null, "%s source can be stored for the actual player launch" % legacy_version, failures)
+		if source_file != null:
+			source_file.store_string(source_bytes)
+			source_file.close()
+		scene._ready()
+		assert_true(scene._pending_resume_domain != null and scene.controller == null, "%s player save is held for an explicit Resume choice" % legacy_version, failures)
+		assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "%s successful migration leaves the archived source bytes unchanged" % legacy_version, failures)
+		if scene._pending_resume_domain != null:
+			assert_true(scene._pending_resume_domain.state.content_version == scene_registry.content_version(), "%s player Resume domain uses the full current identity" % legacy_version, failures)
+			assert_true(scene._pending_resume_domain.rng_snapshot() == source_data.rng_state, "%s player Resume domain restores the original RNG state" % legacy_version, failures)
+			var resume_button = scene.find_child("ResumeRunButton", true, false)
+			if resume_button is Button:
+				resume_button.emit_signal("pressed")
+			assert_true(scene.controller != null and scene.controller.domain.replay_record.content_version == scene_registry.content_version(), "%s Resume installs the migrated replay in the player controller" % legacy_version, failures)
+		scene.free()
+		for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", suspend_path + ".rejected", profile_path]:
+			_clear_test_file(path)
+	for path in [current_suspend_path, current_suspend_path + ".tmp", current_suspend_path + ".bak", current_profile_path]:
+		_clear_test_file(path)
+	var guard_scene = _new_isolated_run_scene("user://run_scene_unlisted_version_%s.json" % suffix, "user://run_scene_unlisted_version_profile_%s.json" % suffix)
+	var guard_result: Dictionary = guard_scene._validated_content_registry()
+	assert_true(guard_result.get("accepted", false), "the unlisted legacy identity check obtains the full RunScene registry", failures)
+	if guard_result.get("accepted", false):
+		for unsupported_version in [ContentVersionMigrationScript.PHASE2_V3, ContentVersionMigrationScript.ACT_TWO_V3]:
+			var alpha_source: bool = unsupported_version == ContentVersionMigrationScript.ACT_TWO_V3
+			var unsupported_domain = _migration_source_domain(guard_result.registry, "run.scene.unlisted.%s" % unsupported_version, 790, alpha_source, failures)
+			var unsupported_source: Dictionary = SaveMapperScript.suspend_snapshot(unsupported_domain).to_dictionary()
+			_set_snapshot_content_identity(unsupported_source, unsupported_version)
+			var unsupported_bytes: String = SuspendSnapshotScript.from_dictionary(unsupported_source).serialize()
+			var unsupported_loaded: Dictionary = guard_scene._load_suspend_contents(unsupported_bytes, guard_result.registry)
+			assert_true(not unsupported_loaded.get("accepted", false) and guard_scene._has_load_validation_error(unsupported_loaded, "UNSUPPORTED_CONTENT_VERSION"), "%s remains fail-closed without an explicit full-bundle migration" % unsupported_version, failures)
+			assert_true(not unsupported_loaded.get("pipeline", []).any(func(step): return str(step).begins_with("Explicit Content Migration:")), "%s is not blanket-restamped by RunScene" % unsupported_version, failures)
+	guard_scene.free()
+
+func test_scene_rejects_active_changed_event_migration_and_preserves_source(failures: Array[String]) -> void:
+	var suffix := str(Time.get_ticks_usec())
+	var suspend_path := "user://run_scene_changed_event_suspend_%s.json" % suffix
+	var profile_path := "user://run_scene_changed_event_profile_%s.json" % suffix
+	var scene = _new_isolated_run_scene(suspend_path, profile_path)
+	var registry_result: Dictionary = scene._validated_content_registry()
+	assert_true(registry_result.get("accepted", false), "the changed-Event fixture obtains the complete RunScene registry", failures)
+	if not registry_result.get("accepted", false):
+		scene.free()
+		return
+	var registry = registry_result.registry
+	var domain = _migration_source_domain(registry, "run.scene.changed-event", 781, true, failures)
+	var source_data: Dictionary = SaveMapperScript.suspend_snapshot(domain).to_dictionary()
+	_set_snapshot_content_identity(source_data, ContentVersionMigrationScript.ACT_TWO_SCALE_V2)
+	var changed_effect := {
+		"instance_id": "run.modifier.event.risk_bargain.accept",
+		"definition_id": "event.risk_bargain.accept",
+		"source_id": "event.risk_bargain.accept",
+		"runtime_parameters": {"modifier_id": "event.risk_bargain.accept"},
+	}
+	source_data.authoritative_state["active_effects"] = [changed_effect]
+	source_data.run_state = source_data.authoritative_state.duplicate(true)
+	source_data.checkpoint_metadata.state_hash = _run_state_hash(source_data.authoritative_state)
+	var source_bytes: String = SuspendSnapshotScript.from_dictionary(source_data).serialize()
+	var source_file := FileAccess.open(suspend_path, FileAccess.WRITE)
+	assert_true(source_file != null, "the active changed-Event source can be stored", failures)
+	if source_file == null:
+		scene.free()
+		return
+	source_file.store_string(source_bytes)
+	source_file.close()
+	scene._ready()
+	assert_true(scene.controller == null and scene._pending_resume_domain == null, "RunScene refuses to activate a changed Event modifier from an old save", failures)
+	assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "rejected Event migration leaves the original save bytes unchanged", failures)
+	var preserved_path := ProjectSettings.globalize_path(suspend_path) + ".rejected"
+	assert_true(FileAccess.file_exists(preserved_path), "RunScene preserves the rejected active-Event source", failures)
+	if FileAccess.file_exists(preserved_path):
+		assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "the preserved Event source is byte-for-byte identical", failures)
+	var status = scene.find_child("SuspendStatus", true, false)
+	assert_true(status is Label and str(status.text).contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "the player sees the specific semantic migration rejection", failures)
+	scene.free()
+	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", preserved_path, profile_path]:
+		_clear_test_file(path)
+
 func test_run_scene_persists_and_resumes_suspend_save(failures: Array[String]) -> void:
 	var suspend_path := "user://run_scene_suspend_%d.json" % Time.get_ticks_usec()
 	var profile_path := "user://run_scene_suspend_profile_%d.json" % Time.get_ticks_usec()
@@ -215,21 +389,23 @@ func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Arr
 	var profile_path := "user://run_scene_rejected_suspend_profile_%d.json" % Time.get_ticks_usec()
 	_clear_test_file(suspend_path)
 	_clear_test_file(profile_path)
-	var source_bytes := JSON.stringify(Phase2V1SuspendSnapshotFixtureScript.suspend_snapshot())
+	var unknown_source: Dictionary = Phase2V1SuspendSnapshotFixtureScript.suspend_snapshot()
+	_set_snapshot_content_identity(unknown_source, "content.slice.future")
+	var source_bytes: String = SuspendSnapshotScript.from_dictionary(unknown_source).serialize()
 	var source_file := FileAccess.open(suspend_path, FileAccess.WRITE)
-	assert_true(source_file != null, "the unsupported Suspend Save fixture is written to a real file", failures)
+	assert_true(source_file != null, "the unknown-version Suspend Save fixture is written to a real file", failures)
 	if source_file == null:
 		return
 	source_file.store_string(source_bytes)
 	source_file.close()
 	var scene = _new_isolated_run_scene(suspend_path, profile_path)
 	scene._ready()
-	assert_true(scene.controller == null, "the scene does not silently replace an unsupported Suspend Save with a new Run", failures)
-	assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "loading an unsupported save leaves the original source bytes unchanged", failures)
+	assert_true(scene.controller == null, "the scene does not silently replace an unknown-version Suspend Save with a new Run", failures)
+	assert_true(FileAccess.get_file_as_string(suspend_path) == source_bytes, "loading an unknown-version save leaves the original source bytes unchanged", failures)
 	var preserved_path := ProjectSettings.globalize_path(suspend_path) + ".rejected"
-	assert_true(FileAccess.file_exists(preserved_path), "the unsupported save has a recoverable preserved copy", failures)
+	assert_true(FileAccess.file_exists(preserved_path), "the unknown-version save has a recoverable preserved copy", failures)
 	if FileAccess.file_exists(preserved_path):
-		assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "the preserved rejected copy exactly matches the source", failures)
+		assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "the preserved unknown-version copy exactly matches the source", failures)
 	var status = scene.find_child("SuspendStatus", true, false)
 	assert_true(status is Label and str(status.text).contains("content version"), "the player receives an actionable unsupported-content explanation", failures)
 	var new_run_button = scene.find_child("NewRunFromSuspendButton", true, false)
@@ -685,6 +861,28 @@ func _new_isolated_run_scene(suspend_path: String, profile_path: String):
 	scene.suspend_file_path = suspend_path
 	scene.meta_progress_coordinator = MetaProgressCoordinatorScript.new(MetaProgressStoreScript.new(profile_path))
 	return scene
+
+func _migration_source_domain(registry, run_id: String, seed: int, alpha_run: bool, failures: Array[String]):
+	var domain = RunDomainScript.new_alpha_run(run_id, seed, registry) if alpha_run else RunDomainScript.new(run_id, seed, registry)
+	var character_result = domain.execute(ChooseCharacterCommandScript.new("%s.character" % run_id, "base.character.sequence"))
+	var contract_result = domain.execute(ChooseContractCommandScript.new("%s.contract" % run_id, "base.contract.pressure"))
+	assert_true(character_result.accepted and contract_result.accepted, "%s fixture reaches the stable map checkpoint" % run_id, failures)
+	return domain
+
+func _set_snapshot_content_identity(snapshot: Dictionary, content_version: String) -> void:
+	snapshot["content_version"] = content_version
+	var state: Dictionary = snapshot.get("authoritative_state", {}).duplicate(true)
+	state["content_version"] = content_version
+	snapshot["authoritative_state"] = state
+	snapshot["run_state"] = state.duplicate(true)
+	var metadata: Dictionary = snapshot.get("checkpoint_metadata", {}).duplicate(true)
+	metadata["state_hash"] = _run_state_hash(state)
+	snapshot["checkpoint_metadata"] = metadata
+
+func _run_state_hash(state: Dictionary) -> String:
+	var deterministic_state: Dictionary = state.duplicate(true)
+	deterministic_state.erase("run_started_at_unix_seconds")
+	return DeterministicSerializerScript.hash(deterministic_state)
 
 func _clear_test_file(path: String) -> void:
 	var absolute_path: String = ProjectSettings.globalize_path(path)
