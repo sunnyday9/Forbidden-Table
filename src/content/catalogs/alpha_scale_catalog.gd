@@ -9,6 +9,7 @@ const EventDefinitionScript = preload("res://src/content/definitions/event_defin
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
 const RewardPoolDefinitionScript = preload("res://src/content/definitions/reward_pool_definition.gd")
+const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const YakuDefinitionScript = preload("res://src/content/definitions/yaku_definition.gd")
@@ -112,12 +113,29 @@ const MODIFIER_IDS := [
 	"alpha.modifier.quiet_surface",
 ]
 
+const ACT_ONE_BOSS_RULE_BREAKER_IDS := [
+	"base.rule_breaker.open_table",
+	"base.rule_breaker.reserve_witness",
+	"base.rule_breaker.draw_twice",
+	"alpha.rule_breaker.act_one.stability_surge",
+	"alpha.rule_breaker.act_one.tactical_reserve",
+]
+const ACT_TWO_BOSS_RULE_BREAKER_IDS := [
+	"alpha.rule_breaker.act_two.settlement_capacity",
+	"alpha.rule_breaker.act_two.reserve_capacity",
+	"alpha.rule_breaker.act_two.draw_actions",
+	"alpha.rule_breaker.act_two.ledger_dividend",
+	"alpha.rule_breaker.act_two.early_tile",
+]
+
 const ACT_ONE_BUILD_POOL_ID := "alpha.reward_pool.act_one_build"
 const ACT_TWO_BUILD_POOL_ID := "alpha.reward_pool.act_two_build"
 const ACT_TWO_SHOP_POOL_ID := "alpha.shop_pool.act_two_build"
 const WORKSHOP_POOL_ID := "alpha.workshop_pool.scale"
+const ACT_ONE_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_one"
+const ACT_TWO_BOSS_RULE_BREAKER_POOL_ID := "alpha.reward_pool.boss_rule_breaker_act_two"
 const CONTENT_BUNDLE_ID := "alpha.scale"
-const CONTENT_BUNDLE_VERSION := "v6"
+const CONTENT_BUNDLE_VERSION := "v7"
 
 static func register_all(registry) -> RefCounted:
 	return registry.register_bundle(CONTENT_BUNDLE_ID, CONTENT_BUNDLE_VERSION, definitions())
@@ -138,7 +156,9 @@ static func definitions() -> Array:
 	result.append_array(_relic_definitions())
 	result.append_array(_run_technique_definitions())
 	result.append_array(_modifier_definitions())
+	result.append_array(_rule_breaker_definitions())
 	result.append_array(_pool_definitions())
+	result.append_array(_boss_rule_breaker_pool_definitions())
 	return result
 
 static func pool_membership() -> Dictionary:
@@ -149,6 +169,8 @@ static func pool_membership() -> Dictionary:
 		ACT_TWO_BUILD_POOL_ID: scale_build,
 		ACT_TWO_SHOP_POOL_ID: scale_build.duplicate(),
 		WORKSHOP_POOL_ID: _sorted_ids(Phase2CatalogScript.MODIFIER_IDS + MODIFIER_IDS),
+		ACT_ONE_BOSS_RULE_BREAKER_POOL_ID: _sorted_ids(ACT_ONE_BOSS_RULE_BREAKER_IDS),
+		ACT_TWO_BOSS_RULE_BREAKER_POOL_ID: _sorted_ids(ACT_TWO_BOSS_RULE_BREAKER_IDS),
 	}
 
 static func all_character_ids() -> Array[String]:
@@ -306,6 +328,34 @@ static func _modifier_definitions() -> Array:
 		TileModifierDefinitionScript.new(MODIFIER_IDS[2], "QUIET_SURFACE", 1, [Phase2CatalogScript.typed_effect("content.%s" % MODIFIER_IDS[2], "PurgeContamination", 1)]),
 	]
 
+static func _rule_breaker_definitions() -> Array:
+	return [
+		RuleBreakerDefinitionScript.new(
+			ACT_ONE_BOSS_RULE_BREAKER_IDS[3],
+			"STABILITY_SURGE",
+			1,
+			[Phase2CatalogScript.typed_effect("content.%s" % ACT_ONE_BOSS_RULE_BREAKER_IDS[3], "GainStability", 1)],
+		),
+		RuleBreakerDefinitionScript.new(
+			ACT_ONE_BOSS_RULE_BREAKER_IDS[4],
+			"TACTICAL_RESERVE",
+			1,
+			[Phase2CatalogScript.typed_effect("content.%s" % ACT_ONE_BOSS_RULE_BREAKER_IDS[4], "GainTP", 1)],
+		),
+		RuleBreakerDefinitionScript.new(
+			ACT_TWO_BOSS_RULE_BREAKER_IDS[3],
+			"LEDGER_DIVIDEND",
+			1,
+			[Phase2CatalogScript.typed_effect("content.%s" % ACT_TWO_BOSS_RULE_BREAKER_IDS[3], "ModifyRunCurrency", 1)],
+		),
+		RuleBreakerDefinitionScript.new(
+			ACT_TWO_BOSS_RULE_BREAKER_IDS[4],
+			"EARLY_TILE",
+			1,
+			[Phase2CatalogScript.typed_effect("content.%s" % ACT_TWO_BOSS_RULE_BREAKER_IDS[4], "DrawTile", 1)],
+		),
+	]
+
 static func _pool_definitions() -> Array:
 	var membership := pool_membership()
 	return [
@@ -313,6 +363,13 @@ static func _pool_definitions() -> Array:
 		RewardPoolDefinitionScript.new(ACT_TWO_BUILD_POOL_ID, _pool_entries(membership[ACT_TWO_BUILD_POOL_ID]), [], RewardPoolDefinitionScript.REWARD),
 		RewardPoolDefinitionScript.new(ACT_TWO_SHOP_POOL_ID, _pool_entries(membership[ACT_TWO_SHOP_POOL_ID]), [], RewardPoolDefinitionScript.SHOP),
 		RewardPoolDefinitionScript.new(WORKSHOP_POOL_ID, _pool_entries(membership[WORKSHOP_POOL_ID]), [], RewardPoolDefinitionScript.WORKSHOP),
+	]
+
+static func _boss_rule_breaker_pool_definitions() -> Array:
+	var membership := pool_membership()
+	return [
+		RewardPoolDefinitionScript.new(ACT_ONE_BOSS_RULE_BREAKER_POOL_ID, _pool_entries(membership[ACT_ONE_BOSS_RULE_BREAKER_POOL_ID]), [], RewardPoolDefinitionScript.REWARD),
+		RewardPoolDefinitionScript.new(ACT_TWO_BOSS_RULE_BREAKER_POOL_ID, _pool_entries(membership[ACT_TWO_BOSS_RULE_BREAKER_POOL_ID]), [], RewardPoolDefinitionScript.REWARD),
 	]
 
 static func _pool_entries(content_ids: Array) -> Array:

@@ -5,10 +5,12 @@ const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_c
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
+const BuildEffectResolverScript = preload("res://src/domain/battle/build_effect_resolver.gd")
 const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
@@ -31,6 +33,7 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_owned_starting_relic_effect_replays_and_resumes_once(failures)
 	test_act_two_rule_breaker_effect_applies_only_when_owned(failures)
+	test_stage_four_rule_breakers_apply_distinct_existing_effects(failures)
 	test_tile_modifier_effect_is_scoped_to_settled_instance_and_replays(failures)
 	test_tile_modifier_effect_resolves_for_complete_hand(failures)
 	test_invalid_tile_modifier_rejects_settlement_atomically(failures)
@@ -105,6 +108,56 @@ func test_act_two_rule_breaker_effect_applies_only_when_owned(failures: Array[St
 	assert_true(replay.is_match(), "the accepted Act Two map command reproduces its owned Rule Breaker effect", failures)
 
 	assert_true(unowned_domain.current_battle.combat_state.settlement_capacity == unowned_capacity, "a registered but unowned Act Two Rule Breaker has no battle effect", failures)
+
+func test_stage_four_rule_breakers_apply_distinct_existing_effects(failures: Array[String]) -> void:
+	var effect_cases: Array[Dictionary] = [
+		{"content_id": AlphaScaleCatalogScript.ACT_ONE_BOSS_RULE_BREAKER_IDS[3], "act_index": 1, "operation_id": "GainStability", "effect": "stability"},
+		{"content_id": AlphaScaleCatalogScript.ACT_ONE_BOSS_RULE_BREAKER_IDS[4], "act_index": 1, "operation_id": "GainTP", "effect": "tp"},
+		{"content_id": AlphaScaleCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS[3], "act_index": 2, "operation_id": "ModifyRunCurrency", "effect": "gold"},
+		{"content_id": AlphaScaleCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS[4], "act_index": 2, "operation_id": "DrawTile", "effect": "draw"},
+	]
+	var observed_operation_ids: Dictionary = {}
+	for index in effect_cases.size():
+		var effect_case: Dictionary = effect_cases[index]
+		var content_id := str(effect_case.content_id)
+		var registry := _alpha_registry()
+		var definition = registry.resolve(content_id)
+		assert_true(definition != null and definition.effects.size() == 1, "%s has one authored Rule Breaker effect" % content_id, failures)
+		if definition == null or definition.effects.size() != 1:
+			continue
+		var operation = definition.effects[0].operations[0]
+		assert_true(operation.operation_id == effect_case.operation_id, "%s uses its distinct existing %s operation" % [content_id, effect_case.operation_id], failures)
+		assert_true(not observed_operation_ids.has(operation.operation_id), "%s does not duplicate another new Rule Breaker's operation" % content_id, failures)
+		observed_operation_ids[operation.operation_id] = true
+
+		var domain = RunDomainScript.new_alpha_run("build-effects.stage-four.%d" % index, 7830 + index, registry)
+		domain.execute(ChooseCharacterCommandScript.new("build-effects.stage-four.character.%d" % index, Phase2CatalogScript.CHARACTER_IDS[0]))
+		domain.execute(ChooseContractCommandScript.new("build-effects.stage-four.contract.%d" % index, Phase2CatalogScript.CONTRACT_IDS[0]))
+		domain.state.act_index = int(effect_case.act_index)
+		domain.state.build_ownership.owned_relic_ids.clear()
+		domain.state.build_ownership.acquired_rule_breaker_ids.append(content_id)
+		var battle = domain.encounter_factory.create(domain.state, "base.encounter.boss", domain.rng_streams, EncounterDefinitionScript.BOSS)
+		assert_true(battle != null, "%s test fixture creates a Boss battle through the existing factory" % content_id, failures)
+		if battle == null:
+			continue
+		battle.combat_state.pressure = 2
+		var stability_before: int = battle.combat_state.stability
+		var pressure_before: int = battle.combat_state.pressure
+		var tp_before: int = battle.combat_state.tp
+		var gold_before: int = domain.state.gold
+		var hand_before: int = battle.zones.size(TileZoneScript.HAND)
+		var result := BuildEffectResolverScript.new(registry).resolve_battle_entry(domain.state, battle)
+		assert_true(result.get("accepted", false), "%s resolves through the existing battle-entry effect seam" % content_id, failures)
+		match str(effect_case.effect):
+			"stability":
+				assert_true(battle.combat_state.stability == stability_before + 1 and battle.combat_state.pressure == pressure_before - 1, "%s visibly changes Stability and Pressure" % content_id, failures)
+			"tp":
+				assert_true(battle.combat_state.tp == tp_before + 1, "%s visibly grants one battle TP" % content_id, failures)
+			"gold":
+				assert_true(domain.state.gold == gold_before + 1, "%s visibly grants one Run Gold" % content_id, failures)
+			"draw":
+				assert_true(battle.zones.size(TileZoneScript.HAND) == hand_before + 1, "%s visibly starts the battle with one extra tile" % content_id, failures)
+	assert_true(observed_operation_ids.size() == effect_cases.size(), "all four additions use distinct existing operation types", failures)
 
 func test_tile_modifier_effect_is_scoped_to_settled_instance_and_replays(failures: Array[String]) -> void:
 	var registry := ContentRegistryScript.new()

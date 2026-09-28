@@ -81,6 +81,9 @@ func create_draft(encounter_kind: String, encounter_id: String, previous_phase: 
 		var boss_reward_pool_id: String = Phase2CatalogScript.BOSS_RULE_BREAKER_POOL_ID
 		if state.act_index >= 2:
 			boss_reward_pool_id = AlphaActTwoCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_POOL_ID
+		var scale_boss_pool_id := AlphaScaleCatalogScript.ACT_ONE_BOSS_RULE_BREAKER_POOL_ID if state.act_index < 2 else AlphaScaleCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_POOL_ID
+		if content_registry.resolve(scale_boss_pool_id) != null:
+			boss_reward_pool_id = scale_boss_pool_id
 		state.reward_draft = reward_draft_selector.create_boss_rule_breaker_draft(
 			state,
 			content_registry,

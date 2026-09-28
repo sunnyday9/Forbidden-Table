@@ -7,6 +7,7 @@ const AlphaFailureClassifierScript = preload("res://src/infrastructure/simulatio
 const AlphaSimulationRunnerScript = preload("res://src/infrastructure/simulation/alpha_simulation_runner.gd")
 const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructure/simulation/alpha_simulation_starting_pool_fixture.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
 
@@ -410,7 +411,7 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 	)
 	assert_true(draw_budget_respected, "the replacement full-run seed keeps every accepted Draw within the authoritative Draw Action budget", failures)
 	assert_true(_has_event(attempt.get("events", []), "ActTransitioned"), "the selected Boss reward advances the same Run through its real Act 2 transition", failures)
-	var expected_act_two_ids: Array = AlphaActTwoCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
+	var expected_act_two_ids: Array = AlphaScaleCatalogScript.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
 	expected_act_two_ids.sort()
 	var in_act_two := false
 	var act_one_rule_breaker_id := ""
@@ -444,12 +445,12 @@ func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: A
 	var unique_act_two_choice_ids: Dictionary = {}
 	for content_id in act_two_boss_choice_ids:
 		unique_act_two_choice_ids[content_id] = true
-	assert_true(act_one_rule_breaker_id in Phase2CatalogScript.BOSS_RULE_BREAKER_IDS, "the real Act 1 Boss reward selects and applies one Phase 2 Rule Breaker before the Act transition", failures)
+	assert_true(act_one_rule_breaker_id in AlphaScaleCatalogScript.ACT_ONE_BOSS_RULE_BREAKER_IDS, "the real Act 1 Boss reward selects and applies one eligible Rule Breaker before the Act transition", failures)
 	assert_true(act_two_normal_victory, "the same Run defeats an Act 2 Normal encounter through authoritative runner commands", failures)
 	assert_true(act_two_boss_victory, "the same Run defeats the Act 2 Boss through authoritative runner commands", failures)
 	assert_true(
-		act_two_boss_choice_ids.size() == 3 and unique_act_two_choice_ids.size() == 3 and act_two_boss_choice_ids == expected_act_two_ids,
-		"the real Act 2 Boss reward draft contains the three distinct eligible Act 2 Rule Breakers",
+		act_two_boss_choice_ids.size() == 3 and unique_act_two_choice_ids.size() == 3 and act_two_boss_choice_ids.all(func(content_id): return content_id in expected_act_two_ids),
+		"the real Act 2 Boss reward draft contains three distinct eligible Act 2 Rule Breakers",
 		failures,
 	)
 	assert_true(
