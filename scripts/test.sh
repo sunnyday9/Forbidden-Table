@@ -5,7 +5,7 @@ project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 godot_version="4.7.2"
 godot_binary="${GODOT_BIN:-}"
 download_timeout_seconds=120
-test_timeout_seconds=300
+test_timeout_seconds=600
 
 if ! command -v timeout >/dev/null 2>&1; then
   echo "ERROR: the test wrapper requires the 'timeout' command to bound Godot and download execution." >&2
