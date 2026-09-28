@@ -1,6 +1,6 @@
 # Stage 4 Beta — Alpha-to-1.0 Inventory
 
-**Status:** Wayfinder research draft; not an approved Stage 4 scope.
+**Status:** Wayfinder research evidence; the accepted Stage 4 content scope is recorded in [STAGE_4_BETA_SPEC.md](STAGE_4_BETA_SPEC.md). This inventory is not itself an acceptance spec.
 
 This document provides the inventory requested by [Audit the Stage 3 Alpha roster and implementation seams against the 1.0 budget](https://github.com/sunnyday9/Forbidden-Table/issues/73). It reflects the merged repository snapshot at [HEAD 2961e18](https://github.com/sunnyday9/Forbidden-Table/commit/2961e18).
 
@@ -42,12 +42,12 @@ These are authored catalog allocations, which should be distinguished from test 
 - Current test sources include [catalog tests](../tests/content_catalog_test.gd), [Alpha Contract effect tests](../tests/alpha_contract_effects_test.gd), [build effect consumption tests](../tests/build_effect_consumption_test.gd), [Alpha simulation tests](../tests/alpha_simulation_test.gd), [Alpha simulation coverage tests](../tests/alpha_simulation_coverage_test.gd), [Character passive tests](../tests/character_passive_test.gd), and [meta-progression tests](../tests/meta_progress_test.gd); the active test registration is visible in [tests/run_tests.gd](../tests/run_tests.gd). These tests cover selected definitions, runtime interactions, coverage bookkeeping, and Act 2 reachability. They are not one aggregate assertion of every Alpha roster count or every Scale pool membership.
 - There is no tests/alpha_scale_content_test.gd at this repository revision; any reference to that path is stale. This research update inspected test sources but did not execute them.
 - The [Review and record the Stage 3 Alpha Exit decision](https://github.com/sunnyday9/Forbidden-Table/issues/69) accepted the full-roster Scale corpus evidence, including 1,000/1,000 attempts, exact repeats, and no attempt failures or replay divergences. It also records that device measurements were waived for the initial MVP scope and no human playtest occurred. Those accepted automated results do not establish balance, onboarding, accessibility, localization readiness, player preference, or observed run duration.
-- The optional final Act remains unresolved by this inventory; the Stage 3 exclusion of Act 3 was Alpha scope, not a decision to exclude the optional Act from 1.0.
-- The count differences are research inputs for [Set Stage 4 content budgets and the 1.0 completeness rules](https://github.com/sunnyday9/Forbidden-Table/issues/75), not approved content requirements. This document does not set a Stage 4 Beta gate.
+- When this inventory was recorded, the optional final Act remained unresolved; the maintainer later deferred it beyond 1.0 in [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74). The Stage 3 exclusion of Act 3 was Alpha scope and did not decide the 1.0 question.
+- The count differences supplied research input for [Set Stage 4 content budgets and the 1.0 completeness rules](https://github.com/sunnyday9/Forbidden-Table/issues/75); they were not themselves adopted targets. The accepted targets are in [STAGE_4_BETA_SPEC.md](STAGE_4_BETA_SPEC.md). This inventory does not set a Stage 4 Beta gate.
 
 ## Scope implications
 
 1. Characters and Core Techniques match the published 1.0 counts; the current inventory gives no count-based reason to expand those categories.
 2. For other categories, a budget difference alone does not establish that every nominal item is required. Any approved additions still need an intended Act, reward pool, encounter, Event route, or Workshop path.
 3. The current typed catalogs, registries, reward pools, encounters, Events, and Workshop definitions provide existing data seams for these categories. A proposal for a new core capability must satisfy the evidence bar recorded in [Classify Alpha system hardening versus genuine core-system gaps](https://github.com/sunnyday9/Forbidden-Table/issues/44); this inventory itself identifies no proved catalog-to-core-system gap.
-4. The third Act decision and the Stage 4 budget decision remain separate from these source counts; do not infer either from Stage 3's two-Act Alpha scope.
+4. The optional Act and Stage 4 budget were decided separately in [#74](https://github.com/sunnyday9/Forbidden-Table/issues/74) and [#75](https://github.com/sunnyday9/Forbidden-Table/issues/75); do not infer either outcome from the Stage 3 source counts.
