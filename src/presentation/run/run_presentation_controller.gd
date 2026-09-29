@@ -415,9 +415,30 @@ func _battle_actions() -> Array:
 	]
 	if domain.current_battle == null:
 		return actions
-	var battle_state: Dictionary = domain.current_battle.public_state()
-	for pattern in battle_state.get("pattern_highlights", []):
-		actions.append({"id": "battle.settle:" + str(pattern.get("candidate_id", "")), "kind": "PARTIAL_SETTLEMENT", "target_id": str(pattern.get("candidate_id", "")), "details": pattern.duplicate(true)})
+	if domain.current_battle.can_settle():
+		for candidate in domain.current_battle.settlement_window.candidates():
+			var instance_ids: Array[String] = []
+			var labels: Array[String] = []
+			for tile_instance in candidate.tile_instances:
+				instance_ids.append(str(tile_instance.instance_id))
+				var definition = domain.content_registry.resolve(str(tile_instance.definition_id))
+				labels.append(
+					"%s %d" % [_pretty_service_name(str(definition.suit)), int(definition.rank)]
+					if definition is TileDefinitionScript
+					else _pretty_service_name(str(tile_instance.definition_id))
+				)
+			var candidate_id := str(candidate.candidate_id)
+			actions.append({
+				"id": "battle.settle:" + candidate_id,
+				"kind": "PARTIAL_SETTLEMENT",
+				"target_id": candidate_id,
+				"details": {
+					"candidate_id": candidate_id,
+					"pattern_type": str(candidate.pattern_type),
+					"instance_ids": instance_ids,
+					"labels": labels,
+				},
+			})
 	var combat_state = domain.current_battle.combat_state
 	var can_manipulate_tiles: bool = combat_state.draw_actions_used_this_turn > 0 and not combat_state.tile_manipulation_used_this_draw
 	if can_manipulate_tiles:

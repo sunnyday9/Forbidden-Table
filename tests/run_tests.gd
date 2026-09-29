@@ -52,6 +52,9 @@ const TestSuiteDispatch = preload("res://tests/test_suite_dispatch.gd")
 const TestRunnerDispatchTest = preload("res://tests/test_runner_dispatch_test.gd")
 
 func _init() -> void:
+	call_deferred("_run_tests")
+
+func _run_tests() -> void:
 	var test_arguments: PackedStringArray = OS.get_cmdline_args()
 	test_arguments.append_array(OS.get_cmdline_user_args())
 	var content_registry_only := "--content-registry" in test_arguments
@@ -215,7 +218,7 @@ func _init() -> void:
 	if selected_suite_ids.has("stage4-content"):
 		failures.append_array(Stage4ContentCompletenessTest.new().run())
 	if selected_suite_ids.has("stage4-onboarding-flow"):
-		failures.append_array(Stage4OnboardingFlowTest.new().run())
+		failures.append_array(await Stage4OnboardingFlowTest.new().run())
 	if not focused_test_requested or presentation_only or onboarding_only:
 		var presentation_test_script = load("res://tests/run_presentation_test.gd")
 		if presentation_test_script == null or not presentation_test_script.can_instantiate():

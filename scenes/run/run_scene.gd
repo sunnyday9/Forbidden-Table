@@ -49,6 +49,7 @@ var _summary_value: Label
 var _summary_acknowledge_button: Button
 
 func _ready() -> void:
+	_register_controller_input_mappings()
 	if suspend_store == null:
 		suspend_store = SuspendSaveStoreScript.new(suspend_file_path)
 	if meta_progress_coordinator == null:
@@ -66,6 +67,95 @@ func _ready() -> void:
 		_content_registry = registry_result.registry
 		_load_suspend_or_start_new(_content_registry)
 	_render()
+
+func _input(event: InputEvent) -> void:
+	var action := _mapped_ui_action(event)
+	if action.is_empty():
+		return
+	match action:
+		"ui_accept":
+			_confirm_focused_control()
+			_render()
+		"ui_cancel":
+			if controller != null:
+				controller.back()
+				_render()
+		"ui_focus_next":
+			_move_control_focus(1)
+		"ui_focus_prev":
+			_move_control_focus(-1)
+		"ui_down", "ui_right":
+			_move_directional_focus(1)
+		"ui_up", "ui_left":
+			_move_directional_focus(-1)
+	get_viewport().set_input_as_handled()
+
+func _mapped_ui_action(event: InputEvent) -> String:
+	var actions := ["ui_accept", "ui_cancel", "ui_focus_next", "ui_focus_prev", "ui_down", "ui_up", "ui_left", "ui_right"]
+	for action in actions:
+		if event.is_action_pressed(action):
+			return action
+	if event is InputEventAction and event.pressed:
+		return str(event.action) if actions.has(str(event.action)) else ""
+	return ""
+
+func _register_controller_input_mappings() -> void:
+	var bindings := {
+		"ui_accept": JOY_BUTTON_A,
+		"ui_cancel": JOY_BUTTON_B,
+		"ui_up": JOY_BUTTON_DPAD_UP,
+		"ui_down": JOY_BUTTON_DPAD_DOWN,
+		"ui_left": JOY_BUTTON_DPAD_LEFT,
+		"ui_right": JOY_BUTTON_DPAD_RIGHT,
+		"ui_focus_prev": JOY_BUTTON_LEFT_SHOULDER,
+		"ui_focus_next": JOY_BUTTON_RIGHT_SHOULDER,
+	}
+	for action in bindings:
+		if not InputMap.has_action(action):
+			continue
+		var event := InputEventJoypadButton.new()
+		event.device = -1
+		event.button_index = bindings[action]
+		if not InputMap.action_has_event(action, event):
+			InputMap.action_add_event(action, event)
+
+func _move_directional_focus(direction: int) -> void:
+	if controller == null:
+		_move_control_focus(direction)
+		return
+	var focused_button := get_viewport().gui_get_focus_owner() as Button
+	if focused_button != null and focused_button.has_meta("run_action_id"):
+		if direction > 0:
+			controller.focus_next()
+		else:
+			controller.focus_previous()
+		_render()
+		return
+	_move_control_focus(direction)
+
+func _move_control_focus(direction: int) -> void:
+	var focusable: Array[Button] = []
+	for candidate in find_children("*", "Button", true, false):
+		if candidate is Button and candidate.is_visible_in_tree() and not candidate.disabled and candidate.focus_mode != Control.FOCUS_NONE:
+			focusable.append(candidate)
+	if focusable.is_empty():
+		return
+	var current := get_viewport().gui_get_focus_owner() as Button
+	var index := focusable.find(current)
+	if index < 0:
+		index = 0 if direction > 0 else focusable.size() - 1
+	else:
+		index = (index + direction + focusable.size()) % focusable.size()
+	focusable[index].grab_focus()
+
+func _confirm_focused_control() -> void:
+	var focused_button := get_viewport().gui_get_focus_owner() as Button
+	if focused_button == null or not focused_button.is_visible_in_tree() or focused_button.disabled:
+		return
+	if controller != null and focused_button.has_meta("run_action_id"):
+		controller.confirm(str(focused_button.get_meta("run_action_id")))
+		return
+	focused_button.emit_signal("pressed")
 
 func _validated_content_registry() -> Dictionary:
 	var registry = ContentRegistryScript.new()
@@ -239,6 +329,9 @@ func _show_suspend_choice(message: String, can_resume: bool, new_run_label: Stri
 	_run_columns.visible = false
 	_summary_panel.visible = false
 	_new_run_button.disabled = true
+	var initial_choice: Button = _resume_run_button if _resume_run_button.visible and not _resume_run_button.disabled else _new_run_from_suspend_button
+	if initial_choice.visible and not initial_choice.disabled and initial_choice.is_inside_tree():
+		initial_choice.grab_focus()
 
 func _start_new_run(registry) -> void:
 	var seed := int(Time.get_ticks_usec() % 2147483647)
@@ -509,6 +602,8 @@ func _render() -> void:
 	_summary_acknowledge_button.visible = phase == RunPhaseScript.RUN_SUMMARY
 	_new_run_button.disabled = phase != RunPhaseScript.RUN_COMPLETE
 	_render_actions()
+	if phase == RunPhaseScript.RUN_SUMMARY and _summary_acknowledge_button.visible and not _summary_acknowledge_button.disabled:
+		_summary_acknowledge_button.grab_focus()
 
 func _render_actions() -> void:
 	for child in _actions_column.get_children():
