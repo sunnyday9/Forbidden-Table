@@ -10,6 +10,9 @@ func run() -> Array[String]:
 	test_real_normal_reward_event_shape_counts_as_coverage(failures)
 	test_exact_gate_cohort_counts_valid_defeat_and_actual_coverage(failures)
 	test_not_yet_introduced_requirements_are_reported_without_coverage(failures)
+	test_streaming_aggregate_matches_batch_without_retaining_attempts(failures)
+	test_streaming_rejects_wrong_gate_like_batch_aggregation(failures)
+	test_content_use_reports_observed_ids_and_declared_unused_catalog_items(failures)
 	for failure in failures:
 		push_error(failure)
 	return failures
@@ -117,6 +120,113 @@ func test_not_yet_introduced_requirements_are_reported_without_coverage(failures
 	assert_true(not result.get("gate_pass", true), "unavailable mandatory content can never produce a simulation gate pass", failures)
 	assert_true(result.get("gate_status", "") == "REQUIREMENTS_NOT_YET_AVAILABLE", "the baseline gate reports unavailable content separately from ordinary coverage gaps", failures)
 	assert_true(not result.get("alpha_full_roster_claim", true), "a baseline gate cannot claim full Alpha-roster coverage", failures)
+
+func test_streaming_aggregate_matches_batch_without_retaining_attempts(failures: Array[String]) -> void:
+	var profile := _profile(1000)
+	var attempts := _successful_attempts(1000)
+	for attempt_index in range(attempts.size()):
+		var attempt: Dictionary = attempts[attempt_index]
+		var strategy: Dictionary = attempt.get("strategy", {})
+		strategy["accepted_action_counts"] = {"EndTurn": 1}
+		strategy["partial_settlements"] = 1
+		strategy["complete_hand_settlements"] = 2
+		attempt["strategy"] = strategy
+	var batch: Dictionary = SimulationGateRunnerScript.aggregate(profile, attempts)
+	var accumulator: Dictionary = SimulationGateRunnerScript.new_streaming_accumulator(profile)
+	for attempt in attempts:
+		SimulationGateRunnerScript.accumulate_attempt(accumulator, attempt)
+	var streamed: Dictionary = SimulationGateRunnerScript.finish_streaming_aggregate(accumulator)
+	assert_true(streamed == batch, "incremental aggregation yields the same coverage and failures as the existing batch report", failures)
+	assert_true(not accumulator.has("attempt_results") and not accumulator.has("aggregate_attempts"), "the streaming accumulator stores counts and coverage sets, not attempt traces", failures)
+	assert_true(streamed.get("policy_outcome_counts", {}).get("Complete", {}).get("VICTORY", 0) == 334 and streamed.get("policy_outcome_counts", {}).get("Hybrid", {}).get("VICTORY", 0) == 333 and streamed.get("policy_outcome_counts", {}).get("Partial", {}).get("VICTORY", 0) == 333, "streaming and batch reports retain terminal outcomes separately for each policy", failures)
+	var complete_strategy: Dictionary = streamed.get("strategy_distributions", {}).get("Complete", {})
+	assert_true(complete_strategy.get("attempt_count", 0) == 334 and complete_strategy.get("accepted_command_count", 0) == 668, "strategy distributions retain attempts and command totals by policy", failures)
+	assert_true(complete_strategy.get("accepted_action_counts", {}).get("EndTurn", 0) == 334 and complete_strategy.get("partial_settlements", 0) == 334 and complete_strategy.get("complete_hand_settlements", 0) == 668, "strategy distributions aggregate accepted actions and both settlement types", failures)
+
+func test_streaming_rejects_wrong_gate_like_batch_aggregation(failures: Array[String]) -> void:
+	var profile := _profile(1000)
+	var wrong_gate_attempt := _successful_attempt(0, "base.character.a", "base.contract.a")
+	wrong_gate_attempt["gate_id"] = "wrong.gate"
+	var batch: Dictionary = SimulationGateRunnerScript.aggregate(profile, [wrong_gate_attempt])
+	var accumulator: Dictionary = SimulationGateRunnerScript.new_streaming_accumulator(profile)
+	SimulationGateRunnerScript.accumulate_attempt(accumulator, wrong_gate_attempt)
+	var streamed: Dictionary = SimulationGateRunnerScript.finish_streaming_aggregate(accumulator)
+	assert_true(streamed == batch, "streaming validation rejects a wrong-gate attempt exactly like batch aggregation", failures)
+	assert_true(streamed.get("invalid_attempts", []).size() == 1, "wrong-gate attempt remains a visible failure in the compact aggregate", failures)
+	var errors: Array = streamed.get("invalid_attempts", [{}])[0].get("errors", [])
+	assert_true(errors.has("GATE_ID_MISMATCH"), "streaming error details include the expected-gate mismatch", failures)
+
+func test_content_use_reports_observed_ids_and_declared_unused_catalog_items(failures: Array[String]) -> void:
+	var profile := _profile(1)
+	profile["content_use_catalog"] = {
+		"source": "GitHub issue #87 accepted production content budget",
+		"categories": {
+			"characters": ["base.character.a", "base.character.unused"],
+			"contracts": ["base.contract.a", "base.contract.unused"],
+			"yaku": ["base.yaku.used", "base.yaku.unused"],
+			"relics": ["alpha.relic.selected", "alpha.relic.owned", "alpha.relic.unused"],
+			"rule_breakers": ["alpha.rule_breaker.selected", "alpha.rule_breaker.unused"],
+			"techniques": {
+				"ids": ["alpha.technique.used", "alpha.technique.owned", "alpha.technique.unused", "alpha.technique.core.owned", "alpha.technique.core.unused"],
+				"source": "GitHub issue #87: 21 Run Techniques plus 3 Character Core Techniques",
+				"subcategories": {
+					"run_techniques": ["alpha.technique.used", "alpha.technique.owned", "alpha.technique.unused"],
+					"core_techniques": ["alpha.technique.core.owned", "alpha.technique.core.unused"],
+				},
+			},
+			"modifiers": ["alpha.modifier.used", "alpha.modifier.unused"],
+			"normal_enemies": {
+				"ids": ["alpha.enemy.normal", "alpha.enemy.normal_unused"],
+				"subcategories": {
+					"act_1": {"ids": ["alpha.enemy.normal"], "evidence_kind": "act_1_encountered", "source": "#87 Act 1 Normal budget"},
+					"act_2": {"ids": ["alpha.enemy.normal_unused"], "evidence_kind": "act_2_encountered", "source": "#87 Act 2 Normal budget"},
+				},
+			},
+			"elite_enemies": ["alpha.enemy.elite", "alpha.enemy.elite_unused"],
+			"bosses": ["alpha.boss.act_one", "alpha.boss.act_two", "alpha.boss.unused"],
+			"events": ["alpha.event.used", "alpha.event.unused"],
+			"acts": ["ACT_1", "ACT_2"],
+		},
+		"unobservable_categories": ["Tile definitions have observed IDs but no #87 production denominator."],
+	}
+	var attempt := _successful_attempt(0, "base.character.a", "base.contract.a")
+	attempt.events.insert(2, _event("BattleStarted", {"encounter_kind": "NORMAL", "enemy_ids": ["alpha.enemy.normal"]}))
+	attempt.events.insert(2, _event("BattleStarted", {"encounter_kind": "ELITE", "enemy_ids": ["alpha.enemy.elite"]}))
+	attempt.events.insert(2, _event("BattleStarted", {"encounter_kind": "BOSS", "enemy_ids": ["alpha.boss.act_one"]}))
+	attempt.events.append(_event("EventEntered", {"event_id": "alpha.event.used"}))
+	attempt.events.append(_event("TechniqueUsed", {"technique_id": "alpha.technique.used"}))
+	attempt.events.append(_event("RunModifierChanged", {"modifier_id": "alpha.modifier.used"}))
+	attempt.events.append(_event("RewardSelected", {"kind": "RELIC", "content_id": "alpha.relic.selected"}))
+	attempt.events.append(_event("RewardSelected", {"kind": "RULE_BREAKER", "content_id": "alpha.rule_breaker.selected"}))
+	for index in range(attempt.events.size()):
+		var event: Dictionary = attempt.events[index]
+		if str(event.get("event_type", "")) == "RunSummaryReached":
+			var data: Dictionary = event.get("data", {})
+			data["summary_data"] = {
+				"act_index": 2,
+				"core_yaku": {"base.yaku.used": 1},
+				"relics": ["alpha.relic.owned"],
+				"techniques": ["alpha.technique.owned", "alpha.technique.core.owned"],
+				"rule_breakers": ["alpha.rule_breaker.selected"],
+			}
+			event["data"] = data
+			attempt.events[index] = event
+			break
+	var result: Dictionary = SimulationGateRunnerScript.aggregate(profile, [attempt])
+	var content_use: Dictionary = result.get("coverage", {}).get("content_use", {})
+	var categories: Dictionary = content_use.get("categories", {})
+	assert_true(content_use.get("scope", "") == "OBSERVED_SELECTION_OWNERSHIP_ACTIVATION_SCORING_AND_ENCOUNTER_EVIDENCE", "content IDs are reported with distinct observed evidence kinds, not a completeness or interaction claim", failures)
+	assert_true(content_use.get("catalog_source", "") == "GitHub issue #87 accepted production content budget", "content denominators name the accepted budget source", failures)
+	assert_true(content_use.get("unobservable_categories", []).has("Tile definitions have observed IDs but no #87 production denominator."), "categories without an accepted denominator are called out explicitly", failures)
+	assert_true(categories.get("characters", {}).get("catalog_id_count", 0) == 2 and categories.get("characters", {}).get("unused_ids", []) == ["base.character.unused"], "character use reports its catalog denominator and unused IDs", failures)
+	assert_true(categories.get("relics", {}).get("observed_ids", []) == ["alpha.relic.owned", "alpha.relic.selected"], "relic use includes selected and final owned IDs", failures)
+	assert_true(categories.get("relics", {}).get("evidence", {}).get("selected_ids", []) == ["alpha.relic.selected"] and categories.get("relics", {}).get("evidence", {}).get("owned_at_summary_ids", []) == ["alpha.relic.owned"], "relic selection and final ownership remain separately visible", failures)
+	assert_true(categories.get("techniques", {}).get("observed_ids", []) == ["alpha.technique.core.owned", "alpha.technique.owned", "alpha.technique.used"], "Technique evidence combines but distinguishes actual activation and final ownership", failures)
+	assert_true(categories.get("techniques", {}).get("subcategories", {}).get("run_techniques", {}).get("catalog_id_count", 0) == 3 and categories.get("techniques", {}).get("subcategories", {}).get("core_techniques", {}).get("catalog_id_count", 0) == 2, "the combined Technique denominator retains separate Run and Character Core budgets", failures)
+	assert_true(categories.get("techniques", {}).get("evidence", {}).get("activated_ids", []) == ["alpha.technique.used"] and categories.get("techniques", {}).get("evidence", {}).get("owned_at_summary_ids", []) == ["alpha.technique.core.owned", "alpha.technique.owned"], "Technique activation and ownership are distinct observed facts", failures)
+	assert_true(categories.get("yaku", {}).get("unused_ids", []) == ["base.yaku.unused"], "Yaku use reports content present in the budget but not observed in the Run", failures)
+	assert_true(categories.get("normal_enemies", {}).get("observed_ids", []) == ["alpha.enemy.normal"], "enemy coverage is classified from the factual BattleStarted encounter kind", failures)
+	assert_true(categories.get("normal_enemies", {}).get("subcategories", {}).get("act_1", {}).get("observed_ids", []) == ["alpha.enemy.normal"] and categories.get("normal_enemies", {}).get("subcategories", {}).get("act_2", {}).get("unused_ids", []) == ["alpha.enemy.normal_unused"], "enemy catalog subcategories retain Act-qualified observed-versus-unused IDs", failures)
 
 func _profile(attempt_count: int) -> Dictionary:
 	return {

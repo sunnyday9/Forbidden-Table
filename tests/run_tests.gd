@@ -93,6 +93,7 @@ func _init() -> void:
 	var onboarding_only := "--onboarding" in test_arguments
 	var stage2_exit_review_only := "--stage2-exit-review" in test_arguments
 	var alpha_simulation_only := "--alpha-simulation" in test_arguments
+	var alpha_simulation_coverage_only := "--alpha-simulation-coverage" in test_arguments
 	var alpha_fixed_benchmark_only := "--alpha-fixed-run-benchmark" in test_arguments
 	var alpha_gate_corpus_resume_only := "--alpha-gate-corpus-resume" in test_arguments
 	var run_scene_only := "--run-scene" in test_arguments
@@ -107,7 +108,7 @@ func _init() -> void:
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or runner_dispatch_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_simulation_coverage_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or runner_dispatch_only
 	)
 	var selected_suite_ids := TestSuiteDispatch.select_suite_ids(test_arguments, focused_test_requested)
 	var failures: Array[String] = []

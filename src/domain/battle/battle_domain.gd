@@ -345,6 +345,7 @@ func execute_draw() -> Dictionary:
 		combat_state.tile_manipulation_used_this_draw = false
 		if settlement_window != null:
 			settlement_window.open()
+			_refresh_settlement_window()
 	return {
 		"accepted": draw_result.is_accepted(),
 		"status": draw_result.status,
@@ -419,6 +420,7 @@ func execute_store_tile(instance_id: String) -> Dictionary:
 	var result = tile_actions.store_to_reserve(instance_id)
 	if result.is_accepted():
 		combat_state.tile_manipulation_used_this_draw = true
+		_refresh_settlement_window()
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
 
 func validate_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: String) -> RefCounted:
@@ -437,6 +439,7 @@ func execute_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: S
 	var result = tile_actions.swap_with_reserve(hand_instance_id, reserve_instance_id)
 	if result.is_accepted():
 		combat_state.tile_manipulation_used_this_draw = true
+		_refresh_settlement_window()
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
 
 func validate_discard_tile(instance_id: String) -> RefCounted:
@@ -453,6 +456,7 @@ func execute_discard_tile(instance_id: String) -> Dictionary:
 	var result = tile_actions.discard(instance_id)
 	if result.is_accepted():
 		combat_state.tile_manipulation_used_this_draw = true
+		_refresh_settlement_window()
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
 
 func _validate_tile_manipulation_window() -> RefCounted:
@@ -472,6 +476,10 @@ func can_settle() -> bool:
 		and settlement_window.has_capacity()
 		and not settlement_window.candidates().is_empty()
 	)
+
+func _refresh_settlement_window() -> void:
+	if settlement_window != null:
+		settlement_window.refresh()
 
 func validate_settlement(selected_instance_ids: Array) -> RefCounted:
 	if settlement_window != null and settlement_window.is_open():
@@ -599,6 +607,7 @@ func execute_complete_hand(interpretation_id: String) -> Dictionary:
 	var result_status := CompleteHandSettlementResultScript.COMPLETED
 	if zones.size(TileZoneScript.HAND) < recovery_baseline:
 		result_status = CompleteHandSettlementResultScript.REBUILD_SHORTFALL
+	_refresh_settlement_window()
 	var settlement_result := CompleteHandSettlementResultScript.new(
 		result_status,
 		interpretation,

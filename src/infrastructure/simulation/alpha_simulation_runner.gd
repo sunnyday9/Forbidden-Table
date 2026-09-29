@@ -35,7 +35,8 @@ const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settl
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
-const SCALE_ROSTER_GATE_IDS := ["scale", "exit"]
+const SCALE_ROSTER_GATE_IDS := ["scale", "exit", "stage4_beta"]
+const DEFAULT_ATTEMPT_TIMEOUT_MSEC := 120000
 const POLICY_RULE_VERSION := "v7"
 const COMPLETE_POLICY_RULE_VERSION := "v8"
 
@@ -43,6 +44,7 @@ var _domain
 var _attempt_case: Dictionary
 var _manifest_hash := ""
 var _command_limit := 0
+var _attempt_timeout_msec := DEFAULT_ATTEMPT_TIMEOUT_MSEC
 var _command_sequence := 0
 var _accepted_action_counts: Dictionary = {}
 var _partial_settlement_count := 0
@@ -55,8 +57,14 @@ var _starting_pool_hash := ""
 var _starting_pool_tile_count := 0
 var _unavailable_content_paths: Array[String] = []
 
-func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit: int = 1024) -> Dictionary:
-	_reset_attempt(attempt_case, manifest_hash, command_limit)
+func run_attempt(
+	attempt_case: Dictionary,
+	manifest_hash: String,
+	command_limit: int = 1024,
+	attempt_timeout_msec: int = DEFAULT_ATTEMPT_TIMEOUT_MSEC,
+) -> Dictionary:
+	_reset_attempt(attempt_case, manifest_hash, command_limit, attempt_timeout_msec)
+	var attempt_started_msec := Time.get_ticks_msec()
 	var registry = ContentRegistryScript.new()
 	var registration_reports: Dictionary = _register_content_bundles(registry, str(_attempt_case.get("gate_id", "")))
 	var registration_report = registration_reports.get("phase2")
@@ -117,6 +125,10 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 			_execute_command(ChooseContractCommandScript.new(_next_command_id("contract"), str(_attempt_case.get("contract_id", ""))))
 
 	while _content_available and not _command_rejected and not _soft_lock_detected and not _is_terminal() and _accepted_command_count() < _command_limit:
+		if Time.get_ticks_msec() - attempt_started_msec >= _attempt_timeout_msec:
+			_soft_lock_detected = true
+			_failure_detail = "The attempt exceeded its %dms wall-clock watchdog." % _attempt_timeout_msec
+			break
 		var made_step := false
 		match str(_domain.state.phase):
 			RunPhaseScript.MAP_CHOICE:
@@ -149,14 +161,17 @@ func run_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit:
 					_failure_detail = "No legal authoritative command was available in phase %s." % str(_domain.state.phase)
 
 	if not _is_terminal() and _accepted_command_count() >= _command_limit and _failure_detail.is_empty():
-		_failure_detail = "The attempt reached its accepted-command limit before a Run ending."
-	return _build_attempt_record()
+		_failure_detail = "The attempt reached its %d-command resolution limit before a Run ending." % _command_limit
+	var result := _build_attempt_record()
+	result["elapsed_msec"] = Time.get_ticks_msec() - attempt_started_msec
+	return result
 
-func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit: int) -> void:
+func _reset_attempt(attempt_case: Dictionary, manifest_hash: String, command_limit: int, attempt_timeout_msec: int) -> void:
 	_domain = null
 	_attempt_case = attempt_case.duplicate(true)
 	_manifest_hash = manifest_hash
 	_command_limit = maxi(0, command_limit)
+	_attempt_timeout_msec = maxi(1, attempt_timeout_msec)
 	_command_sequence = 0
 	_accepted_action_counts = {}
 	_partial_settlement_count = 0

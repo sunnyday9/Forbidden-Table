@@ -23,6 +23,7 @@ func run() -> Array[String]:
 	var focused_cases: Array[Dictionary] = [
 		{"flag": "--stage2-exit-review", "suites": ["stage2-exit-review"]},
 		{"flag": "--alpha-simulation", "suites": ["alpha-simulation", "alpha-simulation-coverage"]},
+		{"flag": "--alpha-simulation-coverage", "suites": ["alpha-simulation-coverage"]},
 		{"flag": "--run-scene", "suites": ["run-scene"]},
 		{"flag": "--meta-progress", "suites": ["meta-progress"]},
 		{"flag": "--character-passive", "suites": ["character-passive"]},

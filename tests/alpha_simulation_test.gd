@@ -18,6 +18,7 @@ func run() -> Array[String]:
 	test_valid_defeat_and_harness_failures_are_classified_separately(failures)
 	test_act_two_boss_reward_gap_is_content_unavailable_not_a_soft_lock(failures)
 	test_runner_emits_a_real_replayable_run_attempt(failures)
+	test_stage4_beta_case_00686_reaches_a_valid_run_ending(failures)
 	test_hybrid_discards_excess_hand_with_bounded_work(failures)
 	test_complete_discards_when_reserve_is_full_and_hand_grows(failures)
 	test_runner_content_version_tracks_conditional_scale_bundle(failures)
@@ -122,11 +123,31 @@ func test_repeated_attempts_compare_authoritative_trace_not_machine_timing(failu
 	var changed_rng := identical.duplicate(true)
 	changed_rng["rng_snapshots"][0]["Combat"] = 18
 	var mismatch_report: Dictionary = AlphaAttemptComparatorScript.compare(first, changed_rng)
+	var json_first: Dictionary = JSON.parse_string(JSON.stringify(first))
+	var json_identical: Dictionary = JSON.parse_string(JSON.stringify(identical))
+	var json_round_trip_report: Dictionary = AlphaAttemptComparatorScript.compare(json_first, json_identical)
+	var fractional_numeric := first.duplicate(true)
+	fractional_numeric["rng_snapshots"][0]["fractional"] = 0.125
+	var json_fractional_numeric: Dictionary = JSON.parse_string(JSON.stringify(fractional_numeric))
+	var fractional_numeric_report: Dictionary = AlphaAttemptComparatorScript.compare(fractional_numeric, json_fractional_numeric)
+	var large_integer_numeric := first.duplicate(true)
+	large_integer_numeric["rng_snapshots"][0]["large_integer"] = 9007199254740993
+	var json_large_integer_numeric: Dictionary = JSON.parse_string(JSON.stringify(large_integer_numeric))
+	var large_integer_numeric_report: Dictionary = AlphaAttemptComparatorScript.compare(large_integer_numeric, json_large_integer_numeric)
 
 	assert_true(matching_report.get("matches", false), "repeated seed and policy runs match when authoritative traces match", failures)
 	assert_true(matching_report.get("differences", []).is_empty(), "machine timing is excluded from deterministic comparison", failures)
+	assert_true(matching_report.get("status", "") == "MATCH", "the compact repeat report names exact equality", failures)
+	assert_true(str(matching_report.get("expected_projection_hash", "")).length() == 64, "the repeat report records a SHA-256 deterministic projection", failures)
+	assert_true(matching_report.get("expected_projection_hash", "") == matching_report.get("actual_projection_hash", ""), "matching repeats retain equal deterministic projection hashes", failures)
 	assert_true(not mismatch_report.get("matches", true), "a changed RNG snapshot is reported as deterministic divergence", failures)
 	assert_true(mismatch_report.get("differences", []).has("rng_snapshots"), "the comparator identifies the divergent authoritative field", failures)
+	assert_true(mismatch_report.get("expected_projection_hash", "") != mismatch_report.get("actual_projection_hash", ""), "a changed RNG snapshot changes the deterministic projection hash", failures)
+	assert_true(matching_report.get("expected_field_hashes", {}) == json_round_trip_report.get("expected_field_hashes", {}), "JSON decoding leaves the expected deterministic field fingerprints unchanged", failures)
+	assert_true(matching_report.get("actual_field_hashes", {}) == json_round_trip_report.get("actual_field_hashes", {}), "JSON decoding leaves the repeated deterministic field fingerprints unchanged", failures)
+	assert_true(fractional_numeric_report.get("matches", false), "fractional RNG values preserve exact fingerprints through a JSON round trip", failures)
+	assert_true(not large_integer_numeric_report.get("matches", true) and large_integer_numeric_report.get("differences", []).has("rng_snapshots"), "JSON precision loss in an unsafe-integer RNG state is reported as divergence instead of normalized away", failures)
+	assert_true(large_integer_numeric_report.get("expected_field_hashes", {}).get("rng_snapshots", "") != large_integer_numeric_report.get("actual_field_hashes", {}).get("rng_snapshots", ""), "unsafe-integer RNG fingerprints preserve the original and decoded values as distinct evidence", failures)
 
 func test_valid_defeat_and_harness_failures_are_classified_separately(failures: Array[String]) -> void:
 	var defeat := {"terminal": true, "outcome": "DEFEAT", "authoritative_state_valid": true}
@@ -297,15 +318,21 @@ func test_runner_content_version_tracks_conditional_scale_bundle(failures: Array
 	scale_case["gate_id"] = "scale"
 	var scale_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(scale_case, "version.identity", 0)
 	var repeated_scale_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(scale_case, "version.identity", 0)
+	var beta_case: Dictionary = attempt_case.duplicate(true)
+	beta_case["gate_id"] = "stage4_beta"
+	var beta_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(beta_case, "version.identity", 0)
 	var hardening_version := _initial_content_version(hardening_attempt)
 	var scale_version := _initial_content_version(scale_attempt)
 	var repeated_scale_version := _initial_content_version(repeated_scale_attempt)
+	var beta_version := _initial_content_version(beta_attempt)
 
 	assert_true(not hardening_version.is_empty() and hardening_version != ContentRegistryScript.CONTENT_VERSION, "the runner does not label its unconditional Act Two bundle as Phase 2 v2", failures)
 	assert_true(not scale_version.is_empty() and scale_version != hardening_version, "the Scale gate's conditional catalog registration changes the run content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale gate receives the same deterministic content identity", failures)
 	assert_true(hardening_version == AlphaSimulationRunnerScript.content_version_for_gate("hardening"), "the hardening manifest identity matches the run's registered bundles", failures)
 	assert_true(scale_version == AlphaSimulationRunnerScript.content_version_for_gate("scale"), "the Scale manifest identity matches the run's registered bundles", failures)
+	assert_true(beta_version == scale_version, "the Stage 4 Beta gate loads the complete three-Character/eight-Contract Scale bundle", failures)
+	assert_true(beta_version == AlphaSimulationRunnerScript.content_version_for_gate("stage4_beta"), "the Stage 4 Beta manifest identity matches the run's registered bundles", failures)
 
 func test_complete_policy_completes_real_two_act_run_and_reward_flow(failures: Array[String]) -> void:
 	# Complete policy v8 bounds deterministic tile manipulation while preserving the real two-Act flow.
@@ -617,6 +644,27 @@ func test_service_route_reaches_a_workshop(failures: Array[String]) -> void:
 		"the changed SERVICE route selection is represented by a new explicit simulation policy version",
 		failures,
 	)
+
+func test_stage4_beta_case_00686_reaches_a_valid_run_ending(failures: Array[String]) -> void:
+	var attempt_case := {
+		"attempt_id": "stage4_beta.00686",
+		"attempt_index": 685,
+		"character_id": "alpha.character.harbor_reader",
+		"contract_id": "alpha.contract.house_tithe",
+		"gate_id": "stage4_beta",
+		"policy_id": "Hybrid",
+		"route_id": "EVENT",
+		"seed": 57685,
+		"starting_pool_fixture_id": "phase2.character_biased_complete_hand.v1",
+	}
+	var attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.stage4_beta.case-00686", 1024)
+	var repeated_attempt: Dictionary = AlphaSimulationRunnerScript.new().run_attempt(attempt_case, "regression.stage4_beta.case-00686", 1024)
+	var repeat_report: Dictionary = AlphaAttemptComparatorScript.compare(attempt, repeated_attempt)
+
+	assert_true(attempt.get("terminal", false), "Stage 4 Beta seed 57685 reaches a Run ending instead of a rejected SettlePattern", failures)
+	assert_true(attempt.get("failure_classification", "") == "NONE", "Stage 4 Beta seed 57685 has no simulation harness failure", failures)
+	assert_true(attempt.get("authoritative_state_validation_status", "") == "VALID", "Stage 4 Beta seed 57685 ends with valid authoritative state", failures)
+	assert_true(repeat_report.get("matches", false), "Stage 4 Beta seed 57685 remains deterministic across repeated attempts", failures)
 
 func _has_event(events: Array, event_type: String) -> bool:
 	for event in events:
