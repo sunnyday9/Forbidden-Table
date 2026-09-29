@@ -9,6 +9,7 @@ const SUITES := [
 	{"id": "character-passive", "flag": "--character-passive", "default": true},
 	{"id": "run-summary", "flag": "--run-summary", "default": true},
 	{"id": "stage4-content", "flag": "--stage4-content", "default": true},
+	{"id": "stage4-onboarding-flow", "flag": "--stage4-onboarding-flow", "default": true},
 ]
 
 static func select_suite_ids(test_arguments: PackedStringArray, focused_test_requested: bool) -> Array[String]:

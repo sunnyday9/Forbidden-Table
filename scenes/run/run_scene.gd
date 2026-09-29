@@ -7,6 +7,7 @@ const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
+const TutorialProgressScript = preload("res://src/presentation/run/tutorial_progress.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const RunSummaryPresenterScript = preload("res://src/presentation/run/run_summary_presenter.gd")
@@ -30,6 +31,9 @@ var _run_value: Label
 var _battle_value: Label
 var _hand_value: Label
 var _help_value: Label
+var _tutorial_prompt: Label
+var _tutorial_toggle_button: Button
+var _tutorial_reset_button: Button
 var _feedback_value: Label
 var _profile_status: Label
 var _reset_profile_button: Button
@@ -326,12 +330,14 @@ func _build_interface() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	_new_run_button = Button.new()
+	_new_run_button.name = "NewRunButton"
 	_new_run_button.text = "New Run"
 	_new_run_button.disabled = true
 	_new_run_button.pressed.connect(_on_new_run_pressed)
 	header.add_child(_new_run_button)
 
 	_phase_value = Label.new()
+	_phase_value.name = "RunPhaseLabel"
 	_phase_value.add_theme_font_size_override("font_size", 17)
 	page.add_child(_phase_value)
 	_profile_status = Label.new()
@@ -386,8 +392,25 @@ func _build_interface() -> void:
 	_add_section_heading(overview, "Hand and Reserve")
 	_hand_value = _add_wrapped_label(overview)
 	_help_value = _add_wrapped_label(overview)
+	_help_value.name = "RunHelpPrompt"
 	_help_value.modulate = Color(0.78, 0.82, 0.9)
 	_help_value.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tutorial_prompt = _add_wrapped_label(overview)
+	_tutorial_prompt.name = "TutorialPrompt"
+	_tutorial_prompt.modulate = Color(0.95, 0.86, 0.62)
+	_tutorial_prompt.visible = false
+	var tutorial_controls := HBoxContainer.new()
+	tutorial_controls.name = "TutorialControls"
+	_tutorial_toggle_button = Button.new()
+	_tutorial_toggle_button.name = "TutorialToggleButton"
+	_tutorial_toggle_button.pressed.connect(_on_tutorial_toggle_pressed)
+	tutorial_controls.add_child(_tutorial_toggle_button)
+	_tutorial_reset_button = Button.new()
+	_tutorial_reset_button.name = "TutorialResetButton"
+	_tutorial_reset_button.text = "Reset tutorial"
+	_tutorial_reset_button.pressed.connect(_on_tutorial_reset_pressed)
+	tutorial_controls.add_child(_tutorial_reset_button)
+	overview.add_child(tutorial_controls)
 
 	var actions_panel := PanelContainer.new()
 	actions_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -409,6 +432,7 @@ func _build_interface() -> void:
 	scroll.add_child(_actions_column)
 
 	_summary_panel = PanelContainer.new()
+	_summary_panel.name = "RunSummaryPanel"
 	_summary_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_summary_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_summary_panel.visible = false
@@ -420,10 +444,12 @@ func _build_interface() -> void:
 	summary_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	summary_layout.add_child(summary_scroll)
 	_summary_value = Label.new()
+	_summary_value.name = "RunSummaryText"
 	_summary_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_summary_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary_scroll.add_child(_summary_value)
 	_summary_acknowledge_button = Button.new()
+	_summary_acknowledge_button.name = "FinishRunButton"
 	_summary_acknowledge_button.text = "Finish Run"
 	_summary_acknowledge_button.pressed.connect(_on_action_pressed.bind("run.summary.acknowledge"))
 	summary_layout.add_child(_summary_acknowledge_button)
@@ -443,6 +469,12 @@ func _render() -> void:
 			_reset_profile_button.visible = meta_progress_coordinator.recovery_required
 		if _run_columns != null:
 			_run_columns.visible = false
+		if _tutorial_prompt != null:
+			_tutorial_prompt.visible = false
+		if _tutorial_toggle_button != null:
+			_tutorial_toggle_button.disabled = true
+		if _tutorial_reset_button != null:
+			_tutorial_reset_button.disabled = true
 		if _summary_panel != null:
 			_summary_panel.visible = false
 		if _new_run_button != null:
@@ -465,6 +497,7 @@ func _render() -> void:
 	_battle_value.text = _battle_summary()
 	_hand_value.text = _hand_summary()
 	_help_value.text = _help_text(phase)
+	_render_tutorial(phase)
 	_feedback_value.text = controller.snapshot().get("feedback", "")
 	_profile_status.text = _meta_progress_load_warning
 	_profile_status.visible = not _meta_progress_load_warning.is_empty()
@@ -494,6 +527,7 @@ func _render_actions() -> void:
 		var action_id := str(action.get("id", ""))
 		var button := Button.new()
 		button.text = _action_label(action)
+		button.set_meta("run_action_id", action_id)
 		button.tooltip_text = _action_tooltip(action)
 		button.custom_minimum_size.y = 42
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -508,6 +542,45 @@ func _on_action_pressed(action_id: String):
 	var result = controller.confirm(action_id)
 	_render()
 	return result
+
+func _on_tutorial_toggle_pressed() -> void:
+	if controller == null:
+		return
+	if controller.tutorial_progress.enabled:
+		controller.tutorial_progress.disable()
+	else:
+		controller.tutorial_progress.enable()
+	_render()
+
+func _on_tutorial_reset_pressed() -> void:
+	if controller == null:
+		return
+	controller.tutorial_progress.reset()
+	_render()
+
+func _render_tutorial(phase: String) -> void:
+	var progress = controller.tutorial_progress
+	var active_step := str(progress.current_step_id)
+	var complete: bool = progress.is_complete()
+	_tutorial_toggle_button.text = "Tutorial complete" if complete else ("Disable tutorial" if progress.enabled else "Enable tutorial")
+	_tutorial_toggle_button.disabled = complete
+	_tutorial_reset_button.disabled = progress.enabled and progress.completed_step_ids.is_empty()
+	_tutorial_prompt.text = _tutorial_prompt_for_step(active_step)
+	_tutorial_prompt.visible = phase == RunPhaseScript.BATTLE and progress.enabled and not active_step.is_empty()
+
+func _tutorial_prompt_for_step(step_id: String) -> String:
+	match step_id:
+		TutorialProgressScript.DRAW_PATTERN_PARTIAL:
+			return "Tutorial: draw a tile, inspect the highlighted Patterns, then settle one to deal damage."
+		TutorialProgressScript.TP_CORE_TECHNIQUE:
+			return "Tutorial: spend TP on your Core Technique when its timing is legal."
+		TutorialProgressScript.RESERVE_INTEGRITY:
+			return "Tutorial: store a tile in Reserve to protect it from enemy Pressure."
+		TutorialProgressScript.YAKU_COMPLETE_HAND:
+			return "Tutorial: build and settle a Complete Hand to advance Yaku progress."
+		TutorialProgressScript.CONTAMINATION_INTENT:
+			return "Tutorial: inspect enemy intent and Contamination before ending the turn."
+	return ""
 
 func _on_new_run_pressed() -> void:
 	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_COMPLETE:
