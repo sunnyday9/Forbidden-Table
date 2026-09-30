@@ -17,7 +17,7 @@ offset_left = 32.0
 offset_top = 24.0
 offset_right = 400.0
 offset_bottom = 56.0
-text = "Forbidden Table — Battle"
+text = "UI_BATTLE_STATIC_TITLE"
 
 [node name="HandLabel" type="Label" parent="."]
 layout_mode = 0
@@ -25,7 +25,7 @@ offset_left = 32.0
 offset_top = 88.0
 offset_right = 160.0
 offset_bottom = 116.0
-text = "Hand"
+text = "UI_BATTLE_STATIC_HAND_LABEL"
 
 [node name="HandValue" type="Label" parent="."]
 layout_mode = 0
@@ -33,7 +33,7 @@ offset_left = 180.0
 offset_top = 88.0
 offset_right = 620.0
 offset_bottom = 116.0
-text = "None"
+text = "UI_BATTLE_STATIC_NONE"
 
 [node name="DrawWallLabel" type="Label" parent="."]
 layout_mode = 0
@@ -41,7 +41,7 @@ offset_left = 32.0
 offset_top = 128.0
 offset_right = 160.0
 offset_bottom = 156.0
-text = "Draw Wall"
+text = "UI_BATTLE_STATIC_DRAW_WALL_LABEL"
 
 [node name="DrawWallValue" type="Label" parent="."]
 layout_mode = 0
@@ -57,7 +57,7 @@ offset_left = 32.0
 offset_top = 168.0
 offset_right = 160.0
 offset_bottom = 196.0
-text = "Discard"
+text = "UI_BATTLE_STATIC_DISCARD_LABEL"
 
 [node name="DiscardValue" type="Label" parent="."]
 layout_mode = 0
@@ -65,7 +65,7 @@ offset_left = 180.0
 offset_top = 168.0
 offset_right = 620.0
 offset_bottom = 196.0
-text = "None"
+text = "UI_BATTLE_STATIC_NONE"
 
 [node name="EnemyLabel" type="Label" parent="."]
 layout_mode = 0
@@ -73,7 +73,7 @@ offset_left = 32.0
 offset_top = 224.0
 offset_right = 160.0
 offset_bottom = 252.0
-text = "Enemy HP"
+text = "UI_BATTLE_STATIC_ENEMY_HP_LABEL"
 
 [node name="EnemyHpValue" type="Label" parent="."]
 layout_mode = 0
@@ -89,7 +89,7 @@ offset_left = 32.0
 offset_top = 264.0
 offset_right = 160.0
 offset_bottom = 292.0
-text = "Intent"
+text = "UI_BATTLE_STATIC_INTENT_LABEL"
 
 [node name="EnemyIntentValue" type="Label" parent="."]
 layout_mode = 0
@@ -97,7 +97,7 @@ offset_left = 180.0
 offset_top = 264.0
 offset_right = 620.0
 offset_bottom = 292.0
-text = "None"
+text = "UI_BATTLE_STATIC_NONE"
 
 [node name="PressureLabel" type="Label" parent="."]
 layout_mode = 0
@@ -105,7 +105,7 @@ offset_left = 32.0
 offset_top = 304.0
 offset_right = 160.0
 offset_bottom = 332.0
-text = "Pressure"
+text = "UI_BATTLE_STATIC_PRESSURE_LABEL"
 
 [node name="PressureValue" type="Label" parent="."]
 layout_mode = 0
@@ -121,7 +121,7 @@ offset_left = 520.0
 offset_top = 88.0
 offset_right = 840.0
 offset_bottom = 116.0
-text = "Pattern Highlights"
+text = "UI_BATTLE_STATIC_PATTERN_HIGHLIGHTS_LABEL"
 
 [node name="PatternHighlights" type="Label" parent="."]
 layout_mode = 0
@@ -129,7 +129,7 @@ offset_left = 520.0
 offset_top = 120.0
 offset_right = 920.0
 offset_bottom = 220.0
-text = "No Scoring Pattern highlighted."
+text = "UI_BATTLE_STATIC_NO_PATTERN"
 autowrap_mode = 2
 
 [node name="StatusLabel" type="Label" parent="."]
@@ -138,7 +138,7 @@ offset_left = 520.0
 offset_top = 264.0
 offset_right = 920.0
 offset_bottom = 292.0
-text = "Status"
+text = "UI_BATTLE_STATIC_STATUS_LABEL"
 
 [node name="StatusValue" type="Label" parent="."]
 layout_mode = 0
@@ -154,7 +154,7 @@ offset_left = 32.0
 offset_top = 400.0
 offset_right = 180.0
 offset_bottom = 448.0
-text = "Draw"
+text = "UI_BATTLE_STATIC_DRAW_BUTTON"
 
 [node name="SettleButton" type="Button" parent="."]
 layout_mode = 0
@@ -162,7 +162,7 @@ offset_left = 196.0
 offset_top = 400.0
 offset_right = 344.0
 offset_bottom = 448.0
-text = "Settle Pattern"
+text = "UI_BATTLE_STATIC_SETTLE_BUTTON"
 
 [connection signal="pressed" from="DrawButton" to="." method="_on_draw_pressed"]
 [connection signal="pressed" from="SettleButton" to="." method="_on_settle_pressed"]

@@ -1,5 +1,6 @@
 class_name RunSummaryPresenter
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 static func summary_details(run_state, current_unix_seconds: int = -1) -> Dictionary:
 	if run_state == null or run_state.terminal_summary == null:
@@ -30,40 +31,40 @@ static func summary_details(run_state, current_unix_seconds: int = -1) -> Dictio
 static func format(run_state, current_unix_seconds: int = -1) -> String:
 	var details := summary_details(run_state, current_unix_seconds)
 	if details.is_empty():
-		return "Run Summary\nNo terminal Run data is available."
+		return LocalizationCatalogScript.text("UI_RUN_SUMMARY_0001")
 	var act_progress: Dictionary = details.get("act_progress", {})
 	var bosses: Array = act_progress.get("bosses_defeated", [])
 	var boss_labels: Array[String] = []
 	for boss in bosses:
 		if boss is Dictionary:
-			boss_labels.append("Act %d: %s" % [int(boss.get("act_index", 0)), _pretty_id(str(boss.get("encounter_id", "")))])
+			boss_labels.append(LocalizationCatalogScript.template("UI_RUN_SUMMARY_0002") % [int(boss.get("act_index", 0)), _pretty_id(str(boss.get("encounter_id", "")))])
 	var duration_seconds := int(details.get("duration_seconds", -1))
-	var duration_text := _format_duration(duration_seconds) if duration_seconds >= 0 else "Not tracked for this Run"
-	var act_progress_text := "Act %d of %d; %s" % [int(act_progress.get("act_index", 0)), int(act_progress.get("act_count", 0)), _list_or_none(boss_labels)]
+	var duration_text := _format_duration(duration_seconds) if duration_seconds >= 0 else LocalizationCatalogScript.text("UI_RUN_SUMMARY_0003")
+	var act_progress_text := LocalizationCatalogScript.template("UI_RUN_SUMMARY_0004") % [int(act_progress.get("act_index", 0)), int(act_progress.get("act_count", 0)), _list_or_none(boss_labels)]
 	if not details.has("act_progress"):
-		act_progress_text = "Act %d of %d; Boss progress not tracked for this Run" % [int(run_state.act_index), int(run_state.act_count)]
+		act_progress_text = LocalizationCatalogScript.template("UI_RUN_SUMMARY_0005") % [int(run_state.act_index), int(run_state.act_count)]
 	var lines := [
-		"Build Story",
-		"Result: %s%s" % [_pretty_id(str(details.get("outcome", ""))), _reason_suffix(str(details.get("reason", "")))],
-		"Character / Contract: %s / %s" % [_pretty_id(str(details.get("character_id", ""))), _pretty_id(str(details.get("contract_id", "")))],
-		"Acts / Bosses: %s" % act_progress_text,
-		"Final Tile Pool: %s" % _tile_pool_text(details.get("final_tile_pool", [])),
-		"Core Yaku: %s" % _summary_counts_text(details, "core_yaku"),
-		"Relics: %s" % _summary_list_text(details, "relics"),
-		"Techniques: %s" % _summary_list_text(details, "techniques"),
-		"Rule Breakers: %s" % _summary_list_text(details, "rule_breakers"),
-		"Common Patterns: %s" % _summary_counts_text(details, "common_patterns"),
-		"Complete Hands: %s" % _summary_number_text(details, "complete_hand_count"),
-		"Maximum Mahjong Score: %s" % _summary_number_text(details, "maximum_mahjong_score"),
-		"Milestones: %s" % _summary_list_text(details, "milestones"),
-		"Seed: %d" % int(details.get("seed", run_state.seed)),
-		"Duration: %s" % duration_text,
+		LocalizationCatalogScript.text("UI_RUN_SUMMARY_0006"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0007") % [_pretty_id(str(details.get("outcome", ""))), _reason_suffix(str(details.get("reason", "")))],
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0008") % [_pretty_id(str(details.get("character_id", ""))), _pretty_id(str(details.get("contract_id", "")))],
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0009") % act_progress_text,
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0010") % _tile_pool_text(details.get("final_tile_pool", [])),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0011") % _summary_counts_text(details, "core_yaku"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0012") % _summary_list_text(details, "relics"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0013") % _summary_list_text(details, "techniques"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0014") % _summary_list_text(details, "rule_breakers"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0015") % _summary_counts_text(details, "common_patterns"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0016") % _summary_number_text(details, "complete_hand_count"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0017") % _summary_number_text(details, "maximum_mahjong_score"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0018") % _summary_list_text(details, "milestones"),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0019") % int(details.get("seed", run_state.seed)),
+		LocalizationCatalogScript.template("UI_RUN_SUMMARY_0020") % duration_text,
 	]
 	return "\n".join(lines)
 
 static func _tile_pool_text(records: Variant) -> String:
 	if not records is Array or records.is_empty():
-		return "None recorded"
+		return LocalizationCatalogScript.text("UI_RUN_SUMMARY_0021")
 	var counts: Dictionary = {}
 	for record in records:
 		if record is Dictionary:
@@ -74,7 +75,7 @@ static func _tile_pool_text(records: Variant) -> String:
 
 static func _counts_text(counts: Variant) -> String:
 	if not counts is Dictionary or counts.is_empty():
-		return "None recorded"
+		return LocalizationCatalogScript.text("UI_RUN_SUMMARY_0022")
 	var keys: Array = counts.keys()
 	keys.sort_custom(func(a, b):
 		var count_a := int(counts[a])
@@ -83,17 +84,17 @@ static func _counts_text(counts: Variant) -> String:
 	)
 	var parts: Array[String] = []
 	for key in keys:
-		parts.append("%s ×%d" % [_pretty_id(str(key)), int(counts[key])])
+		parts.append(LocalizationCatalogScript.template("UI_RUN_SUMMARY_0023") % [_pretty_id(str(key)), int(counts[key])])
 	return ", ".join(parts)
 
 static func _summary_counts_text(details: Dictionary, key: String) -> String:
-	return _counts_text(details.get(key, {})) if details.has(key) else "Not tracked for this Run"
+	return _counts_text(details.get(key, {})) if details.has(key) else LocalizationCatalogScript.text("UI_RUN_SUMMARY_0024")
 
 static func _summary_list_text(details: Dictionary, key: String) -> String:
-	return _list_or_none(_pretty_ids(details.get(key, []))) if details.has(key) else "Not tracked for this Run"
+	return _list_or_none(_pretty_ids(details.get(key, []))) if details.has(key) else LocalizationCatalogScript.text("UI_RUN_SUMMARY_0025")
 
 static func _summary_number_text(details: Dictionary, key: String) -> String:
-	return str(int(details[key])) if details.has(key) else "Not tracked for this Run"
+	return str(int(details[key])) if details.has(key) else LocalizationCatalogScript.text("UI_RUN_SUMMARY_0026")
 
 static func _pretty_ids(values: Variant) -> Array[String]:
 	var result: Array[String] = []
@@ -104,19 +105,16 @@ static func _pretty_ids(values: Variant) -> Array[String]:
 
 static func _pretty_id(identifier: String) -> String:
 	if identifier.is_empty():
-		return "Not recorded"
-	var parts := identifier.split(".")
-	if parts.size() >= 4 and parts[1] == "tile":
-		if parts[2] == "honors":
-			return parts[3].replace("_", " ").capitalize()
-		return "%s %s" % [parts[2].replace("_", " ").capitalize(), parts[3]]
-	return identifier.get_slice(".", identifier.get_slice_count(".") - 1).replace("_", " ").capitalize()
+		return LocalizationCatalogScript.text("UI_RUN_SUMMARY_0027")
+	if "." in identifier:
+		return LocalizationCatalogScript.content_text(identifier)
+	return LocalizationCatalogScript.word_text(identifier)
 
 static func _list_or_none(values: Array) -> String:
-	return ", ".join(values) if not values.is_empty() else "None recorded"
+	return ", ".join(values) if not values.is_empty() else LocalizationCatalogScript.text("UI_RUN_SUMMARY_0029")
 
 static func _reason_suffix(reason: String) -> String:
-	return " (%s)" % _pretty_id(reason) if not reason.is_empty() else ""
+	return LocalizationCatalogScript.template("UI_RUN_SUMMARY_0030") % _pretty_id(reason) if not reason.is_empty() else ""
 
 static func _format_duration(total_seconds: int) -> String:
 	var hours := total_seconds / 3600

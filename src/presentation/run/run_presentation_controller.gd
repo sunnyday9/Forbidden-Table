@@ -1,5 +1,6 @@
 class_name RunPresentationController
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 signal presentation_changed
 
@@ -87,25 +88,25 @@ func submit(command):
 		if save_result.get("accepted", false):
 			var write_result: Dictionary = suspend_store.write_snapshot(save_result.snapshot)
 			if not write_result.get("accepted", false):
-				suspend_feedback = "This action succeeded, but the Suspend Save was not written (%s). The existing save and recovery files were left in place; check storage space and permissions before quitting." % str(write_result.get("code", "SUSPEND_WRITE_FAILED"))
+				suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0001") % str(write_result.get("code", "SUSPEND_WRITE_FAILED"))
 			elif write_result.has("cleanup_warning"):
-				suspend_feedback = "The Run was saved, but temporary save cleanup needs attention (%s)." % str(write_result.get("cleanup_warning", "SUSPEND_CLEANUP_FAILED"))
+				suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0002") % str(write_result.get("cleanup_warning", "SUSPEND_CLEANUP_FAILED"))
 			if write_result.get("accepted", false) and str(domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 				var progression_pending: bool = unlock_result.has("persisted") and not bool(unlock_result.get("persisted", false))
 				if progression_pending:
-					suspend_feedback = "The completed Run was saved, but progression persistence failed (%s). Its terminal save remains available so launch can retry." % str(unlock_result.get("code", "META_PROGRESS_SAVE_FAILED"))
+					suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0003") % str(unlock_result.get("code", "META_PROGRESS_SAVE_FAILED"))
 				else:
 					var clear_result: Dictionary = suspend_store.clear()
 					if not clear_result.get("accepted", false):
-						suspend_feedback = "The Run completed, but its continuation save could not be cleared (%s). Reopen the game to retry, or choose New Run after checking file permissions." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+						suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0004") % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
 		elif str(save_result.get("code", "")) not in ["UNSUPPORTED_CHECKPOINT", "UNSTABLE_CHECKPOINT"]:
-			suspend_feedback = "This action succeeded, but a Suspend Save could not be prepared (%s)." % str(save_result.get("code", "SUSPEND_SAVE_FAILED"))
+			suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0005") % str(save_result.get("code", "SUSPEND_SAVE_FAILED"))
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
-		state.feedback = "Act 2 Normal Ending recorded. Character 3 and Contracts 4–8 are now available for later Runs."
+		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0006")
 		presentation_changed.emit()
 	elif unlock_result.has("code") and not unlock_result.get("persisted", false):
-		state.feedback = "Unlock progress could not be saved. The game will retry the next time this Run is recorded."
+		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0007")
 		presentation_changed.emit()
 	if not suspend_feedback.is_empty():
 		state.feedback = suspend_feedback
@@ -152,29 +153,29 @@ func confirm(command_or_action = null):
 		return submit(command_or_action)
 	var action_id: String = str(command_or_action) if command_or_action != null else state.focused_action_id()
 	if action_id.is_empty():
-		state.feedback = "No action is focused."
+		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0008")
 		presentation_changed.emit()
-		return _rejected_presentation_input("No action is focused.")
+		return _rejected_presentation_input(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0009"))
 	var action := _find_action(action_id)
 	if not action.is_empty():
 		match action.get("kind", ""):
 			"WORKSHOP_SELECT_SERVICE":
 				_selected_workshop_service_id = str(action.get("service_id", ""))
 				_selected_workshop_instance_id = ""
-				return _workshop_selection_result("Choose a TileInstance for %s." % _pretty_service_name(_selected_workshop_service_id))
+				return _workshop_selection_result(LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0010") % _pretty_service_name(_selected_workshop_service_id))
 			"WORKSHOP_SELECT_TARGET":
 				_selected_workshop_instance_id = str(action.get("instance_id", ""))
-				return _workshop_selection_result("Choose the result for the selected TileInstance.")
+				return _workshop_selection_result(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0011"))
 			"WORKSHOP_BACK":
 				return _step_back_workshop_selection()
 	var command = _command_for_action(action_id)
 	if command == null:
-		return _rejected_presentation_input("The focused action is not available.")
+		return _rejected_presentation_input(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0012"))
 	return submit(command)
 
 func cancel() -> bool:
 	state.clear_details()
-	state.feedback = "Cancelled."
+	state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0073")
 	presentation_changed.emit()
 	return true
 
@@ -195,14 +196,14 @@ func details(action_id: String = "") -> Dictionary:
 			state.details_payload = action.duplicate(true)
 			presentation_changed.emit()
 			return state.details_payload.duplicate(true)
-	state.feedback = "Details are unavailable for that action."
+	state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0013")
 	presentation_changed.emit()
 	return {}
 
 func set_mode(mode: String) -> bool:
 	var accepted: bool = state.set_mode(mode)
 	if not accepted:
-		state.feedback = "Unknown presentation mode."
+		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0014")
 	presentation_changed.emit()
 	return accepted
 
@@ -278,7 +279,7 @@ func _typed_content_actions(definition_script: Script, prefix: String, kind: Str
 	return actions
 
 func _contract_action_details(definition: ContractDefinitionScript) -> Dictionary:
-	var contract_name := _pretty_service_name(str(definition.content_id).get_slice(".", str(definition.content_id).get_slice_count(".") - 1))
+	var contract_name := LocalizationCatalogScript.content_text(str(definition.content_id))
 	var yaku_signal: Variant = definition.reward.get("yaku_signal", "")
 	return {
 		"content_id": definition.content_id,
@@ -310,34 +311,34 @@ func _contract_effect_summary(values: Dictionary, category: String) -> String:
 		if not summary.is_empty():
 			entries.append(summary)
 	if entries.is_empty():
-		return "No additional %s effects" % category
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0015") % category
 	return "; ".join(entries)
 
 func _contract_effect_entry(field: String, value: Variant, category: String) -> String:
 	if category == "risk":
 		match field:
-			"pressure_per_battle": return "Take %s Pressure each battle" % str(value)
-			"initial_pressure_per_battle": return "Start each battle with %s Pressure" % str(value)
+			"pressure_per_battle": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0016") % str(value)
+			"initial_pressure_per_battle": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0017") % str(value)
 			"normal_reward_off_suit_choice_cap":
-				return "No off-suit tiles in normal rewards" if int(value) == 0 else "Up to %s off-suit tile choices in normal rewards" % str(value)
-			"elite_skip_gold_penalty": return "Lose %s Gold when skipping an Elite reward" % str(value)
-			"workshop_refinement_gold_surcharge": return "Workshop Refinement costs %s extra Gold" % str(value)
-			"off_suit_pool_weight": return "Off-suit tile pool weight: %s" % str(value)
-			"composition_cost": return "Higher pool composition cost" if bool(value) else ""
-			"gold": return "Pay %s Gold" % str(value)
-			"route_cost": return "Route opportunity cost" if bool(value) else ""
+				return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0018") if int(value) == 0 else LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0019") % str(value)
+			"elite_skip_gold_penalty": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0020") % str(value)
+			"workshop_refinement_gold_surcharge": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0021") % str(value)
+			"off_suit_pool_weight": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0022") % str(value)
+			"composition_cost": return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0023") if bool(value) else ""
+			"gold": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0024") % str(value)
+			"route_cost": return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0025") if bool(value) else ""
 	else:
 		match field:
-			"starting_tp_per_battle": return "Gain %s TP at each battle start" % str(value)
-			"refinement_tokens_on_elite_skip": return "Gain %s when skipping an Elite reward" % _counted_name(value, "Refinement Token", "Refinement Tokens")
-			"reward_tile_suit_bias": return "Tile rewards favor %s" % _pretty_service_name(str(value))
-			"tp": return "Gain %s TP" % str(value)
-			"tempo": return "Tempo benefit" if bool(value) else ""
-			"starting_bias": return "Starting tile bias favors %s" % _pretty_service_name(str(value))
-			"refinement_tokens": return "Gain %s" % _counted_name(value, "Refinement Token", "Refinement Tokens")
-			"map_opportunity": return "Extra map opportunity" if bool(value) else ""
-			"refinement_tokens_on_contract_selection": return "Gain %s on Contract selection" % _counted_name(value, "Refinement Token", "Refinement Tokens")
-			"extra_modified_tile_choice": return "One extra Modified Tile option" if bool(value) else ""
+			"starting_tp_per_battle": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0026") % str(value)
+			"refinement_tokens_on_elite_skip": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0027") % _counted_name(value, LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0028"), LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0029"))
+			"reward_tile_suit_bias": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0030") % _pretty_service_name(str(value))
+			"tp": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0031") % str(value)
+			"tempo": return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0032") if bool(value) else ""
+			"starting_bias": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0033") % _pretty_service_name(str(value))
+			"refinement_tokens": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0034") % _counted_name(value, LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0035"), LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0036"))
+			"map_opportunity": return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0037") if bool(value) else ""
+			"refinement_tokens_on_contract_selection": return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0038") % _counted_name(value, LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0039"), LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0040"))
+			"extra_modified_tile_choice": return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0041") if bool(value) else ""
 	return _contract_generic_effect_entry(field, value)
 
 func _contract_generic_effect_entry(field: String, value: Variant) -> String:
@@ -348,43 +349,43 @@ func _contract_generic_effect_entry(field: String, value: Variant) -> String:
 		var readable_values := PackedStringArray()
 		for item in value:
 			readable_values.append(_pretty_service_name(str(item)))
-		return "%s: %s" % [label, ", ".join(readable_values)]
-	return "%s: %s" % [label, str(value)]
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0042") % [label, ", ".join(readable_values)]
+	return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0043") % [label, str(value)]
 
 func _counted_name(value: Variant, singular: String, plural: String) -> String:
 	var count := int(value)
-	return "%d %s" % [count, singular if count == 1 else plural]
+	return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0044") % [count, singular if count == 1 else plural]
 
 func _contract_build_bias_summary(build_bias: Dictionary) -> String:
 	var entries := PackedStringArray()
 	var path := str(build_bias.get("path", ""))
 	if not path.is_empty():
-		entries.append("%s path" % _pretty_service_name(path))
+		entries.append(LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0045") % _pretty_service_name(path))
 	var flexibility := str(build_bias.get("flexibility", ""))
 	if not flexibility.is_empty():
-		entries.append("%s flexibility" % _pretty_service_name(flexibility))
+		entries.append(LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0046") % _pretty_service_name(flexibility))
 	var preferred_tile_ids: Variant = build_bias.get("preferred_tile_ids", [])
 	if preferred_tile_ids is Array and not preferred_tile_ids.is_empty():
 		var preferred_tiles := PackedStringArray()
 		for tile_id in preferred_tile_ids:
 			preferred_tiles.append(_contract_preferred_tile_name(str(tile_id)))
-		entries.append("favors %s" % ", ".join(preferred_tiles))
-	return "; ".join(entries) if not entries.is_empty() else "No specific Tile Pool bias"
+		entries.append(LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0047") % ", ".join(preferred_tiles))
+	return "; ".join(entries) if not entries.is_empty() else LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0048")
 
 func _contract_preferred_tile_name(tile_id: String) -> String:
 	var definition = domain.content_registry.resolve(tile_id)
 	if definition is TileDefinitionScript:
 		if definition.suit == "honors":
 			return _pretty_service_name(tile_id.get_slice(".", tile_id.get_slice_count(".") - 1))
-		return "%s %d" % [_pretty_service_name(definition.suit), int(definition.rank)]
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0049") % [_pretty_service_name(definition.suit), int(definition.rank)]
 	return _pretty_service_name(tile_id.get_slice(".", tile_id.get_slice_count(".") - 1))
 
 func _contract_yaku_signal_summary(signal_value: Variant) -> String:
 	if typeof(signal_value) == TYPE_STRING and not str(signal_value).is_empty():
 		return _pretty_service_name(str(signal_value))
 	if typeof(signal_value) == TYPE_BOOL and bool(signal_value):
-		return "General Yaku support"
-	return "No specific Yaku signal"
+		return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0050")
+	return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0051")
 
 func _map_actions() -> Array:
 	var actions: Array = []
@@ -423,7 +424,7 @@ func _battle_actions() -> Array:
 				instance_ids.append(str(tile_instance.instance_id))
 				var definition = domain.content_registry.resolve(str(tile_instance.definition_id))
 				labels.append(
-					"%s %d" % [_pretty_service_name(str(definition.suit)), int(definition.rank)]
+					LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0052") % [_pretty_service_name(str(definition.suit)), int(definition.rank)]
 					if definition is TileDefinitionScript
 					else _pretty_service_name(str(tile_instance.definition_id))
 				)
@@ -714,12 +715,14 @@ func _workshop_selection_result(message: String) -> Dictionary:
 func _step_back_workshop_selection() -> Dictionary:
 	if not _selected_workshop_instance_id.is_empty():
 		_selected_workshop_instance_id = ""
-		return _workshop_selection_result("Choose a TileInstance.")
+		return _workshop_selection_result(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0053"))
 	_selected_workshop_service_id = ""
-	return _workshop_selection_result("Choose a Workshop service.")
+	return _workshop_selection_result(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0054"))
 
 func _pretty_service_name(service_id: String) -> String:
-	return service_id.to_lower().replace("_", " ").capitalize()
+	if "." in service_id:
+		return LocalizationCatalogScript.content_text(service_id)
+	return LocalizationCatalogScript.word_text(service_id)
 
 func _event_actions() -> Array:
 	var actions: Array = []
@@ -795,31 +798,31 @@ func _feedback_for_events(events: Array) -> String:
 		elif event.event_type == DomainEventScript.TECHNIQUE_REACTION_SKIPPED:
 			last_reaction_skipped = event
 	if last_reaction_used != null:
-		return "%s responded when %s." % [_technique_label(str(last_reaction_used.data.get("technique_id", ""))), str(last_reaction_used.data.get("reaction_trigger_label", "the trigger occurred"))]
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0055") % [_technique_label(str(last_reaction_used.data.get("technique_id", ""))), str(last_reaction_used.data.get("reaction_trigger_label", LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0056")))]
 	if last_reaction_skipped != null:
-		return "%s could not respond when %s (%s)." % [
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0057") % [
 			_technique_label(str(last_reaction_skipped.data.get("technique_id", ""))),
-			str(last_reaction_skipped.data.get("reaction_trigger_label", "the trigger occurred")),
-			str(last_reaction_skipped.data.get("reason", "unavailable")),
+			str(last_reaction_skipped.data.get("reaction_trigger_label", LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0058"))),
+			LocalizationCatalogScript.reaction_reason_text(str(last_reaction_skipped.data.get("reason", ""))),
 		]
 	var last_event = events[events.size() - 1]
 	match last_event.event_type:
-		DomainEventScript.CHARACTER_SELECTED: return "Character selected."
-		DomainEventScript.CONTRACT_SELECTED: return "Contract selected."
-		DomainEventScript.MAP_NODE_SELECTED: return "Map node selected."
-		DomainEventScript.BATTLE_STARTED: return "Battle started."
-		DomainEventScript.REWARD_DRAFT_CREATED: return "Choose a reward."
-		DomainEventScript.SHOP_ENTERED: return "Shop opened."
-		DomainEventScript.WORKSHOP_ENTERED: return "Workshop opened."
-		DomainEventScript.EVENT_ENTERED: return "Choose an Event option."
-		DomainEventScript.RUN_SUMMARY_REACHED: return "Run Summary reached."
+		DomainEventScript.CHARACTER_SELECTED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0059")
+		DomainEventScript.CONTRACT_SELECTED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0060")
+		DomainEventScript.MAP_NODE_SELECTED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0061")
+		DomainEventScript.BATTLE_STARTED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0062")
+		DomainEventScript.REWARD_DRAFT_CREATED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0063")
+		DomainEventScript.SHOP_ENTERED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0064")
+		DomainEventScript.WORKSHOP_ENTERED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0065")
+		DomainEventScript.EVENT_ENTERED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0066")
+		DomainEventScript.RUN_SUMMARY_REACHED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0067")
 		DomainEventScript.CHARACTER_PASSIVE_TRIGGERED:
 			var passive = domain.content_registry.resolve(str(last_event.data.get("passive_id", "")))
-			return "%s: %s" % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else "Character Passive triggered."
-		DomainEventScript.TILE_DISCARDED: return "Tile discarded."
+			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0068") % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0069")
+		DomainEventScript.TILE_DISCARDED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0070")
 		DomainEventScript.TECHNIQUE_USED:
-			return "Technique used: %s." % str(last_event.data.get("technique_id", ""))
-		DomainEventScript.RUN_PHASE_CHANGED: return "Run advanced."
+			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0071") % str(last_event.data.get("technique_id", ""))
+		DomainEventScript.RUN_PHASE_CHANGED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0072")
 	return str(last_event.event_type)
 
 func _technique_label(technique_id: String) -> String:

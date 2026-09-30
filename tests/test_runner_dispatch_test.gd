@@ -14,11 +14,12 @@ func run() -> Array[String]:
 		"character-passive",
 		"run-summary",
 		"stage4-content",
+		"stage4-localization",
 		"stage4-accessibility",
 	]
 	assert_true(
 		default_suite_ids == expected_default_suite_ids,
-		"the default runner selects Stage 2 exit review, Alpha simulation and coverage, Run scene, Meta Progress, Character passive, Run Summary, Stage 4 content, and the scripted accessibility/onboarding flow exactly once",
+		"the default runner selects Stage 2 exit review, Alpha simulation and coverage, Run scene, Meta Progress, Character passive, Run Summary, Stage 4 content, localization, and accessibility exactly once",
 		failures
 	)
 	var focused_cases: Array[Dictionary] = [
@@ -30,6 +31,7 @@ func run() -> Array[String]:
 		{"flag": "--character-passive", "suites": ["character-passive"]},
 		{"flag": "--run-summary", "suites": ["run-summary"]},
 		{"flag": "--stage4-content", "suites": ["stage4-content"]},
+		{"flag": "--stage4-localization", "suites": ["stage4-localization"]},
 		{"flag": "--stage4-onboarding-flow", "suites": ["stage4-onboarding-flow"]},
 		{"flag": "--stage4-accessibility", "suites": ["stage4-accessibility"]},
 	]

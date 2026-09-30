@@ -1,5 +1,6 @@
 class_name AlphaScaleCatalog
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
@@ -207,8 +208,8 @@ static func definitions() -> Array:
 		CharacterPassiveDefinitionScript.new(
 			PASSIVE_ID,
 			CharacterPassiveDefinitionScript.AFTER_COMPLETE_HAND,
-			"Harbor Read",
-			"Once per encounter, your first Complete Hand grants 1 TP.",
+			LocalizationCatalogScript.text("CONTENT_SCALE_0001"),
+			LocalizationCatalogScript.text("CONTENT_SCALE_0002"),
 			[Phase2CatalogScript.typed_effect("content.%s" % PASSIVE_ID, "GainTP", 1)],
 		),
 		_character_definition(),
@@ -231,42 +232,42 @@ static func _event_definitions() -> Array:
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[0], [
 			{
 				"choice_id": "trade_gold",
-				"label": "Trade 2 Gold for a Refinement Token",
+				"label": LocalizationCatalogScript.text("CONTENT_SCALE_0003"),
 				"effects": [_event_currency_effect("GOLD", -2), _event_currency_effect("REFINEMENT_TOKENS", 1)],
 			},
-			{"choice_id": "leave", "label": "Leave the entry untouched", "is_skip": true, "effects": []},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0004"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[1], [
 			{
 				"choice_id": "take_advance",
-				"label": "Stake a Refinement Token on the Harbor's advance",
+				"label": LocalizationCatalogScript.text("CONTENT_SCALE_0005"),
 				"effects": [_event_currency_effect("REFINEMENT_TOKENS", -1)],
 				"alternatives": [
 					{"alternative_id": "paid_on_time", "weight": 1, "effects": [_event_currency_effect("GOLD", 6)]},
 					{"alternative_id": "missed_payment", "weight": 1, "effects": [_event_currency_effect("GOLD", -2)]},
 				],
 			},
-			{"choice_id": "leave", "label": "Decline the advance", "is_skip": true, "effects": []},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0006"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[2], [
 			{
 				"choice_id": "exchange",
-				"label": "Exchange 3 Gold for a Refinement Token",
+				"label": LocalizationCatalogScript.text("CONTENT_SCALE_0007"),
 				"effects": [_event_currency_effect("GOLD", -3), _event_currency_effect("REFINEMENT_TOKENS", 1)],
 			},
-			{"choice_id": "leave", "label": "Keep the current funds", "is_skip": true, "effects": []},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0008"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[3], [
-			{"choice_id": "reveal_route", "label": "Read the terminal route", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.elite", "base.map_node.boss"]}]},
-			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
+			{"choice_id": "reveal_route", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0009"), "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.elite", "base.map_node.boss"]}]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0010"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry +1 Settlement Capacity into later battles this Run", "effects": [_event_modifier_effect("event.contract_clause.apply", "RUN", 1, "REPLACE")]},
-			{"choice_id": "leave", "label": "Decline the clause", "is_skip": true, "effects": []},
+			{"choice_id": "carry_clause", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0011"), "effects": [_event_modifier_effect("event.contract_clause.apply", "RUN", 1, "REPLACE")]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0012"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[5], [
-			{"choice_id": "remember_rule", "label": "Record the Rule: +1 TP in later battles this Run and +1 Refinement Token", "effects": [_event_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE"), _event_currency_effect("REFINEMENT_TOKENS", 1)]},
-			{"choice_id": "leave", "label": "Leave the old rule undisturbed", "is_skip": true, "effects": []},
+			{"choice_id": "remember_rule", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0013"), "effects": [_event_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE"), _event_currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_SCALE_0014"), "is_skip": true, "effects": []},
 		]),
 	]
 
@@ -289,70 +290,70 @@ static func _enemy_definitions() -> Array:
 	return [
 		EnemyDefinitionScript.new(
 			ACT_ONE_NORMAL_ENEMY_IDS[0],
-			_loop_graph("fog_caller", [["seed", "Call the Fog", 1, EnemyIntentScript.CONTAMINATION], ["press", "Press Through the Fog", 2, EnemyIntentScript.PRESSURE]]),
+			_loop_graph("fog_caller", [["seed", LocalizationCatalogScript.text("CONTENT_SCALE_0015"), 1, EnemyIntentScript.CONTAMINATION], ["press", LocalizationCatalogScript.text("CONTENT_SCALE_0016"), 2, EnemyIntentScript.PRESSURE]]),
 			EnemyDefinitionScript.NORMAL,
 			8,
 			{"pressure_limit": 10},
 		),
 		EnemyDefinitionScript.new(
 			ACT_ONE_NORMAL_ENEMY_IDS[1],
-			_loop_graph("margin_taker", [["tax", "Take the Margin", 1, EnemyIntentScript.WALL_TAX], ["collect", "Collect the Shortfall", 2, EnemyIntentScript.INTEGRITY]]),
+			_loop_graph("margin_taker", [["tax", LocalizationCatalogScript.text("CONTENT_SCALE_0017"), 1, EnemyIntentScript.WALL_TAX], ["collect", LocalizationCatalogScript.text("CONTENT_SCALE_0018"), 2, EnemyIntentScript.INTEGRITY]]),
 			EnemyDefinitionScript.NORMAL,
 			9,
 			{"draw_tax": 1, "pressure_limit": 10, "integrity_damage": 1},
 		),
 		EnemyDefinitionScript.new(
 			ACT_ONE_NORMAL_ENEMY_IDS[2],
-			_loop_graph("signal_keeper", [["audit", "Audit the Signal", 1, EnemyIntentScript.AUDIT], ["press", "Enforce the Signal", 2, EnemyIntentScript.PRESSURE]]),
+			_loop_graph("signal_keeper", [["audit", LocalizationCatalogScript.text("CONTENT_SCALE_0019"), 1, EnemyIntentScript.AUDIT], ["press", LocalizationCatalogScript.text("CONTENT_SCALE_0020"), 2, EnemyIntentScript.PRESSURE]]),
 			EnemyDefinitionScript.NORMAL,
 			8,
 			{"pressure_limit": 10},
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[0],
-			_loop_graph("contract_harrier", [["audit", "Read the Contract", 1, EnemyIntentScript.AUDIT], ["hunt", "Enforce the Clause", 3, EnemyIntentScript.HUNT]]),
+			_loop_graph("contract_harrier", [["audit", LocalizationCatalogScript.text("CONTENT_SCALE_0021"), 1, EnemyIntentScript.AUDIT], ["hunt", LocalizationCatalogScript.text("CONTENT_SCALE_0022"), 3, EnemyIntentScript.HUNT]]),
 			EnemyDefinitionScript.NORMAL,
 			10,
 			{"pressure_limit": 11},
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[1],
-			_loop_graph("echo_courier", [["echo", "Send the Echo", 1, EnemyIntentScript.CONTAMINATION], ["thin", "Thin the Wall", 2, EnemyIntentScript.WALL_TAX]]),
+			_loop_graph("echo_courier", [["echo", LocalizationCatalogScript.text("CONTENT_SCALE_0023"), 1, EnemyIntentScript.CONTAMINATION], ["thin", LocalizationCatalogScript.text("CONTENT_SCALE_0024"), 2, EnemyIntentScript.WALL_TAX]]),
 			EnemyDefinitionScript.NORMAL,
 			10,
 			{"pressure_limit": 11, "draw_tax": 1},
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[2],
-			_loop_graph("lien_keeper", [["lien", "Record the Lien", 2, EnemyIntentScript.INTEGRITY], ["collect", "Collect the Lien", 1, EnemyIntentScript.REWARD_TAX]]),
+			_loop_graph("lien_keeper", [["lien", LocalizationCatalogScript.text("CONTENT_SCALE_0025"), 2, EnemyIntentScript.INTEGRITY], ["collect", LocalizationCatalogScript.text("CONTENT_SCALE_0026"), 1, EnemyIntentScript.REWARD_TAX]]),
 			EnemyDefinitionScript.NORMAL,
 			11,
 			{"pressure_limit": 12, "integrity_damage": 1},
 		),
 		EnemyDefinitionScript.new(
 			ACT_ONE_ELITE_ENEMY_IDS[0],
-			_loop_graph("clockwork_auditor", [["audit", "Audit the Run", 2, EnemyIntentScript.AUDIT], ["collect", "Collect the Fee", 1, EnemyIntentScript.REWARD_TAX], ["hunt", "Hunt the Weak Line", 3, EnemyIntentScript.HUNT]]),
+			_loop_graph("clockwork_auditor", [["audit", LocalizationCatalogScript.text("CONTENT_SCALE_0027"), 2, EnemyIntentScript.AUDIT], ["collect", LocalizationCatalogScript.text("CONTENT_SCALE_0028"), 1, EnemyIntentScript.REWARD_TAX], ["hunt", LocalizationCatalogScript.text("CONTENT_SCALE_0029"), 3, EnemyIntentScript.HUNT]]),
 			EnemyDefinitionScript.ELITE,
 			15,
 			{"pressure_limit": 12, "draw_tax": 1, "reward_multiplier": 2},
 		),
 		EnemyDefinitionScript.new(
 			ACT_ONE_ELITE_ENEMY_IDS[1],
-			_loop_graph("drift_captain", [["hunt", "Hunt the Current", 3, EnemyIntentScript.HUNT], ["tax", "Tax the Wall", 2, EnemyIntentScript.WALL_TAX], ["press", "Drive the Fleet", 2, EnemyIntentScript.PRESSURE]]),
+			_loop_graph("drift_captain", [["hunt", LocalizationCatalogScript.text("CONTENT_SCALE_0030"), 3, EnemyIntentScript.HUNT], ["tax", LocalizationCatalogScript.text("CONTENT_SCALE_0031"), 2, EnemyIntentScript.WALL_TAX], ["press", LocalizationCatalogScript.text("CONTENT_SCALE_0032"), 2, EnemyIntentScript.PRESSURE]]),
 			EnemyDefinitionScript.ELITE,
 			16,
 			{"pressure_limit": 12, "draw_tax": 1, "reward_multiplier": 2},
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_ELITE_ENEMY_IDS[0],
-			_loop_graph("margin_enforcer", [["audit", "Audit the Margin", 2, EnemyIntentScript.AUDIT], ["tax", "Enforce the Margin", 2, EnemyIntentScript.WALL_TAX], ["integrity", "Close the Margin", 2, EnemyIntentScript.INTEGRITY]]),
+			_loop_graph("margin_enforcer", [["audit", LocalizationCatalogScript.text("CONTENT_SCALE_0033"), 2, EnemyIntentScript.AUDIT], ["tax", LocalizationCatalogScript.text("CONTENT_SCALE_0034"), 2, EnemyIntentScript.WALL_TAX], ["integrity", LocalizationCatalogScript.text("CONTENT_SCALE_0035"), 2, EnemyIntentScript.INTEGRITY]]),
 			EnemyDefinitionScript.ELITE,
 			18,
 			{"pressure_limit": 13, "draw_tax": 1, "integrity_damage": 1, "reward_multiplier": 2},
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_ELITE_ENEMY_IDS[1],
-			_loop_graph("infernal_index", [["index", "Index the Table", 2, EnemyIntentScript.CONTAMINATION], ["burn", "Burn the Record", 3, EnemyIntentScript.PRESSURE], ["audit", "Audit the Ashes", 2, EnemyIntentScript.AUDIT]]),
+			_loop_graph("infernal_index", [["index", LocalizationCatalogScript.text("CONTENT_SCALE_0036"), 2, EnemyIntentScript.CONTAMINATION], ["burn", LocalizationCatalogScript.text("CONTENT_SCALE_0037"), 3, EnemyIntentScript.PRESSURE], ["audit", LocalizationCatalogScript.text("CONTENT_SCALE_0038"), 2, EnemyIntentScript.AUDIT]]),
 			EnemyDefinitionScript.ELITE,
 			19,
 			{"pressure_limit": 13, "reward_multiplier": 2},
@@ -360,8 +361,8 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_ONE_BOSS_ENEMY_ID,
 			_loop_graph("act_one.harbor_arbiter", [
-				["survey", "Survey the Harbor", 1, EnemyIntentScript.AUDIT],
-				["press", "Press the Margin", 3, EnemyIntentScript.PRESSURE],
+				["survey", LocalizationCatalogScript.text("CONTENT_SCALE_0039"), 1, EnemyIntentScript.AUDIT],
+				["press", LocalizationCatalogScript.text("CONTENT_SCALE_0040"), 3, EnemyIntentScript.PRESSURE],
 			]),
 			EnemyDefinitionScript.BOSS,
 			40,
@@ -418,8 +419,8 @@ static func _harbor_arbiter_boss_phases() -> Array:
 			"pressure_limit": 15,
 			"pressure_relief": 1,
 			"intent_graph": _loop_graph("act_one.harbor_arbiter.soundings", [
-				["measure", "Measure the Channel", 1, EnemyIntentScript.AUDIT],
-				["draft", "Draw the Current", 2, EnemyIntentScript.PRESSURE],
+				["measure", LocalizationCatalogScript.text("CONTENT_SCALE_0041"), 1, EnemyIntentScript.AUDIT],
+				["draft", LocalizationCatalogScript.text("CONTENT_SCALE_0042"), 2, EnemyIntentScript.PRESSURE],
 			]),
 		},
 		{
@@ -429,8 +430,8 @@ static func _harbor_arbiter_boss_phases() -> Array:
 			"pressure_limit": 13,
 			"pressure_relief": 2,
 			"intent_graph": _loop_graph("act_one.harbor_arbiter.crosswind", [
-				["thin", "Thin the Wall", 2, EnemyIntentScript.WALL_TAX],
-				["collect", "Collect the Shortfall", 2, EnemyIntentScript.INTEGRITY],
+				["thin", LocalizationCatalogScript.text("CONTENT_SCALE_0043"), 2, EnemyIntentScript.WALL_TAX],
+				["collect", LocalizationCatalogScript.text("CONTENT_SCALE_0044"), 2, EnemyIntentScript.INTEGRITY],
 			]),
 		},
 		{
@@ -440,8 +441,8 @@ static func _harbor_arbiter_boss_phases() -> Array:
 			"pressure_limit": 11,
 			"pressure_relief": 3,
 			"intent_graph": _loop_graph("act_one.harbor_arbiter.low_tide", [
-				["seal", "Seal the Channel", 2, EnemyIntentScript.RULE_BREAKER],
-				["claim", "Claim the Margin", 1, EnemyIntentScript.REWARD_TAX],
+				["seal", LocalizationCatalogScript.text("CONTENT_SCALE_0045"), 2, EnemyIntentScript.RULE_BREAKER],
+				["claim", LocalizationCatalogScript.text("CONTENT_SCALE_0046"), 1, EnemyIntentScript.REWARD_TAX],
 			]),
 		},
 	]
@@ -537,29 +538,29 @@ static func _contract_definitions() -> Array:
 
 static func _yaku_definitions() -> Array:
 	var result: Array = []
-	result.append(_yaku(YAKU_IDS[0], "Double Sequence", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Sequence", "target": 2, "label": "sequence", "local_pattern_types": ["Sequence"]}, 8, 14))
-	result.append(_yaku(YAKU_IDS[1], "Triplet Row", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Triplet", "target": 3, "label": "triplet", "local_pattern_types": ["Triplet", "Quad"]}, 9, 16))
-	result.append(_yaku(YAKU_IDS[2], "Pair Archive", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Pair", "target": 2, "label": "pair", "local_pattern_types": ["Pair"]}, 7, 13))
-	result.append(_yaku(YAKU_IDS[3], "Honor Chorus", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 5, "label": "honor tile"}, 0, 15))
-	result.append(_yaku(YAKU_IDS[4], "Character Flow", YakuDefinitionScript.BOTH, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "characters", "target": 9, "label": "character tile"}, 9, 17))
-	result.append(_yaku(YAKU_IDS[5], "Dotted River", YakuDefinitionScript.BOTH, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 9, "label": "dot tile"}, 9, 17))
-	result.append(_yaku(YAKU_IDS[6], "Sequence Pair", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Pair"], "local_pattern_types": ["Sequence", "Pair"]}, 10, 18))
-	result.append(_yaku(YAKU_IDS[7], "Mixed Quartet", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Quad", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Quad", "Pair"]}, 13, 22))
-	result.append(_yaku(YAKU_IDS[8], "Sequence Cascade", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Sequence", "target": 3, "label": "sequence", "local_pattern_types": ["Sequence"]}, 9, 16))
-	result.append(_yaku(YAKU_IDS[9], "Triplet Duet", YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Triplet", "target": 2, "label": "triplet", "local_pattern_types": ["Triplet", "Quad"]}, 9, 16))
-	result.append(_yaku(YAKU_IDS[10], "Quad Duet", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Quad", "target": 2, "label": "quad", "local_pattern_types": ["Quad"]}, 12, 0))
-	result.append(_yaku(YAKU_IDS[11], "Pair Triad", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Pair", "target": 3, "label": "pair", "local_pattern_types": ["Pair"]}, 10, 0))
-	result.append(_yaku(YAKU_IDS[12], "Sequence and Triplet", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet"], "local_pattern_types": ["Sequence", "Triplet"]}, 10, 18))
-	result.append(_yaku(YAKU_IDS[13], "Sequence and Quad", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Quad"], "local_pattern_types": ["Sequence", "Quad"]}, 12, 20))
-	result.append(_yaku(YAKU_IDS[14], "Triplet and Quad", YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Quad"], "local_pattern_types": ["Triplet", "Quad"]}, 12, 20))
+	result.append(_yaku(YAKU_IDS[0], LocalizationCatalogScript.text("CONTENT_SCALE_0047"), YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Sequence", "target": 2, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0076"), "local_pattern_types": ["Sequence"]}, 8, 14))
+	result.append(_yaku(YAKU_IDS[1], LocalizationCatalogScript.text("CONTENT_SCALE_0048"), YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Triplet", "target": 3, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0077"), "local_pattern_types": ["Triplet", "Quad"]}, 9, 16))
+	result.append(_yaku(YAKU_IDS[2], LocalizationCatalogScript.text("CONTENT_SCALE_0049"), YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Pair", "target": 2, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0078"), "local_pattern_types": ["Pair"]}, 7, 13))
+	result.append(_yaku(YAKU_IDS[3], LocalizationCatalogScript.text("CONTENT_SCALE_0050"), YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 5, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0051")}, 0, 15))
+	result.append(_yaku(YAKU_IDS[4], LocalizationCatalogScript.text("CONTENT_SCALE_0052"), YakuDefinitionScript.BOTH, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "characters", "target": 9, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0053")}, 9, 17))
+	result.append(_yaku(YAKU_IDS[5], LocalizationCatalogScript.text("CONTENT_SCALE_0054"), YakuDefinitionScript.BOTH, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 9, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0055")}, 9, 17))
+	result.append(_yaku(YAKU_IDS[6], LocalizationCatalogScript.text("CONTENT_SCALE_0056"), YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Pair"], "local_pattern_types": ["Sequence", "Pair"]}, 10, 18))
+	result.append(_yaku(YAKU_IDS[7], LocalizationCatalogScript.text("CONTENT_SCALE_0057"), YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Quad", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Quad", "Pair"]}, 13, 22))
+	result.append(_yaku(YAKU_IDS[8], LocalizationCatalogScript.text("CONTENT_SCALE_0058"), YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Sequence", "target": 3, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0079"), "local_pattern_types": ["Sequence"]}, 9, 16))
+	result.append(_yaku(YAKU_IDS[9], LocalizationCatalogScript.text("CONTENT_SCALE_0059"), YakuDefinitionScript.BOTH, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Triplet", "target": 2, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0080"), "local_pattern_types": ["Triplet", "Quad"]}, 9, 16))
+	result.append(_yaku(YAKU_IDS[10], LocalizationCatalogScript.text("CONTENT_SCALE_0060"), YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Quad", "target": 2, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0081"), "local_pattern_types": ["Quad"]}, 12, 0))
+	result.append(_yaku(YAKU_IDS[11], LocalizationCatalogScript.text("CONTENT_SCALE_0061"), YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.STRUCTURAL, YakuDefinitionScript.PATTERN_COUNT, {"pattern_type": "Pair", "target": 3, "label": LocalizationCatalogScript.text("CONTENT_SCALE_LABEL_0082"), "local_pattern_types": ["Pair"]}, 10, 0))
+	result.append(_yaku(YAKU_IDS[12], LocalizationCatalogScript.text("CONTENT_SCALE_0062"), YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet"], "local_pattern_types": ["Sequence", "Triplet"]}, 10, 18))
+	result.append(_yaku(YAKU_IDS[13], LocalizationCatalogScript.text("CONTENT_SCALE_0063"), YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Quad"], "local_pattern_types": ["Sequence", "Quad"]}, 12, 20))
+	result.append(_yaku(YAKU_IDS[14], LocalizationCatalogScript.text("CONTENT_SCALE_0064"), YakuDefinitionScript.BOTH, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Quad"], "local_pattern_types": ["Triplet", "Quad"]}, 12, 20))
 	# Complete Hand interpretations store their pair separately from `groups`, so pair-shaped Yaku stay local.
-	result.append(_yaku(YAKU_IDS[15], "Triplet and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Pair"], "local_pattern_types": ["Triplet", "Pair"]}, 9, 0))
-	result.append(_yaku(YAKU_IDS[16], "Quad and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Quad", "Pair"], "local_pattern_types": ["Quad", "Pair"]}, 11, 0))
-	result.append(_yaku(YAKU_IDS[17], "Sequence, Triplet and Pair", YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Pair"]}, 12, 0))
-	result.append(_yaku(YAKU_IDS[18], "Honor Beacon", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 3, "label": "honor tile"}, 0, 16))
-	result.append(_yaku(YAKU_IDS[19], "Honor Gathering", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 7, "label": "honor tile"}, 0, 24))
-	result.append(_yaku(YAKU_IDS[20], "Character Majority", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "characters", "target": 12, "label": "character tile"}, 0, 22))
-	result.append(_yaku(YAKU_IDS[21], "Dot Majority", YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 12, "label": "dot tile"}, 0, 22))
+	result.append(_yaku(YAKU_IDS[15], LocalizationCatalogScript.text("CONTENT_SCALE_0065"), YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Triplet", "Pair"], "local_pattern_types": ["Triplet", "Pair"]}, 9, 0))
+	result.append(_yaku(YAKU_IDS[16], LocalizationCatalogScript.text("CONTENT_SCALE_0066"), YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Quad", "Pair"], "local_pattern_types": ["Quad", "Pair"]}, 11, 0))
+	result.append(_yaku(YAKU_IDS[17], LocalizationCatalogScript.text("CONTENT_SCALE_0067"), YakuDefinitionScript.LOCAL_SETTLEMENT, YakuDefinitionScript.ROGUELIKE_STRUCTURAL, YakuDefinitionScript.GROUP_SHAPE, {"required_patterns": ["Sequence", "Triplet", "Pair"], "local_pattern_types": ["Sequence", "Triplet", "Pair"]}, 12, 0))
+	result.append(_yaku(YAKU_IDS[18], LocalizationCatalogScript.text("CONTENT_SCALE_0068"), YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 3, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0069")}, 0, 16))
+	result.append(_yaku(YAKU_IDS[19], LocalizationCatalogScript.text("CONTENT_SCALE_0070"), YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.TILE_CONDITION, {"suit": "honors", "target": 7, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0071")}, 0, 24))
+	result.append(_yaku(YAKU_IDS[20], LocalizationCatalogScript.text("CONTENT_SCALE_0072"), YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "characters", "target": 12, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0073")}, 0, 22))
+	result.append(_yaku(YAKU_IDS[21], LocalizationCatalogScript.text("CONTENT_SCALE_0074"), YakuDefinitionScript.COMPLETE_HAND, YakuDefinitionScript.SUIT_HONOR, YakuDefinitionScript.SUIT_CONCENTRATION, {"suit": "dots", "target": 12, "label": LocalizationCatalogScript.text("CONTENT_SCALE_0075")}, 0, 22))
 	return result
 
 static func _yaku(identifier: String, label: String, scope: String, family: String, model: String, config: Dictionary, local_amount: int, complete_amount: int):

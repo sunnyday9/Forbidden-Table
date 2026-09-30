@@ -1,5 +1,6 @@
 class_name AlphaActTwoCatalog
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
@@ -107,7 +108,7 @@ static func _enemy_definitions() -> Array:
 	return [
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[0],
-			_loop_graph("act_two.tollkeeper", [["count", "Count the Table", 2, "PRESSURE"], ["collect", "Collect the Toll", 1, "PRESSURE"]]),
+			_loop_graph("act_two.tollkeeper", [["count", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0001"), 2, "PRESSURE"], ["collect", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0002"), 1, "PRESSURE"]]),
 			EnemyDefinitionScript.NORMAL,
 			9,
 			{"pressure_limit": 11},
@@ -115,8 +116,8 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[1],
 			_loop_graph("act_two.afterimage", [
-				["mirror", "Mirror the Line", 1, EnemyIntentScript.PRESSURE],
-				["repeat", "Repeat the Signal", 2, "AUDIT"],
+				["mirror", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0003"), 1, EnemyIntentScript.PRESSURE],
+				["repeat", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0004"), 2, "AUDIT"],
 			]),
 			EnemyDefinitionScript.NORMAL,
 			10,
@@ -125,8 +126,8 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[2],
 			_loop_graph("act_two.pressure_warden", [
-				["watch", "Watch the Pressure", 1, EnemyIntentScript.PRESSURE],
-				["press", "Raise the Limit", 3, "INTEGRITY"],
+				["watch", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0005"), 1, EnemyIntentScript.PRESSURE],
+				["press", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0006"), 3, "INTEGRITY"],
 			]),
 			EnemyDefinitionScript.NORMAL,
 			11,
@@ -135,8 +136,8 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_TWO_NORMAL_ENEMY_IDS[3],
 			_loop_graph("act_two.wall_eater", [
-				["thin", "Thin the Wall", 2, EnemyIntentScript.PRESSURE],
-				["consume", "Consume the Margin", 2, "WALL_TAX"],
+				["thin", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0007"), 2, EnemyIntentScript.PRESSURE],
+				["consume", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0008"), 2, "WALL_TAX"],
 			]),
 			EnemyDefinitionScript.NORMAL,
 			10,
@@ -145,9 +146,9 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_TWO_ELITE_ENEMY_ID,
 			_loop_graph("act_two.ledger_mimic", [
-				["audit", "Audit the Ledger", 2, EnemyIntentScript.PRESSURE],
-				["mirror", "Mirror the Debt", 3, "INTEGRITY"],
-				["close", "Close the Account", 1, EnemyIntentScript.PRESSURE],
+				["audit", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0009"), 2, EnemyIntentScript.PRESSURE],
+				["mirror", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0010"), 3, "INTEGRITY"],
+				["close", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0011"), 1, EnemyIntentScript.PRESSURE],
 			]),
 			EnemyDefinitionScript.ELITE,
 			16,
@@ -155,7 +156,7 @@ static func _enemy_definitions() -> Array:
 		),
 		EnemyDefinitionScript.new(
 			ACT_TWO_BOSS_ENEMY_ID,
-			_loop_graph("act_two.final_index", [["catalog", "Catalog the Table", 2, "PRESSURE"], ["reindex", "Reindex the Line", 3, "PRESSURE"]]),
+			_loop_graph("act_two.final_index", [["catalog", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0012"), 2, "PRESSURE"], ["reindex", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0013"), 3, "PRESSURE"]]),
 			EnemyDefinitionScript.BOSS,
 			42,
 			{"pressure_limit": 15},
@@ -165,8 +166,8 @@ static func _enemy_definitions() -> Array:
 		EnemyDefinitionScript.new(
 			ACT_TWO_ALTERNATE_BOSS_ENEMY_ID,
 			_loop_graph("act_two.tidal_archive", [
-				["float", "Float the Index", 2, EnemyIntentScript.PRESSURE],
-				["bury", "Bury the Record", 2, EnemyIntentScript.CONTAMINATION],
+				["float", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0014"), 2, EnemyIntentScript.PRESSURE],
+				["bury", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0015"), 2, EnemyIntentScript.CONTAMINATION],
 			]),
 			EnemyDefinitionScript.BOSS,
 			46,
@@ -204,58 +205,58 @@ static func _encounter_variants(base_id: String, enemy_id: String, kind: String)
 static func _event_definitions() -> Array:
 	return [
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[0], [
-			{"choice_id": "repair_with_token", "label": "Refine the damaged entry", "effects": [_currency_effect("REFINEMENT_TOKENS", -1), _currency_effect("GOLD", 2)]},
-			{"choice_id": "leave", "label": "Leave the ledger as written", "is_skip": true, "effects": []},
+			{"choice_id": "repair_with_token", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0016"), "effects": [_currency_effect("REFINEMENT_TOKENS", -1), _currency_effect("GOLD", 2)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0017"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[1], [
-			{"choice_id": "take_wager", "label": "Risk Gold on the hidden account", "effects": [_currency_effect("GOLD", -2)], "alternatives": [
+			{"choice_id": "take_wager", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0018"), "effects": [_currency_effect("GOLD", -2)], "alternatives": [
 				{"alternative_id": "favorable_entry", "weight": 1, "effects": [_currency_effect("GOLD", 5)]},
 				{"alternative_id": "misread_entry", "weight": 1, "effects": [_currency_effect("GOLD", -3)]},
 			]},
-			{"choice_id": "leave", "label": "Decline the wager", "is_skip": true, "effects": []},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0019"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[2], [
-			{"choice_id": "trade_gold", "label": "Exchange 4 Gold for a Refinement Token", "effects": [_currency_effect("GOLD", -4), _currency_effect("REFINEMENT_TOKENS", 1)]},
-			{"choice_id": "leave", "label": "Keep the current funds", "is_skip": true, "effects": []},
+			{"choice_id": "trade_gold", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0020"), "effects": [_currency_effect("GOLD", -4), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0021"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[3], [
-			{"choice_id": "reveal_route", "label": "Read the final route", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.act_two.elite", "base.map_node.act_two.boss"]}]},
-			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
+			{"choice_id": "reveal_route", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0022"), "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.act_two.elite", "base.map_node.act_two.boss"]}]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0023"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry a one-Act clause: +1 Reserve Capacity in later battles this Act", "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
-			{"choice_id": "leave", "label": "Decline the clause", "is_skip": true, "effects": []},
+			{"choice_id": "carry_clause", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0024"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0025"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[5], [
-			{"choice_id": "study_yaku", "label": "Record: +1 TP in later battles this Run and +1 Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
-			{"choice_id": "leave", "label": "Leave the old rule undisturbed", "is_skip": true, "effects": []},
+			{"choice_id": "study_yaku", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0026"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0027"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[0], [
-			{"choice_id": "repair_with_token", "label": "Spend 1 Refinement Token to recover 3 Gold", "effects": [_currency_effect("REFINEMENT_TOKENS", -1), _currency_effect("GOLD", 3)]},
-			{"choice_id": "leave", "label": "Leave the sealed entry untouched", "is_skip": true, "effects": []},
+			{"choice_id": "repair_with_token", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0028"), "effects": [_currency_effect("REFINEMENT_TOKENS", -1), _currency_effect("GOLD", 3)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0029"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[1], [
-			{"choice_id": "stake_hidden_account", "label": "Risk 2 Gold on the hidden account", "effects": [_currency_effect("GOLD", -2)], "alternatives": [
+			{"choice_id": "stake_hidden_account", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0030"), "effects": [_currency_effect("GOLD", -2)], "alternatives": [
 				{"alternative_id": "favorable_entry", "weight": 1, "effects": [_currency_effect("GOLD", 5)]},
 				{"alternative_id": "misread_entry", "weight": 1, "effects": [_currency_effect("GOLD", -3)]},
 			]},
-			{"choice_id": "leave", "label": "Decline the hidden account", "is_skip": true, "effects": []},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0031"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[2], [
-			{"choice_id": "trade_margin", "label": "Exchange 6 Gold for 2 Refinement Tokens", "effects": [_currency_effect("GOLD", -6), _currency_effect("REFINEMENT_TOKENS", 2)]},
-			{"choice_id": "leave", "label": "Keep the current funds", "is_skip": true, "effects": []},
+			{"choice_id": "trade_margin", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0032"), "effects": [_currency_effect("GOLD", -6), _currency_effect("REFINEMENT_TOKENS", 2)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0033"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[3], [
-			{"choice_id": "reveal_route", "label": "Read the last annotation", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.act_two.elite", "base.map_node.act_two.boss"]}]},
-			{"choice_id": "leave", "label": "Keep the route obscured", "is_skip": true, "effects": []},
+			{"choice_id": "reveal_route", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0034"), "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.act_two.elite", "base.map_node.act_two.boss"]}]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0035"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry +1 Reserve Capacity into later battles this Act", "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
-			{"choice_id": "leave", "label": "Decline the amended clause", "is_skip": true, "effects": []},
+			{"choice_id": "carry_clause", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0036"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0037"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[5], [
-			{"choice_id": "cross_reference", "label": "Record +1 TP in later battles this Run and gain 1 Refinement Token", "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
-			{"choice_id": "leave", "label": "Leave the rule uncopied", "is_skip": true, "effects": []},
+			{"choice_id": "cross_reference", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0038"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "leave", "label": LocalizationCatalogScript.text("CONTENT_ACT_TWO_0039"), "is_skip": true, "effects": []},
 		]),
 	]
 
@@ -307,8 +308,8 @@ static func _boss_phases() -> Array:
 			"pressure_limit": 15,
 			"pressure_relief": 1,
 			"intent_graph": _loop_graph("act_two.final_index.catalogue", [
-				["enter", "Open the Index", 2, EnemyIntentScript.PRESSURE],
-				["mark", "Mark the Page", 2, "TABLE_INTERFERENCE"],
+				["enter", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0040"), 2, EnemyIntentScript.PRESSURE],
+				["mark", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0041"), 2, "TABLE_INTERFERENCE"],
 			]),
 		},
 		{
@@ -318,8 +319,8 @@ static func _boss_phases() -> Array:
 			"pressure_limit": 13,
 			"pressure_relief": 2,
 			"intent_graph": _loop_graph("act_two.final_index.cross_reference", [
-				["compare", "Cross-reference the Table", 3, EnemyIntentScript.PRESSURE],
-				["annotate", "Annotate the Line", 1, "REWARD_TAX"],
+				["compare", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0042"), 3, EnemyIntentScript.PRESSURE],
+				["annotate", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0043"), 1, "REWARD_TAX"],
 			]),
 		},
 		{
@@ -329,8 +330,8 @@ static func _boss_phases() -> Array:
 			"pressure_limit": 11,
 			"pressure_relief": 3,
 			"intent_graph": _loop_graph("act_two.final_index.final_entry", [
-				["rewrite", "Write the Final Entry", 3, EnemyIntentScript.PRESSURE],
-				["seal", "Seal the Index", 2, "RULE_BREAKER"],
+				["rewrite", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0044"), 3, EnemyIntentScript.PRESSURE],
+				["seal", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0045"), 2, "RULE_BREAKER"],
 			]),
 		},
 	]
@@ -344,8 +345,8 @@ static func _tidal_archive_boss_phases() -> Array:
 			"pressure_limit": 16,
 			"pressure_relief": 1,
 			"intent_graph": _loop_graph("act_two.tidal_archive.high_water", [
-				["log", "Log the Current", 2, EnemyIntentScript.AUDIT],
-				["rise", "Raise the Waterline", 3, EnemyIntentScript.PRESSURE],
+				["log", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0046"), 2, EnemyIntentScript.AUDIT],
+				["rise", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0047"), 3, EnemyIntentScript.PRESSURE],
 			]),
 		},
 		{
@@ -355,8 +356,8 @@ static func _tidal_archive_boss_phases() -> Array:
 			"pressure_limit": 14,
 			"pressure_relief": 2,
 			"intent_graph": _loop_graph("act_two.tidal_archive.undertow", [
-				["pull", "Pull at the Reserve", 2, EnemyIntentScript.WALL_TAX],
-				["crack", "Crack the Keel", 2, EnemyIntentScript.INTEGRITY],
+				["pull", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0048"), 2, EnemyIntentScript.WALL_TAX],
+				["crack", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0049"), 2, EnemyIntentScript.INTEGRITY],
 			]),
 		},
 		{
@@ -366,8 +367,8 @@ static func _tidal_archive_boss_phases() -> Array:
 			"pressure_limit": 12,
 			"pressure_relief": 3,
 			"intent_graph": _loop_graph("act_two.tidal_archive.ebb", [
-				["rewrite", "Rewrite the Ledger", 3, EnemyIntentScript.RULE_BREAKER],
-				["close", "Close the Archive", 2, EnemyIntentScript.REWARD_TAX],
+				["rewrite", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0050"), 3, EnemyIntentScript.RULE_BREAKER],
+				["close", LocalizationCatalogScript.text("CONTENT_ACT_TWO_0051"), 2, EnemyIntentScript.REWARD_TAX],
 			]),
 		},
 	]

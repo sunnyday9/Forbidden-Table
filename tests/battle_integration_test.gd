@@ -515,7 +515,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 		var skipped = _event_of_type(insufficient_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED)
 		assert_true(insufficient_turn.is_accepted() and skipped != null and skipped.data.get("reason", "") == "INSUFFICIENT_TP", "a matching Reaction with insufficient TP reports why it could not fire", failures)
 		var skipped_feedback: String = RunPresentationController.new(insufficient_domain)._feedback_for_events(insufficient_turn.events)
-		assert_true(skipped_feedback.contains("enemy Contamination is added") and skipped_feedback.contains("INSUFFICIENT_TP"), "player-facing feedback explains an unaffordable Reaction", failures)
+		assert_true(skipped_feedback.contains("enemy Contamination is added") and skipped_feedback.contains("Insufficient TP"), "player-facing feedback explains an unaffordable Reaction with a readable localized reason", failures)
 		assert_true(not _has_event(insufficient_turn.events, DomainEvent.TECHNIQUE_USED) and not _has_event(insufficient_turn.events, DomainEvent.REACTION_WINDOW_OPENED), "insufficient TP does not spend cost or open a response window", failures)
 		assert_true(insufficient_domain.current_battle.combat_state.tp == 0 and not _has_event(insufficient_turn.events, DomainEvent.TILE_PURGED), "an unaffordable Reaction leaves its effect unapplied and TP unchanged", failures)
 	else:

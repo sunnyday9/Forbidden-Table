@@ -1,4 +1,5 @@
 extends Control
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
@@ -59,12 +60,12 @@ func _ready() -> void:
 	var meta_load: Dictionary = meta_progress_coordinator.load_profile()
 	if not meta_load.get("accepted", false):
 		var recovery_path := str(meta_load.get("preserved_path", ""))
-		var preservation_text := "A recovery copy is at %s." % recovery_path if not recovery_path.is_empty() else "The original save remains in place."
-		_meta_progress_load_warning = "Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile." % [str(meta_load.get("code", "LOAD_FAILED")), preservation_text]
+		var preservation_text := LocalizationCatalogScript.template("UI_RUN_SCENE_0001") % recovery_path if not recovery_path.is_empty() else LocalizationCatalogScript.text("UI_RUN_SCENE_0002")
+		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0003") % [str(meta_load.get("code", "LOAD_FAILED")), preservation_text]
 	_build_interface()
 	var registry_result := _validated_content_registry()
 	if not registry_result.get("accepted", false):
-		_startup_error = str(registry_result.get("message", "A new run could not start because game content failed validation."))
+		_startup_error = str(registry_result.get("message", LocalizationCatalogScript.text("UI_RUN_SCENE_0004")))
 	else:
 		_content_registry = registry_result.registry
 		_load_suspend_or_start_new(_content_registry)
@@ -181,22 +182,22 @@ func _validated_content_registry() -> Dictionary:
 	if content_registry_factory.is_valid():
 		registry = content_registry_factory.call()
 	if not registry is ContentRegistryScript:
-		return {"accepted": false, "message": "A new run could not start because its content registry is unavailable."}
+		return {"accepted": false, "message": LocalizationCatalogScript.text("UI_RUN_SCENE_0005")}
 	var registration_reports: Array = [
-		{"catalog": "Phase 2", "report": Phase2CatalogScript.register_all(registry)},
-		{"catalog": "Act Two", "report": AlphaActTwoCatalogScript.register_all(registry)},
-		{"catalog": "Alpha Scale", "report": AlphaScaleCatalogScript.register_all(registry)},
+		{"catalog": LocalizationCatalogScript.text("UI_RUN_SCENE_0006"), "report": Phase2CatalogScript.register_all(registry)},
+		{"catalog": LocalizationCatalogScript.text("UI_RUN_SCENE_0007"), "report": AlphaActTwoCatalogScript.register_all(registry)},
+		{"catalog": LocalizationCatalogScript.text("UI_RUN_SCENE_0008"), "report": AlphaScaleCatalogScript.register_all(registry)},
 	]
 	var validation_errors: Array[String] = []
 	for registration in registration_reports:
 		_append_content_validation_errors(
 			validation_errors,
-			"%s catalog registration" % str(registration.get("catalog", "Catalog")),
+			LocalizationCatalogScript.template("UI_RUN_SCENE_0009") % str(registration.get("catalog", "Catalog")),
 			registration.get("report"),
 		)
-	_append_content_validation_errors(validation_errors, "Content registry validation", registry.validate())
+	_append_content_validation_errors(validation_errors, LocalizationCatalogScript.text("UI_RUN_SCENE_0010"), registry.validate())
 	if not validation_errors.is_empty():
-		return {"accepted": false, "message": "A new run could not start because game content failed validation. Please report this issue:\n%s" % "\n".join(validation_errors)}
+		return {"accepted": false, "message": LocalizationCatalogScript.template("UI_RUN_SCENE_0011") % "\n".join(validation_errors)}
 	return {"accepted": true, "registry": registry}
 
 func _load_suspend_or_start_new(registry) -> void:
@@ -207,17 +208,17 @@ func _load_suspend_or_start_new(registry) -> void:
 			if interrupted_preservation.get("accepted", false):
 				_suspend_rejected_copy_path = str(interrupted_preservation.get("path", ""))
 				_show_suspend_recovery_required(
-					"The Suspend Save commit was interrupted (%s). No older save was loaded. Recovery sources remain unchanged and are copied to %s. Choose New Run only if you want to leave this save behind." % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), _suspend_rejected_copy_path],
+					LocalizationCatalogScript.template("UI_RUN_SCENE_0012") % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), _suspend_rejected_copy_path],
 					true,
 				)
 			else:
 				_show_suspend_recovery_required(
-					"The Suspend Save commit was interrupted (%s), and a recovery copy failed (%s). No older save was loaded. Copy the files manually before starting over." % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), str(interrupted_preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+					LocalizationCatalogScript.template("UI_RUN_SCENE_0013") % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), str(interrupted_preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
 					false,
 				)
 			return
 		_show_suspend_recovery_required(
-			"The saved Run could not be read (%s). The source has not been changed. Check the save file permissions or move the file before trying again." % str(stored.get("code", "SUSPEND_READ_FAILED")),
+			LocalizationCatalogScript.template("UI_RUN_SCENE_0014") % str(stored.get("code", "SUSPEND_READ_FAILED")),
 			false,
 		)
 		return
@@ -231,12 +232,12 @@ func _load_suspend_or_start_new(registry) -> void:
 			_suspend_rejected_copy_path = str(preservation.get("path", ""))
 			var explanation := _suspend_load_error(loaded)
 			_show_suspend_recovery_required(
-				"%s The original save remains unchanged, and a byte-for-byte recovery copy is at %s. Choose New Run only if you want to leave this save behind." % [explanation, _suspend_rejected_copy_path],
+				LocalizationCatalogScript.template("UI_RUN_SCENE_0015") % [explanation, _suspend_rejected_copy_path],
 				true,
 			)
 		else:
 			_show_suspend_recovery_required(
-				"%s The original save remains unchanged, but its recovery copy failed (%s). Copy the file manually before starting over." % [_suspend_load_error(loaded), str(preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+				LocalizationCatalogScript.template("UI_RUN_SCENE_0016") % [_suspend_load_error(loaded), str(preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
 				false,
 			)
 		return
@@ -245,9 +246,9 @@ func _load_suspend_or_start_new(registry) -> void:
 	if not finalized.get("accepted", false):
 		var preservation: Dictionary = suspend_store.preserve_source()
 		var recovery_path := str(preservation.get("path", "")) if preservation.get("accepted", false) else ""
-		var suffix := " A recovery copy is at %s." % recovery_path if not recovery_path.is_empty() else " Copy the files manually before starting over."
+		var suffix := LocalizationCatalogScript.template("UI_RUN_SCENE_0017") % recovery_path if not recovery_path.is_empty() else LocalizationCatalogScript.text("UI_RUN_SCENE_0018")
 		_show_suspend_recovery_required(
-			"The saved Run was valid, but interrupted-save recovery could not be finalized (%s). The original sources were retained.%s" % [str(finalized.get("code", "SUSPEND_RECOVERY_FAILED")), suffix],
+			LocalizationCatalogScript.template("UI_RUN_SCENE_0019") % [str(finalized.get("code", "SUSPEND_RECOVERY_FAILED")), suffix],
 			preservation.get("accepted", false),
 		)
 		if preservation.get("accepted", false):
@@ -261,13 +262,13 @@ func _load_suspend_or_start_new(registry) -> void:
 			_start_new_run(registry)
 		else:
 			_pending_resume_domain = saved_domain
-			var prefix := "The previous Run is complete, but progression could not be saved (%s). Resume to view it; its save stays available so launch can retry." % str(cleared.get("code", "META_PROGRESS_SAVE_FAILED")) if progression_pending else "The previous Run is complete, but its save slot could not be cleared (%s). Resume to view the result or choose New Run to retry clearing it." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+			var prefix := LocalizationCatalogScript.template("UI_RUN_SCENE_0020") % str(cleared.get("code", "META_PROGRESS_SAVE_FAILED")) if progression_pending else LocalizationCatalogScript.template("UI_RUN_SCENE_0021") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
 			_show_valid_suspend_choice(saved_domain, prefix, not progression_pending, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
 		return
 	_pending_resume_domain = saved_domain
 	var cleanup_prefix := ""
 	if finalized.has("cleanup_warning"):
-		cleanup_prefix = "The saved Run loaded, but interrupted-save cleanup needs attention (%s)." % str(finalized.get("cleanup_warning"))
+		cleanup_prefix = LocalizationCatalogScript.template("UI_RUN_SCENE_0022") % str(finalized.get("cleanup_warning"))
 	_show_valid_suspend_choice(saved_domain, cleanup_prefix, true, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
 
 func _load_suspend_contents(contents: String, registry) -> Dictionary:
@@ -319,23 +320,23 @@ func _suspend_load_error(loaded: Dictionary) -> String:
 	for issue in loaded.get("errors", []):
 		var code := str(issue.get("code", "")) if issue is Dictionary else ""
 		if code == "UNSUPPORTED_CONTENT_VERSION":
-			return "This saved Run uses an unsupported content version."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0023")
 		if code == "UNSUPPORTED_GAME_VERSION":
-			return "This saved Run uses an unsupported game version."
-	return "The saved Run could not be loaded (%s)." % str(loaded.get("code", "SUSPEND_LOAD_FAILED"))
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0024")
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0025") % str(loaded.get("code", "SUSPEND_LOAD_FAILED"))
 
 func _show_valid_suspend_choice(saved_domain, prefix: String = "", can_start_new: bool = true, saved_boundary: String = "") -> void:
 	var checkpoint: Dictionary = saved_domain.checkpoint()
-	var message := "A saved Run is ready to continue. Run: %s. Resume restores its saved state and RNG; New Run discards this one continuation save." % str(saved_domain.state.run_id)
+	var message := LocalizationCatalogScript.template("UI_RUN_SCENE_0026") % str(saved_domain.state.run_id)
 	var boundary := saved_boundary if not saved_boundary.is_empty() else str(checkpoint.get("stable_boundary", ""))
 	if not boundary.is_empty():
-		message += " Saved boundary: %s." % _pretty_words(boundary)
+		message += LocalizationCatalogScript.template("UI_RUN_SCENE_0027") % _pretty_words(boundary)
 	if not prefix.is_empty():
 		message = "%s\n%s" % [prefix, message]
-	_show_suspend_choice(message, true, "New Run (discard saved Run)", can_start_new)
+	_show_suspend_choice(message, true, LocalizationCatalogScript.text("UI_RUN_SCENE_0028"), can_start_new)
 
 func _show_suspend_recovery_required(message: String, can_start_new: bool) -> void:
-	_show_suspend_choice(message, false, "Start New Run (keep rejected save)", can_start_new)
+	_show_suspend_choice(message, false, LocalizationCatalogScript.text("UI_RUN_SCENE_0029"), can_start_new)
 
 func _show_suspend_choice(message: String, can_resume: bool, new_run_label: String, can_start_new: bool) -> void:
 	_suspend_choice_panel.visible = true
@@ -369,12 +370,12 @@ func _on_resume_run_pressed() -> void:
 	if str(resumed_domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(resumed_domain.state)
 		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
-			_set_wrapped_label_text(_suspend_status, "Progression is still not saved (%s). The completed Run remains in its Suspend Save so you can retry on the next launch." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED")))
+			_set_wrapped_label_text(_suspend_status, LocalizationCatalogScript.template("UI_RUN_SCENE_0030") % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED")))
 			_pending_resume_domain = resumed_domain
 			return
 		var clear_result: Dictionary = suspend_store.clear()
 		if not clear_result.get("accepted", false):
-			_set_wrapped_label_text(_suspend_status, "The completed Run could not be cleared (%s). Its save remains available." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED")))
+			_set_wrapped_label_text(_suspend_status, LocalizationCatalogScript.template("UI_RUN_SCENE_0031") % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED")))
 			_pending_resume_domain = resumed_domain
 			return
 	_suspend_choice_panel.visible = false
@@ -388,7 +389,7 @@ func _on_new_run_from_suspend_pressed() -> void:
 		return
 	var cleared: Dictionary = suspend_store.clear()
 	if not cleared.get("accepted", false):
-		_suspend_status.text += "\nThe saved Run could not be cleared (%s). No new Run was started; retry after checking file permissions." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		_suspend_status.text += LocalizationCatalogScript.template("UI_RUN_SCENE_0032") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
 		return
 	_pending_resume_domain = null
 	_suspend_rejected_copy_path = ""
@@ -398,17 +399,17 @@ func _on_new_run_from_suspend_pressed() -> void:
 
 func _append_content_validation_errors(errors: Array[String], source: String, report) -> void:
 	if report == null or not report.has_method("is_valid") or not report.has_method("get"):
-		errors.append("%s did not return a validation report." % source)
+		errors.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0033") % source)
 		return
 	if report.is_valid():
 		return
 	var issues: Variant = report.get("issues")
 	if not issues is Array or issues.is_empty():
-		errors.append("%s failed without diagnostic details." % source)
+		errors.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0034") % source)
 		return
 	for issue in issues:
 		if issue == null or not issue.has_method("get"):
-			errors.append("%s returned an invalid diagnostic." % source)
+			errors.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0035") % source)
 			continue
 		var code := str(issue.get("code"))
 		var content_id := str(issue.get("content_id"))
@@ -416,8 +417,8 @@ func _append_content_validation_errors(errors: Array[String], source: String, re
 		var message := str(issue.get("message"))
 		var location := content_id
 		if not reference_id.is_empty():
-			location += " -> %s" % reference_id
-		errors.append("%s [%s] %s: %s" % [source, code, location, message])
+			location += LocalizationCatalogScript.template("UI_RUN_SCENE_0036") % reference_id
+		errors.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0037") % [source, code, location, message])
 
 func _build_interface() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -437,8 +438,9 @@ func _build_interface() -> void:
 	header.add_theme_constant_override("separation", 14)
 	page.add_child(header)
 	var title := Label.new()
-	title.text = "Forbidden Table — Alpha Run"
+	title.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0038")
 	title.add_theme_font_size_override("font_size", 23)
+	_configure_wrapped_label(title)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
 	var tutorial_controls := HBoxContainer.new()
@@ -450,13 +452,13 @@ func _build_interface() -> void:
 	tutorial_controls.add_child(_tutorial_toggle_button)
 	_tutorial_reset_button = Button.new()
 	_tutorial_reset_button.name = "TutorialResetButton"
-	_tutorial_reset_button.text = "Reset tutorial"
+	_tutorial_reset_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0039")
 	_tutorial_reset_button.pressed.connect(_on_tutorial_reset_pressed)
 	tutorial_controls.add_child(_tutorial_reset_button)
 	header.add_child(tutorial_controls)
 	_new_run_button = Button.new()
 	_new_run_button.name = "NewRunButton"
-	_new_run_button.text = "New Run"
+	_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0040")
 	_new_run_button.disabled = true
 	_new_run_button.pressed.connect(_on_new_run_pressed)
 	header.add_child(_new_run_button)
@@ -471,8 +473,8 @@ func _build_interface() -> void:
 	_profile_status.visible = not _meta_progress_load_warning.is_empty()
 	page.add_child(_profile_status)
 	_reset_profile_button = Button.new()
-	_reset_profile_button.text = "Reset progression profile"
-	_reset_profile_button.tooltip_text = "Archive the rejected save and create a fresh starter unlock profile."
+	_reset_profile_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0041")
+	_reset_profile_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0042")
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
 	_reset_profile_button.pressed.connect(_on_reset_profile_pressed)
 	page.add_child(_reset_profile_button)
@@ -487,12 +489,12 @@ func _build_interface() -> void:
 	_suspend_choice_panel.add_child(_suspend_status)
 	_resume_run_button = Button.new()
 	_resume_run_button.name = "ResumeRunButton"
-	_resume_run_button.text = "Resume Run"
+	_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
 	_resume_run_button.pressed.connect(_on_resume_run_pressed)
 	_suspend_choice_panel.add_child(_resume_run_button)
 	_new_run_from_suspend_button = Button.new()
 	_new_run_from_suspend_button.name = "NewRunFromSuspendButton"
-	_new_run_from_suspend_button.text = "Start New Run (keep rejected save)"
+	_new_run_from_suspend_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0044")
 	_new_run_from_suspend_button.pressed.connect(_on_new_run_from_suspend_pressed)
 	_suspend_choice_panel.add_child(_new_run_from_suspend_button)
 
@@ -514,20 +516,20 @@ func _build_interface() -> void:
 	overview_header.add_theme_constant_override("separation", 6)
 	overview_layout.add_child(overview_header)
 	var overview_heading := Label.new()
-	overview_heading.text = "Run state"
+	overview_heading.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0045")
 	overview_heading.add_theme_font_size_override("font_size", 16)
 	overview_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	overview_header.add_child(overview_heading)
 	var overview_scroll_up_button := Button.new()
 	overview_scroll_up_button.name = "OverviewScrollUpButton"
-	overview_scroll_up_button.text = "Scroll up"
-	overview_scroll_up_button.tooltip_text = "Scroll the Run state overview upward."
+	overview_scroll_up_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0046")
+	overview_scroll_up_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0047")
 	overview_scroll_up_button.pressed.connect(_scroll_overview.bind(-1))
 	overview_header.add_child(overview_scroll_up_button)
 	var overview_scroll_down_button := Button.new()
 	overview_scroll_down_button.name = "OverviewScrollDownButton"
-	overview_scroll_down_button.text = "Scroll down"
-	overview_scroll_down_button.tooltip_text = "Scroll the Run state overview downward."
+	overview_scroll_down_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0048")
+	overview_scroll_down_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0049")
 	overview_scroll_down_button.pressed.connect(_scroll_overview.bind(1))
 	overview_header.add_child(overview_scroll_down_button)
 	_overview_scroll = ScrollContainer.new()
@@ -538,16 +540,16 @@ func _build_interface() -> void:
 	_overview_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_overview_scroll.follow_focus = true
 	_overview_scroll.focus_mode = Control.FOCUS_ALL
-	_overview_scroll.tooltip_text = "Run state overview. Focus this area, then use Up or Down to scroll."
+	_overview_scroll.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0050")
 	overview_layout.add_child(_overview_scroll)
 	var overview := VBoxContainer.new()
 	overview.add_theme_constant_override("separation", 12)
 	overview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_overview_scroll.add_child(overview)
 	_run_value = _add_wrapped_label(overview)
-	_add_section_heading(overview, "Battle")
+	_add_section_heading(overview, LocalizationCatalogScript.text("UI_RUN_SCENE_0149"))
 	_battle_value = _add_wrapped_label(overview)
-	_add_section_heading(overview, "Hand and Reserve")
+	_add_section_heading(overview, LocalizationCatalogScript.text("UI_RUN_SCENE_0051"))
 	_hand_value = _add_wrapped_label(overview)
 	_help_value = _add_wrapped_label(overview)
 	_help_value.name = "RunHelpPrompt"
@@ -566,7 +568,7 @@ func _build_interface() -> void:
 	var action_layout := VBoxContainer.new()
 	action_layout.add_theme_constant_override("separation", 8)
 	actions_panel.add_child(action_layout)
-	_add_section_heading(action_layout, "Available actions")
+	_add_section_heading(action_layout, LocalizationCatalogScript.text("UI_RUN_SCENE_0052"))
 	var scroll := ScrollContainer.new()
 	scroll.name = "AvailableActionsScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -604,7 +606,7 @@ func _build_interface() -> void:
 	summary_scroll.add_child(_summary_value)
 	_summary_acknowledge_button = Button.new()
 	_summary_acknowledge_button.name = "FinishRunButton"
-	_summary_acknowledge_button.text = "Finish Run"
+	_summary_acknowledge_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
 	_summary_acknowledge_button.pressed.connect(_on_action_pressed.bind("run.summary.acknowledge"))
 	summary_layout.add_child(_summary_acknowledge_button)
 
@@ -615,7 +617,7 @@ func _build_interface() -> void:
 func _render() -> void:
 	if controller == null:
 		if _phase_value != null:
-			_phase_value.text = "Run unavailable"
+			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0054")
 		if _profile_status != null:
 			_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
 			_profile_status.visible = not _meta_progress_load_warning.is_empty()
@@ -639,8 +641,8 @@ func _render() -> void:
 	_suspend_choice_panel.visible = false
 	var state = controller.domain.state
 	var phase := str(state.phase)
-	_phase_value.text = "Act %d of %d   ·   %s" % [state.act_index, state.act_count, _pretty_words(phase)]
-	_set_wrapped_label_text(_run_value, "Run: %s\nCharacter: %s\nContract: %s\nGold: %d     Refinement: %d\nCurrent map node: %s" % [
+	_phase_value.text = LocalizationCatalogScript.template("UI_RUN_SCENE_0055") % [state.act_index, state.act_count, _pretty_words(phase)]
+	_set_wrapped_label_text(_run_value, LocalizationCatalogScript.template("UI_RUN_SCENE_0056") % [
 		state.run_id,
 		_pretty_id(state.character_id),
 		_pretty_id(state.contract_id),
@@ -677,7 +679,7 @@ func _render_actions() -> void:
 		_set_wrapped_label_text(_action_details_value, "")
 		_action_details_value.visible = false
 		var empty_label := Label.new()
-		empty_label.text = "No actions are available in this state."
+		empty_label.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0057")
 		_configure_wrapped_label(empty_label)
 		_actions_column.add_child(empty_label)
 		return
@@ -737,7 +739,7 @@ func _render_tutorial(phase: String) -> void:
 	var progress = controller.tutorial_progress
 	var active_step := str(progress.current_step_id)
 	var complete: bool = progress.is_complete()
-	_tutorial_toggle_button.text = "Tutorial complete" if complete else ("Disable tutorial" if progress.enabled else "Enable tutorial")
+	_tutorial_toggle_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0058") if complete else (LocalizationCatalogScript.text("UI_RUN_SCENE_0059") if progress.enabled else LocalizationCatalogScript.text("UI_RUN_SCENE_0060"))
 	_tutorial_toggle_button.disabled = complete
 	_tutorial_reset_button.disabled = progress.enabled and progress.completed_step_ids.is_empty()
 	_set_wrapped_label_text(_tutorial_prompt, _tutorial_prompt_for_step(active_step))
@@ -746,15 +748,15 @@ func _render_tutorial(phase: String) -> void:
 func _tutorial_prompt_for_step(step_id: String) -> String:
 	match step_id:
 		TutorialProgressScript.DRAW_PATTERN_PARTIAL:
-			return "Tutorial: draw a tile, inspect the highlighted Patterns, then settle one to deal damage."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0061")
 		TutorialProgressScript.TP_CORE_TECHNIQUE:
-			return "Tutorial: spend TP on your Core Technique when its timing is legal."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0062")
 		TutorialProgressScript.RESERVE_INTEGRITY:
-			return "Tutorial: store a tile in Reserve to protect it from enemy Pressure."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0063")
 		TutorialProgressScript.YAKU_COMPLETE_HAND:
-			return "Tutorial: build and settle a Complete Hand to advance Yaku progress."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0064")
 		TutorialProgressScript.CONTAMINATION_INTENT:
-			return "Tutorial: inspect enemy intent and Contamination before ending the turn."
+			return LocalizationCatalogScript.text("UI_RUN_SCENE_0065")
 	return ""
 
 func _on_new_run_pressed() -> void:
@@ -762,18 +764,18 @@ func _on_new_run_pressed() -> void:
 		return
 	var registry_result := _validated_content_registry()
 	if not registry_result.get("accepted", false):
-		_startup_error = str(registry_result.get("message", "A new run could not start because game content failed validation."))
+		_startup_error = str(registry_result.get("message", LocalizationCatalogScript.text("UI_RUN_SCENE_0066")))
 		_render()
 		return
 	if controller != null and str(controller.domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(controller.domain.state)
 		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
-			controller.state.feedback = "Progression could not be saved (%s). The completed Run remains available; retry before starting another Run." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
+			controller.state.feedback = LocalizationCatalogScript.template("UI_RUN_SCENE_0067") % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
 			_render()
 			return
 	var cleared: Dictionary = suspend_store.clear()
 	if not cleared.get("accepted", false):
-		controller.state.feedback = "The previous Suspend Save could not be cleared (%s). No new Run was started; check file permissions and retry." % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		controller.state.feedback = LocalizationCatalogScript.template("UI_RUN_SCENE_0068") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
 		_render()
 		return
 	if controller != null and controller.presentation_changed.is_connected(_render):
@@ -786,9 +788,9 @@ func _on_new_run_pressed() -> void:
 func _on_reset_profile_pressed() -> void:
 	var result: Dictionary = meta_progress_coordinator.reset_profile()
 	if result.get("accepted", false):
-		_meta_progress_load_warning = "Progression profile reset. The rejected save remains preserved at %s." % str(result.get("preserved_path", "the recovery copy"))
+		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0069") % str(result.get("preserved_path", LocalizationCatalogScript.text("UI_RUN_SCENE_0070")))
 	else:
-		_meta_progress_load_warning = "Progression profile reset failed (%s). Progression writes remain disabled." % str(result.get("code", "RESET_FAILED"))
+		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0071") % str(result.get("code", "RESET_FAILED"))
 	_render()
 
 func _battle_summary() -> String:
@@ -796,16 +798,19 @@ func _battle_summary() -> String:
 	if battle == null:
 		var summary = controller.domain.state.terminal_summary
 		if controller.domain.state.phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]:
-			return "Run outcome: %s\nReason: %s" % [summary.outcome, summary.reason]
-		return "No active battle. Use the available actions to advance the Run."
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0072") % [
+				LocalizationCatalogScript.word_text(str(summary.outcome)),
+				LocalizationCatalogScript.word_text(str(summary.reason)),
+			]
+		return LocalizationCatalogScript.text("UI_RUN_SCENE_0073")
 	var battle_state: Dictionary = battle.public_state()
 	var intent = battle.combat_state.current_intent
-	var intent_text := "None"
+	var intent_text := LocalizationCatalogScript.text("WORD_NONE")
 	if intent != null:
-		intent_text = "%s (%d Pressure)" % [intent.display_name, intent.pressure_amount]
+		intent_text = LocalizationCatalogScript.template("UI_RUN_SCENE_0074") % [intent.display_name, intent.pressure_amount]
 	var outcome := str(battle_state.get("terminal_outcome", "ONGOING"))
 	var pattern_count: int = battle.settlement_window.candidates().size() if battle.settlement_window != null else 0
-	return "%s\nEnemy HP: %d / %d\nEnemy intent: %s\nPressure: %d / %d\nTP: %d    Stability: %d\nPatterns available: %d    Outcome: %s" % [
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0075") % [
 		_pretty_words(str(battle_state.get("encounter_kind", "Battle"))),
 		int(battle_state.get("enemy_hp", 0)),
 		int(battle_state.get("enemy_max_hp", 0)),
@@ -824,16 +829,16 @@ func _hand_summary() -> String:
 		var run_tiles: Array = []
 		for tile in controller.domain.state.tile_pool.tile_instances:
 			run_tiles.append(_pretty_tile_id(tile.definition_id))
-		return "Run tile pool (%d): %s" % [run_tiles.size(), _join_strings(run_tiles)]
+		return LocalizationCatalogScript.template("UI_RUN_SCENE_0076") % [run_tiles.size(), _join_strings(run_tiles)]
 	var hand: Array = []
 	var reserve: Array = []
 	for tile in battle.zones.contents(TileZoneScript.HAND):
 		hand.append(_pretty_tile_id(tile.definition_id))
 	for tile in battle.zones.contents(TileZoneScript.RESERVE):
 		reserve.append(_pretty_tile_id(tile.definition_id))
-	return "Hand (%d): %s\nReserve (%d): %s" % [
-		hand.size(), _join_strings(hand) if not hand.is_empty() else "Empty",
-		reserve.size(), _join_strings(reserve) if not reserve.is_empty() else "Empty",
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0077") % [
+		hand.size(), _join_strings(hand) if not hand.is_empty() else LocalizationCatalogScript.text("WORD_EMPTY"),
+		reserve.size(), _join_strings(reserve) if not reserve.is_empty() else LocalizationCatalogScript.text("WORD_EMPTY"),
 	]
 
 func _action_label(action: Dictionary) -> String:
@@ -841,67 +846,67 @@ func _action_label(action: Dictionary) -> String:
 	var target := str(action.get("target_id", ""))
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	match kind:
-		"CHARACTER": return "Choose Character — %s" % _pretty_id(target)
+		"CHARACTER": return LocalizationCatalogScript.template("UI_RUN_SCENE_0078") % _pretty_id(target)
 		"CONTRACT": return _contract_action_label(details, target)
-		"MAP_NODE": return "%s — %s" % [_pretty_words(str(action.get("node_kind", "Map"))), _pretty_id(target)]
-		"DRAW": return "Draw tile"
-		"END_TURN": return "End turn (resolve enemy intent)"
+		"MAP_NODE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0079") % [_pretty_words(str(action.get("node_kind", "Map"))), _pretty_id(target)]
+		"DRAW": return LocalizationCatalogScript.text("UI_RUN_SCENE_0080")
+		"END_TURN": return LocalizationCatalogScript.text("UI_RUN_SCENE_0081")
 		"TECHNIQUE":
-			var timing := _pretty_words(str(details.get("technique_kind", "Technique")))
+			var technique_kind := str(details.get("technique_kind", "Technique"))
 			var cost := int(details.get("tp_cost", 0))
 			var target_label := _pretty_tile_id(str(details.get("effect_target_id", "")))
-			var suffix := " — %s" % target_label if not target_label.is_empty() else ""
-			var timing_label := "Reaction before intent" if timing == "Reaction" else ("Settlement" if timing == "Settlement" else timing)
-			return "%s Technique — %s%s (TP %d)" % [timing_label, _pretty_id(target), suffix, cost]
-		"PARTIAL_SETTLEMENT": return "Settle %s — %s" % [
+			var suffix := LocalizationCatalogScript.template("UI_RUN_SCENE_0082") % target_label if not target_label.is_empty() else ""
+			var timing_label := LocalizationCatalogScript.text("UI_RUN_SCENE_0083") if technique_kind == "REACTION" else _pretty_words(technique_kind)
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0084") % [timing_label, _pretty_id(target), suffix, cost]
+		"PARTIAL_SETTLEMENT": return LocalizationCatalogScript.template("UI_RUN_SCENE_0085") % [
 			_pretty_words(str(details.get("pattern_type", "pattern"))),
 			_join_strings(details.get("labels", [])),
 		]
-		"COMPLETE_HAND": return "Settle complete hand — %s" % _pretty_words(str(details.get("hand_type", "hand")))
-		"RESERVE": return "Store %s in Reserve" % _pretty_tile_id(str(details.get("tile_id", target)))
-		"DISCARD": return "Discard %s" % _pretty_tile_id(str(details.get("tile_id", target)))
-		"RESERVE_SWAP": return "Swap %s with Reserve %s" % [
+		"COMPLETE_HAND": return LocalizationCatalogScript.template("UI_RUN_SCENE_0086") % _pretty_words(str(details.get("hand_type", "hand")))
+		"RESERVE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0087") % _pretty_tile_id(str(details.get("tile_id", target)))
+		"DISCARD": return LocalizationCatalogScript.template("UI_RUN_SCENE_0088") % _pretty_tile_id(str(details.get("tile_id", target)))
+		"RESERVE_SWAP": return LocalizationCatalogScript.template("UI_RUN_SCENE_0089") % [
 			_pretty_tile_id(str(details.get("hand_tile_id", ""))),
 			_pretty_tile_id(str(details.get("reserve_tile_id", ""))),
 		]
 		"REWARD", "ELITE_REWARD", "BOSS_REWARD":
 			var content_id := str(action.get("content_id", details.get("content_id", target)))
-			return "Choose reward — %s" % _pretty_id(content_id)
-		"ENTER_SHOP": return "Enter Shop"
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0090") % _pretty_id(content_id)
+		"ENTER_SHOP": return LocalizationCatalogScript.text("UI_RUN_SCENE_0091")
 		"SHOP_OFFER":
 			var content_id := str(details.get("content_id", details.get("offer_id", target)))
 			var price := int(details.get("cost", details.get("price", 0)))
-			return "Buy %s (%d Gold)" % [_pretty_id(content_id), price]
-		"SHOP_REFRESH": return "Refresh Shop"
-		"SHOP_EXIT": return "Leave Shop"
-		"ENTER_WORKSHOP": return "Enter Workshop"
-		"WORKSHOP_SELECT_SERVICE": return "Workshop — %s" % _pretty_words(str(action.get("service_id", target)))
-		"WORKSHOP_SELECT_TARGET": return "Choose tile — %s" % _pretty_tile_id(str(details.get("tile_definition_id", "")))
-		"WORKSHOP_BACK": return "Back to Workshop choices"
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0092") % [_pretty_id(content_id), price]
+		"SHOP_REFRESH": return LocalizationCatalogScript.text("UI_RUN_SCENE_0093")
+		"SHOP_EXIT": return LocalizationCatalogScript.text("UI_RUN_SCENE_0094")
+		"ENTER_WORKSHOP": return LocalizationCatalogScript.text("UI_RUN_SCENE_0095")
+		"WORKSHOP_SELECT_SERVICE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0096") % _pretty_words(str(action.get("service_id", target)))
+		"WORKSHOP_SELECT_TARGET": return LocalizationCatalogScript.template("UI_RUN_SCENE_0097") % _pretty_tile_id(str(details.get("tile_definition_id", "")))
+		"WORKSHOP_BACK": return LocalizationCatalogScript.text("UI_RUN_SCENE_0098")
 		"WORKSHOP_SERVICE": return _workshop_action_label(action, details)
-		"WORKSHOP_EXIT": return "Leave Workshop"
-		"ENTER_EVENT": return "Enter Event"
-		"EVENT_OPTION": return str(details.get("label", "Event — %s" % _pretty_id(target)))
-		"RUN_SUMMARY": return "Acknowledge Run Summary"
-	return "%s — %s" % [_pretty_words(kind), _pretty_id(target)]
+		"WORKSHOP_EXIT": return LocalizationCatalogScript.text("UI_RUN_SCENE_0099")
+		"ENTER_EVENT": return LocalizationCatalogScript.text("UI_RUN_SCENE_0100")
+		"EVENT_OPTION": return str(details.get("label", LocalizationCatalogScript.template("UI_RUN_SCENE_0101") % _pretty_id(target)))
+		"RUN_SUMMARY": return LocalizationCatalogScript.text("UI_RUN_SCENE_0102")
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0103") % [_pretty_words(kind), _pretty_id(target)]
 
 func _compact_action_label(action: Dictionary) -> String:
 	var kind := str(action.get("kind", "ACTION"))
 	var target := str(action.get("target_id", ""))
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	match kind:
-		"CHARACTER": return "Choose %s" % _pretty_id(target)
-		"CONTRACT": return "Choose Contract — %s" % str(details.get("name", _pretty_id(target)))
-		"TECHNIQUE": return "Use %s Technique" % _pretty_words(str(details.get("technique_kind", "Core")))
-		"PARTIAL_SETTLEMENT": return "Settle %s" % _pretty_words(str(details.get("pattern_type", "Pattern")))
-		"COMPLETE_HAND": return "Settle complete hand"
-		"RESERVE": return "Store tile"
-		"DISCARD": return "Discard tile"
-		"RESERVE_SWAP": return "Swap with Reserve"
-		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return "Choose reward"
-		"SHOP_OFFER": return "Buy offer"
-		"EVENT_OPTION": return "Choose Event option"
-		"WORKSHOP_SELECT_TARGET": return "Choose tile"
+		"CHARACTER": return LocalizationCatalogScript.template("UI_RUN_SCENE_0104") % _pretty_id(target)
+		"CONTRACT": return LocalizationCatalogScript.template("UI_RUN_SCENE_0105") % str(details.get("name", _pretty_id(target)))
+		"TECHNIQUE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0106") % _pretty_words(str(details.get("technique_kind", "Core")))
+		"PARTIAL_SETTLEMENT": return LocalizationCatalogScript.template("UI_RUN_SCENE_0107") % _pretty_words(str(details.get("pattern_type", "Pattern")))
+		"COMPLETE_HAND": return LocalizationCatalogScript.text("UI_RUN_SCENE_0108")
+		"RESERVE": return LocalizationCatalogScript.text("UI_RUN_SCENE_0109")
+		"DISCARD": return LocalizationCatalogScript.text("UI_RUN_SCENE_0110")
+		"RESERVE_SWAP": return LocalizationCatalogScript.text("UI_RUN_SCENE_0111")
+		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return LocalizationCatalogScript.text("UI_RUN_SCENE_0112")
+		"SHOP_OFFER": return LocalizationCatalogScript.text("UI_RUN_SCENE_0113")
+		"EVENT_OPTION": return LocalizationCatalogScript.text("UI_RUN_SCENE_0114")
+		"WORKSHOP_SELECT_TARGET": return LocalizationCatalogScript.text("UI_RUN_SCENE_0115")
 		"WORKSHOP_SERVICE": return _pretty_words(str(action.get("service_id", target)))
 	var full_label := _action_label(action)
 	return _pretty_words(kind) if full_label.length() > 38 else full_label
@@ -920,17 +925,17 @@ func _action_details_text(action: Dictionary) -> String:
 func _help_text(phase: String) -> String:
 	var phase_help := ""
 	match phase:
-		RunPhaseScript.CHARACTER_SELECT: phase_help = "Choose a Character, then choose a Contract to begin the Act 1 map. The Run prepares its starting Tile Pool when you choose."
-		RunPhaseScript.CONTRACT_SELECT: phase_help = "Choose a Contract. Your selection applies across both Acts."
-		RunPhaseScript.MAP_CHOICE: phase_help = "Choose an adjacent node. Complete battles and the Boss reward to continue the Run."
-		RunPhaseScript.BATTLE: phase_help = "Draw tiles, settle highlighted Patterns or a Complete Hand, and end the turn to resolve enemy intent."
-		RunPhaseScript.RUN_SUMMARY: phase_help = "Review the Build Story, then acknowledge the summary to finish the Run."
-		RunPhaseScript.RUN_COMPLETE: phase_help = "Run complete. Start another Run when you are ready."
-		_: phase_help = "Choose an available action to continue. Enter or A confirms."
-	return "%s Tab or L/R shoulder moves focus. Focus Run state, then press Up/Down to scroll. Or focus Scroll up/down and press Enter/A." % phase_help
+		RunPhaseScript.CHARACTER_SELECT: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0116")
+		RunPhaseScript.CONTRACT_SELECT: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0117")
+		RunPhaseScript.MAP_CHOICE: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0118")
+		RunPhaseScript.BATTLE: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0119")
+		RunPhaseScript.RUN_SUMMARY: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0120")
+		RunPhaseScript.RUN_COMPLETE: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0121")
+		_: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0122")
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0123") % phase_help
 
 func _action_label_for_target(kind: String, target_id: String) -> String:
-	return "%s — %s" % [_pretty_words(kind), _pretty_id(target_id)]
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0124") % [_pretty_words(kind), _pretty_id(target_id)]
 
 func _workshop_action_label(action: Dictionary, details: Dictionary) -> String:
 	var service_id := str(action.get("service_id", action.get("target_id", "")))
@@ -938,18 +943,18 @@ func _workshop_action_label(action: Dictionary, details: Dictionary) -> String:
 	var price := int(details.get("price", 0))
 	match service_id:
 		"TRANSFORM":
-			return "Transform %s to %s (%d Gold)" % [tile_label, _pretty_tile_id(str(action.get("value_id", ""))), price]
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0125") % [tile_label, _pretty_tile_id(str(action.get("value_id", ""))), price]
 		"ADD_MODIFIER":
-			return "Add %s to %s (%d Gold)" % [_pretty_id(str(action.get("modifier_id", ""))), tile_label, price]
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0126") % [_pretty_id(str(action.get("modifier_id", ""))), tile_label, price]
 		"REPLACE_MODIFIER":
-			return "Replace modifier on %s with %s (%d Gold)" % [tile_label, _pretty_id(str(action.get("modifier_id", ""))), price]
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0127") % [tile_label, _pretty_id(str(action.get("modifier_id", ""))), price]
 		"REMOVE":
-			return "Remove %s (%d Gold)" % [tile_label, price]
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0128") % [tile_label, price]
 		"DUPLICATE":
-			return "Duplicate %s (%d Gold)" % [tile_label, price]
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0129") % [tile_label, price]
 		"REFINEMENT_TOKEN":
-			return "Use Refinement Token on %s (%d Gold)" % [tile_label, price]
-	return "Workshop — %s" % _pretty_words(service_id)
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0130") % [tile_label, price]
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0131") % _pretty_words(service_id)
 
 func _action_tooltip(action: Dictionary) -> String:
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
@@ -960,34 +965,34 @@ func _action_tooltip(action: Dictionary) -> String:
 	var service_id := str(action.get("service_id", action.get("target_id", "")))
 	var tile_definition_id := str(details.get("tile_definition_id", ""))
 	var lines := PackedStringArray()
-	lines.append("TileInstance: %s" % str(action.get("instance_id", "")))
-	lines.append("Current tile: %s (%s)" % [_pretty_tile_id(tile_definition_id), tile_definition_id])
+	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0132") % str(action.get("instance_id", "")))
+	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0133") % [_pretty_tile_id(tile_definition_id), tile_definition_id])
 	match service_id:
 		"TRANSFORM":
 			var value_id := str(action.get("value_id", ""))
-			lines.append("New tile: %s (%s)" % [_pretty_tile_id(value_id), value_id])
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0134") % [_pretty_tile_id(value_id), value_id])
 		"ADD_MODIFIER":
-			lines.append("Add modifier: %s" % str(action.get("modifier_id", "")))
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0135") % str(action.get("modifier_id", "")))
 		"REPLACE_MODIFIER":
-			lines.append("Replace %s with %s" % [_join_strings(details.get("existing_modifier_ids", [])), str(action.get("modifier_id", ""))])
-	lines.append("Cost: %d Gold" % int(details.get("price", 0)))
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0136") % [_join_strings(details.get("existing_modifier_ids", [])), str(action.get("modifier_id", ""))])
+	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0137") % int(details.get("price", 0)))
 	if service_id == "REFINEMENT_TOKEN":
-		lines.append("Also consumes: 1 Refinement Token")
+		lines.append(LocalizationCatalogScript.text("UI_RUN_SCENE_0138"))
 	return "\n".join(lines)
 
 func _contract_action_label(details: Dictionary, target_id: String) -> String:
 	var contract_name := str(details.get("name", _pretty_id(target_id)))
-	var risk := str(details.get("risk_summary", "No risk details available"))
-	var reward := str(details.get("reward_summary", "No reward details available"))
-	return "Choose Contract — %s\nRisk: %s\nReward: %s" % [contract_name, risk, reward]
+	var risk := str(details.get("risk_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0139")))
+	var reward := str(details.get("reward_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0140")))
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0141") % [contract_name, risk, reward]
 
 func _contract_action_details_text(details: Dictionary, target_id: String) -> String:
 	var contract_name := str(details.get("name", _pretty_id(target_id)))
-	var risk := str(details.get("risk_summary", "No risk details available"))
-	var reward := str(details.get("reward_summary", "No reward details available"))
-	var build_bias := str(details.get("build_bias_summary", "No specific Tile Pool bias"))
-	var yaku_signal := str(details.get("yaku_signal_summary", "No specific Yaku signal"))
-	return "%s\nRisk: %s\nReward: %s\nBuild bias: %s\nYaku signal: %s" % [contract_name, risk, reward, build_bias, yaku_signal]
+	var risk := str(details.get("risk_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0142")))
+	var reward := str(details.get("reward_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0143")))
+	var build_bias := str(details.get("build_bias_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0144")))
+	var yaku_signal := str(details.get("yaku_signal_summary", LocalizationCatalogScript.text("UI_RUN_SCENE_0145")))
+	return LocalizationCatalogScript.template("UI_RUN_SCENE_0146") % [contract_name, risk, reward, build_bias, yaku_signal]
 
 func _join_strings(values: Array) -> String:
 	var result := PackedStringArray()
@@ -996,21 +1001,17 @@ func _join_strings(values: Array) -> String:
 	return ", ".join(result)
 
 func _pretty_tile_id(definition_id: String) -> String:
-	var parts := definition_id.split(".")
-	if parts.size() >= 4 and parts[parts.size() - 2] == "honors":
-		return _pretty_words(parts[parts.size() - 1])
-	if parts.size() >= 4:
-		return "%s %s" % [_pretty_words(parts[parts.size() - 2]), _pretty_words(parts[parts.size() - 1])]
 	return _pretty_id(definition_id)
 
 func _pretty_id(identifier: String) -> String:
 	if identifier.is_empty():
-		return "—"
-	var parts := identifier.split(".")
-	return _pretty_words(parts[parts.size() - 1])
+		return LocalizationCatalogScript.text("UI_RUN_SCENE_0148")
+	if "." in identifier:
+		return LocalizationCatalogScript.content_text(identifier)
+	return _pretty_words(identifier)
 
 func _pretty_words(value: String) -> String:
-	return value.replace("_", " ").to_lower().capitalize()
+	return LocalizationCatalogScript.word_text(value)
 
 func _add_section_heading(parent: Control, text: String) -> void:
 	var heading := Label.new()

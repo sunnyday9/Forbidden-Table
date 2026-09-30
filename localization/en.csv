@@ -1,0 +1,975 @@
+keys,en
+CONTENT_ACT_TWO_0001,Count the Table
+CONTENT_ACT_TWO_0002,Collect the Toll
+CONTENT_ACT_TWO_0003,Mirror the Line
+CONTENT_ACT_TWO_0004,Repeat the Signal
+CONTENT_ACT_TWO_0005,Watch the Pressure
+CONTENT_ACT_TWO_0006,Raise the Limit
+CONTENT_ACT_TWO_0007,Thin the Wall
+CONTENT_ACT_TWO_0008,Consume the Margin
+CONTENT_ACT_TWO_0009,Audit the Ledger
+CONTENT_ACT_TWO_0010,Mirror the Debt
+CONTENT_ACT_TWO_0011,Close the Account
+CONTENT_ACT_TWO_0012,Catalog the Table
+CONTENT_ACT_TWO_0013,Reindex the Line
+CONTENT_ACT_TWO_0014,Float the Index
+CONTENT_ACT_TWO_0015,Bury the Record
+CONTENT_ACT_TWO_0016,Refine the damaged entry
+CONTENT_ACT_TWO_0017,Leave the ledger as written
+CONTENT_ACT_TWO_0018,Risk Gold on the hidden account
+CONTENT_ACT_TWO_0019,Decline the wager
+CONTENT_ACT_TWO_0020,Exchange 4 Gold for a Refinement Token
+CONTENT_ACT_TWO_0021,Keep the current funds
+CONTENT_ACT_TWO_0022,Read the final route
+CONTENT_ACT_TWO_0023,Keep the route obscured
+CONTENT_ACT_TWO_0024,Carry a one-Act clause: +1 Reserve Capacity in later battles this Act
+CONTENT_ACT_TWO_0025,Decline the clause
+CONTENT_ACT_TWO_0026,Record: +1 TP in later battles this Run and +1 Refinement Token
+CONTENT_ACT_TWO_0027,Leave the old rule undisturbed
+CONTENT_ACT_TWO_0028,Spend 1 Refinement Token to recover 3 Gold
+CONTENT_ACT_TWO_0029,Leave the sealed entry untouched
+CONTENT_ACT_TWO_0030,Risk 2 Gold on the hidden account
+CONTENT_ACT_TWO_0031,Decline the hidden account
+CONTENT_ACT_TWO_0032,Exchange 6 Gold for 2 Refinement Tokens
+CONTENT_ACT_TWO_0033,Keep the current funds
+CONTENT_ACT_TWO_0034,Read the last annotation
+CONTENT_ACT_TWO_0035,Keep the route obscured
+CONTENT_ACT_TWO_0036,Carry +1 Reserve Capacity into later battles this Act
+CONTENT_ACT_TWO_0037,Decline the amended clause
+CONTENT_ACT_TWO_0038,Record +1 TP in later battles this Run and gain 1 Refinement Token
+CONTENT_ACT_TWO_0039,Leave the rule uncopied
+CONTENT_ACT_TWO_0040,Open the Index
+CONTENT_ACT_TWO_0041,Mark the Page
+CONTENT_ACT_TWO_0042,Cross-reference the Table
+CONTENT_ACT_TWO_0043,Annotate the Line
+CONTENT_ACT_TWO_0044,Write the Final Entry
+CONTENT_ACT_TWO_0045,Seal the Index
+CONTENT_ACT_TWO_0046,Log the Current
+CONTENT_ACT_TWO_0047,Raise the Waterline
+CONTENT_ACT_TWO_0048,Pull at the Reserve
+CONTENT_ACT_TWO_0049,Crack the Keel
+CONTENT_ACT_TWO_0050,Rewrite the Ledger
+CONTENT_ACT_TWO_0051,Close the Archive
+CONTENT_PHASE2_0001,Pair Foundation
+CONTENT_PHASE2_0002,Bamboo Concentration
+CONTENT_PHASE2_0003,bamboo tile
+CONTENT_PHASE2_0004,Advance Pressure
+CONTENT_PHASE2_0005,Measure the Table
+CONTENT_PHASE2_0006,Tax the Wall
+CONTENT_PHASE2_0007,Count the Wall
+CONTENT_PHASE2_0008,Collect Integrity
+CONTENT_PHASE2_0009,Seal the Table
+CONTENT_PHASE2_0010,Seed Contamination
+CONTENT_PHASE2_0011,Spread Contamination
+CONTENT_PHASE2_0012,Break the Tempo
+CONTENT_PHASE2_0013,Interfere with the Table
+CONTENT_PHASE2_0014,Audit the Run
+CONTENT_PHASE2_0015,Hunt the Weak Line
+CONTENT_PHASE2_0016,Collect the Ledger
+CONTENT_PHASE2_0017,Break the Tempo
+CONTENT_PHASE2_0018,Echo the Tempo
+CONTENT_PHASE2_0019,Jam the Table
+CONTENT_PHASE2_0020,Tax the Draw
+CONTENT_PHASE2_0021,Rewrite the Rule
+CONTENT_PHASE2_0022,Seal the Rule
+CONTENT_PHASE2_0023,Spend a Refinement Token
+CONTENT_PHASE2_0024,Accept: +1 starting Pressure in later battles; +2 Gold per victory this Run
+CONTENT_PHASE2_0025,Exchange Gold
+CONTENT_PHASE2_0026,Reveal the Route
+CONTENT_PHASE2_0027,Carry: +1 Settlement Capacity in every later battle this Run
+CONTENT_PHASE2_0028,Remember the Rule
+CONTENT_PHASE2_LABEL_0029,pair
+CONTENT_PHASE2_LABEL_0030,Leave
+CONTENT_PHASE2_LABEL_0031,Leave
+CONTENT_PHASE2_LABEL_0032,Leave
+CONTENT_PHASE2_LABEL_0033,Leave
+CONTENT_PHASE2_LABEL_0034,Leave
+CONTENT_PHASE2_LABEL_0035,Leave
+CONTENT_SCALE_0001,Harbor Read
+CONTENT_SCALE_0002,"Once per encounter, your first Complete Hand grants 1 TP."
+CONTENT_SCALE_0003,Trade 2 Gold for a Refinement Token
+CONTENT_SCALE_0004,Leave the entry untouched
+CONTENT_SCALE_0005,Stake a Refinement Token on the Harbor's advance
+CONTENT_SCALE_0006,Decline the advance
+CONTENT_SCALE_0007,Exchange 3 Gold for a Refinement Token
+CONTENT_SCALE_0008,Keep the current funds
+CONTENT_SCALE_0009,Read the terminal route
+CONTENT_SCALE_0010,Keep the route obscured
+CONTENT_SCALE_0011,Carry +1 Settlement Capacity into later battles this Run
+CONTENT_SCALE_0012,Decline the clause
+CONTENT_SCALE_0013,Record the Rule: +1 TP in later battles this Run and +1 Refinement Token
+CONTENT_SCALE_0014,Leave the old rule undisturbed
+CONTENT_SCALE_0015,Call the Fog
+CONTENT_SCALE_0016,Press Through the Fog
+CONTENT_SCALE_0017,Take the Margin
+CONTENT_SCALE_0018,Collect the Shortfall
+CONTENT_SCALE_0019,Audit the Signal
+CONTENT_SCALE_0020,Enforce the Signal
+CONTENT_SCALE_0021,Read the Contract
+CONTENT_SCALE_0022,Enforce the Clause
+CONTENT_SCALE_0023,Send the Echo
+CONTENT_SCALE_0024,Thin the Wall
+CONTENT_SCALE_0025,Record the Lien
+CONTENT_SCALE_0026,Collect the Lien
+CONTENT_SCALE_0027,Audit the Run
+CONTENT_SCALE_0028,Collect the Fee
+CONTENT_SCALE_0029,Hunt the Weak Line
+CONTENT_SCALE_0030,Hunt the Current
+CONTENT_SCALE_0031,Tax the Wall
+CONTENT_SCALE_0032,Drive the Fleet
+CONTENT_SCALE_0033,Audit the Margin
+CONTENT_SCALE_0034,Enforce the Margin
+CONTENT_SCALE_0035,Close the Margin
+CONTENT_SCALE_0036,Index the Table
+CONTENT_SCALE_0037,Burn the Record
+CONTENT_SCALE_0038,Audit the Ashes
+CONTENT_SCALE_0039,Survey the Harbor
+CONTENT_SCALE_0040,Press the Margin
+CONTENT_SCALE_0041,Measure the Channel
+CONTENT_SCALE_0042,Draw the Current
+CONTENT_SCALE_0043,Thin the Wall
+CONTENT_SCALE_0044,Collect the Shortfall
+CONTENT_SCALE_0045,Seal the Channel
+CONTENT_SCALE_0046,Claim the Margin
+CONTENT_SCALE_0047,Double Sequence
+CONTENT_SCALE_0048,Triplet Row
+CONTENT_SCALE_0049,Pair Archive
+CONTENT_SCALE_0050,Honor Chorus
+CONTENT_SCALE_0051,honor tile
+CONTENT_SCALE_0052,Character Flow
+CONTENT_SCALE_0053,character tile
+CONTENT_SCALE_0054,Dotted River
+CONTENT_SCALE_0055,dot tile
+CONTENT_SCALE_0056,Sequence Pair
+CONTENT_SCALE_0057,Mixed Quartet
+CONTENT_SCALE_0058,Sequence Cascade
+CONTENT_SCALE_0059,Triplet Duet
+CONTENT_SCALE_0060,Quad Duet
+CONTENT_SCALE_0061,Pair Triad
+CONTENT_SCALE_0062,Sequence and Triplet
+CONTENT_SCALE_0063,Sequence and Quad
+CONTENT_SCALE_0064,Triplet and Quad
+CONTENT_SCALE_0065,Triplet and Pair
+CONTENT_SCALE_0066,Quad and Pair
+CONTENT_SCALE_0067,"Sequence, Triplet and Pair"
+CONTENT_SCALE_0068,Honor Beacon
+CONTENT_SCALE_0069,honor tile
+CONTENT_SCALE_0070,Honor Gathering
+CONTENT_SCALE_0071,honor tile
+CONTENT_SCALE_0072,Character Majority
+CONTENT_SCALE_0073,character tile
+CONTENT_SCALE_0074,Dot Majority
+CONTENT_SCALE_0075,dot tile
+CONTENT_SCALE_LABEL_0076,sequence
+CONTENT_SCALE_LABEL_0077,triplet
+CONTENT_SCALE_LABEL_0078,pair
+CONTENT_SCALE_LABEL_0079,sequence
+CONTENT_SCALE_LABEL_0080,triplet
+CONTENT_SCALE_LABEL_0081,quad
+CONTENT_SCALE_LABEL_0082,pair
+CONTENT_TECHNIQUE_0001,TechniqueDefinition must declare a supported kind.
+CONTENT_TECHNIQUE_0002,TechniqueDefinition TP cost cannot be negative.
+CONTENT_TECHNIQUE_0003,Reaction Techniques must declare a supported trigger.
+CONTENT_TECHNIQUE_0004,Only Reaction Techniques may declare a reaction trigger.
+CONTENT_TECHNIQUE_0005,enemy Contamination is added
+CONTENT_TECHNIQUE_0006,enemy Table Interference reduces Stability
+CONTENT_TECHNIQUE_0007,an unknown trigger
+CONTENT_YAKU_0001,Sequence Path
+CONTENT_YAKU_0002,Triplet Foundation
+CONTENT_YAKU_0003,Honor Signal
+CONTENT_YAKU_0004,honor tile
+CONTENT_YAKU_0005,Unified Suit
+CONTENT_YAKU_0006,characters tile
+CONTENT_YAKU_0007,Standard Complete Hand
+CONTENT_YAKU_0008,standard complete hand
+CONTENT_YAKU_0009,Seven Pairs
+CONTENT_YAKU_0010,Seven Pairs
+CONTENT_YAKU_0011,seven pairs
+CONTENT_YAKU_0012,Quad Foundry
+CONTENT_YAKU_0013,Mixed Table
+CONTENT_YAKU_LABEL_0014,sequence
+CONTENT_YAKU_LABEL_0015,triplet
+CONTENT_YAKU_LABEL_0016,quad
+UI_BATTLE_CONTROLLER_0001,Draw to find a Pattern.
+UI_BATTLE_SCENE_0001,%d: %s
+UI_BATTLE_SCENE_0002,%d / %d
+UI_BATTLE_SCENE_0003,%s (%d Pressure)
+UI_BATTLE_SCENE_0004,%d / %d
+UI_BATTLE_SCENE_0005,No Scoring Pattern highlighted.
+UI_BATTLE_SCENE_0006,%s: %s
+UI_BATTLE_STATE_0001,Drew a tile.
+UI_BATTLE_STATE_0002,%s settled.
+UI_BATTLE_STATE_0003,Damage: %d.
+UI_BATTLE_STATE_0004,Pressure changed by %d.
+UI_BATTLE_STATE_0005,Battle won.
+UI_BATTLE_STATE_0006,Battle lost.
+UI_BATTLE_STATIC_DISCARD_LABEL,Discard
+UI_BATTLE_STATIC_DRAW_BUTTON,Draw
+UI_BATTLE_STATIC_DRAW_WALL_LABEL,Draw Wall
+UI_BATTLE_STATIC_ENEMY_HP_LABEL,Enemy HP
+UI_BATTLE_STATIC_HAND_LABEL,Hand
+UI_BATTLE_STATIC_INTENT_LABEL,Intent
+UI_BATTLE_STATIC_NONE,None
+UI_BATTLE_STATIC_NO_PATTERN,No Scoring Pattern highlighted.
+UI_BATTLE_STATIC_PATTERN_HIGHLIGHTS_LABEL,Pattern Highlights
+UI_BATTLE_STATIC_PRESSURE_LABEL,Pressure
+UI_BATTLE_STATIC_SETTLE_BUTTON,Settle Pattern
+UI_BATTLE_STATIC_STATUS_LABEL,Status
+UI_BATTLE_STATIC_TITLE,Forbidden Table — Battle
+UI_RUN_CONTROLLER_0001,"This action succeeded, but the Suspend Save was not written (%s). The existing save and recovery files were left in place; check storage space and permissions before quitting."
+UI_RUN_CONTROLLER_0002,"The Run was saved, but temporary save cleanup needs attention (%s)."
+UI_RUN_CONTROLLER_0003,"The completed Run was saved, but progression persistence failed (%s). Its terminal save remains available so launch can retry."
+UI_RUN_CONTROLLER_0004,"The Run completed, but its continuation save could not be cleared (%s). Reopen the game to retry, or choose New Run after checking file permissions."
+UI_RUN_CONTROLLER_0005,"This action succeeded, but a Suspend Save could not be prepared (%s)."
+UI_RUN_CONTROLLER_0006,Act 2 Normal Ending recorded. Character 3 and Contracts 4–8 are now available for later Runs.
+UI_RUN_CONTROLLER_0007,Unlock progress could not be saved. The game will retry the next time this Run is recorded.
+UI_RUN_CONTROLLER_0008,No action is focused.
+UI_RUN_CONTROLLER_0009,No action is focused.
+UI_RUN_CONTROLLER_0010,Choose a TileInstance for %s.
+UI_RUN_CONTROLLER_0011,Choose the result for the selected TileInstance.
+UI_RUN_CONTROLLER_0012,The focused action is not available.
+UI_RUN_CONTROLLER_0013,Details are unavailable for that action.
+UI_RUN_CONTROLLER_0014,Unknown presentation mode.
+UI_RUN_CONTROLLER_0015,No additional %s effects
+UI_RUN_CONTROLLER_0016,Take %s Pressure each battle
+UI_RUN_CONTROLLER_0017,Start each battle with %s Pressure
+UI_RUN_CONTROLLER_0018,No off-suit tiles in normal rewards
+UI_RUN_CONTROLLER_0019,Up to %s off-suit tile choices in normal rewards
+UI_RUN_CONTROLLER_0020,Lose %s Gold when skipping an Elite reward
+UI_RUN_CONTROLLER_0021,Workshop Refinement costs %s extra Gold
+UI_RUN_CONTROLLER_0022,Off-suit tile pool weight: %s
+UI_RUN_CONTROLLER_0023,Higher pool composition cost
+UI_RUN_CONTROLLER_0024,Pay %s Gold
+UI_RUN_CONTROLLER_0025,Route opportunity cost
+UI_RUN_CONTROLLER_0026,Gain %s TP at each battle start
+UI_RUN_CONTROLLER_0027,Gain %s when skipping an Elite reward
+UI_RUN_CONTROLLER_0028,Refinement Token
+UI_RUN_CONTROLLER_0029,Refinement Tokens
+UI_RUN_CONTROLLER_0030,Tile rewards favor %s
+UI_RUN_CONTROLLER_0031,Gain %s TP
+UI_RUN_CONTROLLER_0032,Tempo benefit
+UI_RUN_CONTROLLER_0033,Starting tile bias favors %s
+UI_RUN_CONTROLLER_0034,Gain %s
+UI_RUN_CONTROLLER_0035,Refinement Token
+UI_RUN_CONTROLLER_0036,Refinement Tokens
+UI_RUN_CONTROLLER_0037,Extra map opportunity
+UI_RUN_CONTROLLER_0038,Gain %s on Contract selection
+UI_RUN_CONTROLLER_0039,Refinement Token
+UI_RUN_CONTROLLER_0040,Refinement Tokens
+UI_RUN_CONTROLLER_0041,One extra Modified Tile option
+UI_RUN_CONTROLLER_0042,%s: %s
+UI_RUN_CONTROLLER_0043,%s: %s
+UI_RUN_CONTROLLER_0044,%d %s
+UI_RUN_CONTROLLER_0045,%s path
+UI_RUN_CONTROLLER_0046,%s flexibility
+UI_RUN_CONTROLLER_0047,favors %s
+UI_RUN_CONTROLLER_0048,No specific Tile Pool bias
+UI_RUN_CONTROLLER_0049,%s %d
+UI_RUN_CONTROLLER_0050,General Yaku support
+UI_RUN_CONTROLLER_0051,No specific Yaku signal
+UI_RUN_CONTROLLER_0052,%s %d
+UI_RUN_CONTROLLER_0053,Choose a TileInstance.
+UI_RUN_CONTROLLER_0054,Choose a Workshop service.
+UI_RUN_CONTROLLER_0055,%s responded when %s.
+UI_RUN_CONTROLLER_0056,the trigger occurred
+UI_RUN_CONTROLLER_0057,%s could not respond when %s (%s).
+UI_RUN_CONTROLLER_0058,the trigger occurred
+UI_RUN_CONTROLLER_0059,Character selected.
+UI_RUN_CONTROLLER_0060,Contract selected.
+UI_RUN_CONTROLLER_0061,Map node selected.
+UI_RUN_CONTROLLER_0062,Battle started.
+UI_RUN_CONTROLLER_0063,Choose a reward.
+UI_RUN_CONTROLLER_0064,Shop opened.
+UI_RUN_CONTROLLER_0065,Workshop opened.
+UI_RUN_CONTROLLER_0066,Choose an Event option.
+UI_RUN_CONTROLLER_0067,Run Summary reached.
+UI_RUN_CONTROLLER_0068,%s: %s
+UI_RUN_CONTROLLER_0069,Character Passive triggered.
+UI_RUN_CONTROLLER_0070,Tile discarded.
+UI_RUN_CONTROLLER_0071,Technique used: %s.
+UI_RUN_CONTROLLER_0072,Run advanced.
+UI_RUN_CONTROLLER_0073,Cancelled.
+UI_RUN_SCENE_0001,A recovery copy is at %s.
+UI_RUN_SCENE_0002,The original save remains in place.
+UI_RUN_SCENE_0003,Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile.
+UI_RUN_SCENE_0004,A new run could not start because game content failed validation.
+UI_RUN_SCENE_0005,A new run could not start because its content registry is unavailable.
+UI_RUN_SCENE_0006,Phase 2
+UI_RUN_SCENE_0007,Act Two
+UI_RUN_SCENE_0008,Alpha Scale
+UI_RUN_SCENE_0009,%s catalog registration
+UI_RUN_SCENE_0010,Content registry validation
+UI_RUN_SCENE_0011,"A new run could not start because game content failed validation. Please report this issue:
+%s"
+UI_RUN_SCENE_0012,The Suspend Save commit was interrupted (%s). No older save was loaded. Recovery sources remain unchanged and are copied to %s. Choose New Run only if you want to leave this save behind.
+UI_RUN_SCENE_0013,"The Suspend Save commit was interrupted (%s), and a recovery copy failed (%s). No older save was loaded. Copy the files manually before starting over."
+UI_RUN_SCENE_0014,The saved Run could not be read (%s). The source has not been changed. Check the save file permissions or move the file before trying again.
+UI_RUN_SCENE_0015,"%s The original save remains unchanged, and a byte-for-byte recovery copy is at %s. Choose New Run only if you want to leave this save behind."
+UI_RUN_SCENE_0016,"%s The original save remains unchanged, but its recovery copy failed (%s). Copy the file manually before starting over."
+UI_RUN_SCENE_0017, A recovery copy is at %s.
+UI_RUN_SCENE_0018, Copy the files manually before starting over.
+UI_RUN_SCENE_0019,"The saved Run was valid, but interrupted-save recovery could not be finalized (%s). The original sources were retained.%s"
+UI_RUN_SCENE_0020,"The previous Run is complete, but progression could not be saved (%s). Resume to view it; its save stays available so launch can retry."
+UI_RUN_SCENE_0021,"The previous Run is complete, but its save slot could not be cleared (%s). Resume to view the result or choose New Run to retry clearing it."
+UI_RUN_SCENE_0022,"The saved Run loaded, but interrupted-save cleanup needs attention (%s)."
+UI_RUN_SCENE_0023,This saved Run uses an unsupported content version.
+UI_RUN_SCENE_0024,This saved Run uses an unsupported game version.
+UI_RUN_SCENE_0025,The saved Run could not be loaded (%s).
+UI_RUN_SCENE_0026,A saved Run is ready to continue. Run: %s. Resume restores its saved state and RNG; New Run discards this one continuation save.
+UI_RUN_SCENE_0027, Saved boundary: %s.
+UI_RUN_SCENE_0028,New Run (discard saved Run)
+UI_RUN_SCENE_0029,Start New Run (keep rejected save)
+UI_RUN_SCENE_0030,Progression is still not saved (%s). The completed Run remains in its Suspend Save so you can retry on the next launch.
+UI_RUN_SCENE_0031,The completed Run could not be cleared (%s). Its save remains available.
+UI_RUN_SCENE_0032,"
+The saved Run could not be cleared (%s). No new Run was started; retry after checking file permissions."
+UI_RUN_SCENE_0033,%s did not return a validation report.
+UI_RUN_SCENE_0034,%s failed without diagnostic details.
+UI_RUN_SCENE_0035,%s returned an invalid diagnostic.
+UI_RUN_SCENE_0036, -> %s
+UI_RUN_SCENE_0037,%s [%s] %s: %s
+UI_RUN_SCENE_0038,Forbidden Table — Alpha Run
+UI_RUN_SCENE_0039,Reset tutorial
+UI_RUN_SCENE_0040,New Run
+UI_RUN_SCENE_0041,Reset progression profile
+UI_RUN_SCENE_0042,Archive the rejected save and create a fresh starter unlock profile.
+UI_RUN_SCENE_0043,Resume Run
+UI_RUN_SCENE_0044,Start New Run (keep rejected save)
+UI_RUN_SCENE_0045,Run state
+UI_RUN_SCENE_0046,Scroll up
+UI_RUN_SCENE_0047,Scroll the Run state overview upward.
+UI_RUN_SCENE_0048,Scroll down
+UI_RUN_SCENE_0049,Scroll the Run state overview downward.
+UI_RUN_SCENE_0050,"Run state overview. Focus this area, then use Up or Down to scroll."
+UI_RUN_SCENE_0051,Hand and Reserve
+UI_RUN_SCENE_0052,Available actions
+UI_RUN_SCENE_0053,Finish Run
+UI_RUN_SCENE_0054,Run unavailable
+UI_RUN_SCENE_0055,Act %d of %d   ·   %s
+UI_RUN_SCENE_0056,"Run: %s
+Character: %s
+Contract: %s
+Gold: %d     Refinement: %d
+Current map node: %s"
+UI_RUN_SCENE_0057,No actions are available in this state.
+UI_RUN_SCENE_0058,Tutorial complete
+UI_RUN_SCENE_0059,Disable tutorial
+UI_RUN_SCENE_0060,Enable tutorial
+UI_RUN_SCENE_0061,"Tutorial: draw a tile, inspect the highlighted Patterns, then settle one to deal damage."
+UI_RUN_SCENE_0062,Tutorial: spend TP on your Core Technique when its timing is legal.
+UI_RUN_SCENE_0063,Tutorial: store a tile in Reserve to protect it from enemy Pressure.
+UI_RUN_SCENE_0064,Tutorial: build and settle a Complete Hand to advance Yaku progress.
+UI_RUN_SCENE_0065,Tutorial: inspect enemy intent and Contamination before ending the turn.
+UI_RUN_SCENE_0066,A new run could not start because game content failed validation.
+UI_RUN_SCENE_0067,Progression could not be saved (%s). The completed Run remains available; retry before starting another Run.
+UI_RUN_SCENE_0068,The previous Suspend Save could not be cleared (%s). No new Run was started; check file permissions and retry.
+UI_RUN_SCENE_0069,Progression profile reset. The rejected save remains preserved at %s.
+UI_RUN_SCENE_0070,the recovery copy
+UI_RUN_SCENE_0071,Progression profile reset failed (%s). Progression writes remain disabled.
+UI_RUN_SCENE_0072,"Run outcome: %s
+Reason: %s"
+UI_RUN_SCENE_0073,No active battle. Use the available actions to advance the Run.
+UI_RUN_SCENE_0074,%s (%d Pressure)
+UI_RUN_SCENE_0075,"%s
+Enemy HP: %d / %d
+Enemy intent: %s
+Pressure: %d / %d
+TP: %d    Stability: %d
+Patterns available: %d    Outcome: %s"
+UI_RUN_SCENE_0076,Run tile pool (%d): %s
+UI_RUN_SCENE_0077,"Hand (%d): %s
+Reserve (%d): %s"
+UI_RUN_SCENE_0078,Choose Character — %s
+UI_RUN_SCENE_0079,%s — %s
+UI_RUN_SCENE_0080,Draw tile
+UI_RUN_SCENE_0081,End turn (resolve enemy intent)
+UI_RUN_SCENE_0082, — %s
+UI_RUN_SCENE_0083,Reaction before intent
+UI_RUN_SCENE_0084,%s Technique — %s%s (TP %d)
+UI_RUN_SCENE_0085,Settle %s — %s
+UI_RUN_SCENE_0086,Settle complete hand — %s
+UI_RUN_SCENE_0087,Store %s in Reserve
+UI_RUN_SCENE_0088,Discard %s
+UI_RUN_SCENE_0089,Swap %s with Reserve %s
+UI_RUN_SCENE_0090,Choose reward — %s
+UI_RUN_SCENE_0091,Enter Shop
+UI_RUN_SCENE_0092,Buy %s (%d Gold)
+UI_RUN_SCENE_0093,Refresh Shop
+UI_RUN_SCENE_0094,Leave Shop
+UI_RUN_SCENE_0095,Enter Workshop
+UI_RUN_SCENE_0096,Workshop — %s
+UI_RUN_SCENE_0097,Choose tile — %s
+UI_RUN_SCENE_0098,Back to Workshop choices
+UI_RUN_SCENE_0099,Leave Workshop
+UI_RUN_SCENE_0100,Enter Event
+UI_RUN_SCENE_0101,Event — %s
+UI_RUN_SCENE_0102,Acknowledge Run Summary
+UI_RUN_SCENE_0103,%s — %s
+UI_RUN_SCENE_0104,Choose %s
+UI_RUN_SCENE_0105,Choose Contract — %s
+UI_RUN_SCENE_0106,Use %s Technique
+UI_RUN_SCENE_0107,Settle %s
+UI_RUN_SCENE_0108,Settle complete hand
+UI_RUN_SCENE_0109,Store tile
+UI_RUN_SCENE_0110,Discard tile
+UI_RUN_SCENE_0111,Swap with Reserve
+UI_RUN_SCENE_0112,Choose reward
+UI_RUN_SCENE_0113,Buy offer
+UI_RUN_SCENE_0114,Choose Event option
+UI_RUN_SCENE_0115,Choose tile
+UI_RUN_SCENE_0116,"Choose a Character, then choose a Contract to begin the Act 1 map. The Run prepares its starting Tile Pool when you choose."
+UI_RUN_SCENE_0117,Choose a Contract. Your selection applies across both Acts.
+UI_RUN_SCENE_0118,Choose an adjacent node. Complete battles and the Boss reward to continue the Run.
+UI_RUN_SCENE_0119,"Draw tiles, settle highlighted Patterns or a Complete Hand, and end the turn to resolve enemy intent."
+UI_RUN_SCENE_0120,"Review the Build Story, then acknowledge the summary to finish the Run."
+UI_RUN_SCENE_0121,Run complete. Start another Run when you are ready.
+UI_RUN_SCENE_0122,Choose an available action to continue. Enter or A confirms.
+UI_RUN_SCENE_0123,"%s Tab or L/R shoulder moves focus. Focus Run state, then press Up/Down to scroll. Or focus Scroll up/down and press Enter/A."
+UI_RUN_SCENE_0124,%s — %s
+UI_RUN_SCENE_0125,Transform %s to %s (%d Gold)
+UI_RUN_SCENE_0126,Add %s to %s (%d Gold)
+UI_RUN_SCENE_0127,Replace modifier on %s with %s (%d Gold)
+UI_RUN_SCENE_0128,Remove %s (%d Gold)
+UI_RUN_SCENE_0129,Duplicate %s (%d Gold)
+UI_RUN_SCENE_0130,Use Refinement Token on %s (%d Gold)
+UI_RUN_SCENE_0131,Workshop — %s
+UI_RUN_SCENE_0132,TileInstance: %s
+UI_RUN_SCENE_0133,Current tile: %s (%s)
+UI_RUN_SCENE_0134,New tile: %s (%s)
+UI_RUN_SCENE_0135,Add modifier: %s
+UI_RUN_SCENE_0136,Replace %s with %s
+UI_RUN_SCENE_0137,Cost: %d Gold
+UI_RUN_SCENE_0138,Also consumes: 1 Refinement Token
+UI_RUN_SCENE_0139,No risk details available
+UI_RUN_SCENE_0140,No reward details available
+UI_RUN_SCENE_0141,"Choose Contract — %s
+Risk: %s
+Reward: %s"
+UI_RUN_SCENE_0142,No risk details available
+UI_RUN_SCENE_0143,No reward details available
+UI_RUN_SCENE_0144,No specific Tile Pool bias
+UI_RUN_SCENE_0145,No specific Yaku signal
+UI_RUN_SCENE_0146,"%s
+Risk: %s
+Reward: %s
+Build bias: %s
+Yaku signal: %s"
+UI_RUN_SCENE_0148,—
+UI_RUN_SCENE_0149,Battle
+UI_RUN_SUMMARY_0001,"Run Summary
+No terminal Run data is available."
+UI_RUN_SUMMARY_0002,Act %d: %s
+UI_RUN_SUMMARY_0003,Not tracked for this Run
+UI_RUN_SUMMARY_0004,Act %d of %d; %s
+UI_RUN_SUMMARY_0005,Act %d of %d; Boss progress not tracked for this Run
+UI_RUN_SUMMARY_0006,Build Story
+UI_RUN_SUMMARY_0007,Result: %s%s
+UI_RUN_SUMMARY_0008,Character / Contract: %s / %s
+UI_RUN_SUMMARY_0009,Acts / Bosses: %s
+UI_RUN_SUMMARY_0010,Final Tile Pool: %s
+UI_RUN_SUMMARY_0011,Core Yaku: %s
+UI_RUN_SUMMARY_0012,Relics: %s
+UI_RUN_SUMMARY_0013,Techniques: %s
+UI_RUN_SUMMARY_0014,Rule Breakers: %s
+UI_RUN_SUMMARY_0015,Common Patterns: %s
+UI_RUN_SUMMARY_0016,Complete Hands: %s
+UI_RUN_SUMMARY_0017,Maximum Mahjong Score: %s
+UI_RUN_SUMMARY_0018,Milestones: %s
+UI_RUN_SUMMARY_0019,Seed: %d
+UI_RUN_SUMMARY_0020,Duration: %s
+UI_RUN_SUMMARY_0021,None recorded
+UI_RUN_SUMMARY_0022,None recorded
+UI_RUN_SUMMARY_0023,%s ×%d
+UI_RUN_SUMMARY_0024,Not tracked for this Run
+UI_RUN_SUMMARY_0025,Not tracked for this Run
+UI_RUN_SUMMARY_0026,Not tracked for this Run
+UI_RUN_SUMMARY_0027,Not recorded
+UI_RUN_SUMMARY_0029,None recorded
+UI_RUN_SUMMARY_0030, (%s)
+WORD_ACTION,Action
+WORD_ACT_ONE,Act one
+WORD_ACT_TWO,Act two
+WORD_ACTIVE,Active
+WORD_ADD_MODIFIER,Add modifier
+WORD_AMENDED_CLAUSE,Amended clause
+WORD_BAMBOO,Bamboo
+WORD_BATTLE,Battle
+WORD_BATTLE_ACTION,Battle action
+WORD_BATTLE_DEFEAT,Battle defeat
+WORD_BOSS,Boss
+WORD_BOSS_DEFEATED,Boss Defeated
+WORD_BOSS_REWARD,Boss reward
+WORD_BRITTLE_COMPASS,Brittle compass
+WORD_BUILD_BIAS,Build bias
+WORD_CHARACTER,Character
+WORD_CHARACTERS,Characters
+WORD_CHARACTER_SELECT,Character select
+WORD_COMPLETE_HAND,Complete hand
+WORD_COMPOSITION_COST,Composition cost
+WORD_CONTRACT,Contract
+WORD_CONTRACT_CLAUSE,Contract clause
+WORD_CONTRACT_SELECT,Contract select
+WORD_CORE,Core
+WORD_CROSS_REFERENCE,Cross reference
+WORD_DEFEAT,Defeat
+WORD_DISCARD,Discard
+WORD_DOTS,Dots
+WORD_DRAW,Draw
+WORD_DRAW_ACTION,Draw action
+WORD_DUPLICATE,Duplicate
+WORD_EAST,East
+WORD_ELITE,Elite
+WORD_ELITE_REWARD,Elite reward
+WORD_ELITE_SKIP_GOLD_PENALTY,Elite skip gold penalty
+WORD_EMPTY,Empty
+WORD_END_TURN,End turn
+WORD_ENTER_EVENT,Enter event
+WORD_ENTER_SHOP,Enter shop
+WORD_ENTER_WORKSHOP,Enter workshop
+WORD_EVENT,Event
+WORD_EVENT_OPTION,Event option
+WORD_EXTRA_MODIFIED_TILE_CHOICE,Extra modified tile choice
+WORD_FALSE,False
+WORD_FINAL_ANNOTATION,Final annotation
+WORD_FLEXIBILITY,Flexibility
+WORD_GOLD,Gold
+WORD_GOLD_EXCHANGE,Gold exchange
+WORD_GREEN,Green
+WORD_HAND,Hand
+WORD_HONORS,Honors
+WORD_HOUSE_TITHE,House tithe
+WORD_INITIAL_PRESSURE_PER_BATTLE,Initial pressure per battle
+WORD_INSUFFICIENT_TP,Insufficient TP
+WORD_LONG_CURRENT,Long current
+WORD_LONG_MARGIN,Long margin
+WORD_MAP,Map
+WORD_MAP_CHOICE,Map choice
+WORD_MAP_NODE,Map node
+WORD_MAP_OPPORTUNITY,Map opportunity
+WORD_MAP_REVEAL,Map reveal
+WORD_NONE,None
+WORD_NORMAL,Normal
+WORD_NORMAL_REWARD_OFF_SUIT_CHOICE_CAP,Normal reward off suit choice cap
+WORD_NORTH,North
+WORD_OFF_SUIT_POOL_WEIGHT,Off suit pool weight
+WORD_ONGOING,Ongoing
+WORD_OPEN_LEDGER,Open ledger
+WORD_PAIR,Pair
+WORD_PARTIAL_SETTLEMENT,Partial settlement
+WORD_PASSIVE,Passive
+WORD_PATH,Path
+WORD_PATTERN,Pattern
+WORD_POOL_BIAS,Pool bias
+WORD_PREFERRED_TILE_IDS,Preferred tile ids
+WORD_PRESSURE,Pressure
+WORD_PRESSURE_PER_BATTLE,Pressure per battle
+WORD_QUAD,Quad
+WORD_QUIET_CURRENT,Quiet current
+WORD_REACTION,Reaction
+WORD_REACTION_BEFORE_INTENT,Reaction before intent
+WORD_RED,Red
+WORD_REDUCED,Reduced
+WORD_REFINEMENT,Refinement
+WORD_REFINEMENT_TOKEN,Refinement token
+WORD_REFINEMENT_TOKENS,Refinement tokens
+WORD_REFINEMENT_TOKENS_ON_CONTRACT_SELECTION,Refinement tokens on contract selection
+WORD_REFINEMENT_TOKENS_ON_ELITE_SKIP,Refinement tokens on elite skip
+WORD_REMOVE,Remove
+WORD_REPLACE_MODIFIER,Replace modifier
+WORD_RESERVE,Reserve
+WORD_RESERVE_SWAP,Reserve swap
+WORD_REWARD,Reward
+WORD_REWARD_CHOICE,Reward choice
+WORD_REWARD_TILE_SUIT_BIAS,Reward tile suit bias
+WORD_RISK,Risk
+WORD_RISK_BARGAIN,Risk bargain
+WORD_ROUTE_COST,Route cost
+WORD_ROUTE_DEPENDENT,Route-dependent
+WORD_RULE_MEMORY,Rule memory
+WORD_RUN_COMPLETE,Run complete
+WORD_RUN_MODIFIER,Run modifier
+WORD_RUN_SUMMARY,Run summary
+WORD_SEQUENCE,Sequence
+WORD_SEVEN_PAIRS,Seven pairs
+WORD_SETTLEMENT,Settlement
+WORD_SHADOW_ACCOUNT,Shadow account
+WORD_SHOP,Shop
+WORD_SHOP_EXIT,Shop exit
+WORD_SHOP_OFFER,Shop offer
+WORD_SHOP_REFRESH,Shop refresh
+WORD_SOUTH,South
+WORD_STANDARD,Standard
+WORD_STARTING_BIAS,Starting bias
+WORD_STARTING_TP_PER_BATTLE,Starting TP per battle
+WORD_STEADY,Steady
+WORD_TECHNIQUE,Technique
+WORD_TEMPO,Tempo
+WORD_TILE_SURGERY,Tile surgery
+WORD_TILE_SURGERY_SEALED_ENTRY,Tile surgery sealed entry
+WORD_TP,TP
+WORD_TRANSFORM,Transform
+WORD_UNAVAILABLE,Unavailable
+WORD_TRIPLET,Triplet
+WORD_TRUE,True
+WORD_VICTORY,Victory
+WORD_VISIBLE,Visible
+WORD_WEST,West
+WORD_WHITE,White
+WORD_WORKSHOP,Workshop
+WORD_WORKSHOP_BACK,Workshop back
+WORD_WORKSHOP_EXIT,Workshop exit
+WORD_WORKSHOP_REFINEMENT_GOLD_SURCHARGE,Workshop refinement gold surcharge
+WORD_WORKSHOP_SELECT_SERVICE,Workshop select service
+WORD_WORKSHOP_SELECT_TARGET,Workshop select target
+WORD_WORKSHOP_SERVICE,Workshop service
+WORD_YAKU,Yaku
+WORD_YAKU_SIGNAL,Yaku signal
+WORD_YAKU_SIGNAL_SUMMARY,Yaku signal summary
+WORD_ACCEPT,Accept
+WORD_ACT_1_BOSS_DEFEATED,Act 1 boss defeated
+WORD_ACT_2_BOSS_DEFEATED,Act 2 boss defeated
+WORD_ACT_2_REACHED,Act 2 reached
+WORD_CARRY_CLAUSE,Carry clause
+WORD_CHARACTER_CHOSEN,Character chosen
+WORD_CONTRACT_CHOSEN,Contract chosen
+WORD_EXCHANGE,Exchange
+WORD_FAVORABLE_ENTRY,Favorable entry
+WORD_FIRST_COMPLETE_HAND,First complete hand
+WORD_FIRST_RULE_BREAKER_ACQUIRED,First rule breaker acquired
+WORD_LEAVE,Leave
+WORD_MISREAD_ENTRY,Misread entry
+WORD_MISSED_PAYMENT,Missed payment
+WORD_PAID_ON_TIME,Paid on time
+WORD_REMEMBER,Remember
+WORD_REMEMBER_RULE,Remember rule
+WORD_REPAIR_WITH_TOKEN,Repair with token
+WORD_REVEAL,Reveal
+WORD_REVEAL_ROUTE,Reveal route
+WORD_SPEND_TOKEN,Spend token
+WORD_STAKE_HIDDEN_ACCOUNT,Stake hidden account
+WORD_STUDY_YAKU,Study yaku
+WORD_TAKE_ADVANCE,Take advance
+WORD_TAKE_WAGER,Take wager
+WORD_TRADE_GOLD,Trade gold
+WORD_TRADE_MARGIN,Trade margin
+alpha.act_two.boss_rule_breaker_pool,Boss rule breaker pool
+alpha.boss.act_one.harbor_arbiter,Harbor arbiter
+alpha.boss.act_two.final_index,Final index
+alpha.boss.act_two.tidal_archive,Tidal archive
+alpha.character.harbor_reader,Harbor reader
+alpha.contract.brittle_compass,Brittle Compass
+alpha.contract.house_tithe,House Tithe
+alpha.contract.long_current,Long Current
+alpha.contract.open_ledger,Open Ledger
+alpha.contract.quiet_current,Quiet Current
+alpha.encounter.act_one_boss,Act One Boss
+alpha.encounter.act_one.elite.clockwork_auditor,Clockwork auditor
+alpha.encounter.act_one.elite.drift_captain,Drift captain
+alpha.encounter.act_one.normal.fog_caller,Fog caller
+alpha.encounter.act_one.normal.margin_taker,Margin taker
+alpha.encounter.act_one.normal.signal_keeper,Signal keeper
+alpha.encounter.act_two.boss,Boss
+alpha.encounter.act_two.boss.a,Boss A
+alpha.encounter.act_two.boss.b,Boss B
+alpha.encounter.act_two.boss.c,C
+alpha.encounter.act_two.elite,Elite
+alpha.encounter.act_two.elite.a,Elite A
+alpha.encounter.act_two.elite.b,Elite B
+alpha.encounter.act_two.elite.infernal_index,Infernal index
+alpha.encounter.act_two.elite.margin_enforcer,Margin enforcer
+alpha.encounter.act_two.normal.contract_harrier,Contract harrier
+alpha.encounter.act_two.normal.echo_courier,Echo courier
+alpha.encounter.act_two.normal.intro,Intro
+alpha.encounter.act_two.normal.intro.a,Intro A
+alpha.encounter.act_two.normal.intro.b,Intro B
+alpha.encounter.act_two.normal.left,Left
+alpha.encounter.act_two.normal.left.a,Left A
+alpha.encounter.act_two.normal.left.b,Left B
+alpha.encounter.act_two.normal.lien_keeper,Lien keeper
+alpha.encounter.act_two.normal.mid,Mid
+alpha.encounter.act_two.normal.mid.a,Mid A
+alpha.encounter.act_two.normal.mid.b,Mid B
+alpha.encounter.act_two.normal.right,Right
+alpha.encounter.act_two.normal.right.a,Right A
+alpha.encounter.act_two.normal.right.b,Right B
+alpha.enemy.act_one.elite.clockwork_auditor,Clockwork auditor
+alpha.enemy.act_one.elite.drift_captain,Drift captain
+alpha.enemy.act_one.fog_caller,Fog caller
+alpha.enemy.act_one.margin_taker,Margin taker
+alpha.enemy.act_one.signal_keeper,Signal keeper
+alpha.enemy.act_two.afterimage,Afterimage
+alpha.enemy.act_two.contract_harrier,Contract harrier
+alpha.enemy.act_two.echo_courier,Echo courier
+alpha.enemy.act_two.elite.infernal_index,Infernal index
+alpha.enemy.act_two.elite.ledger_mimic,Ledger mimic
+alpha.enemy.act_two.elite.margin_enforcer,Margin enforcer
+alpha.enemy.act_two.lien_keeper,Lien keeper
+alpha.enemy.act_two.pressure_warden,Pressure warden
+alpha.enemy.act_two.tollkeeper,Tollkeeper
+alpha.enemy.act_two.wall_eater,Wall eater
+alpha.event.act_one.contract_clause,Contract clause
+alpha.event.act_one.gold_exchange,Gold exchange
+alpha.event.act_one.map_reveal,Map reveal
+alpha.event.act_one.risk_bargain,Risk bargain
+alpha.event.act_one.rule_memory,Rule memory
+alpha.event.act_one.tile_surgery,Tile surgery
+alpha.event.act_two.contract_clause,Contract clause
+alpha.event.act_two.contract_clause.amended_clause,Amended clause
+alpha.event.act_two.gold_exchange,Gold exchange
+alpha.event.act_two.gold_exchange.long_margin,Long margin
+alpha.event.act_two.map_reveal,Map reveal
+alpha.event.act_two.map_reveal.final_annotation,Final annotation
+alpha.event.act_two.risk_bargain,Risk bargain
+alpha.event.act_two.risk_bargain.shadow_account,Shadow account
+alpha.event.act_two.rule_memory,Rule memory
+alpha.event.act_two.rule_memory.cross_reference,Cross reference
+alpha.event.act_two.tile_surgery,Tile surgery
+alpha.event.act_two.tile_surgery.sealed_entry,Sealed entry
+alpha.modifier.double_edge,Double edge
+alpha.modifier.harbor_mark,Harbor mark
+alpha.modifier.quiet_surface,Quiet surface
+alpha.modifier.refinement_trace,Refinement trace
+alpha.modifier.sharp_current,Sharp current
+alpha.modifier.trade_mark,Trade mark
+alpha.modifier.wide_channel,Wide channel
+alpha.passive.harbor_read,Harbor read
+alpha.relic.act_one.ceramic_dial,Ceramic dial
+alpha.relic.act_one.clean_wake,Clean wake
+alpha.relic.act_one.harbor_notch,Harbor notch
+alpha.relic.act_one.settlement_chart,Settlement chart
+alpha.relic.act_one.steady_keel,Steady keel
+alpha.relic.act_one.tide_whistle,Tide whistle
+alpha.relic.act_one.trade_current,Trade current
+alpha.relic.act_two.cargo_ledger,Cargo ledger
+alpha.relic.act_two.clean_ink,Clean ink
+alpha.relic.act_two.crosswind_signal,Crosswind signal
+alpha.relic.act_two.deep_reserve,Deep reserve
+alpha.relic.act_two.draw_wick,Draw wick
+alpha.relic.act_two.echo_index,Echo index
+alpha.relic.act_two.echo_lens,Echo lens
+alpha.relic.act_two.final_margin,Final margin
+alpha.relic.act_two.honor_chime,Honor chime
+alpha.relic.act_two.ink_filter,Ink filter
+alpha.relic.act_two.ledger_shard,Ledger shard
+alpha.relic.act_two.pairing_knot,Pairing knot
+alpha.relic.act_two.pressure_bell,Pressure bell
+alpha.relic.act_two.pressure_rivet,Pressure rivet
+alpha.relic.act_two.pressure_vent,Pressure vent
+alpha.relic.act_two.quiet_coin,Quiet coin
+alpha.relic.act_two.reserve_lamp,Reserve lamp
+alpha.relic.act_two.reserve_ribbon,Reserve ribbon
+alpha.relic.act_two.sequence_compass,Sequence compass
+alpha.relic.act_two.settlement_chart,Settlement chart
+alpha.relic.act_two.settlement_seal,Settlement seal
+alpha.relic.act_two.stability_cord,Stability cord
+alpha.relic.act_two.triplet_compass,Triplet compass
+alpha.relic.act_two.twin_current,Twin current
+alpha.relic.act_two.wall_surveyor,Wall surveyor
+alpha.reward_pool.act_one_build,Act one build
+alpha.reward_pool.act_two_build,Act two build
+alpha.reward_pool.boss_rule_breaker_act_one,Boss rule breaker act one
+alpha.reward_pool.boss_rule_breaker_act_two,Boss rule breaker act two
+alpha.rule_breaker.act_one.stability_surge,Stability surge
+alpha.rule_breaker.act_one.tactical_reserve,Tactical reserve
+alpha.rule_breaker.act_two.draw_actions,Draw actions
+alpha.rule_breaker.act_two.early_tile,Early tile
+alpha.rule_breaker.act_two.ledger_dividend,Ledger dividend
+alpha.rule_breaker.act_two.reserve_capacity,Reserve capacity
+alpha.rule_breaker.act_two.settlement_capacity,Settlement capacity
+alpha.shop_pool.act_two_build,Act two build
+alpha.technique.cleansing_call,Cleansing call
+alpha.technique.core.harbor_read,Harbor read
+alpha.technique.draw_capacity,Draw capacity
+alpha.technique.first_measure,First measure
+alpha.technique.harbor_strike,Harbor strike
+alpha.technique.last_measure,Last measure
+alpha.technique.ledger_wind,Ledger wind
+alpha.technique.pressure_dividend,Pressure dividend
+alpha.technique.pressure_turn,Pressure turn
+alpha.technique.refinement_practice,Refinement practice
+alpha.technique.reserve_survey,Reserve survey
+alpha.technique.river_step,River step
+alpha.technique.settlement_mirror,Settlement mirror
+alpha.technique.tide_draw,Tide draw
+alpha.workshop_pool.scale,Scale
+alpha.yaku.character_flow,Character flow
+alpha.yaku.character_majority,Character majority
+alpha.yaku.dot_majority,Dot majority
+alpha.yaku.dotted_river,Dotted river
+alpha.yaku.double_sequence,Double sequence
+alpha.yaku.honor_beacon,Honor beacon
+alpha.yaku.honor_chorus,Honor chorus
+alpha.yaku.honor_gathering,Honor gathering
+alpha.yaku.mixed_quartet,Mixed quartet
+alpha.yaku.pair_archive,Pair archive
+alpha.yaku.pair_triad,Pair triad
+alpha.yaku.quad_duet,Quad duet
+alpha.yaku.quad_pair,Quad pair
+alpha.yaku.sequence_cascade,Sequence cascade
+alpha.yaku.sequence_pair,Sequence pair
+alpha.yaku.sequence_quad,Sequence quad
+alpha.yaku.sequence_triplet,Sequence triplet
+alpha.yaku.sequence_triplet_pair,Sequence triplet pair
+alpha.yaku.triplet_duet,Triplet duet
+alpha.yaku.triplet_pair,Triplet pair
+alpha.yaku.triplet_quad,Triplet quad
+alpha.yaku.triplet_row,Triplet row
+base.boss.table_breaker,Table breaker
+base.character.reserve,Reserve
+base.character.sequence,Sequence
+base.contamination.clutter,Clutter
+base.contamination.fatigue_mold,Fatigue mold
+base.contamination.pressure_dross,Pressure dross
+base.contract.pool_bias,Pool bias
+base.contract.pressure,Pressure
+base.contract.refinement_debt,Refinement debt
+base.encounter.boss,Boss
+base.encounter.boss.a,A
+base.encounter.boss.b,B
+base.encounter.boss.c,C
+base.encounter.elite,Elite
+base.encounter.elite.a,A
+base.encounter.elite.b,B
+base.encounter.intro,Intro
+base.encounter.intro.a,A
+base.encounter.intro.b,B
+base.encounter.normal.left,Left
+base.encounter.normal.left.a,A
+base.encounter.normal.left.b,B
+base.encounter.normal.mid,Mid
+base.encounter.normal.mid.a,A
+base.encounter.normal.mid.b,B
+base.encounter.normal.right,Right
+base.encounter.normal.right.a,A
+base.encounter.normal.right.b,B
+base.enemy.contaminator,Contaminator
+base.enemy.integrity_collector,Integrity collector
+base.enemy.ledger_hunter,Ledger hunter
+base.enemy.pressure_sentinel,Pressure sentinel
+base.enemy.wall_taxer,Wall taxer
+base.event.contract_clause,Contract clause
+base.event.gold_exchange,Gold exchange
+base.event.map_reveal,Map reveal
+base.event.risk_bargain,Risk bargain
+base.event.rule_memory,Rule memory
+base.event.tile_surgery,Tile surgery
+base.map.act_one,Act one
+base.map.act_two,Act two
+base.map_node.act_two.boss,Boss
+base.map_node.act_two.elite,Elite
+base.map_node.act_two.event.left,Left
+base.map_node.act_two.event.right,Right
+base.map_node.act_two.intro,Intro
+base.map_node.act_two.normal.left,Left
+base.map_node.act_two.normal.mid,Mid
+base.map_node.act_two.normal.right,Right
+base.map_node.act_two.shop,Shop
+base.map_node.act_two.workshop,Workshop
+base.map_node.boss,Boss
+base.map_node.elite,Elite
+base.map_node.event.left,Left
+base.map_node.event.right,Right
+base.map_node.intro,Intro
+base.map_node.normal.left,Left
+base.map_node.normal.mid,Mid
+base.map_node.normal.right,Right
+base.map_node.shop,Shop
+base.map_node.workshop,Workshop
+base.modifier.clean_surface,Clean surface
+base.modifier.flexible_identity,Flexible Identity
+base.modifier.recycling,Recycling
+base.modifier.reserve_bound,Reserve bound
+base.modifier.settlement_focus,Settlement focus
+base.passive.reserve,Reserve
+base.passive.sequence,Sequence
+base.relic.calm_pressure,Calm pressure
+base.relic.clean_table,Clean table
+base.relic.complete_hand_insurance,Complete hand insurance
+base.relic.contamination_filter,Contamination filter
+base.relic.elite_bounty,Elite bounty
+base.relic.fatigue_buffer,Fatigue buffer
+base.relic.integrity_seal,Integrity seal
+base.relic.open_hand,Open hand
+base.relic.reserve_sleeve,Reserve sleeve
+base.relic.reward_pivot,Reward pivot
+base.relic.rule_memory,Rule memory
+base.relic.sequence_lens,Sequence lens
+base.relic.shop_ledger,Shop ledger
+base.relic.skip_stipend,Skip stipend
+base.relic.triplet_lens,Triplet lens
+base.relic.wall_survey,Wall survey
+base.relic.workshop_kit,Workshop kit
+base.relic.yaku_notebook,Yaku notebook
+base.reward_pool.boss_rule_breaker,Boss rule breaker
+base.reward_pool.normal,Normal
+base.rule_breaker.draw_twice,Draw twice
+base.rule_breaker.open_table,Open table
+base.rule_breaker.reserve_witness,Reserve witness
+base.shop.act_one,Act one
+base.shop_pool.act_one,Act one
+base.technique.clean_table,Clean table
+base.technique.core.reserve_ledger,Reserve ledger
+base.technique.core.sequence_line,Sequence line
+base.technique.draw_surge,Draw surge
+base.technique.pressure_break,Pressure break
+base.technique.reaction_guard,Reaction guard
+base.technique.reserve_exchange,Reserve exchange
+base.technique.settlement_focus,Settlement focus
+base.technique.stability_breath,Stability breath
+base.technique.yaku_insight,Yaku insight
+base.tile.bamboo.1,Bamboo 1
+base.tile.bamboo.2,Bamboo 2
+base.tile.bamboo.3,Bamboo 3
+base.tile.bamboo.4,Bamboo 4
+base.tile.bamboo.5,Bamboo 5
+base.tile.bamboo.6,Bamboo 6
+base.tile.bamboo.7,Bamboo 7
+base.tile.bamboo.8,Bamboo 8
+base.tile.bamboo.9,Bamboo 9
+base.tile.characters.1,Characters 1
+base.tile.characters.2,Characters 2
+base.tile.characters.3,Characters 3
+base.tile.characters.4,Characters 4
+base.tile.characters.5,Characters 5
+base.tile.characters.6,Characters 6
+base.tile.characters.7,Characters 7
+base.tile.characters.8,Characters 8
+base.tile.characters.9,Characters 9
+base.tile.dots.1,Dots 1
+base.tile.dots.2,Dots 2
+base.tile.dots.3,Dots 3
+base.tile.dots.4,Dots 4
+base.tile.dots.5,Dots 5
+base.tile.dots.6,Dots 6
+base.tile.dots.7,Dots 7
+base.tile.dots.8,Dots 8
+base.tile.dots.9,Dots 9
+base.tile.honors.east,East
+base.tile.honors.green,Green
+base.tile.honors.north,North
+base.tile.honors.red,Red
+base.tile.honors.south,South
+base.tile.honors.west,West
+base.tile.honors.white,White
+base.tile.man.5,Man 5
+base.workshop.act_one,Act one
+base.workshop_pool.act_one,Act one
+base.yaku.bamboo_concentration,Bamboo concentration
+base.yaku.pair_foundation,Pair foundation
+prototype.yaku.honor_signal,Honor signal
+prototype.yaku.mixed_table,Mixed table
+prototype.yaku.quad_foundry,Quad foundry
+prototype.yaku.quad_foundry.complete,Complete
+prototype.yaku.sequence_path,Sequence path
+prototype.yaku.seven_pairs,Seven pairs
+prototype.yaku.standard_complete_hand,Standard complete hand
+prototype.yaku.triplet_foundation,Triplet foundation
+prototype.yaku.triplet_foundation.complete,Complete
+prototype.yaku.unified_suit,Unified suit
+prototype.yaku.unified_suit.complete,Complete
+run.battle.hand.1,1
+run.battle.hand.2,2
+run.enter.event,Event
+run.enter.shop,Shop
+run.enter.workshop,Workshop
+run.summary.acknowledge,Acknowledge

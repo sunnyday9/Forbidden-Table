@@ -1,6 +1,7 @@
 extends "res://tests/stage4_onboarding_flow_test.gd"
 
 const PresentationState = preload("res://src/presentation/run/run_presentation_state.gd")
+const Localization = preload("res://src/presentation/localization/localization.gd")
 const REQUIRED_PHASES := [
 	"CHARACTER_SELECT",
 	"CONTRACT_SELECT",
@@ -47,6 +48,7 @@ var _engine_version := "unknown"
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	await test_pseudo_localized_layout(failures)
 	await test_virtual_overview_scroll_reachable(failures)
 	await test_virtual_action_details_track_control_focus(failures)
 	failures.append_array(await super.run())
@@ -70,6 +72,66 @@ func run() -> Array[String]:
 		status,
 	])
 	return failures
+
+func test_pseudo_localized_layout(failures: Array[String]) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var previous_pseudolocalization := TranslationServer.pseudolocalization_enabled
+	var expansion_ratio := float(ProjectSettings.get_setting("internationalization/pseudolocalization/expansion_ratio", 0.0))
+	assert_true(expansion_ratio >= 0.3, "the pseudo-localization pass uses the supported 30% expansion setting", failures)
+	TranslationServer.pseudolocalization_enabled = false
+	var english_template := Localization.template("UI_RUN_SCENE_0012")
+	var english_save_warning_template := Localization.template("UI_RUN_CONTROLLER_0001")
+	var english_title := Localization.text("UI_RUN_SCENE_0038")
+	TranslationServer.pseudolocalization_enabled = true
+	var pseudo_message := Localization.format("UI_RUN_SCENE_0012", ["BATTLE_DEFEAT", "user://stage4/recovery-copy.json"])
+	var pseudo_save_warning := Localization.format("UI_RUN_CONTROLLER_0001", ["user://stage4/suspend.json"])
+	var pseudo_title := Localization.text("UI_RUN_SCENE_0038")
+	assert_true(pseudo_message.length() > english_template.length(), "the longest recovery message expands under pseudo-localization", failures)
+	assert_true(pseudo_save_warning.length() > english_save_warning_template.length(), "the second-longest player-facing recovery message expands under pseudo-localization", failures)
+	assert_true(pseudo_title.length() > english_title.length(), "the critical Run title expands under pseudo-localization", failures)
+	assert_true(not pseudo_message.contains("%s") and not pseudo_message.contains("[MISSING") and not pseudo_save_warning.contains("%s") and not pseudo_save_warning.contains("[MISSING"), "the pseudo-localized recovery messages have resolved interpolation and keys", failures)
+
+	var suffix := str(Time.get_ticks_usec())
+	var profile_path := "user://stage4_pseudo_profile_%s.json" % suffix
+	var suspend_path := "user://stage4_pseudo_suspend_%s.json" % suffix
+	var scene = _new_test_scene(profile_path, suspend_path)
+	tree.root.size = Vector2i(960, 540)
+	tree.root.add_child(scene)
+	await tree.process_frame
+	if scene.controller == null:
+		assert_true(false, "pseudo-localized Stage 4 scene starts a Run", failures)
+	else:
+		var character_action := str(scene.controller.action_descriptors()[0].get("id", ""))
+		scene._on_action_pressed(character_action)
+		var contract_action := str(scene.controller.action_descriptors()[0].get("id", ""))
+		scene._on_action_pressed(contract_action)
+		var start_node := str(scene.controller.domain.map_definition.start_node_id)
+		scene._on_action_pressed("map:%s" % start_node)
+		await tree.process_frame
+		var title_found := false
+		for candidate in scene.find_children("*", "Label", true, false):
+			if candidate is Label and candidate.text == pseudo_title:
+				title_found = true
+				break
+		assert_true(title_found, "the critical Run title resolves through pseudo-localization", failures)
+		scene._set_wrapped_label_text(scene._profile_status, pseudo_message)
+		scene._profile_status.visible = true
+		await tree.process_frame
+		_audit_text_bounds(scene, failures)
+		scene._set_wrapped_label_text(scene._profile_status, pseudo_save_warning)
+		await tree.process_frame
+		_audit_text_bounds(scene, failures)
+		var phase_label: Label = find_named_node(scene, "RunPhaseLabel") as Label
+		var tutorial_toggle: Button = find_named_node(scene, "TutorialToggleButton") as Button
+		assert_true(phase_label != null and phase_label.is_visible_in_tree() and not phase_label.text.contains("[MISSING"), "the pseudo-localized supported viewport retains its critical phase label", failures)
+		assert_true(tutorial_toggle != null and tutorial_toggle.is_visible_in_tree() and not tutorial_toggle.text.contains("[MISSING"), "the pseudo-localized supported viewport retains its critical tutorial control", failures)
+		print("STAGE4_LOCALIZATION_PSEUDO_REPORT viewport=960x540 expansion_ratio=%.2f representative_keys=UI_RUN_SCENE_0012,UI_RUN_CONTROLLER_0001 english_chars=%d/%d pseudo_chars=%d/%d critical_layout=CHECKED" % [expansion_ratio, english_template.length(), english_save_warning_template.length(), pseudo_message.length(), pseudo_save_warning.length()])
+	tree.root.remove_child(scene)
+	scene.free()
+	_clear_test_file(profile_path)
+	_clear_test_file(suspend_path)
+	TranslationServer.pseudolocalization_enabled = previous_pseudolocalization
+	TranslationServer.reload_pseudolocalization()
 
 func test_virtual_overview_scroll_reachable(failures: Array[String]) -> void:
 	var suffix := str(Time.get_ticks_usec())

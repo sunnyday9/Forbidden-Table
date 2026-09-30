@@ -1,5 +1,6 @@
 class_name BattlePresentationState
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 var hand: Array = []
 var draw_wall_count := 0
@@ -33,14 +34,14 @@ func apply_domain_event(event, snapshot: Dictionary) -> void:
 	sync(snapshot)
 	match event.event_type:
 		"TileDrawn":
-			status = "Drew a tile."
+			status = LocalizationCatalogScript.text("UI_BATTLE_STATE_0001")
 		"PatternSettled":
-			status = "%s settled." % str(event.data.get("pattern_type", "Pattern"))
+			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0002") % str(event.data.get("pattern_type", "Pattern"))
 		"EnemyHpChanged":
-			status = "Damage: %d." % int(event.data.get("amount", 0))
+			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0003") % int(event.data.get("amount", 0))
 		"PressureChanged":
-			status = "Pressure changed by %d." % int(event.data.get("amount", 0))
+			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0004") % int(event.data.get("amount", 0))
 		"BattleWon":
-			status = "Battle won."
+			status = LocalizationCatalogScript.text("UI_BATTLE_STATE_0005")
 		"BattleLost":
-			status = "Battle lost."
+			status = LocalizationCatalogScript.text("UI_BATTLE_STATE_0006")
