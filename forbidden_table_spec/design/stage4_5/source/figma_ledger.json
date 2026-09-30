@@ -1,0 +1,377 @@
+{
+  "fileKey": "b9jqsE96RdbRCwHvUB9zsd",
+  "pages": {
+    "library": "0:1",
+    "journey": "4:127",
+    "states": "4:128"
+  },
+  "variables": {
+    "table": "VariableID:4:6",
+    "panel": "VariableID:4:8",
+    "raised": "VariableID:4:10",
+    "text": "VariableID:4:12",
+    "muted": "VariableID:4:14",
+    "brass": "VariableID:4:16",
+    "focus": "VariableID:4:18",
+    "error": "VariableID:4:20",
+    "success": "VariableID:4:22",
+    "edge": "VariableID:4:24",
+    "ink": "VariableID:4:26",
+    "button/fill": "VariableID:4:27",
+    "button/primary": "VariableID:4:28",
+    "tile/face": "VariableID:4:29",
+    "tile/ink": "VariableID:4:30",
+    "panel/fill": "VariableID:4:31",
+    "focus/ring": "VariableID:4:32",
+    "space4": "VariableID:4:33",
+    "space8": "VariableID:4:34",
+    "space12": "VariableID:4:35",
+    "space16": "VariableID:4:36",
+    "space24": "VariableID:4:37",
+    "space32": "VariableID:4:38"
+  },
+  "collections": [
+    "VariableCollectionId:4:2",
+    "VariableCollectionId:4:3",
+    "VariableCollectionId:4:4"
+  ],
+  "styles": {
+    "Body": "S:6fc6802b19b2e3c144d01a4e3a5af9db36bddbfa,",
+    "Label": "S:1ceb9249a7d169dcf437b07c1da18dc6a019b6e0,",
+    "Secondary": "S:0ff54a766673e7d88868b8275c2b2b78dfac9a98,",
+    "Section": "S:3bc7da61d7971930006659bb730e31e5c910fa1e,",
+    "Title": "S:21079da702e17197bb3bdf5d16c11db59aff48fd,",
+    "Outcome": "S:87e4e4102d0b5cf0005298de22ac1db7ab6e59ec,",
+    "TileRank": "S:54d5927809ee376d8c25c16533eeb65d7200c4b0,",
+    "TileSuit": "S:42b9b3d87d2abbcc2ff90b13b3e345f3107ab1b5,"
+  },
+  "buttonSet": "4:61",
+  "tileSet": "4:126",
+  "cover": "4:129",
+  "frames": [
+    {
+      "id": "6:2",
+      "screen": "01",
+      "slug": "character",
+      "w": 960,
+      "h": 540,
+      "textCount": 43,
+      "instanceCount": 15
+    },
+    {
+      "id": "6:73",
+      "screen": "02",
+      "slug": "contract",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "instanceCount": 7
+    },
+    {
+      "id": "6:108",
+      "screen": "03",
+      "slug": "map-act-1",
+      "w": 960,
+      "h": 540,
+      "textCount": 25,
+      "instanceCount": 4
+    },
+    {
+      "id": "6:168",
+      "screen": "04",
+      "slug": "map-act-2",
+      "w": 960,
+      "h": 540,
+      "textCount": 25,
+      "instanceCount": 4
+    },
+    {
+      "id": "6:228",
+      "screen": "05",
+      "slug": "battle-empty",
+      "w": 960,
+      "h": 540,
+      "textCount": 25,
+      "instanceCount": 7
+    },
+    {
+      "id": "6:277",
+      "screen": "06",
+      "slug": "battle-table",
+      "w": 960,
+      "h": 540,
+      "textCount": 67,
+      "instanceCount": 21
+    },
+    {
+      "id": "6:383",
+      "screen": "07",
+      "slug": "pattern-settlement",
+      "w": 960,
+      "h": 540,
+      "textCount": 74,
+      "instanceCount": 21
+    },
+    {
+      "id": "6:497",
+      "screen": "08",
+      "slug": "complete-hand",
+      "w": 960,
+      "h": 540,
+      "textCount": 57,
+      "instanceCount": 17
+    },
+    {
+      "id": "6:581",
+      "screen": "09",
+      "slug": "tile-detail",
+      "w": 960,
+      "h": 540,
+      "textCount": 24,
+      "instanceCount": 9
+    },
+    {
+      "id": "6:624",
+      "screen": "10",
+      "slug": "critical-feedback",
+      "w": 960,
+      "h": 540,
+      "textCount": 65,
+      "instanceCount": 18
+    },
+    {
+      "id": "6:725",
+      "screen": "11",
+      "slug": "event",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "instanceCount": 5
+    },
+    {
+      "id": "6:754",
+      "screen": "12",
+      "slug": "event-unavailable",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 5
+    },
+    {
+      "id": "6:781",
+      "screen": "13",
+      "slug": "reward-normal",
+      "w": 960,
+      "h": 540,
+      "textCount": 43,
+      "instanceCount": 15
+    },
+    {
+      "id": "6:852",
+      "screen": "14",
+      "slug": "reward-elite",
+      "w": 960,
+      "h": 540,
+      "textCount": 43,
+      "instanceCount": 15
+    },
+    {
+      "id": "6:923",
+      "screen": "15",
+      "slug": "reward-boss",
+      "w": 960,
+      "h": 540,
+      "textCount": 43,
+      "instanceCount": 15
+    },
+    {
+      "id": "6:994",
+      "screen": "16",
+      "slug": "act-transition",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 3
+    },
+    {
+      "id": "6:1019",
+      "screen": "17",
+      "slug": "shop",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "instanceCount": 10
+    },
+    {
+      "id": "6:1060",
+      "screen": "18",
+      "slug": "shop-empty",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 4
+    },
+    {
+      "id": "6:1086",
+      "screen": "19",
+      "slug": "purchase-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 4
+    },
+    {
+      "id": "6:1112",
+      "screen": "20",
+      "slug": "workshop-services",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "instanceCount": 8
+    },
+    {
+      "id": "6:1145",
+      "screen": "21",
+      "slug": "workshop-target",
+      "w": 960,
+      "h": 540,
+      "textCount": 56,
+      "instanceCount": 18
+    },
+    {
+      "id": "6:1229",
+      "screen": "22",
+      "slug": "workshop-value",
+      "w": 960,
+      "h": 540,
+      "textCount": 21,
+      "instanceCount": 8
+    },
+    {
+      "id": "6:1268",
+      "screen": "23",
+      "slug": "workshop-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "instanceCount": 6
+    },
+    {
+      "id": "6:1303",
+      "screen": "24",
+      "slug": "tutorial",
+      "w": 960,
+      "h": 540,
+      "textCount": 67,
+      "instanceCount": 20
+    },
+    {
+      "id": "7:2",
+      "screen": "25",
+      "slug": "help",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:29",
+      "screen": "26",
+      "slug": "settings",
+      "w": 960,
+      "h": 540,
+      "textCount": 17,
+      "instanceCount": 8
+    },
+    {
+      "id": "7:63",
+      "screen": "27",
+      "slug": "summary-victory",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:92",
+      "screen": "28",
+      "slug": "summary-defeat",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:121",
+      "screen": "29",
+      "slug": "summary-legacy",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:150",
+      "screen": "30",
+      "slug": "run-complete",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:176",
+      "screen": "31",
+      "slug": "resume",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:202",
+      "screen": "32",
+      "slug": "save-error",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "instanceCount": 5
+    },
+    {
+      "id": "7:230",
+      "screen": "33",
+      "slug": "abandon-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 12,
+      "instanceCount": 4
+    },
+    {
+      "id": "7:255",
+      "screen": "34",
+      "slug": "action-error",
+      "w": 960,
+      "h": 540,
+      "textCount": 20,
+      "instanceCount": 6
+    },
+    {
+      "id": "7:291",
+      "screen": "35",
+      "slug": "state-specimens",
+      "w": 960,
+      "h": 540,
+      "textCount": 37,
+      "instanceCount": 16
+    },
+    {
+      "id": "7:355",
+      "screen": "36",
+      "slug": "pseudo-expansion",
+      "w": 960,
+      "h": 540,
+      "textCount": 12,
+      "instanceCount": 4
+    }
+  ]
+}

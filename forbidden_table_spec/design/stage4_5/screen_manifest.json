@@ -1,0 +1,469 @@
+[
+  {
+    "id": "01",
+    "slug": "character",
+    "title": "Choose your Character",
+    "notes": "Three production Characters; locked state is an illustrative initial profile. No portrait asset required.",
+    "states": [
+      "selected",
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "02",
+    "slug": "contract",
+    "title": "Choose your Contract",
+    "notes": "Pool Bias is both selected and focused; independent state variants are shown on the component specimen.",
+    "states": [
+      "focused",
+      "selected",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "03",
+    "slug": "map-act-1",
+    "title": "Act 1 · Choose your path",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld.",
+    "states": [
+      "focused",
+      "selected",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "04",
+    "slug": "map-act-2",
+    "title": "Act 2 · Choose your path",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld.",
+    "states": [
+      "focused",
+      "selected",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "05",
+    "slug": "battle-empty",
+    "title": "Battle · Draw first",
+    "notes": "Empty Hand and Reserve; disabled Settlement has a visible reason. Domain still validates every command.",
+    "states": [
+      "empty",
+      "disabled",
+      "focused"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "06",
+    "slug": "battle-table",
+    "title": "Battle · Read the table",
+    "notes": "Intent/resources never require overview scrolling; illustrative values, not replay evidence.",
+    "states": [
+      "focused",
+      "selected",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "07",
+    "slug": "pattern-settlement",
+    "title": "Choose a Pattern",
+    "notes": "Map candidates to actual instance IDs; do not infer damage or add an evaluator.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "08",
+    "slug": "complete-hand",
+    "title": "Complete Hand · Interpretation",
+    "notes": "Standard interpretation specimen. Seven Pairs uses 7 distinct-definition pairs; Quads may expand physical tile count.",
+    "states": [
+      "selected",
+      "focused",
+      "confirmation",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "09",
+    "slug": "tile-detail",
+    "title": "Tile detail · Reserve / Discard / Swap",
+    "notes": "Modifier sample is an existing category; identity flexibility is context-sensitive. Actions reflect existing validation.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "10",
+    "slug": "critical-feedback",
+    "title": "Battle · Ordered feedback",
+    "notes": "Critical receipt is a presentation fixture; next surface follows actual command result, not a new Continue command.",
+    "states": [
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "11",
+    "slug": "event",
+    "title": "Event · Risk bargain",
+    "notes": "Copy is structural where source lacks prose; implementation must use actual Event choice labels/effect summaries.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "12",
+    "slug": "event-unavailable",
+    "title": "Event · Conditional choice",
+    "notes": "Use existing authored alternatives only; these generic fixture labels are not new content.",
+    "states": [
+      "disabled",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "13",
+    "slug": "reward-normal",
+    "title": "Choose your reward",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "14",
+    "slug": "reward-elite",
+    "title": "Elite reward",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "15",
+    "slug": "reward-boss",
+    "title": "Boss reward · Rule Breaker",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "16",
+    "slug": "act-transition",
+    "title": "Act 1 complete · Act 2 reached",
+    "notes": "No new phase, Continue command or artificial state gate.",
+    "states": [
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "17",
+    "slug": "shop",
+    "title": "Shop · Compare before you buy",
+    "notes": "Prices are illustrative. Refresh price/remaining count comes from actual shop state; do not assume it is free.",
+    "states": [
+      "selected",
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "18",
+    "slug": "shop-empty",
+    "title": "Shop · No available offers",
+    "notes": "Explicit empty and exhausted-refresh state; no automatic free refresh.",
+    "states": [
+      "empty",
+      "disabled",
+      "focused"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "19",
+    "slug": "purchase-confirm",
+    "title": "Confirm purchase",
+    "notes": "Local confirmation only; safest initial focus is Cancel. Domain revalidates offer and funds.",
+    "states": [
+      "confirmation",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "20",
+    "slug": "workshop-services",
+    "title": "Workshop · Choose a service",
+    "notes": "All six existing service families are described; only services currently available are enabled.",
+    "states": [
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "21",
+    "slug": "workshop-target",
+    "title": "Workshop · Choose the tile",
+    "notes": "Target identity remains stable as focus moves or values change.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "22",
+    "slug": "workshop-value",
+    "title": "Workshop · Choose the result",
+    "notes": "Before/after/cost in one place; final local confirmation does not add a Domain command.",
+    "states": [
+      "selected",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "23",
+    "slug": "workshop-confirm",
+    "title": "Confirm Workshop change",
+    "notes": "Initial focus Cancel; no optimistic currency or pool mutation.",
+    "states": [
+      "confirmation",
+      "focused"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "24",
+    "slug": "tutorial",
+    "title": "Battle · Tutorial enabled",
+    "notes": "All five existing tutorial steps are mapped in interaction notes.",
+    "states": [
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "25",
+    "slug": "help",
+    "title": "Help · Pattern and input reference",
+    "notes": "Help closes to original control and never submits a game command.",
+    "states": [
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "26",
+    "slug": "settings",
+    "title": "Settings · Presentation",
+    "notes": "Local settings overlay proposed; Normal/Fast/Instant controls require no rule change.",
+    "states": [
+      "selected",
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "27",
+    "slug": "summary-victory",
+    "title": "Victory · Your Build Story",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked.",
+    "states": [
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "28",
+    "slug": "summary-defeat",
+    "title": "Defeat · Pressure limit reached",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked.",
+    "states": [
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "29",
+    "slug": "summary-legacy",
+    "title": "Run Summary · Older record",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run.",
+    "states": [
+      "focused",
+      "empty"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "30",
+    "slug": "run-complete",
+    "title": "Run complete",
+    "notes": "New Run gets guaranteed visible initial focus.",
+    "states": [
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "31",
+    "slug": "resume",
+    "title": "Welcome back · Suspended Run",
+    "notes": "No fake autosave guarantee. Preserve existing compatibility/load contracts.",
+    "states": [
+      "focused",
+      "confirmation"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "32",
+    "slug": "save-error",
+    "title": "Save recovery · Action required",
+    "notes": "Same UI template covers content validation, incompatible save and profile recovery, but actions remain governed by their existing outcomes.",
+    "states": [
+      "error",
+      "disabled",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "33",
+    "slug": "abandon-confirm",
+    "title": "Leave this Suspend Save?",
+    "notes": "No new abandon-Run Domain system; this confirms the existing startup New Run choice.",
+    "states": [
+      "confirmation",
+      "focused"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "34",
+    "slug": "action-error",
+    "title": "Workshop · Change rejected",
+    "notes": "Error is adjacent to attempted action, not a timer-only toast. Save-write failure after an accepted action uses a separate success-with-warning receipt.",
+    "states": [
+      "error",
+      "focused",
+      "selected"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "35",
+    "slug": "state-specimens",
+    "title": "Component states · Focus is independent",
+    "notes": "Brass inner edge is selection; cyan perimeter is focus. Both may appear together.",
+    "states": [
+      "focused",
+      "selected",
+      "disabled",
+      "empty",
+      "error",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  },
+  {
+    "id": "36",
+    "slug": "pseudo-expansion",
+    "title": "Pseudo-localization · Expanded recovery",
+    "notes": "Illustrative pseudo text; actual Godot pseudo-localization must be rerun after approved implementation.",
+    "states": [
+      "error",
+      "focused",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540
+  }
+]
