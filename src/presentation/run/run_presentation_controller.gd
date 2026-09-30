@@ -819,6 +819,7 @@ func _feedback_for_events(events: Array) -> String:
 		DomainEventScript.TILE_DISCARDED: return "Tile discarded."
 		DomainEventScript.TECHNIQUE_USED:
 			return "Technique used: %s." % str(last_event.data.get("technique_id", ""))
+		DomainEventScript.RUN_PHASE_CHANGED: return "Run advanced."
 	return str(last_event.event_type)
 
 func _technique_label(technique_id: String) -> String:

@@ -48,6 +48,7 @@ const AlphaContractEffectsTest = preload("res://tests/alpha_contract_effects_tes
 const BuildEffectConsumptionTest = preload("res://tests/build_effect_consumption_test.gd")
 const Stage4ContentCompletenessTest = preload("res://tests/stage4_content_completeness_test.gd")
 const Stage4OnboardingFlowTest = preload("res://tests/stage4_onboarding_flow_test.gd")
+const Stage4AccessibilityTest = preload("res://tests/stage4_accessibility_test.gd")
 const TestSuiteDispatch = preload("res://tests/test_suite_dispatch.gd")
 const TestRunnerDispatchTest = preload("res://tests/test_runner_dispatch_test.gd")
 
@@ -108,12 +109,13 @@ func _run_tests() -> void:
 	var build_effects_only := "--build-effects" in test_arguments
 	var stage4_content_only := "--stage4-content" in test_arguments
 	var stage4_onboarding_flow_only := "--stage4-onboarding-flow" in test_arguments
+	var stage4_accessibility_only := "--stage4-accessibility" in test_arguments
 	var runner_dispatch_only := "--runner-dispatch" in test_arguments
 	var focused_test_requested := (
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_simulation_coverage_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or stage4_onboarding_flow_only or runner_dispatch_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_simulation_coverage_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or stage4_onboarding_flow_only or stage4_accessibility_only or runner_dispatch_only
 	)
 	var selected_suite_ids := TestSuiteDispatch.select_suite_ids(test_arguments, focused_test_requested)
 	var failures: Array[String] = []
@@ -219,6 +221,8 @@ func _run_tests() -> void:
 		failures.append_array(Stage4ContentCompletenessTest.new().run())
 	if selected_suite_ids.has("stage4-onboarding-flow"):
 		failures.append_array(await Stage4OnboardingFlowTest.new().run())
+	if selected_suite_ids.has("stage4-accessibility"):
+		failures.append_array(await Stage4AccessibilityTest.new().run())
 	if not focused_test_requested or presentation_only or onboarding_only:
 		var presentation_test_script = load("res://tests/run_presentation_test.gd")
 		if presentation_test_script == null or not presentation_test_script.can_instantiate():
@@ -312,6 +316,8 @@ func _run_tests() -> void:
 			print("PASS: Stage 4 aggregate content and Act reachability tests")
 		elif stage4_onboarding_flow_only:
 			print("PASS: Stage 4 scripted onboarding and two-Act Run UX flow")
+		elif stage4_accessibility_only:
+			print("PASS: Stage 4 scripted accessibility checklist")
 		elif persistence_only:
 			print("PASS: persistence tests")
 		elif presentation_only:

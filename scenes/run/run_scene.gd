@@ -34,6 +34,7 @@ var _help_value: Label
 var _tutorial_prompt: Label
 var _tutorial_toggle_button: Button
 var _tutorial_reset_button: Button
+var _overview_scroll: ScrollContainer
 var _feedback_value: Label
 var _profile_status: Label
 var _reset_profile_button: Button
@@ -43,6 +44,7 @@ var _suspend_status: Label
 var _resume_run_button: Button
 var _new_run_from_suspend_button: Button
 var _actions_column: VBoxContainer
+var _action_details_value: Label
 var _run_columns: HBoxContainer
 var _summary_panel: PanelContainer
 var _summary_value: Label
@@ -120,6 +122,9 @@ func _register_controller_input_mappings() -> void:
 			InputMap.action_add_event(action, event)
 
 func _move_directional_focus(direction: int) -> void:
+	if _overview_scroll != null and get_viewport().gui_get_focus_owner() == _overview_scroll:
+		_scroll_overview(direction)
+		return
 	if controller == null:
 		_move_control_focus(direction)
 		return
@@ -134,19 +139,33 @@ func _move_directional_focus(direction: int) -> void:
 	_move_control_focus(direction)
 
 func _move_control_focus(direction: int) -> void:
-	var focusable: Array[Button] = []
-	for candidate in find_children("*", "Button", true, false):
-		if candidate is Button and candidate.is_visible_in_tree() and not candidate.disabled and candidate.focus_mode != Control.FOCUS_NONE:
-			focusable.append(candidate)
+	var focusable: Array[Control] = []
+	for candidate in find_children("*", "Control", true, false):
+		if not (candidate is Button or candidate == _overview_scroll):
+			continue
+		var control := candidate as Control
+		if not control.is_visible_in_tree() or control.focus_mode == Control.FOCUS_NONE:
+			continue
+		if control is Button and control.disabled:
+			continue
+		focusable.append(control)
 	if focusable.is_empty():
 		return
-	var current := get_viewport().gui_get_focus_owner() as Button
+	var current := get_viewport().gui_get_focus_owner() as Control
 	var index := focusable.find(current)
 	if index < 0:
 		index = 0 if direction > 0 else focusable.size() - 1
 	else:
 		index = (index + direction + focusable.size()) % focusable.size()
 	focusable[index].grab_focus()
+
+func _scroll_overview(direction: int) -> void:
+	if _overview_scroll == null:
+		return
+	var scrollbar := _overview_scroll.get_v_scroll_bar()
+	var maximum := maxi(0, int(scrollbar.max_value - scrollbar.page))
+	var step := maxi(72, int(scrollbar.page * 0.75))
+	_overview_scroll.scroll_vertical = clampi(_overview_scroll.scroll_vertical + direction * step, 0, maximum)
 
 func _confirm_focused_control() -> void:
 	var focused_button := get_viewport().gui_get_focus_owner() as Button
@@ -320,7 +339,7 @@ func _show_suspend_recovery_required(message: String, can_start_new: bool) -> vo
 
 func _show_suspend_choice(message: String, can_resume: bool, new_run_label: String, can_start_new: bool) -> void:
 	_suspend_choice_panel.visible = true
-	_suspend_status.text = message
+	_set_wrapped_label_text(_suspend_status, message)
 	_resume_run_button.visible = can_resume
 	_resume_run_button.disabled = not can_resume
 	_new_run_from_suspend_button.text = new_run_label
@@ -350,12 +369,12 @@ func _on_resume_run_pressed() -> void:
 	if str(resumed_domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(resumed_domain.state)
 		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
-			_suspend_status.text = "Progression is still not saved (%s). The completed Run remains in its Suspend Save so you can retry on the next launch." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
+			_set_wrapped_label_text(_suspend_status, "Progression is still not saved (%s). The completed Run remains in its Suspend Save so you can retry on the next launch." % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED")))
 			_pending_resume_domain = resumed_domain
 			return
 		var clear_result: Dictionary = suspend_store.clear()
 		if not clear_result.get("accepted", false):
-			_suspend_status.text = "The completed Run could not be cleared (%s). Its save remains available." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+			_set_wrapped_label_text(_suspend_status, "The completed Run could not be cleared (%s). Its save remains available." % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED")))
 			_pending_resume_domain = resumed_domain
 			return
 	_suspend_choice_panel.visible = false
@@ -422,6 +441,19 @@ func _build_interface() -> void:
 	title.add_theme_font_size_override("font_size", 23)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
+	var tutorial_controls := HBoxContainer.new()
+	tutorial_controls.name = "TutorialControls"
+	tutorial_controls.add_theme_constant_override("separation", 8)
+	_tutorial_toggle_button = Button.new()
+	_tutorial_toggle_button.name = "TutorialToggleButton"
+	_tutorial_toggle_button.pressed.connect(_on_tutorial_toggle_pressed)
+	tutorial_controls.add_child(_tutorial_toggle_button)
+	_tutorial_reset_button = Button.new()
+	_tutorial_reset_button.name = "TutorialResetButton"
+	_tutorial_reset_button.text = "Reset tutorial"
+	_tutorial_reset_button.pressed.connect(_on_tutorial_reset_pressed)
+	tutorial_controls.add_child(_tutorial_reset_button)
+	header.add_child(tutorial_controls)
 	_new_run_button = Button.new()
 	_new_run_button.name = "NewRunButton"
 	_new_run_button.text = "New Run"
@@ -434,7 +466,7 @@ func _build_interface() -> void:
 	_phase_value.add_theme_font_size_override("font_size", 17)
 	page.add_child(_phase_value)
 	_profile_status = Label.new()
-	_profile_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_configure_wrapped_label(_profile_status)
 	_profile_status.text = _meta_progress_load_warning
 	_profile_status.visible = not _meta_progress_load_warning.is_empty()
 	page.add_child(_profile_status)
@@ -451,7 +483,7 @@ func _build_interface() -> void:
 	page.add_child(_suspend_choice_panel)
 	_suspend_status = Label.new()
 	_suspend_status.name = "SuspendStatus"
-	_suspend_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_configure_wrapped_label(_suspend_status)
 	_suspend_choice_panel.add_child(_suspend_status)
 	_resume_run_button = Button.new()
 	_resume_run_button.name = "ResumeRunButton"
@@ -475,10 +507,43 @@ func _build_interface() -> void:
 	overview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	overview_panel.size_flags_stretch_ratio = 1.0
 	columns.add_child(overview_panel)
+	var overview_layout := VBoxContainer.new()
+	overview_layout.add_theme_constant_override("separation", 8)
+	overview_panel.add_child(overview_layout)
+	var overview_header := HBoxContainer.new()
+	overview_header.add_theme_constant_override("separation", 6)
+	overview_layout.add_child(overview_header)
+	var overview_heading := Label.new()
+	overview_heading.text = "Run state"
+	overview_heading.add_theme_font_size_override("font_size", 16)
+	overview_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	overview_header.add_child(overview_heading)
+	var overview_scroll_up_button := Button.new()
+	overview_scroll_up_button.name = "OverviewScrollUpButton"
+	overview_scroll_up_button.text = "Scroll up"
+	overview_scroll_up_button.tooltip_text = "Scroll the Run state overview upward."
+	overview_scroll_up_button.pressed.connect(_scroll_overview.bind(-1))
+	overview_header.add_child(overview_scroll_up_button)
+	var overview_scroll_down_button := Button.new()
+	overview_scroll_down_button.name = "OverviewScrollDownButton"
+	overview_scroll_down_button.text = "Scroll down"
+	overview_scroll_down_button.tooltip_text = "Scroll the Run state overview downward."
+	overview_scroll_down_button.pressed.connect(_scroll_overview.bind(1))
+	overview_header.add_child(overview_scroll_down_button)
+	_overview_scroll = ScrollContainer.new()
+	_overview_scroll.name = "RunOverviewScroll"
+	_overview_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_overview_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_overview_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_overview_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_overview_scroll.follow_focus = true
+	_overview_scroll.focus_mode = Control.FOCUS_ALL
+	_overview_scroll.tooltip_text = "Run state overview. Focus this area, then use Up or Down to scroll."
+	overview_layout.add_child(_overview_scroll)
 	var overview := VBoxContainer.new()
 	overview.add_theme_constant_override("separation", 12)
-	overview_panel.add_child(overview)
-	_add_section_heading(overview, "Run state")
+	overview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_overview_scroll.add_child(overview)
 	_run_value = _add_wrapped_label(overview)
 	_add_section_heading(overview, "Battle")
 	_battle_value = _add_wrapped_label(overview)
@@ -492,18 +557,6 @@ func _build_interface() -> void:
 	_tutorial_prompt.name = "TutorialPrompt"
 	_tutorial_prompt.modulate = Color(0.95, 0.86, 0.62)
 	_tutorial_prompt.visible = false
-	var tutorial_controls := HBoxContainer.new()
-	tutorial_controls.name = "TutorialControls"
-	_tutorial_toggle_button = Button.new()
-	_tutorial_toggle_button.name = "TutorialToggleButton"
-	_tutorial_toggle_button.pressed.connect(_on_tutorial_toggle_pressed)
-	tutorial_controls.add_child(_tutorial_toggle_button)
-	_tutorial_reset_button = Button.new()
-	_tutorial_reset_button.name = "TutorialResetButton"
-	_tutorial_reset_button.text = "Reset tutorial"
-	_tutorial_reset_button.pressed.connect(_on_tutorial_reset_pressed)
-	tutorial_controls.add_child(_tutorial_reset_button)
-	overview.add_child(tutorial_controls)
 
 	var actions_panel := PanelContainer.new()
 	actions_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -515,9 +568,17 @@ func _build_interface() -> void:
 	actions_panel.add_child(action_layout)
 	_add_section_heading(action_layout, "Available actions")
 	var scroll := ScrollContainer.new()
+	scroll.name = "AvailableActionsScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.follow_focus = true
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_action_details_value = Label.new()
+	_action_details_value.name = "SelectedActionDetails"
+	_configure_wrapped_label(_action_details_value)
+	_action_details_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action_details_value.visible = false
+	action_layout.add_child(_action_details_value)
 	action_layout.add_child(scroll)
 	_actions_column = VBoxContainer.new()
 	_actions_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -538,7 +599,7 @@ func _build_interface() -> void:
 	summary_layout.add_child(summary_scroll)
 	_summary_value = Label.new()
 	_summary_value.name = "RunSummaryText"
-	_summary_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_configure_wrapped_label(_summary_value)
 	_summary_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	summary_scroll.add_child(_summary_value)
 	_summary_acknowledge_button = Button.new()
@@ -548,7 +609,7 @@ func _build_interface() -> void:
 	summary_layout.add_child(_summary_acknowledge_button)
 
 	_feedback_value = Label.new()
-	_feedback_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_configure_wrapped_label(_feedback_value)
 	page.add_child(_feedback_value)
 
 func _render() -> void:
@@ -556,7 +617,7 @@ func _render() -> void:
 		if _phase_value != null:
 			_phase_value.text = "Run unavailable"
 		if _profile_status != null:
-			_profile_status.text = _meta_progress_load_warning
+			_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
 			_profile_status.visible = not _meta_progress_load_warning.is_empty()
 		if _reset_profile_button != null:
 			_reset_profile_button.visible = meta_progress_coordinator.recovery_required
@@ -573,37 +634,39 @@ func _render() -> void:
 		if _new_run_button != null:
 			_new_run_button.disabled = true
 		if _feedback_value != null:
-			_feedback_value.text = _startup_error
+			_set_wrapped_label_text(_feedback_value, _startup_error)
 		return
 	_suspend_choice_panel.visible = false
 	var state = controller.domain.state
 	var phase := str(state.phase)
 	_phase_value.text = "Act %d of %d   ·   %s" % [state.act_index, state.act_count, _pretty_words(phase)]
-	_run_value.text = "Run: %s\nCharacter: %s\nContract: %s\nGold: %d     Refinement: %d\nCurrent map node: %s" % [
+	_set_wrapped_label_text(_run_value, "Run: %s\nCharacter: %s\nContract: %s\nGold: %d     Refinement: %d\nCurrent map node: %s" % [
 		state.run_id,
 		_pretty_id(state.character_id),
 		_pretty_id(state.contract_id),
 		state.gold,
 		state.refinement_tokens,
 		_pretty_id(state.map_state.current_node_id),
-	]
-	_battle_value.text = _battle_summary()
-	_hand_value.text = _hand_summary()
-	_help_value.text = _help_text(phase)
+	])
+	_set_wrapped_label_text(_battle_value, _battle_summary())
+	_set_wrapped_label_text(_hand_value, _hand_summary())
+	_set_wrapped_label_text(_help_value, _help_text(phase))
 	_render_tutorial(phase)
-	_feedback_value.text = controller.snapshot().get("feedback", "")
-	_profile_status.text = _meta_progress_load_warning
+	_set_wrapped_label_text(_feedback_value, str(controller.snapshot().get("feedback", "")))
+	_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
 	_profile_status.visible = not _meta_progress_load_warning.is_empty()
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
 	var showing_summary := phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]
 	_run_columns.visible = not showing_summary
 	_summary_panel.visible = showing_summary
-	_summary_value.text = RunSummaryPresenterScript.format(state)
+	_set_wrapped_label_text(_summary_value, RunSummaryPresenterScript.format(state))
 	_summary_acknowledge_button.visible = phase == RunPhaseScript.RUN_SUMMARY
 	_new_run_button.disabled = phase != RunPhaseScript.RUN_COMPLETE
 	_render_actions()
 	if phase == RunPhaseScript.RUN_SUMMARY and _summary_acknowledge_button.visible and not _summary_acknowledge_button.disabled:
 		_summary_acknowledge_button.grab_focus()
+	elif phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled and _new_run_button.is_inside_tree():
+		_new_run_button.grab_focus()
 
 func _render_actions() -> void:
 	for child in _actions_column.get_children():
@@ -611,27 +674,44 @@ func _render_actions() -> void:
 		child.queue_free()
 	var descriptors: Array = controller.action_descriptors()
 	if descriptors.is_empty():
+		_set_wrapped_label_text(_action_details_value, "")
+		_action_details_value.visible = false
 		var empty_label := Label.new()
 		empty_label.text = "No actions are available in this state."
-		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_configure_wrapped_label(empty_label)
 		_actions_column.add_child(empty_label)
 		return
 	var focused_id := str(controller.snapshot().get("focused_action_id", ""))
 	var focused_button: Button
+	var focused_action: Dictionary = {}
 	for action in descriptors:
 		var action_id := str(action.get("id", ""))
 		var button := Button.new()
-		button.text = _action_label(action)
+		button.text = _compact_action_label(action)
 		button.set_meta("run_action_id", action_id)
 		button.tooltip_text = _action_tooltip(action)
 		button.custom_minimum_size.y = 42
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.pressed.connect(_on_action_pressed.bind(action_id))
+		button.focus_entered.connect(_on_action_focus_entered.bind(action_id))
 		_actions_column.add_child(button)
 		if focused_button == null or action_id == focused_id:
 			focused_button = button
+			focused_action = action
+	_set_wrapped_label_text(_action_details_value, _action_details_text(focused_action))
+	_action_details_value.visible = not _action_details_value.text.is_empty() and focused_button != null and _action_details_value.text != focused_button.text
 	if focused_button != null and focused_button.is_inside_tree() and not _reset_profile_button.has_focus():
 		focused_button.grab_focus()
+
+func _on_action_focus_entered(action_id: String) -> void:
+	if controller == null or _action_details_value == null:
+		return
+	for action in controller.action_descriptors():
+		if str(action.get("id", "")) == action_id:
+			_set_wrapped_label_text(_action_details_value, _action_details_text(action))
+			var focused_button := get_viewport().gui_get_focus_owner() as Button
+			_action_details_value.visible = not _action_details_value.text.is_empty() and focused_button != null and _action_details_value.text != focused_button.text
+			return
 
 func _on_action_pressed(action_id: String):
 	var result = controller.confirm(action_id)
@@ -660,7 +740,7 @@ func _render_tutorial(phase: String) -> void:
 	_tutorial_toggle_button.text = "Tutorial complete" if complete else ("Disable tutorial" if progress.enabled else "Enable tutorial")
 	_tutorial_toggle_button.disabled = complete
 	_tutorial_reset_button.disabled = progress.enabled and progress.completed_step_ids.is_empty()
-	_tutorial_prompt.text = _tutorial_prompt_for_step(active_step)
+	_set_wrapped_label_text(_tutorial_prompt, _tutorial_prompt_for_step(active_step))
 	_tutorial_prompt.visible = phase == RunPhaseScript.BATTLE and progress.enabled and not active_step.is_empty()
 
 func _tutorial_prompt_for_step(step_id: String) -> String:
@@ -805,15 +885,49 @@ func _action_label(action: Dictionary) -> String:
 		"RUN_SUMMARY": return "Acknowledge Run Summary"
 	return "%s — %s" % [_pretty_words(kind), _pretty_id(target)]
 
+func _compact_action_label(action: Dictionary) -> String:
+	var kind := str(action.get("kind", "ACTION"))
+	var target := str(action.get("target_id", ""))
+	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
+	match kind:
+		"CHARACTER": return "Choose %s" % _pretty_id(target)
+		"CONTRACT": return "Choose Contract — %s" % str(details.get("name", _pretty_id(target)))
+		"TECHNIQUE": return "Use %s Technique" % _pretty_words(str(details.get("technique_kind", "Core")))
+		"PARTIAL_SETTLEMENT": return "Settle %s" % _pretty_words(str(details.get("pattern_type", "Pattern")))
+		"COMPLETE_HAND": return "Settle complete hand"
+		"RESERVE": return "Store tile"
+		"DISCARD": return "Discard tile"
+		"RESERVE_SWAP": return "Swap with Reserve"
+		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return "Choose reward"
+		"SHOP_OFFER": return "Buy offer"
+		"EVENT_OPTION": return "Choose Event option"
+		"WORKSHOP_SELECT_TARGET": return "Choose tile"
+		"WORKSHOP_SERVICE": return _pretty_words(str(action.get("service_id", target)))
+	var full_label := _action_label(action)
+	return _pretty_words(kind) if full_label.length() > 38 else full_label
+
+func _action_details_text(action: Dictionary) -> String:
+	if action.is_empty():
+		return ""
+	var kind := str(action.get("kind", ""))
+	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
+	if kind == "CONTRACT":
+		return _contract_action_details_text(details, str(action.get("target_id", "")))
+	if kind == "WORKSHOP_SERVICE":
+		return _action_label(action)
+	return _action_label(action)
+
 func _help_text(phase: String) -> String:
+	var phase_help := ""
 	match phase:
-		RunPhaseScript.CHARACTER_SELECT: return "Choose a Character, then choose a Contract to begin the Act 1 map. The Run prepares its starting Tile Pool when you choose."
-		RunPhaseScript.CONTRACT_SELECT: return "Choose a Contract. Your selection applies across both Acts."
-		RunPhaseScript.MAP_CHOICE: return "Choose an adjacent node. Complete battles and the Boss reward to continue the Run."
-		RunPhaseScript.BATTLE: return "Draw tiles, settle highlighted Patterns or a Complete Hand, and end the turn to resolve enemy intent."
-		RunPhaseScript.RUN_SUMMARY: return "Review the Build Story, then acknowledge the summary to finish the Run."
-		RunPhaseScript.RUN_COMPLETE: return "Run complete. Start another Run when you are ready."
-	return "Choose an available action to continue. Tab or the directional controls move between actions; Enter confirms."
+		RunPhaseScript.CHARACTER_SELECT: phase_help = "Choose a Character, then choose a Contract to begin the Act 1 map. The Run prepares its starting Tile Pool when you choose."
+		RunPhaseScript.CONTRACT_SELECT: phase_help = "Choose a Contract. Your selection applies across both Acts."
+		RunPhaseScript.MAP_CHOICE: phase_help = "Choose an adjacent node. Complete battles and the Boss reward to continue the Run."
+		RunPhaseScript.BATTLE: phase_help = "Draw tiles, settle highlighted Patterns or a Complete Hand, and end the turn to resolve enemy intent."
+		RunPhaseScript.RUN_SUMMARY: phase_help = "Review the Build Story, then acknowledge the summary to finish the Run."
+		RunPhaseScript.RUN_COMPLETE: phase_help = "Run complete. Start another Run when you are ready."
+		_: phase_help = "Choose an available action to continue. Enter or A confirms."
+	return "%s Tab or L/R shoulder moves focus. Focus Run state, then press Up/Down to scroll. Or focus Scroll up/down and press Enter/A." % phase_help
 
 func _action_label_for_target(kind: String, target_id: String) -> String:
 	return "%s — %s" % [_pretty_words(kind), _pretty_id(target_id)]
@@ -906,6 +1020,31 @@ func _add_section_heading(parent: Control, text: String) -> void:
 
 func _add_wrapped_label(parent: Control) -> Label:
 	var label := Label.new()
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_configure_wrapped_label(label)
 	parent.add_child(label)
 	return label
+
+func _configure_wrapped_label(label: Label) -> void:
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.resized.connect(_defer_wrapped_label_height_update.bind(label))
+
+func _set_wrapped_label_text(label: Label, value: String) -> void:
+	label.text = value
+	_update_wrapped_label_height(label)
+	_defer_wrapped_label_height_update(label)
+
+func _defer_wrapped_label_height_update(label: Label) -> void:
+	if label == null or not is_instance_valid(label) or label.is_queued_for_deletion():
+		return
+	# Containers assign final widths during layout. Re-measure after that pass so
+	# wrapped text can raise its minimum height before the next container sort.
+	call_deferred("_update_wrapped_label_height", label)
+
+func _update_wrapped_label_height(label: Label) -> void:
+	if label == null or not is_instance_valid(label) or label.size.x <= 0.0:
+		return
+	var required_height := 0.0
+	if not label.text.is_empty():
+		required_height = float(maxi(1, label.get_line_count()) * label.get_line_height() + 4)
+	if absf(label.custom_minimum_size.y - required_height) > 0.5:
+		label.custom_minimum_size.y = required_height

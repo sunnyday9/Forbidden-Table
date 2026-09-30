@@ -16,6 +16,7 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_real_character_contract_map_and_battle_flow(failures)
 	test_rejected_input_focus_details_and_modes(failures)
+	test_phase_change_feedback_is_player_facing(failures)
 	test_critical_screen_descriptors(failures)
 	test_onboarding_progress_is_independent_and_resettable(failures)
 	test_same_seed_commands_match_across_modes_and_domain_is_presentation_free(failures)
@@ -52,6 +53,11 @@ func test_rejected_input_focus_details_and_modes(failures: Array[String]) -> voi
 	assert_true(detail.get("id", "") == controller.snapshot().details_action_id, "details opens for the focused action", failures)
 	assert_true(controller.cancel() and controller.snapshot().details_action_id.is_empty(), "cancel closes presentation details without touching Domain", failures)
 	assert_true(controller.set_mode(RunPresentationState.FAST) and controller.set_mode(RunPresentationState.INSTANT), "Normal/Fast/Instant modes are selectable", failures)
+
+func test_phase_change_feedback_is_player_facing(failures: Array[String]) -> void:
+	var controller := RunPresentationController.new(_domain("presentation.phase_feedback", 95))
+	var feedback := controller._feedback_for_events([_event(DomainEvent.RUN_PHASE_CHANGED)])
+	assert_true(feedback == "Run advanced.", "phase-change feedback uses player-facing copy instead of the internal event name", failures)
 
 func test_critical_screen_descriptors(failures: Array[String]) -> void:
 	var domain := _domain("presentation.screens", 93)
