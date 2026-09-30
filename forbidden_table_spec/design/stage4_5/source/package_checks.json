@@ -1,6 +1,6 @@
 {
   "baselineScreens": 36,
-  "pngCount": 45,
+  "pngCount": 54,
   "dimensions": [
     {
       "file": "mockups/01-character.png",
@@ -181,6 +181,96 @@
       "file": "mockups/36-pseudo-expansion.png",
       "width": 960,
       "height": 540
+    },
+    {
+      "file": "mockups/contact-1.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/contact-2.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/contact-3.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/figma/battle.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/character.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/index-01-12.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/index-13-24.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/index-25-36.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/map-act-1.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/pattern.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/summary-victory.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/workshop.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/overview.png",
+      "width": 1008,
+      "height": 1066
+    },
+    {
+      "file": "mockups/stress-expanded.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/stress-large-text.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/window-deck.png",
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "file": "mockups/window-desktop.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "mockups/window-wide.png",
+      "width": 1280,
+      "height": 720
     }
   ],
   "missing": [],
@@ -200,5 +290,8 @@
     "incompleteBattleHandCount": 13,
     "emptyBattleHandCount": 0,
     "standardCompleteHandCount": 14
-  }
+  },
+  "browserPngCount": 45,
+  "nativeFigmaPngCount": 9,
+  "nativeFigmaFrames": 36
 }

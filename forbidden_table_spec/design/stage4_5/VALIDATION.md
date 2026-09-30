@@ -41,7 +41,9 @@ Ivory/brass and ivory/cyan are not text combinations. Tile focus is outside the 
 
 The Education reconnection was verified with `whoami` (`tier=student`) and successful read/edit calls. The service does not expose an exact remaining-call counter. [Published Education limits](https://developers.figma.com/docs/figma-mcp-server/rate-limits-access/) are up to 200/day, 10/minute.
 
-The user has copied the draft into that account. Its URL is still needed to select the correct file. The original editable file has the main-row height repair, but still needs the revised button Fill constraints, latest content/state fixtures, palette and visual recheck. See [Figma status](FIGMA_STATUS.md); it is not the final review mirror yet.
+The supplied [Education copy](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa) was inspected and refined directly. All 36 root frame IDs were preserved. Native measurements show 960×540 bounds, footer bottom y=512, a 44 px minimum button height, and no measured button-label overflow. Six native core exports and three native indexes covering all 36 frames were visually inspected. Focus is native outline geometry independent of selection. [Native measurements](source/figma_checks.json) and [saved Figma exports](mockups/figma/) supplement the browser checks above.
+
+These checks verify design drawings. Figma does not demonstrate controller navigation, command execution, scroll restoration, animations, or full enlarged-text/viewports behavior. The browser enlarged-text and window specimens remain separate design targets.
 
 ## Not newly verified
 

@@ -61,7 +61,7 @@ buttonSet.x=40;buttonSet.y=680;buttonSet.resize(3*224+40,3*60+40);buttons.forEac
 const tileVariants=[];
 for(const suit of ['BAM','DOT','CHR','HON']) for(const state of ['default','focused','selected','selectedFocused']) {
  const c=track(figma.createComponent());c.name='Suit='+suit+', State='+state;c.resize(42,64);c.layoutMode='VERTICAL';c.primaryAxisSizingMode='FIXED';c.counterAxisSizingMode='FIXED';c.primaryAxisAlignItems='CENTER';c.counterAxisAlignItems='CENTER';c.itemSpacing=0;c.cornerRadius=4;c.fills=[paint('tile/face')];c.strokes=[paint(state==='focused'||state==='selectedFocused'?'focus':'selected'===state?'brass':'edge')];c.strokeWeight=state==='default'?1:3;
- const rank=txt('2',24,'ink',fonts[1]);rank.name='Rank';const glyph=txt({BAM:'╎╎',DOT:'●',CHR:'萬',HON:'東'}[suit],18,'ink',suit==='CHR'||suit==='HON'?fonts[3]:fonts[0]);glyph.name='Glyph';const label=txt(suit,12,'ink');label.name='Suit';c.appendChild(rank);c.appendChild(glyph);c.appendChild(label);glyph.lineHeight={unit:'PIXELS',value:20};
+ const rank=txt('2',24,'ink',fonts[1]);rank.name='Rank';const glyph=txt({BAM:'| |',DOT:'●',CHR:'萬',HON:'東'}[suit],18,'ink',suit==='CHR'||suit==='HON'?fonts[3]:fonts[0]);glyph.name='Glyph';const label=txt(suit,12,'ink');label.name='Suit';c.appendChild(rank);c.appendChild(glyph);c.appendChild(label);glyph.lineHeight={unit:'PIXELS',value:20};
  for(const t of [rank,glyph,label]) { const prop=c.addComponentProperty(t.name,'TEXT',t.characters);t.componentPropertyReferences={characters:prop}; }
  tileVariants.push(c);
 }

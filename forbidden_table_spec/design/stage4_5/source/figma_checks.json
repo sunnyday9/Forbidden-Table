@@ -1,0 +1,732 @@
+{
+  "checkedDate": "2026-10-01",
+  "fileKey": "xXzt7gEelGQh37Ak51ogGa",
+  "status": "Proposed v1; approval pending",
+  "scope": "Native Figma drawings only; no Godot validation",
+  "pages": [
+    {
+      "pageId": "4:127",
+      "results": [
+        {
+          "id": "6:2",
+          "name": "01 · character · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:608"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:73",
+          "name": "02 · contract · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 7,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:623"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:108",
+          "name": "03 · map-act-1 · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:168",
+          "name": "04 · map-act-2 · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:228",
+          "name": "05 · battle-empty · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 7,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:799"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:277",
+          "name": "06 · battle-table · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 7,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2009:607"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:383",
+          "name": "07 · pattern-settlement · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:922"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:497",
+          "name": "08 · complete-hand · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 3,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1006"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:581",
+          "name": "09 · tile-detail · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1038"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:624",
+          "name": "10 · critical-feedback · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:725",
+          "name": "11 · event · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 5,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1154"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:754",
+          "name": "12 · event-unavailable · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 5,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1183"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:781",
+          "name": "13 · reward-normal · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1736"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:852",
+          "name": "14 · reward-elite · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1777"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:923",
+          "name": "15 · reward-boss · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1818"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:994",
+          "name": "16 · act-transition · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 3,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1843"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1019",
+          "name": "17 · shop · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 10,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1884"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1060",
+          "name": "18 · shop-empty · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1910"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1086",
+          "name": "19 · purchase-confirm · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1927"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1112",
+          "name": "20 · workshop-services · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 8,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1952"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1145",
+          "name": "21 · workshop-target · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1229",
+          "name": "22 · workshop-value · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:2081"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1268",
+          "name": "23 · workshop-confirm · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:2118"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "6:1303",
+          "name": "24 · tutorial · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 6,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:2217"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        }
+      ]
+    },
+    {
+      "pageId": "4:128",
+      "results": [
+        {
+          "id": "7:2",
+          "name": "25 · help · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1312"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:29",
+          "name": "26 · settings · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 8,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1335"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:63",
+          "name": "27 · summary-victory · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1390"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:92",
+          "name": "28 · summary-defeat · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1428"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:121",
+          "name": "29 · summary-legacy · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1457"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:150",
+          "name": "30 · run-complete · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1483"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:176",
+          "name": "31 · resume · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1500"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:202",
+          "name": "32 · save-error · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 5,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1526"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:230",
+          "name": "33 · abandon-confirm · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1553"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:255",
+          "name": "34 · action-error · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1592"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:291",
+          "name": "35 · state-specimens · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 9,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1616",
+            "2014:1621"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        },
+        {
+          "id": "7:355",
+          "name": "36 · pseudo-expansion · Proposed v1",
+          "w": 960,
+          "h": 540,
+          "footerBottom": 512,
+          "buttonCount": 4,
+          "buttonOverflow": [],
+          "minButtonHeight": 44,
+          "focusedButtons": [
+            "2014:1679"
+          ],
+          "rootColor": {
+            "r": 0.062745101749897,
+            "g": 0.11372549086809158,
+            "b": 0.10588235408067703
+          }
+        }
+      ]
+    }
+  ],
+  "reviewIndexes": [
+    {
+      "id": "2015:452",
+      "name": "Review index · 01–12 · Setup and Battle · Proposed v1",
+      "w": 1410,
+      "h": 1146.5999755859375
+    },
+    {
+      "id": "2015:1204",
+      "name": "Review index · 13–24 · Rewards and services · Proposed v1",
+      "w": 1410,
+      "h": 1146.5999755859375
+    },
+    {
+      "id": "2015:1850",
+      "name": "Review index · 25–36 · Help, end states and accessibility · Proposed v1",
+      "w": 1410,
+      "h": 1146.5999755859375
+    }
+  ],
+  "visualChecks": [
+    "Three contact indexes of all 36 frames inspected",
+    "Character, Battle, Pattern and Workshop target inspected at 960x540",
+    "Native rectangles supply focus geometry; no dependence on zero-blur shadow export",
+    "Act 1 map and Run Summary inspected at 960x540"
+  ],
+  "localExports": [
+    {
+      "name": "index-01-12",
+      "nodeId": "2015:452",
+      "path": "mockups/figma/index-01-12.png"
+    },
+    {
+      "name": "index-13-24",
+      "nodeId": "2015:1204",
+      "path": "mockups/figma/index-13-24.png"
+    },
+    {
+      "name": "index-25-36",
+      "nodeId": "2015:1850",
+      "path": "mockups/figma/index-25-36.png"
+    },
+    {
+      "name": "character",
+      "nodeId": "6:2",
+      "path": "mockups/figma/character.png"
+    },
+    {
+      "name": "battle",
+      "nodeId": "6:277",
+      "path": "mockups/figma/battle.png"
+    },
+    {
+      "name": "pattern",
+      "nodeId": "6:383",
+      "path": "mockups/figma/pattern.png"
+    },
+    {
+      "name": "workshop",
+      "nodeId": "6:1145",
+      "path": "mockups/figma/workshop.png"
+    },
+    {
+      "name": "map-act-1",
+      "nodeId": "6:108",
+      "path": "mockups/figma/map-act-1.png"
+    },
+    {
+      "name": "summary-victory",
+      "nodeId": "7:63",
+      "path": "mockups/figma/summary-victory.png"
+    }
+  ]
+}

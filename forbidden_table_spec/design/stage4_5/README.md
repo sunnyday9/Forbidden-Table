@@ -1,12 +1,12 @@
 # Stage 4.5 UI/UX — design review v1
 
-**2026-09-30 · Proposed · Awaiting maintainer review.** Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. This package is design and mockups only. No Godot UI, gameplay, Domain, persistence, content budget, or Stage 5 naming changes are authorized by this package.
+**2026-10-01 · Proposed · Awaiting maintainer review.** Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. This package is design and mockups only. No Godot UI, gameplay, Domain, persistence, content budget, or Stage 5 naming changes are authorized by this package.
 
-[Figma working draft](https://www.figma.com/design/b9jqsE96RdbRCwHvUB9zsd) · [Local mockup gallery](gallery.html) · [Screen audit and journey](AUDIT_AND_FLOW.md) · [Visual system](VISUAL_SYSTEM.md) · [Interaction and verification plan](INTERACTION_AND_VALIDATION.md) · [Screen/state manifest](screen_manifest.json) · [Design checks](VALIDATION.md) · [Figma sync status](FIGMA_STATUS.md)
+[Editable Figma review](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa) · [Local mockup gallery](gallery.html) · [Screen audit and journey](AUDIT_AND_FLOW.md) · [Visual system](VISUAL_SYSTEM.md) · [Interaction and verification plan](INTERACTION_AND_VALIDATION.md) · [Screen/state manifest](screen_manifest.json) · [Design checks](VALIDATION.md) · [Figma sync status](FIGMA_STATUS.md)
 
 ![Six-screen review overview](mockups/overview.png)
 
-Native PNGs and contact sheets are in `mockups/`. The gallery is self-contained and can open directly in a browser. The Figma Education copy is awaiting its exact URL; see the sync status before reviewing Figma.
+The 36 browser mockups and enlarged-text/window specimens are in `mockups/`. Six full-size native Figma exports and three native review indexes are in `mockups/figma/`. The self-contained gallery links each drawing to its matching editable Figma frame. All 36 frames have been refined directly in the supplied Education copy; see [sync evidence](FIGMA_STATUS.md).
 
 ## Proposed direction
 

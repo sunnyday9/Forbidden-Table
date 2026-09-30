@@ -20,7 +20,7 @@ function instance(d) {
   if(d.type==='button'&&key.startsWith('Label#')) props[key]=d.text;
   if(d.type==='tile') {
    if(key.startsWith('Rank#'))props[key]=d.rank;
-   if(key.startsWith('Glyph#'))props[key]=d.suit==='HON'?({E:'東',W:'白',N:'北',S:'南',R:'中',G:'發'}[d.rank]||'東'):d.suit==='CHR'?'萬':d.suit==='DOT'?'●':'╎╎';
+   if(key.startsWith('Glyph#'))props[key]=d.suit==='HON'?({E:'東',W:'白',N:'北',S:'南',R:'中',G:'發'}[d.rank]||'東'):d.suit==='CHR'?'萬':d.suit==='DOT'?'●':'| |';
    if(key.startsWith('Suit#'))props[key]=d.suit;
   }
  }
