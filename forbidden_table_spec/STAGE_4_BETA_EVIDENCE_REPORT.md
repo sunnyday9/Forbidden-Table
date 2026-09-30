@@ -72,6 +72,7 @@ No open issue records a remaining Stage 4 P2 after the accepted fixes. These kno
 | No authored audio or animation playback path exists. | Presentation | **Accepted Beta fallback:** localized visible text; no audio playback is claimed. |
 | `EnemyIntent` display strings can affect persisted state hashes if locale changes. | Domain / Persistence | **Accepted bounded risk for English-only Beta.** Revisit before locale switching or translated persisted Runs. |
 | Some test teardown paths repeat cleanup on early-return branches. | Test / QA | **Deferred low-priority maintainability note** from #91 Standards review; no player-path defect or P2 was reported. |
+| Victory cue append logic is duplicated across alternative event branches. | Run presentation | **Deferred low-priority maintainability cleanup** from #94 Standards review; no hard code-standard violation or player-path defect was reported. |
 | Additional contextual object detail and a player-facing Normal/Fast/Instant affordance. | Product / Stage 4.5 (#98) | **Deferred by scope** to #98 after Stage 4 receives a recorded PASS; not a remaining Stage 4 P2. |
 
 ## Compatibility fixture hashes
