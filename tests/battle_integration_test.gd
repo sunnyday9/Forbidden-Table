@@ -40,6 +40,7 @@ const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
 const RunBattleSnapshot = preload("res://src/domain/run/run_battle_snapshot.gd")
 const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
+const Localization = preload("res://src/presentation/localization/localization.gd")
 
 const LEFT := "base.map_node.intro"
 const STAGE_FOUR_RUN_TECHNIQUE_IDS := [
@@ -463,7 +464,11 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	assert_true(clean_used != null and clean_used.data.get("technique_id", "") == "base.technique.clean_table", "Clean Table responds to the matching Contamination intent", failures)
 	assert_true(clean_used != null and clean_used.data.get("reaction_trigger_id", "") == TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED and clean_used.data.get("reaction_trigger_label", "") == "enemy Contamination is added", "the factual TechniqueUsed event names the declared trigger clearly", failures)
 	var reaction_feedback: String = RunPresentationController.new(clean_resumed)._feedback_for_events(clean_turn.events)
-	assert_true(reaction_feedback == "Clean Table responded when enemy Contamination is added.", "player-facing feedback explains when the Reaction responded (%s)" % reaction_feedback, failures)
+	var expected_reaction_feedback := Localization.template("UI_RUN_CONTROLLER_0055") % [
+		Localization.content_text("base.technique.clean_table"),
+		Localization.text("CONTENT_TECHNIQUE_0005"),
+	]
+	assert_true(reaction_feedback == expected_reaction_feedback, "player-facing feedback explains the Reaction using localized labels (%s)" % reaction_feedback, failures)
 	assert_true(_has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_OPENED) and _has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_CLOSED), "the matching Reaction resolves inside a bounded opened and closed window", failures)
 	assert_true(_has_event(clean_turn.events, DomainEvent.TILE_PURGED), "Clean Table purges the newly added Contamination", failures)
 	var reaction_sequence_indexes: Array[int] = []

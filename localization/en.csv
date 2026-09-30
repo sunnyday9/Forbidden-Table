@@ -289,6 +289,7 @@ UI_RUN_CONTROLLER_0070,Tile discarded.
 UI_RUN_CONTROLLER_0071,Technique used: %s.
 UI_RUN_CONTROLLER_0072,Run advanced.
 UI_RUN_CONTROLLER_0073,Cancelled.
+UI_RUN_CONTROLLER_0074,Action completed.
 UI_RUN_SCENE_0001,A recovery copy is at %s.
 UI_RUN_SCENE_0002,The original save remains in place.
 UI_RUN_SCENE_0003,Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile.
@@ -433,9 +434,8 @@ UI_RUN_SCENE_0128,Remove %s (%d Gold)
 UI_RUN_SCENE_0129,Duplicate %s (%d Gold)
 UI_RUN_SCENE_0130,Use Refinement Token on %s (%d Gold)
 UI_RUN_SCENE_0131,Workshop — %s
-UI_RUN_SCENE_0132,TileInstance: %s
-UI_RUN_SCENE_0133,Current tile: %s (%s)
-UI_RUN_SCENE_0134,New tile: %s (%s)
+UI_RUN_SCENE_0133,Current tile: %s
+UI_RUN_SCENE_0134,New tile: %s
 UI_RUN_SCENE_0135,Add modifier: %s
 UI_RUN_SCENE_0136,Replace %s with %s
 UI_RUN_SCENE_0137,Cost: %d Gold
@@ -509,6 +509,7 @@ WORD_COMPOSITION_COST,Composition cost
 WORD_CONTRACT,Contract
 WORD_CONTRACT_CLAUSE,Contract clause
 WORD_CONTRACT_SELECT,Contract select
+WORD_COPY_LICENSE,Copy license
 WORD_CORE,Core
 WORD_CROSS_REFERENCE,Cross reference
 WORD_DEFEAT,Defeat
@@ -533,6 +534,7 @@ WORD_FALSE,False
 WORD_FINAL_ANNOTATION,Final annotation
 WORD_FLEXIBILITY,Flexibility
 WORD_GOLD,Gold
+WORD_GOLD_CACHE,Gold cache
 WORD_GOLD_EXCHANGE,Gold exchange
 WORD_GREEN,Green
 WORD_HAND,Hand
@@ -583,6 +585,7 @@ WORD_REWARD_CHOICE,Reward choice
 WORD_REWARD_TILE_SUIT_BIAS,Reward tile suit bias
 WORD_RISK,Risk
 WORD_RISK_BARGAIN,Risk bargain
+WORD_RITUAL_SALVE,Ritual salve
 WORD_ROUTE_COST,Route cost
 WORD_ROUTE_DEPENDENT,Route-dependent
 WORD_RULE_MEMORY,Rule memory
@@ -597,6 +600,7 @@ WORD_SHOP,Shop
 WORD_SHOP_EXIT,Shop exit
 WORD_SHOP_OFFER,Shop offer
 WORD_SHOP_REFRESH,Shop refresh
+WORD_SKIP,Skip
 WORD_SOUTH,South
 WORD_STANDARD,Standard
 WORD_STARTING_BIAS,Starting bias
@@ -617,6 +621,7 @@ WORD_WEST,West
 WORD_WHITE,White
 WORD_WORKSHOP,Workshop
 WORD_WORKSHOP_BACK,Workshop back
+WORD_WORKSHOP_COUPON,Workshop coupon
 WORD_WORKSHOP_EXIT,Workshop exit
 WORD_WORKSHOP_REFINEMENT_GOLD_SURCHARGE,Workshop refinement gold surcharge
 WORD_WORKSHOP_SELECT_SERVICE,Workshop select service

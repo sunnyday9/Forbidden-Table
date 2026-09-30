@@ -793,16 +793,28 @@ func _feedback_for_events(events: Array) -> String:
 	for event in events:
 		if event == null:
 			continue
-		if event.event_type == DomainEventScript.TECHNIQUE_USED and not str(event.data.get("reaction_trigger_label", "")).is_empty():
+		if event.event_type == DomainEventScript.TECHNIQUE_USED and (
+			not str(event.data.get("reaction_trigger_id", "")).is_empty()
+			or not str(event.data.get("reaction_trigger_label", "")).is_empty()
+		):
 			last_reaction_used = event
 		elif event.event_type == DomainEventScript.TECHNIQUE_REACTION_SKIPPED:
 			last_reaction_skipped = event
 	if last_reaction_used != null:
-		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0055") % [_technique_label(str(last_reaction_used.data.get("technique_id", ""))), str(last_reaction_used.data.get("reaction_trigger_label", LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0056")))]
+		var used_trigger_label := _reaction_trigger_label(str(last_reaction_used.data.get("reaction_trigger_id", "")))
+		if used_trigger_label.is_empty():
+			used_trigger_label = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0056")
+		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0055") % [
+			_technique_label(str(last_reaction_used.data.get("technique_id", ""))),
+			used_trigger_label,
+		]
 	if last_reaction_skipped != null:
+		var skipped_trigger_label := _reaction_trigger_label(str(last_reaction_skipped.data.get("reaction_trigger_id", "")))
+		if skipped_trigger_label.is_empty():
+			skipped_trigger_label = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0058")
 		return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0057") % [
 			_technique_label(str(last_reaction_skipped.data.get("technique_id", ""))),
-			str(last_reaction_skipped.data.get("reaction_trigger_label", LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0058"))),
+			skipped_trigger_label,
 			LocalizationCatalogScript.reaction_reason_text(str(last_reaction_skipped.data.get("reason", ""))),
 		]
 	var last_event = events[events.size() - 1]
@@ -821,11 +833,12 @@ func _feedback_for_events(events: Array) -> String:
 			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0068") % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0069")
 		DomainEventScript.TILE_DISCARDED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0070")
 		DomainEventScript.TECHNIQUE_USED:
-			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0071") % str(last_event.data.get("technique_id", ""))
+			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0071") % _technique_label(str(last_event.data.get("technique_id", "")))
 		DomainEventScript.RUN_PHASE_CHANGED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0072")
-	return str(last_event.event_type)
+	return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0074")
 
 func _technique_label(technique_id: String) -> String:
-	var parts := technique_id.split(".")
-	var short_id: String = str(parts[parts.size() - 1]) if not parts.is_empty() else technique_id
-	return short_id.replace("_", " ").capitalize()
+	return LocalizationCatalogScript.content_text(technique_id)
+
+func _reaction_trigger_label(trigger_id: String) -> String:
+	return TechniqueDefinitionScript.reaction_trigger_label(trigger_id) if not trigger_id.is_empty() else ""

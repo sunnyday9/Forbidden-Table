@@ -961,20 +961,24 @@ func _action_tooltip(action: Dictionary) -> String:
 	if action.get("kind", "") == "CONTRACT":
 		return _contract_action_details_text(details, str(action.get("target_id", "")))
 	if action.get("kind", "") != "WORKSHOP_SERVICE":
-		return JSON.stringify(action.get("details", {}))
+		return _action_label(action)
 	var service_id := str(action.get("service_id", action.get("target_id", "")))
 	var tile_definition_id := str(details.get("tile_definition_id", ""))
 	var lines := PackedStringArray()
-	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0132") % str(action.get("instance_id", "")))
-	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0133") % [_pretty_tile_id(tile_definition_id), tile_definition_id])
+	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0133") % _pretty_tile_id(tile_definition_id))
 	match service_id:
 		"TRANSFORM":
 			var value_id := str(action.get("value_id", ""))
-			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0134") % [_pretty_tile_id(value_id), value_id])
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0134") % _pretty_tile_id(value_id))
 		"ADD_MODIFIER":
-			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0135") % str(action.get("modifier_id", "")))
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0135") % _pretty_id(str(action.get("modifier_id", ""))))
 		"REPLACE_MODIFIER":
-			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0136") % [_join_strings(details.get("existing_modifier_ids", [])), str(action.get("modifier_id", ""))])
+			var existing_modifier_labels := PackedStringArray()
+			var existing_modifier_ids: Variant = details.get("existing_modifier_ids", [])
+			if existing_modifier_ids is Array:
+				for modifier_id in existing_modifier_ids:
+					existing_modifier_labels.append(_pretty_id(str(modifier_id)))
+			lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0136") % [", ".join(existing_modifier_labels), _pretty_id(str(action.get("modifier_id", "")))])
 	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0137") % int(details.get("price", 0)))
 	if service_id == "REFINEMENT_TOKEN":
 		lines.append(LocalizationCatalogScript.text("UI_RUN_SCENE_0138"))
@@ -1007,7 +1011,9 @@ func _pretty_id(identifier: String) -> String:
 	if identifier.is_empty():
 		return LocalizationCatalogScript.text("UI_RUN_SCENE_0148")
 	if "." in identifier:
-		return LocalizationCatalogScript.content_text(identifier)
+		if str(TranslationServer.translate(identifier)) != identifier:
+			return LocalizationCatalogScript.content_text(identifier)
+		return _pretty_words(identifier.get_slice(".", identifier.get_slice_count(".") - 1))
 	return _pretty_words(identifier)
 
 func _pretty_words(value: String) -> String:

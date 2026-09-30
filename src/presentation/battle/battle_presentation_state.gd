@@ -36,7 +36,7 @@ func apply_domain_event(event, snapshot: Dictionary) -> void:
 		"TileDrawn":
 			status = LocalizationCatalogScript.text("UI_BATTLE_STATE_0001")
 		"PatternSettled":
-			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0002") % str(event.data.get("pattern_type", "Pattern"))
+			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0002") % LocalizationCatalogScript.word_text(str(event.data.get("pattern_type", "Pattern")))
 		"EnemyHpChanged":
 			status = LocalizationCatalogScript.template("UI_BATTLE_STATE_0003") % int(event.data.get("amount", 0))
 		"PressureChanged":
