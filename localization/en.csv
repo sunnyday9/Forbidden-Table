@@ -290,6 +290,9 @@ UI_RUN_CONTROLLER_0071,Technique used: %s.
 UI_RUN_CONTROLLER_0072,Run advanced.
 UI_RUN_CONTROLLER_0073,Cancelled.
 UI_RUN_CONTROLLER_0074,Action completed.
+UI_RUN_CONTROLLER_0075,Complete Hand settled.
+UI_RUN_CONTROLLER_0076,The Boss enters phase %d.
+UI_RUN_CONTROLLER_0077,Victory!
 UI_RUN_SCENE_0001,A recovery copy is at %s.
 UI_RUN_SCENE_0002,The original save remains in place.
 UI_RUN_SCENE_0003,Saved unlock profile could not be loaded (%s). %s Progression writes are disabled until you reset the profile.

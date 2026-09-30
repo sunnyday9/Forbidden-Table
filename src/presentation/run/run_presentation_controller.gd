@@ -788,6 +788,23 @@ func _rejected_presentation_input(message: String):
 	return result
 
 func _feedback_for_events(events: Array) -> String:
+	var critical_feedback: Array[String] = []
+	for event in events:
+		if event == null:
+			continue
+		match event.event_type:
+			DomainEventScript.COMPLETE_HAND_SETTLED:
+				critical_feedback.append(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0075"))
+			DomainEventScript.BOSS_PHASE_CHANGED:
+				critical_feedback.append(LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0076") % (int(event.data.get("phase_index", 0)) + 1))
+			DomainEventScript.BATTLE_WON:
+				critical_feedback.append(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0077"))
+			DomainEventScript.RUN_SUMMARY_REACHED:
+				if str(event.data.get("outcome", "")) == "VICTORY":
+					critical_feedback.append(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0077"))
+	if not critical_feedback.is_empty():
+		return " ".join(PackedStringArray(critical_feedback))
+
 	var last_reaction_used = null
 	var last_reaction_skipped = null
 	for event in events:
