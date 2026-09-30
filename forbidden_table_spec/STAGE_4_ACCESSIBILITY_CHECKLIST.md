@@ -79,7 +79,7 @@ These PNGs were generated from the local 960 × 540 Godot viewport by `tests/sta
 
 ## Visual-inspection notes and boundary
 
-The implementing Codex agent inspected the generated PNGs in the Codex image viewer. The root Codex agent independently inspected the repo-local captures. These are software-agent reviews of rendered images, not human participant findings or device tests. **Maintainer/user review of the attached screenshots is pending.** No participant testing, physical controller/device testing, assistive-technology testing, or usability study was performed.
+**Delegated visual review: PASS (2026-09-30).** At the maintainer's direction, Codex inspected all 18 generated PNGs against the checklist. No unresolved clipping of critical text, missing visible focus in the captured critical actions, or critical information conveyed only by color was observed. The Battle scrolled capture shows the documented scroll-boundary crop; the full label remains scrollable and passes the post-layout bounds check. This is a scoped screenshot review by Codex under explicit maintainer direction, not a participant study or physical-device review. No participant testing, physical controller/device testing, assistive-technology testing, or external accessibility conformance is claimed.
 
 The Battle scrolled capture is at the overview scroll limit so the Help and Tutorial blocks are visible. Its top edge intersects the preceding Battle summary because of that scroll position. The full wrapped label passes the post-layout line-height check and remains reachable by scrolling; this is viewport cropping at the scroll boundary, not an individual label being allocated too little height. The unscrolled Battle capture is included separately.
 
@@ -92,12 +92,12 @@ The Battle scrolled capture is at the overview scroll limit so the Help and Tuto
 | Run Complete focus | Enabled New Run action lacked a guaranteed initial visible focus; **moderate / P2 keyboard/controller discoverability**. | RunScene presentation | **Fixed for #92:** focus New Run when the control is attached to the viewport; regression asserts `NewRunButton.has_focus()`. |
 | Battle feedback for phase-change event | Internal event identifier could appear as user-facing feedback; **low / P3 clarity**. | Run presentation controller | **Fixed for #92:** show `Run advanced.` and assert that text in the focused presentation test. |
 
-No unresolved product clipping or keyboard/controller reachability exception was found by the final scripted and rendered bounds checks. The screenshot review gate remains pending for the maintainer/user.
+No unresolved product clipping or keyboard/controller reachability exception was found by the final scripted and rendered bounds checks. New contextual detail surfaces and cohesive visual design remain in Stage 4.5 (#98), after the Stage 4 Beta gate.
 
 ## Final result
 
 - **Focused scripted accessibility audit: PASS.**
 - **Display-backed screenshot and layout audit: PASS**, 18 captures, zero layout/flow failures.
 - **Full test suite: PASS.** The full domain, simulation, Run progression, presentation, and Intent Graph suite completed with exit status 0 and no runtime/script/parse/load errors.
-- **Maintainer/user visual review:** pending.
+- **Delegated visual screenshot review: PASS.** Codex inspected all 18 captures at the maintainer's direction; no unresolved checklist finding was observed.
 - **Conformance claim:** none.
