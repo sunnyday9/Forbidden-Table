@@ -2,7 +2,7 @@
 
 **Review date:** 2026-09-30
 **Review scope:** Stage 4 Beta presentation/audio behavior and required player paths only
-**Disposition:** #94 remains incomplete: the critical-cue fix and scripted checks pass, but the required per-production-item descriptions are not implemented or exposed. Keep #94 open unless the maintainer explicitly accepts a scope adjustment. The separate #92 screenshot review also remains pending.
+**Disposition:** #94’s per-item description wording was clarified by the maintainer on 2026-09-30 to align with `PROJECT_SPEC.md` §1.2, design pillar 6. The Stage 4 label, cue, mode, and state-boundary criteria pass this review. Any new contextual detail surfaces belong to Stage 4.5 (#98). The separate #92 screenshot review remains pending.
 
 ## Build and evidence context
 
@@ -54,9 +54,7 @@ The localization test resolves registered content IDs to English labels without 
 | Normal enemies, Elites, and Bosses | 24 | Battle shows enemy/intent labels and current combat state. | No per-enemy behavior or Boss-phase description surface. |
 | Events | 24 | Event choices expose localized option labels, some of which state an outcome. | No separate Event description/context field or panel; option labels are not a complete per-Event description set. |
 
-RunScene’s selected-action details and tooltip use a generated detailed summary for Contracts; other kinds return their action label. This means a resolved name is not evidence that the player can inspect an entry’s effect or behavior before choosing it. All 179 entries therefore remain short of the explicit label-plus-description acceptance requirement, even though the contract path supplies useful mechanical summaries.
-
-This acceptance requirement is in tension with `PROJECT_SPEC.md` §1.2, design pillar 6: “Complexity comes from interactions, not bespoke text on every object.” The maintainer should reconcile #94’s per-item description criterion with that project principle. If the criterion remains unchanged, approved copy and player-facing detail surfaces are still required; Stage 4.5 (#98) can determine their presentation, but does not supply or approve the copy.
+RunScene’s selected-action details and tooltip use a generated detailed summary for Contracts; other kinds return their action label. The audit found no distinct prose-description field on any of the 179 approved production definitions. The maintainer clarified #94 criterion 2 to require approved labels and accurate summaries where already exposed, without bespoke prose for every object. New contextual detail surfaces are part of the approved Stage 4.5 UI/UX scope (#98).
 
 A source scan found one comment describing some Phase 2 passives as catalog placeholders represented by `ContentDefinition`. These are internal catalog-model entries, not missing production images or unresolved visible strings. The canonical roster and localization checks above pass. No player-facing `TODO`, `FIXME`, `WIP`, `TBD`, or “coming soon” text was found in `src/content`.
 
@@ -86,11 +84,11 @@ There are currently no animations to speed up or skip and RunScene has no player
 | --- | --- | --- |
 | Critical Complete Hand, Boss phase, and victory events lacked distinct localized feedback. | Run presentation | **Fixed in #94.** Added ordered, localized cues and a regression for all three modes and the real Boss event path. |
 | The project has no audio assets or playback path. | Presentation/audio | **Documented Beta fallback:** visible localized text in the wrapped feedback label. No audio playback or sound asset is claimed. |
-| Required approved description is absent or not exposed for all 179 production items (171 non-Contract entries have no distinct description field; the eight Contracts expose generated mechanics summaries but no approved prose descriptions). | Maintainer for scope reconciliation; content owner for approved copy; Run presentation owner for detail surfaces. | **Blocker for #94 acceptance.** The per-item description criterion conflicts with `PROJECT_SPEC.md` §1.2, design pillar 6. Reconcile the criterion with that principle; if it remains, approve the per-item copy and expose it on the corresponding choice/detail paths. Until then, #94 stays open. Stage 4.5 (#98) may own UI/UX placement but does not itself approve or supply the missing copy. |
-| No player-facing Normal/Fast/Instant selector or mode-specific animation exists. | Stage 4.5 UI/UX (#98) | Deferred to the approved UI/UX stage; the three controller modes and state independence are covered here. |
+| Production definitions do not have distinct prose descriptions; most player paths expose labels or limited mechanics metadata, while Contracts expose generated mechanics summaries. | Maintainer / Stage 4.5 UI/UX (#98) | **Resolved as Stage 4 scope clarification:** #94 requires approved labels and accurate existing summaries, not bespoke prose for every object. New contextual detail surfaces are within #98. |
+| No player-facing Normal/Fast/Instant selector or mode-specific animation exists. | Stage 4.5 UI/UX (#98) | Deferred to the approved UI/UX stage; this review verifies the controller modes and critical cue/state behavior. |
 | Maintainer review of the #92 screenshots is still pending. | Maintainer | Remains a separate gate. This software review and its captures do not substitute for that review. |
 
-The cue and label checks pass, but the description audit found an unresolved #94 acceptance blocker. No broken asset path or event-feedback-order regression remains in the audited scope. This conclusion is limited to the audited paths and automated checks above. No device or participant testing is claimed; no external accessibility conformance standard was selected.
+The revised #94 acceptance criteria pass for the audited player paths and evidence. No broken asset path or event-feedback-order regression remains in the audited scope. This conclusion is limited to the audited paths and automated checks above. No device or participant testing is claimed; no external accessibility conformance standard was selected.
 
 ## Reproduction and validation
 
