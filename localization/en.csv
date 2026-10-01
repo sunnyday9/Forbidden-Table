@@ -332,7 +332,7 @@ UI_RUN_SCENE_0034,%s failed without diagnostic details.
 UI_RUN_SCENE_0035,%s returned an invalid diagnostic.
 UI_RUN_SCENE_0036, -> %s
 UI_RUN_SCENE_0037,%s [%s] %s: %s
-UI_RUN_SCENE_0038,Forbidden Table — Alpha Run
+UI_RUN_SCENE_0038,Forbidden Table
 UI_RUN_SCENE_0039,Reset tutorial
 UI_RUN_SCENE_0040,New Run
 UI_RUN_SCENE_0041,Reset progression profile
@@ -421,14 +421,14 @@ UI_RUN_SCENE_0112,Choose reward
 UI_RUN_SCENE_0113,Buy offer
 UI_RUN_SCENE_0114,Choose Event option
 UI_RUN_SCENE_0115,Choose tile
-UI_RUN_SCENE_0116,"Choose a Character, then choose a Contract to begin the Act 1 map. The Run prepares its starting Tile Pool when you choose."
-UI_RUN_SCENE_0117,Choose a Contract. Your selection applies across both Acts.
-UI_RUN_SCENE_0118,Choose an adjacent node. Complete battles and the Boss reward to continue the Run.
-UI_RUN_SCENE_0119,"Draw tiles, settle highlighted Patterns or a Complete Hand, and end the turn to resolve enemy intent."
-UI_RUN_SCENE_0120,"Review the Build Story, then acknowledge the summary to finish the Run."
+UI_RUN_SCENE_0116,"Choose a Character, then a Contract to begin the Act 1 map. Select and commit each choice; the starting Tile Pool is prepared when you choose a Contract."
+UI_RUN_SCENE_0117,Select a Contract and commit it. The choice applies across both Acts.
+UI_RUN_SCENE_0118,Select an adjacent node and commit it. Complete battles and the Boss reward to continue the Run.
+UI_RUN_SCENE_0119,Draw tiles to find legal Patterns and Complete Hands. Select a choice and commit it; end the turn to resolve enemy intent.
+UI_RUN_SCENE_0120,"Review the Build Story, then select and commit the acknowledgement to finish the Run."
 UI_RUN_SCENE_0121,Run complete. Start another Run when you are ready.
-UI_RUN_SCENE_0122,Choose an available action to continue. Enter or A confirms.
-UI_RUN_SCENE_0123,"%s Tab or L/R shoulder moves focus. Focus Run state, then press Up/Down to scroll. Or focus Scroll up/down and press Enter/A."
+UI_RUN_SCENE_0122,"Select an available action, then choose Confirm selection. Enter / A confirms the focused control."
+UI_RUN_SCENE_0123,"%s Tab / L/R shoulder moves focus. Arrow keys / D-pad move between choices. Focus Run state, then press Up/Down to scroll its overview. Enter / A confirms; Esc / B returns."
 UI_RUN_SCENE_0124,%s — %s
 UI_RUN_SCENE_0125,Transform %s to %s (%d Gold)
 UI_RUN_SCENE_0126,Add %s to %s (%d Gold)
@@ -981,3 +981,153 @@ run.enter.event,Event
 run.enter.shop,Shop
 run.enter.workshop,Workshop
 run.summary.acknowledge,Acknowledge
+UI_BATTLE_VIEW_0001,Your turn
+UI_BATTLE_VIEW_0002,Act %d / %d  |  %s  |  Gold %d  |  Refinement %d
+UI_BATTLE_VIEW_0003,%s  ·  HP %d / %d
+UI_BATTLE_VIEW_0004,Intent · %s
+UI_BATTLE_VIEW_0005,Pressure +%d · resolves at end of turn
+UI_BATTLE_VIEW_0006,%s %d
+UI_BATTLE_VIEW_0007,%s %d / %d
+UI_BATTLE_VIEW_0008,Recovery · turn %d / %d · Hand %d / %d
+UI_BATTLE_VIEW_0009,No active Recovery.
+UI_BATTLE_VIEW_0010,Run Yaku recorded: %d
+UI_BATTLE_VIEW_0011,Battle
+UI_BATTLE_VIEW_0012,Your actions
+UI_BATTLE_VIEW_0013,Partial Settlement
+UI_BATTLE_VIEW_0014,Complete Hand
+UI_BATTLE_VIEW_0015,Tile actions
+UI_BATTLE_VIEW_0016,Techniques
+UI_BATTLE_VIEW_0017,Inspection
+UI_BATTLE_VIEW_0018,No eligible Patterns are available.
+UI_BATTLE_VIEW_0019,No Complete Hand choices are available.
+UI_BATTLE_VIEW_0020,No legal tile actions are available right now.
+UI_BATTLE_VIEW_0021,No Technique is currently available.
+UI_BATTLE_VIEW_0022,No choices are available.
+UI_BATTLE_VIEW_0023,Commit selected
+UI_BATTLE_VIEW_0024,"Focus to inspect. Select a choice, then commit."
+UI_BATTLE_VIEW_0025,No tiles in this zone.
+UI_BATTLE_VIEW_0026,%s · copy %s
+UI_BATTLE_VIEW_0027,Integrity %d / %d
+UI_BATTLE_VIEW_0028,%s · Unavailable: %s
+UI_BATTLE_VIEW_0029,No tiles in Hand.
+UI_BATTLE_VIEW_0030,Draw Wall
+UI_BATTLE_VIEW_0031,Discard / Exhaust
+UI_BATTLE_VIEW_0032,Stability
+UI_BATTLE_VIEW_0033,Recovery
+UI_BATTLE_VIEW_0034,Integrity
+UI_BATTLE_VIEW_0035,Boss phase
+UI_BATTLE_VIEW_0036,Draw Wall tax
+UI_BATTLE_VIEW_0037,Reserve Integrity
+UI_BATTLE_VIEW_0038,Contamination
+UI_BATTLE_VIEW_0039,Table interference
+UI_BATTLE_VIEW_0040,Rule change
+UI_BATTLE_VIEW_0041,Audit
+UI_BATTLE_VIEW_0042,Hunt
+UI_BATTLE_VIEW_0043,Reward tax
+UI_PREFS_AMBIENT_GLOW,Ambient glow
+UI_PREFS_APPLY_LANGUAGE,Apply language
+UI_PREFS_APPLY_SETTINGS,Apply settings
+UI_PREFS_BRAND,FORBIDDEN TABLE  /  THE HAUNTED TABLE
+UI_PREFS_CANCEL,Back / Cancel
+UI_PREFS_CLOSE,Close
+UI_PREFS_FEEDBACK_SPEED,Feedback speed
+UI_PREFS_HELP_BATTLE,"Draw tiles to find legal Patterns. Settle a Pattern or Complete Hand, and check enemy intent before ending your turn. Reserve protects tiles from enemy Pressure."
+UI_PREFS_HELP_INPUT,Tab / shoulder buttons move focus. Arrow keys / D-pad move through choices. Enter / A confirms; Esc / B returns. Focus and selection are separate.
+UI_PREFS_HELP_INTRO,"Build a Tile Pool, then choose routes, battles, Events, Shops and Workshops across two Acts. Accepted results determine your Run state."
+UI_PREFS_HELP_LANGUAGE,Language only changes display text. Applying it keeps the current decision and saved Run.
+UI_PREFS_HELP_TITLE,Help
+UI_PREFS_LANGUAGE,Language
+UI_PREFS_LANGUAGE_HINT,Language changes display text only. Your Run stays at the same decision.
+UI_PREFS_LANGUAGE_INPUT_HINT,"Choose a language, then apply it."
+UI_PREFS_LOCALE_en,English
+UI_PREFS_LOCALE_zh_CN,简体中文
+UI_PREFS_MODE_FAST,Fast
+UI_PREFS_MODE_HINT,All modes keep the complete outcome text. Instant skips cosmetic waits.
+UI_PREFS_MODE_INSTANT,Instant
+UI_PREFS_MODE_NORMAL,Normal
+UI_PREFS_PERSISTENCE_ERROR,Could not save preferences (%s). This session still uses your selection. Apply again to retry.
+UI_PREFS_REDUCED_MOTION,Reduce motion
+UI_PREFS_SCALE_125,125%%
+UI_PREFS_SCALE_150,150%%
+UI_PREFS_SCALE_DEFAULT,100%%
+UI_PREFS_TAB_HELP,Help
+UI_PREFS_TAB_SETTINGS,Settings
+UI_PREFS_TITLE,Help / Settings
+UI_PREFS_TUTORIAL_DISABLED,Disable tutorial
+UI_PREFS_TUTORIAL_ENABLED,Enable tutorial
+UI_PREFS_TUTORIAL_RESET,Reset tutorial
+UI_PREFS_TUTORIAL_RESET_PENDING,The tutorial will restart when you apply these settings.
+UI_PREFS_TUTORIAL_TITLE,Tutorial
+UI_PREFS_UI_SCALE,Interface size
+UI_RUN_JOURNEY_0001,Take your seat
+UI_RUN_JOURNEY_0002,Sign your Contract
+UI_RUN_JOURNEY_0003,Act %d · Choose your path
+UI_RUN_JOURNEY_0004,Choose your reward
+UI_RUN_JOURNEY_0005,Shop · Compare before you buy
+UI_RUN_JOURNEY_0006,Workshop · Choose a service
+UI_RUN_JOURNEY_0007,Run Summary
+UI_RUN_JOURNEY_0008,Selected
+UI_RUN_JOURNEY_0009,Available
+UI_RUN_JOURNEY_0010,Current
+UI_RUN_JOURNEY_0011,Visited
+UI_RUN_JOURNEY_0012,Unrevealed
+UI_RUN_JOURNEY_0013,Select a choice to inspect its details.
+UI_RUN_JOURNEY_0014,Back / Cancel
+UI_RUN_JOURNEY_0015,Cancel
+UI_RUN_JOURNEY_0016,Confirm purchase
+UI_RUN_JOURNEY_0017,Confirm Workshop change
+UI_RUN_JOURNEY_0018,Leave this saved Run?
+UI_RUN_JOURNEY_0019,Start New Run
+UI_RUN_JOURNEY_0020,No eligible choices are available.
+UI_RUN_JOURNEY_0021,Locked in this profile. Unlock by reaching the Act 2 Normal Ending.
+UI_RUN_JOURNEY_0022,Unavailable
+UI_RUN_JOURNEY_0023,Tab / shoulders: focus · Enter / A: confirm · Esc / B: back
+UI_RUN_JOURNEY_0024,Sold
+UI_RUN_JOURNEY_0025,"Not enough Gold: need %d, have %d."
+UI_RUN_JOURNEY_0026,Run details
+UI_RUN_JOURNEY_0027,No eligible choices are available.
+UI_RUN_JOURNEY_0031,"Revealed, not reachable"
+UI_RUN_JOURNEY_0032,Refreshes remaining: %d
+UI_RUN_JOURNEY_0033,"Choose a service, then a tile and its legal result. Review the exact change and cost before confirming."
+UI_RUN_JOURNEY_0034,Begin a new Run?
+UI_RUN_JOURNEY_0035,A new Run begins from the start and cannot resume the current Run.
+UI_RUN_JOURNEY_0036,Keep current Run
+UI_RUN_JOURNEY_0037,Confirm selection
+UI_RUN_JOURNEY_0038,Review purchase
+UI_RUN_JOURNEY_0039,Review Workshop change
+UI_RUN_JOURNEY_MAP_NODE_LABEL,%s\n%s
+UI_BATTLE_VIEW_0044,Exhaust
+UI_BATTLE_VIEW_0045,%s ↔ %s
+UI_BATTLE_VIEW_0046,Complete Hand settled.
+UI_BATTLE_VIEW_0047,Victory!
+UI_RUN_JOURNEY_RESOURCES,Gold %d · Refinement %d · %s · %s
+UI_BATTLE_VIEW_0048,Intent · %s · %s
+UI_BATTLE_VIEW_0049,Draw capacity loss · up to %d
+UI_BATTLE_VIEW_0050,Reserve Integrity damage · up to %d
+UI_BATTLE_VIEW_0051,Reserve Integrity damage · up to %d
+UI_BATTLE_VIEW_0052,Clutter added to Draw Wall · %d
+UI_BATTLE_VIEW_0053,Stability loss · up to %d
+UI_BATTLE_VIEW_0054,TP loss · up to %d
+UI_BATTLE_VIEW_0055,Fatigue added · %d
+UI_BATTLE_VIEW_0056,Reward tax · %d
+UI_PREFS_HELP_TILE_MARKS,"On compact tiles, the bottom mark shows current Integrity as a number, contamination with !, and one or more modifiers with +. Focus or select a tile to inspect its full details; inspection text scales with your UI size."
+UI_RUN_RECOVERY_DETAILS_SHOW,Show technical details
+UI_RUN_RECOVERY_DETAILS_HIDE,Hide technical details
+UI_RUN_RECOVERY_DETAILS_BODY,"Save: %s
+Recovery copy: %s
+Run: %s
+Boundary: %s
+Codes: %s"
+UI_RUN_RECOVERY_READY,A saved Run is ready to continue. Resume restores its saved state; New Run replaces this continuation save.
+UI_RUN_RECOVERY_PRESERVED,The saved Run could not be loaded. The original save is unchanged and a recovery copy has been preserved. Choose New Run only if you want to leave this save behind.
+UI_RUN_RECOVERY_MANUAL_COPY,The saved Run needs attention. Recovery could not be completed. Keep the original files and make a manual copy before starting over. Technical details show the paths and errors.
+UI_RUN_RECOVERY_INTERRUPTED_PRESERVED,The Suspend Save commit was interrupted. No older save was loaded. The recovery sources are unchanged and copies have been preserved. Choose New Run only if you want to leave this save behind.
+UI_RUN_RECOVERY_INTERRUPTED_MANUAL_COPY,The Suspend Save commit was interrupted. No older save was loaded. Recovery copies could not be completed. Keep the original files and make manual copies before starting over. Technical details show the paths and errors.
+UI_PROFILE_RECOVERY_PRESERVED,The progression profile could not be loaded. The original profile has been preserved. Review Details before resetting the profile.
+UI_PROFILE_RECOVERY_UNPRESERVED,The profile recovery copy could not be created. Reset is unavailable. Keep the original profile and open Details for recovery steps.
+UI_PROFILE_RESET_PRESERVED,The progression profile was reset. A recovery copy of the previous profile is available in Details.
+UI_PROFILE_RESET_FAILED,The progression profile could not be reset. Review Details and resolve the save error before trying again.
+UI_PROFILE_RECOVERY_DETAILS_BODY,"Profile: %s
+Recovery copy: %s
+Codes: %s"
+UI_PROFILE_MANUAL_RECOVERY_STEPS,"Reset requires a verified recovery copy. Keep the original profile. Resolve file access or storage errors, then restart to retry preservation. To begin with a fresh profile instead, first make a manual backup of the profile listed above, move the original file aside, and restart."

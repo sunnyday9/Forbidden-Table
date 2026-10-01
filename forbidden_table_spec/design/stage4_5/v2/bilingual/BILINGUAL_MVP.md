@@ -4,7 +4,9 @@ The user requested English and Chinese support for the first actual MVP release 
 
 This requirement expands presentation/localization scope. It preserves rules, Domain state, content budgets and Stage 5 **1.0 Release Candidate**. It does not authorize publication or cancel the instruction to obtain mockup approval before game UI implementation.
 
-Current evidence: `project.godot` registers only `res://localization/en.en.translation`; fallback is `en`. `localization/en.csv` contains 962 keys. The [inventory](source/runtime-key-inventory.csv) includes every key and records a source SHA-256 in [coverage](source/coverage.json). 79 exact English strings match proposed Chinese design copy; these still require contextual review. The other keys require translation after approval. No runtime resource or configuration was changed in this design session.
+Design-baseline evidence (before implementation): `project.godot` registers only `res://localization/en.en.translation`; fallback is `en`. `localization/en.csv` contains 962 keys. The [inventory](source/runtime-key-inventory.csv) includes every key and records a source SHA-256 in [coverage](source/coverage.json). 79 exact English strings match proposed Chinese design copy; these still require contextual review. The other keys require translation after approval. No runtime resource or configuration was changed in this design session.
+
+Implementation was approved on 2026-10-01. The table below records fresh automated runtime results; full commands, evidence and remaining review gates are in [the implementation record](../../../../STAGE_4_5_IMPLEMENTATION_RECORD.md). Implementation approval is not Stage 4.5 PASS or MVP release authorization.
 
 ## Language selection and fallback
 
@@ -26,13 +28,13 @@ Keep existing stable keys and Domain/content IDs. Add localizable preference/err
 
 | Gate | Acceptance evidence | Current status |
 |---|---|---|
-| Design approval | Maintainer explicitly approves V2.2 art, Chinese terms and language states, or specifies revisions. | Pending |
-| Catalog coverage | Every current runtime key has reviewed `en` and `zh_CN` values; no empty required translations, orphan keys or incompatible placeholders. Check newly added keys too. | Pending implementation |
-| Runtime setup | Godot imports/registers both catalogs, uses the intended fallback, and persists/loads a supported language preference. Fonts render all required glyphs without tofu. | Pending implementation |
-| Full journey | Fresh equivalent two-Act runs in both locales cover all critical screens, content rosters, recovery, rejected commands, victory/defeat and historical summaries. Numerical values, legality and identities match. | Pending implementation |
-| Language switch | New Run, map, pending Pattern, duplicate Workshop target, event, confirmation, resolved receipt, summary and recovery retain state and meaningful focus; Cancel does not apply. Restart restores the preference; simulated persistence failure is recoverable. | Pending implementation |
-| Input and layout | Mouse, keyboard and controller reach every action in both locales; focus/back/cancel remain correct. Verify the actual supported scales/viewports, longest localized strings and +30% pseudo-localization. | Pending implementation |
-| Feedback | Normal/Fast/Instant and reduced motion retain the same ordered localized feedback; interruption and switching never duplicate commands or block critical input. | Pending implementation |
-| Regression and release | Required focused/full gates pass with versioned before/after game captures; defects have dispositions. #98 and Stage 5 follow their existing review gates. | Pending implementation |
+| Design approval | Maintainer explicitly approves V2.2 art, Chinese terms and language states, or specifies revisions. | Approved 2026-10-01; implemented-screen review pending |
+| Catalog coverage | Every current runtime key has reviewed `en` and `zh_CN` values; no empty required translations, orphan keys or incompatible placeholders. Check newly added keys too. | Automated PASS: 1,106 keys per locale; placeholders/coverage clean. Maintainer wording review remains part of screen review. |
+| Runtime setup | Godot imports/registers both catalogs, uses the intended fallback, and persists/loads a supported language preference. Fonts render all required glyphs without tofu. | PASS: resource import, saved/fallback locale and glyph coverage regressions. |
+| Full journey | Fresh equivalent two-Act runs in both locales cover all critical screens, content rosters, recovery, rejected commands, victory/defeat and historical summaries. Numerical values, legality and identities match. | PASS: scripted/rendered two-Act critical journey and cross-locale checkpoint/replay/outcome comparisons; participant testing not performed. |
+| Language switch | New Run, map, pending Pattern, duplicate Workshop target, event, confirmation, resolved receipt, summary and recovery retain state and meaningful focus; Cancel does not apply. Restart restores the preference; simulated persistence failure is recoverable. | PASS: pending selection/confirmation, receipt, summary/recovery and saved/cancelled preference regressions. |
+| Input and layout | Mouse, keyboard and controller reach every action in both locales; focus/back/cancel remain correct. Verify the actual supported scales/viewports, longest localized strings and +30% pseudo-localization. | PASS: scripted keyboard/controller, actual mouse checks and 27-cell rendered layout matrix. Physical-device checks not performed. |
+| Feedback | Normal/Fast/Instant and reduced motion retain the same ordered localized feedback; interruption and switching never duplicate commands or block critical input. | PASS: 57 critical cue states plus live tween, interruption/cancellation and single-command regressions. |
+| Regression and release | Required focused/full gates pass with versioned before/after game captures; defects have dispositions. #98 and Stage 5 follow their existing review gates. | Automated focused/full gates and captures PASS; #98 implemented-screen review and Stage 5 release gate remain pending. |
 
-The present browser/Figma evidence validates the design drawings and viewer, not these runtime acceptance gates. The first actual MVP release must not be described as bilingual until the pending runtime gates have evidence.
+The design-session browser/Figma evidence validates the design drawings and viewer, not these runtime acceptance gates. Runtime English/Simplified Chinese support now has automated and rendered evidence. Bilingual MVP publication still requires the existing implemented-screen and release decisions; no release is authorized by these checks.

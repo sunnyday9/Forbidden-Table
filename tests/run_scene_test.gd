@@ -343,7 +343,12 @@ func test_scene_rejects_active_changed_event_migration_and_preserves_source(fail
 		if FileAccess.file_exists(preserved_path):
 			assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "%s preserved Event source is byte-for-byte identical" % legacy_version, failures)
 		var status = scene.find_child("SuspendStatus", true, false)
-		assert_true(status is Label and str(status.text).contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "%s player sees the specific semantic migration rejection" % legacy_version, failures)
+		var details_button := scene.find_child("SuspendDetailsButton", true, false) as Button
+		if details_button != null:
+			details_button.pressed.emit()
+		var details := scene.find_child("SuspendDetailsValue", true, false) as Label
+		assert_true(status is Label and str(status.text).contains("original save is unchanged"), "%s recovery guidance states source preservation" % legacy_version, failures)
+		assert_true(details_button != null and details != null and details.visible and details.text.contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "%s player can inspect the specific semantic migration rejection in Details" % legacy_version, failures)
 		scene.free()
 		for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", preserved_path, profile_path]:
 			_clear_test_file(path)
@@ -450,6 +455,8 @@ func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Arr
 	assert_true(new_run_button is Button, "the player can explicitly choose a new Run after preservation", failures)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
+		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
+		scene._confirm_pending_new_run()
 	assert_true(scene.controller != null, "the explicit recovery choice starts a fresh Run", failures)
 	assert_true(not FileAccess.file_exists(suspend_path), "the old active slot is cleared only after the explicit New Run choice", failures)
 	assert_true(FileAccess.file_exists(preserved_path) and FileAccess.get_file_as_string(preserved_path) == source_bytes, "starting over keeps the rejected source available for recovery", failures)
@@ -491,6 +498,8 @@ func test_interrupted_suspend_sources_are_not_rolled_back(failures: Array[String
 	var new_run_button = scene.find_child("NewRunFromSuspendButton", true, false)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
+		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
+		scene._confirm_pending_new_run()
 	assert_true(scene.controller != null, "explicit New Run recovers from an interrupted slot", failures)
 	assert_true(not FileAccess.file_exists(suspend_path) and not FileAccess.file_exists(suspend_path + ".tmp") and not FileAccess.file_exists(suspend_path + ".bak"), "only the explicit New Run action retires interrupted sources", failures)
 	assert_true(FileAccess.get_file_as_string(rejected_main) == main_bytes and FileAccess.get_file_as_string(rejected_main + ".1") == temporary_bytes and FileAccess.get_file_as_string(rejected_main + ".2") == backup_bytes, "explicit recovery keeps every original source copied byte for byte", failures)
@@ -558,6 +567,8 @@ func test_terminal_new_run_retires_old_suspend_slot(failures: Array[String]) -> 
 		assert_true(written.get("accepted", false), "terminal checkpoint occupies the single save slot before New Run", failures)
 	scene._render()
 	scene._on_new_run_pressed()
+	assert_true(scene.controller.domain.state.run_id == old_run_id and FileAccess.file_exists(suspend_path), "opening terminal New Run confirmation preserves the current Run and slot", failures)
+	scene._confirm_pending_new_run()
 	assert_true(scene.controller != null and scene.controller.domain.state.run_id != old_run_id, "explicit terminal New Run starts a different Run", failures)
 	assert_true(not FileAccess.file_exists(suspend_path), "terminal New Run clears the prior Run slot before starting", failures)
 	if scene.controller != null:

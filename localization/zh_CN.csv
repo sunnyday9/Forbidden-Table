@@ -1,0 +1,1133 @@
+keys,zh_CN
+CONTENT_ACT_TWO_0001,盘点牌桌
+CONTENT_ACT_TWO_0002,收取通行费
+CONTENT_ACT_TWO_0003,映照牌路
+CONTENT_ACT_TWO_0004,重现信号
+CONTENT_ACT_TWO_0005,监视压力
+CONTENT_ACT_TWO_0006,提高上限
+CONTENT_ACT_TWO_0007,削薄牌墙
+CONTENT_ACT_TWO_0008,消耗余量
+CONTENT_ACT_TWO_0009,核查账册
+CONTENT_ACT_TWO_0010,映照债务
+CONTENT_ACT_TWO_0011,结清账目
+CONTENT_ACT_TWO_0012,编录牌桌
+CONTENT_ACT_TWO_0013,重排牌路
+CONTENT_ACT_TWO_0014,悬置索引
+CONTENT_ACT_TWO_0015,埋藏记录
+CONTENT_ACT_TWO_0016,精炼受损条目
+CONTENT_ACT_TWO_0017,保留账册原样
+CONTENT_ACT_TWO_0018,用金币押注隐账
+CONTENT_ACT_TWO_0019,拒绝下注
+CONTENT_ACT_TWO_0020,用 4 金币兑换 1 枚精炼代币
+CONTENT_ACT_TWO_0021,保留现有资金
+CONTENT_ACT_TWO_0022,查看最终路线
+CONTENT_ACT_TWO_0023,继续隐藏路线
+CONTENT_ACT_TWO_0024,携带一幕条款：本幕后续战斗的备牌容量 +1
+CONTENT_ACT_TWO_0025,拒绝条款
+CONTENT_ACT_TWO_0026,记录：本次旅程后续战斗的 TP +1，并获得 1 枚精炼代币
+CONTENT_ACT_TWO_0027,不改动旧规则
+CONTENT_ACT_TWO_0028,消耗 1 枚精炼代币，换回 3 金币
+CONTENT_ACT_TWO_0029,不改动已封存条目
+CONTENT_ACT_TWO_0030,用 2 金币押注隐账
+CONTENT_ACT_TWO_0031,拒绝隐账
+CONTENT_ACT_TWO_0032,用 6 金币兑换 2 枚精炼代币
+CONTENT_ACT_TWO_0033,保留现有资金
+CONTENT_ACT_TWO_0034,阅读最后一条注记
+CONTENT_ACT_TWO_0035,继续隐藏路线
+CONTENT_ACT_TWO_0036,本幕后续战斗的备牌容量 +1
+CONTENT_ACT_TWO_0037,拒绝修订条款
+CONTENT_ACT_TWO_0038,记录效果：本次旅程后续战斗的 TP +1，并获得 1 枚精炼代币
+CONTENT_ACT_TWO_0039,不抄录该规则
+CONTENT_ACT_TWO_0040,打开索引
+CONTENT_ACT_TWO_0041,标记页面
+CONTENT_ACT_TWO_0042,为牌桌建立交叉索引
+CONTENT_ACT_TWO_0043,为牌路作注
+CONTENT_ACT_TWO_0044,写下最终条目
+CONTENT_ACT_TWO_0045,封存索引
+CONTENT_ACT_TWO_0046,记录潮流
+CONTENT_ACT_TWO_0047,抬高水位线
+CONTENT_ACT_TWO_0048,拉动备牌
+CONTENT_ACT_TWO_0049,凿裂龙骨
+CONTENT_ACT_TWO_0050,改写账册
+CONTENT_ACT_TWO_0051,封闭档案库
+CONTENT_PHASE2_0001,对子根基
+CONTENT_PHASE2_0002,条子集中
+CONTENT_PHASE2_0003,条子牌
+CONTENT_PHASE2_0004,增加压力
+CONTENT_PHASE2_0005,测量牌桌
+CONTENT_PHASE2_0006,向牌墙征税
+CONTENT_PHASE2_0007,清点牌墙
+CONTENT_PHASE2_0008,收集完整度
+CONTENT_PHASE2_0009,封锁牌桌
+CONTENT_PHASE2_0010,播下污染
+CONTENT_PHASE2_0011,扩散污染
+CONTENT_PHASE2_0012,打乱节奏
+CONTENT_PHASE2_0013,干扰牌桌
+CONTENT_PHASE2_0014,核查旅程
+CONTENT_PHASE2_0015,追猎薄弱牌路
+CONTENT_PHASE2_0016,收取账册
+CONTENT_PHASE2_0017,打乱节奏
+CONTENT_PHASE2_0018,回响节奏
+CONTENT_PHASE2_0019,扰乱牌桌
+CONTENT_PHASE2_0020,对摸牌征税
+CONTENT_PHASE2_0021,改写规则
+CONTENT_PHASE2_0022,封存规则
+CONTENT_PHASE2_0023,消耗 1 枚精炼代币
+CONTENT_PHASE2_0024,接受：后续战斗起始压力 +1；本次旅程每次胜利额外获得 2 金币
+CONTENT_PHASE2_0025,兑换金币
+CONTENT_PHASE2_0026,揭示路线
+CONTENT_PHASE2_0027,携带效果：本次旅程后续每场战斗的结算容量 +1
+CONTENT_PHASE2_0028,记住规则
+CONTENT_PHASE2_LABEL_0029,对子
+CONTENT_PHASE2_LABEL_0030,离开
+CONTENT_PHASE2_LABEL_0031,离开
+CONTENT_PHASE2_LABEL_0032,离开
+CONTENT_PHASE2_LABEL_0033,离开
+CONTENT_PHASE2_LABEL_0034,离开
+CONTENT_PHASE2_LABEL_0035,离开
+CONTENT_SCALE_0001,港湾读者
+CONTENT_SCALE_0002,每场遭遇中，你首次完成完整和牌时获得 1 点 TP。
+CONTENT_SCALE_0003,用 2 金币兑换 1 枚精炼代币
+CONTENT_SCALE_0004,不改动该条目
+CONTENT_SCALE_0005,押上 1 枚精炼代币，支持港湾推进
+CONTENT_SCALE_0006,拒绝预支
+CONTENT_SCALE_0007,用 3 金币兑换 1 枚精炼代币
+CONTENT_SCALE_0008,保留现有资金
+CONTENT_SCALE_0009,查看终局路线
+CONTENT_SCALE_0010,继续隐藏路线
+CONTENT_SCALE_0011,本次旅程后续战斗的结算容量 +1
+CONTENT_SCALE_0012,拒绝条款
+CONTENT_SCALE_0013,记录规则：本次旅程后续战斗的 TP +1，并获得 1 枚精炼代币
+CONTENT_SCALE_0014,不改动旧规则
+CONTENT_SCALE_0015,召来迷雾
+CONTENT_SCALE_0016,穿过迷雾
+CONTENT_SCALE_0017,收取余量
+CONTENT_SCALE_0018,追回差额
+CONTENT_SCALE_0019,核查信号
+CONTENT_SCALE_0020,执行信号
+CONTENT_SCALE_0021,阅读契约
+CONTENT_SCALE_0022,执行条款
+CONTENT_SCALE_0023,送出回声
+CONTENT_SCALE_0024,削薄牌墙
+CONTENT_SCALE_0025,记录留置款
+CONTENT_SCALE_0026,收取留置款
+CONTENT_SCALE_0027,核查旅程
+CONTENT_SCALE_0028,收取费用
+CONTENT_SCALE_0029,追猎薄弱牌路
+CONTENT_SCALE_0030,追猎潮流
+CONTENT_SCALE_0031,向牌墙征税
+CONTENT_SCALE_0032,驱动船队
+CONTENT_SCALE_0033,核查余量
+CONTENT_SCALE_0034,执行余量
+CONTENT_SCALE_0035,收拢余量
+CONTENT_SCALE_0036,为牌桌编目
+CONTENT_SCALE_0037,焚毁记录
+CONTENT_SCALE_0038,核查余烬
+CONTENT_SCALE_0039,勘察港湾
+CONTENT_SCALE_0040,挤压余量
+CONTENT_SCALE_0041,测量水道
+CONTENT_SCALE_0042,抽取潮流
+CONTENT_SCALE_0043,削薄牌墙
+CONTENT_SCALE_0044,追回差额
+CONTENT_SCALE_0045,封闭水道
+CONTENT_SCALE_0046,收取余量
+CONTENT_SCALE_0047,双顺
+CONTENT_SCALE_0048,刻子列
+CONTENT_SCALE_0049,对子档案
+CONTENT_SCALE_0050,字牌合鸣
+CONTENT_SCALE_0051,字牌
+CONTENT_SCALE_0052,万子流转
+CONTENT_SCALE_0053,万子牌
+CONTENT_SCALE_0054,点数之河
+CONTENT_SCALE_0055,筒子牌
+CONTENT_SCALE_0056,顺子与对子
+CONTENT_SCALE_0057,混合四组
+CONTENT_SCALE_0058,顺子连瀑
+CONTENT_SCALE_0059,双刻
+CONTENT_SCALE_0060,双杠
+CONTENT_SCALE_0061,对子三元组
+CONTENT_SCALE_0062,顺子与刻子
+CONTENT_SCALE_0063,顺子与杠子
+CONTENT_SCALE_0064,刻子与杠子
+CONTENT_SCALE_0065,刻子与对子
+CONTENT_SCALE_0066,杠子与对子
+CONTENT_SCALE_0067,顺子、刻子与对子
+CONTENT_SCALE_0068,字牌灯塔
+CONTENT_SCALE_0069,字牌
+CONTENT_SCALE_0070,字牌集结
+CONTENT_SCALE_0071,字牌
+CONTENT_SCALE_0072,万子多数
+CONTENT_SCALE_0073,万子牌
+CONTENT_SCALE_0074,筒子多数
+CONTENT_SCALE_0075,筒子牌
+CONTENT_SCALE_LABEL_0076,顺子
+CONTENT_SCALE_LABEL_0077,刻子
+CONTENT_SCALE_LABEL_0078,对子
+CONTENT_SCALE_LABEL_0079,顺子
+CONTENT_SCALE_LABEL_0080,刻子
+CONTENT_SCALE_LABEL_0081,杠子
+CONTENT_SCALE_LABEL_0082,对子
+CONTENT_TECHNIQUE_0001,TechniqueDefinition 必须声明受支持的类型。
+CONTENT_TECHNIQUE_0002,TechniqueDefinition 的 TP 消耗不能为负数。
+CONTENT_TECHNIQUE_0003,反应技法必须声明受支持的触发条件。
+CONTENT_TECHNIQUE_0004,只有反应技法可以声明反应触发条件。
+CONTENT_TECHNIQUE_0005,敌方污染已增加
+CONTENT_TECHNIQUE_0006,敌方牌桌干扰会降低稳定度
+CONTENT_TECHNIQUE_0007,未知触发条件
+CONTENT_YAKU_0001,顺子路线
+CONTENT_YAKU_0002,刻子根基
+CONTENT_YAKU_0003,字牌信号
+CONTENT_YAKU_0004,字牌
+CONTENT_YAKU_0005,清一色
+CONTENT_YAKU_0006,万子牌
+CONTENT_YAKU_0007,标准和牌
+CONTENT_YAKU_0008,标准和牌
+CONTENT_YAKU_0009,七对
+CONTENT_YAKU_0010,七对
+CONTENT_YAKU_0011,七对
+CONTENT_YAKU_0012,杠子铸造厂
+CONTENT_YAKU_0013,混合牌桌
+CONTENT_YAKU_LABEL_0014,顺子
+CONTENT_YAKU_LABEL_0015,刻子
+CONTENT_YAKU_LABEL_0016,杠子
+UI_BATTLE_CONTROLLER_0001,摸牌以寻找牌型。
+UI_BATTLE_SCENE_0001,%d：%s
+UI_BATTLE_SCENE_0002,%d / %d
+UI_BATTLE_SCENE_0003,%s（压力 %d）
+UI_BATTLE_SCENE_0004,%d / %d
+UI_BATTLE_SCENE_0005,没有高亮的计分牌型。
+UI_BATTLE_SCENE_0006,%s：%s
+UI_BATTLE_STATE_0001,摸到一张牌。
+UI_BATTLE_STATE_0002,已结算：%s。
+UI_BATTLE_STATE_0003,伤害：%d。
+UI_BATTLE_STATE_0004,压力变化 %d。
+UI_BATTLE_STATE_0005,战斗胜利。
+UI_BATTLE_STATE_0006,战斗失败。
+UI_BATTLE_STATIC_DISCARD_LABEL,弃牌
+UI_BATTLE_STATIC_DRAW_BUTTON,摸牌
+UI_BATTLE_STATIC_DRAW_WALL_LABEL,牌墙
+UI_BATTLE_STATIC_ENEMY_HP_LABEL,敌人生命
+UI_BATTLE_STATIC_HAND_LABEL,手牌
+UI_BATTLE_STATIC_INTENT_LABEL,意图
+UI_BATTLE_STATIC_NONE,无
+UI_BATTLE_STATIC_NO_PATTERN,没有高亮的计分牌型。
+UI_BATTLE_STATIC_PATTERN_HIGHLIGHTS_LABEL,牌型高亮
+UI_BATTLE_STATIC_PRESSURE_LABEL,压力
+UI_BATTLE_STATIC_SETTLE_BUTTON,结算牌型
+UI_BATTLE_STATIC_STATUS_LABEL,状态
+UI_BATTLE_STATIC_TITLE,禁忌牌桌 — 战斗
+UI_RUN_CONTROLLER_0001,行动已成功，但未写入暂停存档（%s）。现有存档和恢复文件均已保留；退出前请检查存储空间与文件权限。
+UI_RUN_CONTROLLER_0002,旅程已保存，但仍需处理临时存档清理问题（%s）。
+UI_RUN_CONTROLLER_0003,已完成的旅程已保存，但进度写入失败（%s）。终局存档仍可使用，游戏下次启动时会重试。
+UI_RUN_CONTROLLER_0004,旅程已完成，但无法清除续玩存档（%s）。重新打开游戏以重试，或检查文件权限后再开始新旅程。
+UI_RUN_CONTROLLER_0005,行动已成功，但无法准备暂停存档（%s）。
+UI_RUN_CONTROLLER_0006,已记录第二幕普通结局。后续旅程现可使用角色 3 和契约 4–8。
+UI_RUN_CONTROLLER_0007,无法保存解锁进度。游戏下次记录旅程时会重试。
+UI_RUN_CONTROLLER_0008,当前没有行动获得焦点。
+UI_RUN_CONTROLLER_0009,当前没有行动获得焦点。
+UI_RUN_CONTROLLER_0010,为 %s 选择一张具体牌。
+UI_RUN_CONTROLLER_0011,为所选的具体牌选择结果。
+UI_RUN_CONTROLLER_0012,当前焦点对应的行动不可用。
+UI_RUN_CONTROLLER_0013,该行动没有可查看的详情。
+UI_RUN_CONTROLLER_0014,未知的演出模式。
+UI_RUN_CONTROLLER_0015,没有其他 %s 效果
+UI_RUN_CONTROLLER_0016,每场战斗承受 %s 点压力
+UI_RUN_CONTROLLER_0017,每场战斗以 %s 点压力开始
+UI_RUN_CONTROLLER_0018,普通奖励中不含非偏向花色的牌
+UI_RUN_CONTROLLER_0019,普通奖励中最多可选择 %s 张非偏向花色的牌
+UI_RUN_CONTROLLER_0020,跳过精英奖励时失去 %s 金币
+UI_RUN_CONTROLLER_0021,工坊精炼额外花费 %s 金币
+UI_RUN_CONTROLLER_0022,非偏向花色的牌池权重：%s
+UI_RUN_CONTROLLER_0023,牌池构成代价更高
+UI_RUN_CONTROLLER_0024,支付 %s 金币
+UI_RUN_CONTROLLER_0025,路线机会成本
+UI_RUN_CONTROLLER_0026,每场战斗开始时获得 %s 点 TP
+UI_RUN_CONTROLLER_0027,跳过精英奖励时获得 %s
+UI_RUN_CONTROLLER_0028,精炼代币
+UI_RUN_CONTROLLER_0029,精炼代币
+UI_RUN_CONTROLLER_0030,牌类奖励偏向 %s
+UI_RUN_CONTROLLER_0031,获得 %s 点 TP
+UI_RUN_CONTROLLER_0032,节奏收益
+UI_RUN_CONTROLLER_0033,初始牌池偏向 %s
+UI_RUN_CONTROLLER_0034,获得 %s
+UI_RUN_CONTROLLER_0035,精炼代币
+UI_RUN_CONTROLLER_0036,精炼代币
+UI_RUN_CONTROLLER_0037,额外地图机会
+UI_RUN_CONTROLLER_0038,选择契约时获得 %s
+UI_RUN_CONTROLLER_0039,精炼代币
+UI_RUN_CONTROLLER_0040,精炼代币
+UI_RUN_CONTROLLER_0041,额外提供 1 个修饰牌选项
+UI_RUN_CONTROLLER_0042,%s：%s
+UI_RUN_CONTROLLER_0043,%s：%s
+UI_RUN_CONTROLLER_0044,%d %s
+UI_RUN_CONTROLLER_0045,%s 路线
+UI_RUN_CONTROLLER_0046,%s 灵活度
+UI_RUN_CONTROLLER_0047,偏向 %s
+UI_RUN_CONTROLLER_0048,没有特定的牌池偏向
+UI_RUN_CONTROLLER_0049,%s %d
+UI_RUN_CONTROLLER_0050,通用役种支持
+UI_RUN_CONTROLLER_0051,没有特定的役种倾向
+UI_RUN_CONTROLLER_0052,%s %d
+UI_RUN_CONTROLLER_0053,选择一张具体牌。
+UI_RUN_CONTROLLER_0054,选择一项工坊服务。
+UI_RUN_CONTROLLER_0055,%s 在 %s 时作出响应。
+UI_RUN_CONTROLLER_0056,触发条件已满足
+UI_RUN_CONTROLLER_0057,%s 未能在 %s 时响应（%s）。
+UI_RUN_CONTROLLER_0058,触发条件已满足
+UI_RUN_CONTROLLER_0059,角色已选择。
+UI_RUN_CONTROLLER_0060,契约已选择。
+UI_RUN_CONTROLLER_0061,已选择地图节点。
+UI_RUN_CONTROLLER_0062,战斗开始。
+UI_RUN_CONTROLLER_0063,选择一项奖励。
+UI_RUN_CONTROLLER_0064,商店已开启。
+UI_RUN_CONTROLLER_0065,工坊已开启。
+UI_RUN_CONTROLLER_0066,选择一项事件选项。
+UI_RUN_CONTROLLER_0067,已进入旅程总结。
+UI_RUN_CONTROLLER_0068,%s：%s
+UI_RUN_CONTROLLER_0069,角色被动已触发。
+UI_RUN_CONTROLLER_0070,已弃牌。
+UI_RUN_CONTROLLER_0071,已使用技法：%s。
+UI_RUN_CONTROLLER_0072,旅程已推进。
+UI_RUN_CONTROLLER_0073,已取消。
+UI_RUN_CONTROLLER_0074,行动已完成。
+UI_RUN_CONTROLLER_0075,完整和牌已结算。
+UI_RUN_CONTROLLER_0076,首领进入第 %d 阶段。
+UI_RUN_CONTROLLER_0077,胜利！
+UI_RUN_SCENE_0001,恢复副本位于 %s。
+UI_RUN_SCENE_0002,原存档仍保留在原处。
+UI_RUN_SCENE_0003,无法载入已保存的解锁档案（%s）。%s 在重置档案前，进度写入功能将保持禁用。
+UI_RUN_SCENE_0004,游戏内容未通过验证，无法开始新旅程。
+UI_RUN_SCENE_0005,内容注册表不可用，无法开始新旅程。
+UI_RUN_SCENE_0006,第二阶段
+UI_RUN_SCENE_0007,第二幕
+UI_RUN_SCENE_0008,阿尔法扩展
+UI_RUN_SCENE_0009,%s 目录注册
+UI_RUN_SCENE_0010,内容注册表验证
+UI_RUN_SCENE_0011,"游戏内容未通过验证，无法开始新旅程。请报告此问题：
+%s"
+UI_RUN_SCENE_0012,暂停存档提交被中断（%s）。未载入旧存档。恢复源文件保持不变，副本已保存到 %s。只有确定要放弃此存档时才选择“新旅程”。
+UI_RUN_SCENE_0013,暂停存档提交被中断（%s），且创建恢复副本失败（%s）。未载入旧存档。请先手动复制文件，再重新开始。
+UI_RUN_SCENE_0014,无法读取已保存的旅程（%s）。源文件未被修改。请检查存档文件权限，或移动文件后重试。
+UI_RUN_SCENE_0015,%s 原存档保持不变，逐字节恢复副本位于 %s。只有确定要放弃此存档时才选择“新旅程”。
+UI_RUN_SCENE_0016,%s 原存档保持不变，但创建恢复副本失败（%s）。请先手动复制文件，再重新开始。
+UI_RUN_SCENE_0017, 已在 %s 保存恢复副本。
+UI_RUN_SCENE_0018, 请先手动复制这些文件，再重新开始。
+UI_RUN_SCENE_0019,已保存的旅程有效，但无法完成中断存档恢复（%s）。原始文件均已保留。%s
+UI_RUN_SCENE_0020,上一段旅程已完成，但进度无法保存（%s）。继续旅程可查看结果；该存档仍可使用，游戏下次启动时会重试。
+UI_RUN_SCENE_0021,上一段旅程已完成，但无法清除其存档槽（%s）。继续旅程可查看结果；也可开始新旅程并重试清除。
+UI_RUN_SCENE_0022,已载入旅程，但仍需处理被中断存档的清理问题（%s）。
+UI_RUN_SCENE_0023,此旅程存档使用了不受支持的内容版本。
+UI_RUN_SCENE_0024,此旅程存档使用了不受支持的游戏版本。
+UI_RUN_SCENE_0025,无法载入已保存的旅程（%s）。
+UI_RUN_SCENE_0026,已有可继续的旅程存档。旅程：%s。继续将恢复已保存的状态与随机数状态；开始新旅程会删除此续玩存档。
+UI_RUN_SCENE_0027, 已保存的位置：%s。
+UI_RUN_SCENE_0028,新旅程（删除已保存的旅程）
+UI_RUN_SCENE_0029,开始新旅程（保留被拒绝的存档）
+UI_RUN_SCENE_0030,进度仍未保存（%s）。已完成的旅程仍保留在暂停存档中，你可以下次启动时重试。
+UI_RUN_SCENE_0031,无法清除已完成的旅程（%s）。其存档仍可使用。
+UI_RUN_SCENE_0032,"
+无法清除已保存的旅程（%s）。尚未开始新旅程；请检查文件权限后重试。"
+UI_RUN_SCENE_0033,%s 未返回验证报告。
+UI_RUN_SCENE_0034,%s 失败，且未提供诊断信息。
+UI_RUN_SCENE_0035,%s 返回了无效的诊断信息。
+UI_RUN_SCENE_0036,→ %s
+UI_RUN_SCENE_0037,%s [%s] %s：%s
+UI_RUN_SCENE_0038,禁忌牌桌
+UI_RUN_SCENE_0039,重置教程
+UI_RUN_SCENE_0040,新旅程
+UI_RUN_SCENE_0041,重置进度档案
+UI_RUN_SCENE_0042,归档被拒绝的存档，并创建全新的初始解锁档案。
+UI_RUN_SCENE_0043,继续旅程
+UI_RUN_SCENE_0044,开始新旅程（保留被拒绝的存档）
+UI_RUN_SCENE_0045,旅程状态
+UI_RUN_SCENE_0046,向上滚动
+UI_RUN_SCENE_0047,向上滚动旅程状态概览。
+UI_RUN_SCENE_0048,向下滚动
+UI_RUN_SCENE_0049,向下滚动旅程状态概览。
+UI_RUN_SCENE_0050,旅程状态概览。将焦点移至此区域，再按上 / 下滚动。
+UI_RUN_SCENE_0051,手牌与备牌
+UI_RUN_SCENE_0052,可用行动
+UI_RUN_SCENE_0053,结束旅程
+UI_RUN_SCENE_0054,旅程不可用
+UI_RUN_SCENE_0055,第 %d / %d 幕   ·   %s
+UI_RUN_SCENE_0056,"旅程：%s
+角色：%s
+契约：%s
+金币：%d     精炼：%d
+当前地图节点：%s"
+UI_RUN_SCENE_0057,当前状态下没有可用行动。
+UI_RUN_SCENE_0058,教程已完成
+UI_RUN_SCENE_0059,关闭教程
+UI_RUN_SCENE_0060,启用教程
+UI_RUN_SCENE_0061,教程：摸一张牌，查看高亮牌型，然后结算其中一种以造成伤害。
+UI_RUN_SCENE_0062,教程：时机允许时，花费 TP 使用核心技法。
+UI_RUN_SCENE_0063,教程：将一张牌存入备牌，以保护它免受敌方压力影响。
+UI_RUN_SCENE_0064,教程：组成并结算完整和牌，以推进役种进度。
+UI_RUN_SCENE_0065,教程：结束回合前，先查看敌方意图与污染。
+UI_RUN_SCENE_0066,游戏内容未通过验证，无法开始新旅程。
+UI_RUN_SCENE_0067,无法保存进度（%s）。已完成的旅程仍可查看；请在开始新旅程前重试。
+UI_RUN_SCENE_0068,无法清除上一份暂停存档（%s）。尚未开始新旅程；请检查文件权限后重试。
+UI_RUN_SCENE_0069,进度档案已重置。被拒绝的存档仍保存在 %s。
+UI_RUN_SCENE_0070,恢复副本
+UI_RUN_SCENE_0071,重置进度档案失败（%s）。进度写入仍处于禁用状态。
+UI_RUN_SCENE_0072,"旅程结果：%s
+原因：%s"
+UI_RUN_SCENE_0073,当前没有进行中的战斗。使用可用行动推进旅程。
+UI_RUN_SCENE_0074,%s（压力 %d）
+UI_RUN_SCENE_0075,"%s
+敌人生命：%d / %d
+敌方意图：%s
+压力：%d / %d
+TP：%d    稳定度：%d
+可用牌型：%d    结果：%s"
+UI_RUN_SCENE_0076,旅程牌池（%d）：%s
+UI_RUN_SCENE_0077,"手牌（%d）：%s
+备牌（%d）：%s"
+UI_RUN_SCENE_0078,选择角色 — %s
+UI_RUN_SCENE_0079,%s — %s
+UI_RUN_SCENE_0080,摸牌
+UI_RUN_SCENE_0081,结束回合（处理敌方意图）
+UI_RUN_SCENE_0082, — %s
+UI_RUN_SCENE_0083,意图结算前反应
+UI_RUN_SCENE_0084,%s技法 — %s%s（TP %d）
+UI_RUN_SCENE_0085,结算 %s — %s
+UI_RUN_SCENE_0086,结算完整和牌 — %s
+UI_RUN_SCENE_0087,将 %s 存入备牌
+UI_RUN_SCENE_0088,弃掉 %s
+UI_RUN_SCENE_0089,将 %s 与备牌 %s 交换
+UI_RUN_SCENE_0090,选择奖励 — %s
+UI_RUN_SCENE_0091,进入商店
+UI_RUN_SCENE_0092,购买 %s（%d 金币）
+UI_RUN_SCENE_0093,刷新商店
+UI_RUN_SCENE_0094,离开商店
+UI_RUN_SCENE_0095,进入工坊
+UI_RUN_SCENE_0096,工坊 — %s
+UI_RUN_SCENE_0097,选择牌 — %s
+UI_RUN_SCENE_0098,返回工坊选项
+UI_RUN_SCENE_0099,离开工坊
+UI_RUN_SCENE_0100,进入事件
+UI_RUN_SCENE_0101,事件 — %s
+UI_RUN_SCENE_0102,确认旅程总结
+UI_RUN_SCENE_0103,%s — %s
+UI_RUN_SCENE_0104,选择%s
+UI_RUN_SCENE_0105,选择契约 — %s
+UI_RUN_SCENE_0106,使用技法：%s
+UI_RUN_SCENE_0107,结算 %s
+UI_RUN_SCENE_0108,结算完整和牌
+UI_RUN_SCENE_0109,存入备牌
+UI_RUN_SCENE_0110,弃牌
+UI_RUN_SCENE_0111,与备牌交换
+UI_RUN_SCENE_0112,选择奖励
+UI_RUN_SCENE_0113,购买商品
+UI_RUN_SCENE_0114,选择事件选项
+UI_RUN_SCENE_0115,选择牌
+UI_RUN_SCENE_0116,选择角色，再选择契约以进入第一幕地图。每次选择后请确认执行；选择契约时会生成初始牌池。
+UI_RUN_SCENE_0117,选择一份契约并确认执行。该选择在两个幕中均生效。
+UI_RUN_SCENE_0118,选择一个相邻节点并确认前往。完成战斗并领取首领奖励后即可继续旅程。
+UI_RUN_SCENE_0119,摸牌以寻找合法牌型和完整和牌。选择一个选项并确认执行；结束回合以处理敌方意图。
+UI_RUN_SCENE_0120,查看构筑纪事，然后选择并确认旅程总结，以结束本次旅程。
+UI_RUN_SCENE_0121,旅程已完成。准备好后即可开始新的旅程。
+UI_RUN_SCENE_0122,选择一个可用行动，然后选择“确认选择”。按 Enter / A 确认当前焦点上的控件。
+UI_RUN_SCENE_0123,%s 按 Tab / 左右肩键移动焦点，按方向键 / 十字键切换选项。将焦点移至旅程状态后，按上 / 下滚动概览。按 Enter / A 确认，按 Esc / B 返回。
+UI_RUN_SCENE_0124,%s — %s
+UI_RUN_SCENE_0125,将 %s 变换为 %s（%d 金币）
+UI_RUN_SCENE_0126,将 %s 添加到 %s（%d 金币）
+UI_RUN_SCENE_0127,将 %s 的修饰替换为 %s（%d 金币）
+UI_RUN_SCENE_0128,移除 %s（%d 金币）
+UI_RUN_SCENE_0129,复制 %s（%d 金币）
+UI_RUN_SCENE_0130,对 %s 使用精炼代币（%d 金币）
+UI_RUN_SCENE_0131,工坊 — %s
+UI_RUN_SCENE_0133,当前牌：%s
+UI_RUN_SCENE_0134,新牌：%s
+UI_RUN_SCENE_0135,添加修饰：%s
+UI_RUN_SCENE_0136,将 %s 替换为 %s
+UI_RUN_SCENE_0137,费用：%d 金币
+UI_RUN_SCENE_0138,还会消耗：1 枚精炼代币
+UI_RUN_SCENE_0139,没有可用的风险详情
+UI_RUN_SCENE_0140,没有可用的奖励详情
+UI_RUN_SCENE_0141,"选择契约 — %s
+风险：%s
+回报：%s"
+UI_RUN_SCENE_0142,没有可用的风险详情
+UI_RUN_SCENE_0143,没有可用的奖励详情
+UI_RUN_SCENE_0144,没有特定的牌池偏向
+UI_RUN_SCENE_0145,没有特定的役种倾向
+UI_RUN_SCENE_0146,"%s
+风险：%s
+回报：%s
+构筑倾向：%s
+役种倾向：%s"
+UI_RUN_SCENE_0148,—
+UI_RUN_SCENE_0149,战斗
+UI_RUN_SUMMARY_0001,"旅程总结
+没有可用的终局旅程数据。"
+UI_RUN_SUMMARY_0002,第 %d 幕：%s
+UI_RUN_SUMMARY_0003,本次旅程未追踪
+UI_RUN_SUMMARY_0004,第 %d / %d 幕；%s
+UI_RUN_SUMMARY_0005,第 %d / %d 幕；本次旅程未记录首领进度
+UI_RUN_SUMMARY_0006,构筑纪事
+UI_RUN_SUMMARY_0007,结果：%s%s
+UI_RUN_SUMMARY_0008,角色 / 契约：%s / %s
+UI_RUN_SUMMARY_0009,幕 / 首领：%s
+UI_RUN_SUMMARY_0010,最终牌池：%s
+UI_RUN_SUMMARY_0011,核心役种：%s
+UI_RUN_SUMMARY_0012,遗物：%s
+UI_RUN_SUMMARY_0013,技法：%s
+UI_RUN_SUMMARY_0014,破规能力：%s
+UI_RUN_SUMMARY_0015,常见牌型：%s
+UI_RUN_SUMMARY_0016,完整和牌：%s
+UI_RUN_SUMMARY_0017,最高麻将分数：%s
+UI_RUN_SUMMARY_0018,里程碑：%s
+UI_RUN_SUMMARY_0019,种子：%d
+UI_RUN_SUMMARY_0020,时长：%s
+UI_RUN_SUMMARY_0021,无记录
+UI_RUN_SUMMARY_0022,无记录
+UI_RUN_SUMMARY_0023,%s ×%d
+UI_RUN_SUMMARY_0024,本次旅程未追踪
+UI_RUN_SUMMARY_0025,本次旅程未追踪
+UI_RUN_SUMMARY_0026,本次旅程未追踪
+UI_RUN_SUMMARY_0027,未记录
+UI_RUN_SUMMARY_0029,无记录
+UI_RUN_SUMMARY_0030,（%s）
+WORD_ACTION,行动
+WORD_ACT_ONE,第一幕
+WORD_ACT_TWO,第二幕
+WORD_ACTIVE,生效中
+WORD_ADD_MODIFIER,添加修饰
+WORD_AMENDED_CLAUSE,修订条款
+WORD_BAMBOO,条子
+WORD_BATTLE,战斗
+WORD_BATTLE_ACTION,战斗行动
+WORD_BATTLE_DEFEAT,战斗失败
+WORD_BOSS,首领
+WORD_BOSS_DEFEATED,首领已击败
+WORD_BOSS_REWARD,首领奖励
+WORD_BRITTLE_COMPASS,易碎罗盘
+WORD_BUILD_BIAS,构筑倾向
+WORD_CHARACTER,角色
+WORD_CHARACTERS,万子
+WORD_CHARACTER_SELECT,选择角色
+WORD_COMPLETE_HAND,完整和牌
+WORD_COMPOSITION_COST,牌池构成代价
+WORD_CONTRACT,契约
+WORD_CONTRACT_CLAUSE,契约条款
+WORD_CONTRACT_SELECT,选择契约
+WORD_COPY_LICENSE,复制许可
+WORD_CORE,核心
+WORD_CROSS_REFERENCE,交叉索引
+WORD_DEFEAT,失败
+WORD_DISCARD,弃牌
+WORD_DOTS,筒子
+WORD_DRAW,摸牌
+WORD_DRAW_ACTION,摸牌行动
+WORD_DUPLICATE,复制
+WORD_EAST,东风
+WORD_ELITE,精英
+WORD_ELITE_REWARD,精英奖励
+WORD_ELITE_SKIP_GOLD_PENALTY,跳过精英奖励的金币损失
+WORD_EMPTY,空
+WORD_END_TURN,结束回合
+WORD_ENTER_EVENT,进入事件
+WORD_ENTER_SHOP,进入商店
+WORD_ENTER_WORKSHOP,进入工坊
+WORD_EVENT,事件
+WORD_EVENT_OPTION,事件选项
+WORD_EXTRA_MODIFIED_TILE_CHOICE,额外修饰牌选项
+WORD_FALSE,否
+WORD_FINAL_ANNOTATION,最终注记
+WORD_FLEXIBILITY,灵活度
+WORD_GOLD,金币
+WORD_GOLD_CACHE,金币储藏
+WORD_GOLD_EXCHANGE,金币兑换
+WORD_GREEN,发财
+WORD_HAND,手牌
+WORD_HONORS,字牌
+WORD_HOUSE_TITHE,庄家什一税
+WORD_INITIAL_PRESSURE_PER_BATTLE,每场战斗的初始压力
+WORD_INSUFFICIENT_TP,TP 不足
+WORD_LONG_CURRENT,长潮
+WORD_LONG_MARGIN,长余量
+WORD_MAP,地图
+WORD_MAP_CHOICE,地图选择
+WORD_MAP_NODE,地图节点
+WORD_MAP_OPPORTUNITY,地图机会
+WORD_MAP_REVEAL,揭示地图
+WORD_NONE,无
+WORD_NORMAL,普通
+WORD_NORMAL_REWARD_OFF_SUIT_CHOICE_CAP,普通奖励中的非偏向花色选牌上限
+WORD_NORTH,北风
+WORD_OFF_SUIT_POOL_WEIGHT,非偏向花色的牌池权重
+WORD_ONGOING,进行中
+WORD_OPEN_LEDGER,开放账册
+WORD_PAIR,对子
+WORD_PARTIAL_SETTLEMENT,部分结算
+WORD_PASSIVE,被动
+WORD_PATH,路线
+WORD_PATTERN,牌型
+WORD_POOL_BIAS,牌池偏向
+WORD_PREFERRED_TILE_IDS,偏好的牌面 ID
+WORD_PRESSURE,压力
+WORD_PRESSURE_PER_BATTLE,每场战斗的压力
+WORD_QUAD,杠子
+WORD_QUIET_CURRENT,静潮
+WORD_REACTION,反应
+WORD_REACTION_BEFORE_INTENT,意图结算前反应
+WORD_RED,红中
+WORD_REDUCED,已减少
+WORD_REFINEMENT,精炼
+WORD_REFINEMENT_TOKEN,精炼代币
+WORD_REFINEMENT_TOKENS,精炼代币
+WORD_REFINEMENT_TOKENS_ON_CONTRACT_SELECTION,选择契约时获得的精炼代币
+WORD_REFINEMENT_TOKENS_ON_ELITE_SKIP,跳过精英奖励时获得的精炼代币
+WORD_REMOVE,移除
+WORD_REPLACE_MODIFIER,替换修饰
+WORD_RESERVE,备牌
+WORD_RESERVE_SWAP,备牌交换
+WORD_REWARD,回报
+WORD_REWARD_CHOICE,奖励选择
+WORD_REWARD_TILE_SUIT_BIAS,奖励牌的花色偏向
+WORD_RISK,风险
+WORD_RISK_BARGAIN,风险交易
+WORD_RITUAL_SALVE,仪式药膏
+WORD_ROUTE_COST,路线代价
+WORD_ROUTE_DEPENDENT,取决于路线
+WORD_RULE_MEMORY,规则记忆
+WORD_RUN_COMPLETE,旅程结束
+WORD_RUN_MODIFIER,旅程修饰
+WORD_RUN_SUMMARY,旅程总结
+WORD_SEQUENCE,顺子
+WORD_SEVEN_PAIRS,七对
+WORD_SETTLEMENT,结算
+WORD_SHADOW_ACCOUNT,隐账
+WORD_SHOP,商店
+WORD_SHOP_EXIT,离开商店
+WORD_SHOP_OFFER,商店商品
+WORD_SHOP_REFRESH,刷新商店
+WORD_SKIP,跳过
+WORD_SOUTH,南风
+WORD_STANDARD,标准
+WORD_STARTING_BIAS,初始偏向
+WORD_STARTING_TP_PER_BATTLE,每场战斗的初始 TP
+WORD_STEADY,稳定
+WORD_TECHNIQUE,技法
+WORD_TEMPO,节奏
+WORD_TILE_SURGERY,牌面手术
+WORD_TILE_SURGERY_SEALED_ENTRY,牌面手术：封存条目
+WORD_TP,TP
+WORD_TRANSFORM,变换
+WORD_UNAVAILABLE,不可用
+WORD_TRIPLET,刻子
+WORD_TRUE,是
+WORD_VICTORY,胜利
+WORD_VISIBLE,可见
+WORD_WEST,西风
+WORD_WHITE,白板
+WORD_WORKSHOP,工坊
+WORD_WORKSHOP_BACK,返回工坊
+WORD_WORKSHOP_COUPON,工坊优惠券
+WORD_WORKSHOP_EXIT,离开工坊
+WORD_WORKSHOP_REFINEMENT_GOLD_SURCHARGE,工坊精炼金币附加费
+WORD_WORKSHOP_SELECT_SERVICE,选择工坊服务
+WORD_WORKSHOP_SELECT_TARGET,选择工坊目标
+WORD_WORKSHOP_SERVICE,工坊服务
+WORD_YAKU,役种
+WORD_YAKU_SIGNAL,役种倾向
+WORD_YAKU_SIGNAL_SUMMARY,役种倾向总结
+WORD_ACCEPT,接受
+WORD_ACT_1_BOSS_DEFEATED,第一幕首领已击败
+WORD_ACT_2_BOSS_DEFEATED,第二幕首领已击败
+WORD_ACT_2_REACHED,已进入第二幕
+WORD_CARRY_CLAUSE,携带条款
+WORD_CHARACTER_CHOSEN,已选择角色
+WORD_CONTRACT_CHOSEN,已选择契约
+WORD_EXCHANGE,兑换
+WORD_FAVORABLE_ENTRY,有利条目
+WORD_FIRST_COMPLETE_HAND,首次完整和牌
+WORD_FIRST_RULE_BREAKER_ACQUIRED,首次获得破规能力
+WORD_LEAVE,离开
+WORD_MISREAD_ENTRY,误读条目
+WORD_MISSED_PAYMENT,逾期未付
+WORD_PAID_ON_TIME,按时付款
+WORD_REMEMBER,记住
+WORD_REMEMBER_RULE,记住规则
+WORD_REPAIR_WITH_TOKEN,使用代币修复
+WORD_REVEAL,揭示
+WORD_REVEAL_ROUTE,揭示路线
+WORD_SPEND_TOKEN,消耗代币
+WORD_STAKE_HIDDEN_ACCOUNT,押注隐账
+WORD_STUDY_YAKU,研习役种
+WORD_TAKE_ADVANCE,接受预支
+WORD_TAKE_WAGER,接受赌注
+WORD_TRADE_GOLD,交易金币
+WORD_TRADE_MARGIN,交易余量
+alpha.act_two.boss_rule_breaker_pool,首领破规能力池
+alpha.boss.act_one.harbor_arbiter,港湾仲裁者
+alpha.boss.act_two.final_index,最终索引
+alpha.boss.act_two.tidal_archive,潮汐档案库
+alpha.character.harbor_reader,港湾读者
+alpha.contract.brittle_compass,易碎罗盘
+alpha.contract.house_tithe,庄家什一税
+alpha.contract.long_current,长潮
+alpha.contract.open_ledger,开放账册
+alpha.contract.quiet_current,静潮
+alpha.encounter.act_one_boss,第一幕首领
+alpha.encounter.act_one.elite.clockwork_auditor,发条审计员
+alpha.encounter.act_one.elite.drift_captain,漂流船长
+alpha.encounter.act_one.normal.fog_caller,唤雾者
+alpha.encounter.act_one.normal.margin_taker,余量收取者
+alpha.encounter.act_one.normal.signal_keeper,信号守望者
+alpha.encounter.act_two.boss,首领
+alpha.encounter.act_two.boss.a,首领 A
+alpha.encounter.act_two.boss.b,首领 B
+alpha.encounter.act_two.boss.c,C
+alpha.encounter.act_two.elite,精英
+alpha.encounter.act_two.elite.a,精英 A
+alpha.encounter.act_two.elite.b,精英 B
+alpha.encounter.act_two.elite.infernal_index,炼狱索引
+alpha.encounter.act_two.elite.margin_enforcer,余量执行者
+alpha.encounter.act_two.normal.contract_harrier,契约追猎者
+alpha.encounter.act_two.normal.echo_courier,回声信使
+alpha.encounter.act_two.normal.intro,入口
+alpha.encounter.act_two.normal.intro.a,入口 A
+alpha.encounter.act_two.normal.intro.b,入口 B
+alpha.encounter.act_two.normal.left,左侧
+alpha.encounter.act_two.normal.left.a,左侧 A
+alpha.encounter.act_two.normal.left.b,左侧 B
+alpha.encounter.act_two.normal.lien_keeper,留置款保管人
+alpha.encounter.act_two.normal.mid,中段
+alpha.encounter.act_two.normal.mid.a,中段 A
+alpha.encounter.act_two.normal.mid.b,中段 B
+alpha.encounter.act_two.normal.right,右侧
+alpha.encounter.act_two.normal.right.a,右侧 A
+alpha.encounter.act_two.normal.right.b,右侧 B
+alpha.enemy.act_one.elite.clockwork_auditor,发条审计员
+alpha.enemy.act_one.elite.drift_captain,漂流船长
+alpha.enemy.act_one.fog_caller,唤雾者
+alpha.enemy.act_one.margin_taker,余量收取者
+alpha.enemy.act_one.signal_keeper,信号守望者
+alpha.enemy.act_two.afterimage,残影
+alpha.enemy.act_two.contract_harrier,契约追猎者
+alpha.enemy.act_two.echo_courier,回声信使
+alpha.enemy.act_two.elite.infernal_index,炼狱索引
+alpha.enemy.act_two.elite.ledger_mimic,账册仿写者
+alpha.enemy.act_two.elite.margin_enforcer,余量执行者
+alpha.enemy.act_two.lien_keeper,留置款保管人
+alpha.enemy.act_two.pressure_warden,压力看守者
+alpha.enemy.act_two.tollkeeper,收费员
+alpha.enemy.act_two.wall_eater,吞墙者
+alpha.event.act_one.contract_clause,契约条款
+alpha.event.act_one.gold_exchange,金币兑换
+alpha.event.act_one.map_reveal,揭示地图
+alpha.event.act_one.risk_bargain,风险交易
+alpha.event.act_one.rule_memory,规则记忆
+alpha.event.act_one.tile_surgery,牌面手术
+alpha.event.act_two.contract_clause,契约条款
+alpha.event.act_two.contract_clause.amended_clause,修订条款
+alpha.event.act_two.gold_exchange,金币兑换
+alpha.event.act_two.gold_exchange.long_margin,长余量
+alpha.event.act_two.map_reveal,揭示地图
+alpha.event.act_two.map_reveal.final_annotation,最终注记
+alpha.event.act_two.risk_bargain,风险交易
+alpha.event.act_two.risk_bargain.shadow_account,隐账
+alpha.event.act_two.rule_memory,规则记忆
+alpha.event.act_two.rule_memory.cross_reference,交叉索引
+alpha.event.act_two.tile_surgery,牌面手术
+alpha.event.act_two.tile_surgery.sealed_entry,已封存条目
+alpha.modifier.double_edge,双重锋缘
+alpha.modifier.harbor_mark,港湾印记
+alpha.modifier.quiet_surface,静水面
+alpha.modifier.refinement_trace,精炼痕迹
+alpha.modifier.sharp_current,锐潮
+alpha.modifier.trade_mark,交易印记
+alpha.modifier.wide_channel,宽阔水道
+alpha.passive.harbor_read,港湾读者
+alpha.relic.act_one.ceramic_dial,陶瓷刻度盘
+alpha.relic.act_one.clean_wake,清除余波
+alpha.relic.act_one.harbor_notch,港湾缺口
+alpha.relic.act_one.settlement_chart,结算海图
+alpha.relic.act_one.steady_keel,稳固龙骨
+alpha.relic.act_one.tide_whistle,潮汐哨声
+alpha.relic.act_one.trade_current,交易潮流
+alpha.relic.act_two.cargo_ledger,货运账册
+alpha.relic.act_two.clean_ink,净墨
+alpha.relic.act_two.crosswind_signal,侧风信号
+alpha.relic.act_two.deep_reserve,深藏备牌
+alpha.relic.act_two.draw_wick,引牌灯芯
+alpha.relic.act_two.echo_index,回声索引
+alpha.relic.act_two.echo_lens,回声透镜
+alpha.relic.act_two.final_margin,最终余量
+alpha.relic.act_two.honor_chime,字牌钟鸣
+alpha.relic.act_two.ink_filter,墨迹滤网
+alpha.relic.act_two.ledger_shard,账册碎片
+alpha.relic.act_two.pairing_knot,配对结
+alpha.relic.act_two.pressure_bell,压力之铃
+alpha.relic.act_two.pressure_rivet,压力铆钉
+alpha.relic.act_two.pressure_vent,压力泄口
+alpha.relic.act_two.quiet_coin,静默钱币
+alpha.relic.act_two.reserve_lamp,备牌之灯
+alpha.relic.act_two.reserve_ribbon,备牌缎带
+alpha.relic.act_two.sequence_compass,顺子罗盘
+alpha.relic.act_two.settlement_chart,结算海图
+alpha.relic.act_two.settlement_seal,结算印章
+alpha.relic.act_two.stability_cord,稳定绳索
+alpha.relic.act_two.triplet_compass,刻子罗盘
+alpha.relic.act_two.twin_current,双潮
+alpha.relic.act_two.wall_surveyor,牌墙勘察员
+alpha.reward_pool.act_one_build,第一幕构筑
+alpha.reward_pool.act_two_build,第二幕构筑
+alpha.reward_pool.boss_rule_breaker_act_one,第一幕首领破规能力
+alpha.reward_pool.boss_rule_breaker_act_two,第二幕首领破规能力
+alpha.rule_breaker.act_one.stability_surge,稳定激增
+alpha.rule_breaker.act_one.tactical_reserve,战术备牌
+alpha.rule_breaker.act_two.draw_actions,额外摸牌
+alpha.rule_breaker.act_two.early_tile,早期之牌
+alpha.rule_breaker.act_two.ledger_dividend,账册红利
+alpha.rule_breaker.act_two.reserve_capacity,备牌容量
+alpha.rule_breaker.act_two.settlement_capacity,结算容量
+alpha.shop_pool.act_two_build,第二幕构筑
+alpha.technique.cleansing_call,净化召引
+alpha.technique.core.harbor_read,港湾读者
+alpha.technique.draw_capacity,摸牌容量
+alpha.technique.first_measure,初次测量
+alpha.technique.harbor_strike,港湾打击
+alpha.technique.last_measure,最后测量
+alpha.technique.ledger_wind,账册之风
+alpha.technique.pressure_dividend,压力红利
+alpha.technique.pressure_turn,压力回合
+alpha.technique.refinement_practice,精炼练习
+alpha.technique.reserve_survey,备牌勘察
+alpha.technique.river_step,河流步
+alpha.technique.settlement_mirror,结算映像
+alpha.technique.tide_draw,潮汐摸牌
+alpha.workshop_pool.scale,界面缩放
+alpha.yaku.character_flow,万子流转
+alpha.yaku.character_majority,万子多数
+alpha.yaku.dot_majority,筒子多数
+alpha.yaku.dotted_river,点数之河
+alpha.yaku.double_sequence,双顺
+alpha.yaku.honor_beacon,字牌灯塔
+alpha.yaku.honor_chorus,字牌合鸣
+alpha.yaku.honor_gathering,字牌集结
+alpha.yaku.mixed_quartet,混合四组
+alpha.yaku.pair_archive,对子档案
+alpha.yaku.pair_triad,对子三元组
+alpha.yaku.quad_duet,双杠
+alpha.yaku.quad_pair,杠子与对子
+alpha.yaku.sequence_cascade,顺子连瀑
+alpha.yaku.sequence_pair,顺子与对子
+alpha.yaku.sequence_quad,顺子与杠子
+alpha.yaku.sequence_triplet,顺子与刻子
+alpha.yaku.sequence_triplet_pair,顺子、刻子与对子
+alpha.yaku.triplet_duet,双刻
+alpha.yaku.triplet_pair,刻子与对子
+alpha.yaku.triplet_quad,刻子与杠子
+alpha.yaku.triplet_row,刻子列
+base.boss.table_breaker,破桌者
+base.character.reserve,藏牌师
+base.character.sequence,顺子师
+base.contamination.clutter,杂乱
+base.contamination.fatigue_mold,疲劳模具
+base.contamination.pressure_dross,压力浮渣
+base.contract.pool_bias,牌池偏向
+base.contract.pressure,压力
+base.contract.refinement_debt,精炼债务
+base.encounter.boss,首领
+base.encounter.boss.a,A
+base.encounter.boss.b,B
+base.encounter.boss.c,C
+base.encounter.elite,精英
+base.encounter.elite.a,A
+base.encounter.elite.b,B
+base.encounter.intro,入口
+base.encounter.intro.a,A
+base.encounter.intro.b,B
+base.encounter.normal.left,左侧
+base.encounter.normal.left.a,A
+base.encounter.normal.left.b,B
+base.encounter.normal.mid,中段
+base.encounter.normal.mid.a,A
+base.encounter.normal.mid.b,B
+base.encounter.normal.right,右侧
+base.encounter.normal.right.a,A
+base.encounter.normal.right.b,B
+base.enemy.contaminator,污染者
+base.enemy.integrity_collector,完整度收集者
+base.enemy.ledger_hunter,账册猎手
+base.enemy.pressure_sentinel,压力哨兵
+base.enemy.wall_taxer,牌墙征税者
+base.event.contract_clause,契约条款
+base.event.gold_exchange,金币兑换
+base.event.map_reveal,揭示地图
+base.event.risk_bargain,风险交易
+base.event.rule_memory,规则记忆
+base.event.tile_surgery,牌面手术
+base.map.act_one,第一幕
+base.map.act_two,第二幕
+base.map_node.act_two.boss,首领
+base.map_node.act_two.elite,精英
+base.map_node.act_two.event.left,左侧
+base.map_node.act_two.event.right,右侧
+base.map_node.act_two.intro,入口
+base.map_node.act_two.normal.left,左侧
+base.map_node.act_two.normal.mid,中段
+base.map_node.act_two.normal.right,右侧
+base.map_node.act_two.shop,商店
+base.map_node.act_two.workshop,工坊
+base.map_node.boss,首领
+base.map_node.elite,精英
+base.map_node.event.left,左侧
+base.map_node.event.right,右侧
+base.map_node.intro,入口
+base.map_node.normal.left,左侧
+base.map_node.normal.mid,中段
+base.map_node.normal.right,右侧
+base.map_node.shop,商店
+base.map_node.workshop,工坊
+base.modifier.clean_surface,净面
+base.modifier.flexible_identity,灵活牌面
+base.modifier.recycling,回收
+base.modifier.reserve_bound,备牌界限
+base.modifier.settlement_focus,结算焦点
+base.passive.reserve,藏牌师
+base.passive.sequence,顺子师
+base.relic.calm_pressure,平息压力
+base.relic.clean_table,清理牌桌
+base.relic.complete_hand_insurance,和牌保险
+base.relic.contamination_filter,污染过滤器
+base.relic.elite_bounty,精英悬赏
+base.relic.fatigue_buffer,疲劳缓冲
+base.relic.integrity_seal,完整度封印
+base.relic.open_hand,开放手牌
+base.relic.reserve_sleeve,藏牌袖套
+base.relic.reward_pivot,奖励转向
+base.relic.rule_memory,规则记忆
+base.relic.sequence_lens,顺子透镜
+base.relic.shop_ledger,商店账册
+base.relic.skip_stipend,跳过补贴
+base.relic.triplet_lens,刻子透镜
+base.relic.wall_survey,牌墙勘察
+base.relic.workshop_kit,工坊工具包
+base.relic.yaku_notebook,役种手册
+base.reward_pool.boss_rule_breaker,首领破规能力
+base.reward_pool.normal,普通奖励
+base.rule_breaker.draw_twice,连续摸两张
+base.rule_breaker.open_table,开放牌桌
+base.rule_breaker.reserve_witness,备牌见证
+base.shop.act_one,第一幕
+base.shop_pool.act_one,第一幕
+base.technique.clean_table,清理牌桌
+base.technique.core.reserve_ledger,备牌账册
+base.technique.core.sequence_line,顺子路线
+base.technique.draw_surge,摸牌激增
+base.technique.pressure_break,压力断点
+base.technique.reaction_guard,反应守卫
+base.technique.reserve_exchange,备牌交换
+base.technique.settlement_focus,结算焦点
+base.technique.stability_breath,稳定之息
+base.technique.yaku_insight,役种洞察
+base.tile.bamboo.1,一条
+base.tile.bamboo.2,二条
+base.tile.bamboo.3,三条
+base.tile.bamboo.4,四条
+base.tile.bamboo.5,五条
+base.tile.bamboo.6,六条
+base.tile.bamboo.7,七条
+base.tile.bamboo.8,八条
+base.tile.bamboo.9,九条
+base.tile.characters.1,一万
+base.tile.characters.2,二万
+base.tile.characters.3,三万
+base.tile.characters.4,四万
+base.tile.characters.5,五万
+base.tile.characters.6,六万
+base.tile.characters.7,七万
+base.tile.characters.8,八万
+base.tile.characters.9,九万
+base.tile.dots.1,一筒
+base.tile.dots.2,二筒
+base.tile.dots.3,三筒
+base.tile.dots.4,四筒
+base.tile.dots.5,五筒
+base.tile.dots.6,六筒
+base.tile.dots.7,七筒
+base.tile.dots.8,八筒
+base.tile.dots.9,九筒
+base.tile.honors.east,东风
+base.tile.honors.green,发财
+base.tile.honors.north,北风
+base.tile.honors.red,红中
+base.tile.honors.south,南风
+base.tile.honors.west,西风
+base.tile.honors.white,白板
+base.tile.man.5,五万
+base.workshop.act_one,第一幕
+base.workshop_pool.act_one,第一幕
+base.yaku.bamboo_concentration,条子集中
+base.yaku.pair_foundation,对子根基
+prototype.yaku.honor_signal,字牌信号
+prototype.yaku.mixed_table,混合牌桌
+prototype.yaku.quad_foundry,杠子铸造厂
+prototype.yaku.quad_foundry.complete,完成
+prototype.yaku.sequence_path,顺子路线
+prototype.yaku.seven_pairs,七对
+prototype.yaku.standard_complete_hand,标准和牌
+prototype.yaku.triplet_foundation,刻子根基
+prototype.yaku.triplet_foundation.complete,完成
+prototype.yaku.unified_suit,清一色
+prototype.yaku.unified_suit.complete,完成
+run.battle.hand.1,1
+run.battle.hand.2,2
+run.enter.event,事件
+run.enter.shop,商店
+run.enter.workshop,工坊
+run.summary.acknowledge,确认
+UI_BATTLE_VIEW_0001,轮到你了
+UI_BATTLE_VIEW_0002,第 %d / %d 幕  |  %s  |  金币 %d  |  精炼 %d
+UI_BATTLE_VIEW_0003,%s  ·  生命 %d / %d
+UI_BATTLE_VIEW_0004,意图 · %s
+UI_BATTLE_VIEW_0005,压力 +%d · 回合结束时生效
+UI_BATTLE_VIEW_0006,%s %d
+UI_BATTLE_VIEW_0007,%s %d / %d
+UI_BATTLE_VIEW_0008,恢复阶段 · 回合 %d / %d · 手牌 %d / %d
+UI_BATTLE_VIEW_0009,当前无恢复阶段。
+UI_BATTLE_VIEW_0010,旅程已记录役种：%d
+UI_BATTLE_VIEW_0011,战斗
+UI_BATTLE_VIEW_0012,你的行动
+UI_BATTLE_VIEW_0013,部分结算
+UI_BATTLE_VIEW_0014,完整和牌
+UI_BATTLE_VIEW_0015,牌操作
+UI_BATTLE_VIEW_0016,技法
+UI_BATTLE_VIEW_0017,查看详情
+UI_BATTLE_VIEW_0018,当前没有可结算牌型。
+UI_BATTLE_VIEW_0019,当前没有完整和牌选项。
+UI_BATTLE_VIEW_0020,当前没有可用的牌操作。
+UI_BATTLE_VIEW_0021,当前没有可用技法。
+UI_BATTLE_VIEW_0022,当前没有可选操作。
+UI_BATTLE_VIEW_0023,确认所选操作
+UI_BATTLE_VIEW_0024,移动焦点可查看详情。选择操作后，再确认执行。
+UI_BATTLE_VIEW_0025,此区域暂无牌。
+UI_BATTLE_VIEW_0026,%s · 副本 %s
+UI_BATTLE_VIEW_0027,完整度 %d / %d
+UI_BATTLE_VIEW_0028,%s · 当前不可用：%s
+UI_BATTLE_VIEW_0029,手牌为空。
+UI_BATTLE_VIEW_0030,牌墙
+UI_BATTLE_VIEW_0031,弃牌区 / 耗尽区
+UI_BATTLE_VIEW_0032,稳定度
+UI_BATTLE_VIEW_0033,恢复阶段
+UI_BATTLE_VIEW_0034,完整度
+UI_BATTLE_VIEW_0035,首领阶段
+UI_BATTLE_VIEW_0036,牌墙税
+UI_BATTLE_VIEW_0037,备牌完整度
+UI_BATTLE_VIEW_0038,污染
+UI_BATTLE_VIEW_0039,牌桌干扰
+UI_BATTLE_VIEW_0040,规则改写
+UI_BATTLE_VIEW_0041,核查
+UI_BATTLE_VIEW_0042,追猎
+UI_BATTLE_VIEW_0043,奖励税
+UI_PREFS_AMBIENT_GLOW,环境光晕
+UI_PREFS_APPLY_LANGUAGE,应用语言
+UI_PREFS_APPLY_SETTINGS,应用设置
+UI_PREFS_BRAND,禁忌牌桌  /  幽灯牌局
+UI_PREFS_CANCEL,返回 / 取消
+UI_PREFS_CLOSE,关闭
+UI_PREFS_FEEDBACK_SPEED,反馈速度
+UI_PREFS_HELP_BATTLE,摸牌以寻找合法牌型。结算牌型或完整和牌，并在结束回合前查看敌方意图。备牌可保护牌张免受敌方压力影响。
+UI_PREFS_HELP_INPUT,按 Tab / 肩键移动焦点，按方向键 / 十字键浏览选项。按 Enter / A 确认；按 Esc / B 返回。焦点与选择状态彼此独立。
+UI_PREFS_HELP_INTRO,组建牌池，然后在两个幕中选择路线、战斗、事件、商店与工坊。旅程状态以已接受的结果为准。
+UI_PREFS_HELP_LANGUAGE,语言只会改变显示文字。应用语言后，当前决策与已保存旅程均会保留。
+UI_PREFS_HELP_TITLE,帮助
+UI_PREFS_LANGUAGE,语言
+UI_PREFS_LANGUAGE_HINT,语言仅改变显示文字。当前旅程停留在同一决策点。
+UI_PREFS_LANGUAGE_INPUT_HINT,选择语言后应用。
+UI_PREFS_LOCALE_en,English
+UI_PREFS_LOCALE_zh_CN,简体中文
+UI_PREFS_MODE_FAST,快速
+UI_PREFS_MODE_HINT,所有模式均保留完整的结果文字。瞬时模式会跳过装饰性等待。
+UI_PREFS_MODE_INSTANT,瞬时
+UI_PREFS_MODE_NORMAL,普通
+UI_PREFS_PERSISTENCE_ERROR,无法保存偏好设置（%s）。本次游戏仍会使用你的选择。再次应用即可重试。
+UI_PREFS_REDUCED_MOTION,减少动态效果
+UI_PREFS_SCALE_125,125%%
+UI_PREFS_SCALE_150,150%%
+UI_PREFS_SCALE_DEFAULT,100%%
+UI_PREFS_TAB_HELP,帮助
+UI_PREFS_TAB_SETTINGS,设置
+UI_PREFS_TITLE,帮助 / 设置
+UI_PREFS_TUTORIAL_DISABLED,关闭教程
+UI_PREFS_TUTORIAL_ENABLED,启用教程
+UI_PREFS_TUTORIAL_RESET,重置教程
+UI_PREFS_TUTORIAL_RESET_PENDING,应用这些设置后，教程将从头开始。
+UI_PREFS_TUTORIAL_TITLE,教程
+UI_PREFS_UI_SCALE,界面大小
+UI_RUN_JOURNEY_0001,请入座
+UI_RUN_JOURNEY_0002,签订契约
+UI_RUN_JOURNEY_0003,第 %d 幕 · 选择路线
+UI_RUN_JOURNEY_0004,选择奖励
+UI_RUN_JOURNEY_0005,商店 · 比较后再购买
+UI_RUN_JOURNEY_0006,工坊 · 选择服务
+UI_RUN_JOURNEY_0007,旅程总结
+UI_RUN_JOURNEY_0008,已选择
+UI_RUN_JOURNEY_0009,可选择
+UI_RUN_JOURNEY_0010,当前
+UI_RUN_JOURNEY_0011,已到访
+UI_RUN_JOURNEY_0012,未揭晓
+UI_RUN_JOURNEY_0013,选择一个选项查看详情。
+UI_RUN_JOURNEY_0014,返回 / 取消
+UI_RUN_JOURNEY_0015,取消
+UI_RUN_JOURNEY_0016,确认购买
+UI_RUN_JOURNEY_0017,确认工坊修改
+UI_RUN_JOURNEY_0018,要放弃这段已保存的旅程吗？
+UI_RUN_JOURNEY_0019,开始新旅程
+UI_RUN_JOURNEY_0020,当前没有可用选项。
+UI_RUN_JOURNEY_0021,此档案尚未解锁。达成第二幕普通结局后即可解锁。
+UI_RUN_JOURNEY_0022,不可用
+UI_RUN_JOURNEY_0023,Tab / 肩键：切换焦点 · Enter / A：确认 · Esc / B：返回
+UI_RUN_JOURNEY_0024,已售出
+UI_RUN_JOURNEY_0025,金币不足：需要 %d，当前 %d。
+UI_RUN_JOURNEY_0026,旅程详情
+UI_RUN_JOURNEY_0027,当前没有可用选项。
+UI_RUN_JOURNEY_0031,已揭晓，当前不可前往
+UI_RUN_JOURNEY_0032,剩余刷新次数：%d
+UI_RUN_JOURNEY_0033,先选择服务，再选择牌面和合法结果。确认前请核对具体变化与费用。
+UI_RUN_JOURNEY_0034,开始新的旅程？
+UI_RUN_JOURNEY_0035,新的旅程将从头开始，无法继续当前旅程。
+UI_RUN_JOURNEY_0036,保留当前旅程
+UI_RUN_JOURNEY_0037,确认选择
+UI_RUN_JOURNEY_0038,预览购买
+UI_RUN_JOURNEY_0039,预览工坊修改
+UI_RUN_JOURNEY_MAP_NODE_LABEL,%s\n%s
+UI_BATTLE_VIEW_0044,耗尽区
+UI_BATTLE_VIEW_0045,%s ↔ %s
+UI_BATTLE_VIEW_0046,完整和牌已结算。
+UI_BATTLE_VIEW_0047,胜利！
+UI_RUN_JOURNEY_RESOURCES,金币 %d · 精炼 %d · %s · %s
+UI_BATTLE_VIEW_0048,意图 · %s · %s
+UI_BATTLE_VIEW_0049,抽牌上限减少 · 最多 %d
+UI_BATTLE_VIEW_0050,备牌完整度受损 · 最多 %d
+UI_BATTLE_VIEW_0051,备牌完整度受损 · 最多 %d
+UI_BATTLE_VIEW_0052,牌墙加入杂牌 · %d
+UI_BATTLE_VIEW_0053,稳定度降低 · 最多 %d
+UI_BATTLE_VIEW_0054,技法点降低 · 最多 %d
+UI_BATTLE_VIEW_0055,疲劳增加 · %d
+UI_BATTLE_VIEW_0056,奖励税 · %d
+UI_PREFS_HELP_TILE_MARKS,紧凑牌面底部会显示当前完整度数值、污染标记“！”，以及至少一项修饰“+”。移动焦点或选中牌面可查看完整详情；详情文字会随界面缩放。
+UI_RUN_RECOVERY_DETAILS_SHOW,显示技术详情
+UI_RUN_RECOVERY_DETAILS_HIDE,隐藏技术详情
+UI_RUN_RECOVERY_DETAILS_BODY,"存档：%s
+恢复副本：%s
+旅程：%s
+存档边界：%s
+错误代码：%s"
+UI_RUN_RECOVERY_READY,已保存的旅程可以继续。继续会恢复存档状态；新旅程会替换这份续玩存档。
+UI_RUN_RECOVERY_PRESERVED,无法载入已保存的旅程。原始存档未被修改，并已保留恢复副本。只有在决定放弃这份存档时，才选择新旅程。
+UI_RUN_RECOVERY_MANUAL_COPY,已保存的旅程需要处理。恢复未能完成。请保留原始文件，并在重新开始前手动备份。技术详情中列出了文件路径和错误。
+UI_RUN_RECOVERY_INTERRUPTED_PRESERVED,续玩存档的写入被中断。未载入任何旧存档。原始恢复文件未被修改，并已保留副本。只有在决定放弃这份存档时，才选择新旅程。
+UI_RUN_RECOVERY_INTERRUPTED_MANUAL_COPY,续玩存档的写入被中断。未载入任何旧存档。恢复副本未能完整保存。请保留原始文件，并在重新开始前手动备份。技术详情中列出了文件路径和错误。
+UI_PROFILE_RECOVERY_PRESERVED,无法载入进度档案。原始档案已保留。请在重置档案前查看详情。
+UI_PROFILE_RECOVERY_UNPRESERVED,未能创建档案恢复副本，暂时无法重置。请保留原始档案，并展开详情查看恢复步骤。
+UI_PROFILE_RESET_PRESERVED,进度档案已重置。可在详情中查看旧档案的恢复副本。
+UI_PROFILE_RESET_FAILED,无法重置进度档案。请查看详情并解决存档错误后重试。
+UI_PROFILE_RECOVERY_DETAILS_BODY,"进度档案：%s
+恢复副本：%s
+错误代码：%s"
+UI_PROFILE_MANUAL_RECOVERY_STEPS,重置需要已验证的恢复副本。请保留原始档案，解决文件访问或存储错误后重启，以重试创建副本。若要改为使用全新档案，请先手动备份上方列出的档案，再将原始文件移至其他位置，然后重启。

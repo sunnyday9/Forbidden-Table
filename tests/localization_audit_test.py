@@ -10,13 +10,17 @@ import validate_localization as VALIDATOR
 
 
 class LocalizationAuditTest(unittest.TestCase):
-    def _project(self, source: str, catalog: str) -> Path:
+    def _project(self, source: str, catalog: str, locale_catalog: str | None = None) -> Path:
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         (root / "localization").mkdir()
         (root / "scenes").mkdir()
         (root / "localization" / "en.csv").write_text(catalog, encoding="utf-8")
+        if locale_catalog is None:
+            rows = [line for line in catalog.splitlines() if line.strip()]
+            locale_catalog = "keys,zh_CN\n" + "\n".join(rows[1:]) + "\n"
+        (root / "localization" / "zh_CN.csv").write_text(locale_catalog, encoding="utf-8")
         (root / "scenes" / "player_text.gd").write_text(source, encoding="utf-8")
         return root
 
@@ -31,6 +35,73 @@ class LocalizationAuditTest(unittest.TestCase):
         self.assertTrue(report.passed, report.render())
         self.assertEqual(report.coverage, (2, 2))
         self.assertEqual(report.unresolved, [])
+
+    def test_canonical_text_calls_count_as_stable_localization_references(self):
+        root = self._project(
+            'LocalizationCatalogScript.canonical_text("CONTENT_LABEL")\n',
+            'keys,en\nCONTENT_LABEL,Canonical label\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertTrue(report.passed, report.render())
+        self.assertEqual(report.coverage, (1, 1))
+        self.assertEqual(report.unresolved, [])
+
+    def test_cached_recovery_message_parts_validate_keys_and_placeholders(self):
+        root = self._project(
+            '_localized_message_part("UI_READY")\n_localized_message_part("UI_ERROR", [code])\n',
+            'keys,en\nUI_READY,Ready\nUI_ERROR,"Failed (%s)"\n',
+        )
+        report = VALIDATOR.audit(root)
+        self.assertTrue(report.passed, report.render())
+        self.assertEqual(report.coverage, (2, 2))
+
+    def test_cached_recovery_message_parts_reject_missing_key_and_wrong_arity(self):
+        root = self._project(
+            '_localized_message_part("UI_MISSING")\n_localized_message_part("UI_ERROR")\n',
+            'keys,en\nUI_ERROR,"Failed (%s)"\n',
+        )
+        report = VALIDATOR.audit(root)
+        self.assertFalse(report.passed)
+        self.assertIn("missing key UI_MISSING", " ".join(report.unresolved))
+        self.assertIn("supplies 0 value(s)", " ".join(report.structural_errors))
+
+    def test_missing_chinese_translation_fails_locale_audit(self):
+        root = self._project(
+            'Localization.text("UI_START")\n',
+            'keys,en\nUI_START,Start Run\nUI_HELP,Help\n',
+            'keys,zh_CN\nUI_START,开始旅程\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertFalse(report.passed)
+        self.assertIn("missing Chinese translation for UI_HELP", " ".join(report.structural_errors))
+
+    def test_orphan_chinese_key_fails_locale_audit(self):
+        root = self._project(
+            'Localization.text("UI_START")\n',
+            'keys,en\nUI_START,Start Run\n',
+            'keys,zh_CN\nUI_START,开始旅程\nUI_EXTRA,额外\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertFalse(report.passed)
+        self.assertIn("orphan Chinese key UI_EXTRA", " ".join(report.structural_errors))
+
+    def test_chinese_format_placeholders_must_match_english(self):
+        root = self._project(
+            'Localization.format("UI_COUNT", [count])\n',
+            'keys,en\nUI_COUNT,"You have %d choices"\n',
+            'keys,zh_CN\nUI_COUNT,"你有 %s 个选项"\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertFalse(report.passed)
+        self.assertIn("placeholder tokens differ from English", " ".join(report.structural_errors))
 
     def test_missing_key_fails_extraction_validation(self):
         root = self._project(

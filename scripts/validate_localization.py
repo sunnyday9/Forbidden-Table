@@ -13,8 +13,10 @@ from pathlib import Path
 
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
 FORMAT_RE = re.compile(r"%(?:[0-9]+\$)?([sdif])")
+FORMAT_TOKEN_RE = re.compile(r"%(?:[0-9]+\$)?[sdif]|%%")
 LITERAL_PERCENT_RE = re.compile(r"%%")
-CALL_RE = re.compile(r'Localization(?:CatalogScript)?\.(text|format|template)\s*\(\s*"([^"]+)"')
+CALL_RE = re.compile(r'Localization(?:CatalogScript)?\.(text|format|template|canonical_text)\s*\(\s*"([^"]+)"')
+MESSAGE_PART_CALL_RE = re.compile(r'(?<![A-Za-z0-9_])_localized_message_part\s*\(\s*"([^"]+)"')
 SCENE_KEY_RE = re.compile(r'^\s*text\s*=\s*"([A-Za-z][A-Za-z0-9_.-]*)"\s*$', re.MULTILINE)
 DIRECT_UI_TEXT_CALL_RE = re.compile(r'_(?:add_section_heading|set_wrapped_label_text)\([^,]+,\s*"([^"]*)"')
 DIRECT_UI_TEXT_ASSIGNMENT_RE = re.compile(r'\.(?:text|tooltip_text|placeholder_text)\s*=\s*"([^"]+)"')
@@ -36,6 +38,7 @@ class Report:
     keys: dict[str, str]
     unresolved: list[str]
     structural_errors: list[str]
+    locale_keys: dict[str, str]
 
     @property
     def coverage(self) -> tuple[int, int]:
@@ -49,12 +52,14 @@ class Report:
     def render(self) -> str:
         covered, total = self.coverage
         percentage = 100 if total == 0 else round(covered * 100 / total)
-        literal_keys = {reference.key for reference in self.references if reference.kind in {"text", "format", "template", "scene"}}
+        literal_keys = {reference.key for reference in self.references if reference.kind in {"text", "format", "template", "canonical_text", "message_part", "scene"}}
         content_ids = {reference.key for reference in self.references if reference.kind == "content_id"}
         dynamic_words = {reference.key for reference in self.references if reference.kind == "dynamic_word"}
         lines = [f"Localization source extraction: {covered}/{total} stable keys ({percentage}%)"]
         lines.append(f"Literal UI/content keys: {len(literal_keys)}; dynamic content-ID labels: {len(content_ids)}; dynamic word labels: {len(dynamic_words)}")
         lines.append(f"English source entries: {len(self.keys)}; unresolved items: {len(self.unresolved)}")
+        locale_errors = sum("zh_CN.csv" in item for item in self.structural_errors)
+        lines.append(f"Simplified Chinese entries: {len(self.locale_keys)}; locale audit errors: {locale_errors}")
         lines.extend(f"UNRESOLVED: {item}" for item in self.unresolved)
         lines.extend(f"INVALID: {item}" for item in self.structural_errors)
         return "\n".join(lines)
@@ -158,7 +163,7 @@ def _template_argument_count(source: str, close_paren: int) -> int:
 
 
 def _call_argument_count(source: str, call_start: int, call_kind: str) -> int:
-    if call_kind == "text":
+    if call_kind in {"text", "canonical_text"}:
         return 0
     call_info = _matching_call(source, call_start)
     if call_info is None:
@@ -166,6 +171,8 @@ def _call_argument_count(source: str, call_start: int, call_kind: str) -> int:
     close_paren, arguments = call_info
     if call_kind == "template":
         return _template_argument_count(source, close_paren)
+    if call_kind == "message_part" and len(arguments) == 1:
+        return 0
     if len(arguments) < 2 or not arguments[1].startswith("[") or not arguments[1].endswith("]"):
         return -1
     values = arguments[1][1:-1].strip()
@@ -187,6 +194,30 @@ def _parse_catalog(path: Path) -> tuple[dict[str, str], list[str]]:
                     errors.append(f"{path}:{row_number}: invalid stable key {key!r}")
                 if not value.strip():
                     errors.append(f"{path}:{row_number}: English source text for {key!r} is empty")
+                if key in entries:
+                    errors.append(f"{path}:{row_number}: duplicate key {key!r}")
+                else:
+                    entries[key] = value
+    except (OSError, csv.Error) as error:
+        return {}, [f"{path}: {error}"]
+    return entries, errors
+
+
+def _parse_locale_catalog(path: Path, locale_column: str) -> tuple[dict[str, str], list[str]]:
+    entries: dict[str, str] = {}
+    errors: list[str] = []
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as source:
+            reader = csv.DictReader(source)
+            if reader.fieldnames != ["keys", locale_column]:
+                return {}, [f"{path}: expected exactly the columns 'keys,{locale_column}'; got {reader.fieldnames!r}"]
+            for row_number, row in enumerate(reader, start=2):
+                key = (row.get("keys") or "").strip()
+                value = row.get(locale_column) or ""
+                if not KEY_RE.fullmatch(key):
+                    errors.append(f"{path}:{row_number}: invalid stable key {key!r}")
+                if not value.strip():
+                    errors.append(f"{path}:{row_number}: {locale_column} translation for {key!r} is empty")
                 if key in entries:
                     errors.append(f"{path}:{row_number}: duplicate key {key!r}")
                 else:
@@ -275,6 +306,22 @@ def audit(root: Path) -> Report:
     keys, structural_errors = _parse_catalog(catalog_path)
     for key, template in keys.items():
         _check_format_syntax(key, template, str(catalog_path.relative_to(root)), structural_errors)
+    chinese_path = root / "localization" / "zh_CN.csv"
+    chinese_keys, chinese_errors = _parse_locale_catalog(chinese_path, "zh_CN")
+    structural_errors.extend(chinese_errors)
+    missing_chinese = sorted(set(keys) - set(chinese_keys))
+    orphan_chinese = sorted(set(chinese_keys) - set(keys))
+    structural_errors.extend(f"{chinese_path.relative_to(root)}: missing Chinese translation for {key}" for key in missing_chinese)
+    structural_errors.extend(f"{chinese_path.relative_to(root)}: orphan Chinese key {key}" for key in orphan_chinese)
+    for key in sorted(set(keys).intersection(chinese_keys)):
+        source_tokens = FORMAT_TOKEN_RE.findall(keys[key])
+        translated_tokens = FORMAT_TOKEN_RE.findall(chinese_keys[key])
+        if source_tokens != translated_tokens:
+            structural_errors.append(
+                f"{chinese_path.relative_to(root)}: {key!r} placeholder tokens differ from English: "
+                f"{source_tokens!r} != {translated_tokens!r}"
+            )
+        _check_format_syntax(key, chinese_keys[key], str(chinese_path.relative_to(root)), structural_errors)
     references: list[Reference] = []
     unresolved: list[str] = []
     source_paths = sorted(
@@ -299,9 +346,10 @@ def audit(root: Path) -> Report:
             structural_errors.append(
                 f"{path.relative_to(root)}:{line_number}: player-facing feedback {match.group(1)!r} must resolve through a localization key"
             )
-        for match in CALL_RE.finditer(source):
-            kind, key = match.group(1), match.group(2)
-            argument_count = _call_argument_count(source, match.start(), kind)
+        calls = [(match.group(1), match.group(2), match.start()) for match in CALL_RE.finditer(source)]
+        calls.extend(("message_part", match.group(1), match.start()) for match in MESSAGE_PART_CALL_RE.finditer(source))
+        for kind, key, call_start in sorted(calls, key=lambda call: call[2]):
+            argument_count = _call_argument_count(source, call_start, kind)
             if argument_count < 0:
                 structural_errors.append(f"{path.relative_to(root)}: malformed Localization.{kind} call for {key!r}")
                 continue
@@ -336,7 +384,7 @@ def audit(root: Path) -> Report:
                 unresolved.append(f"{path.relative_to(root)}: missing key {key}")
             else:
                 _check_format(key, keys[key], 0, str(path.relative_to(root)), structural_errors)
-    return Report(references, keys, unresolved, structural_errors)
+    return Report(references, keys, unresolved, structural_errors, chinese_keys)
 
 
 def main(argv: list[str] | None = None) -> int:

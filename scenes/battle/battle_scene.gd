@@ -2,19 +2,68 @@ extends Control
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 const BattleControllerScript = preload("res://src/presentation/battle/battle_controller.gd")
+const BattleViewScript = preload("res://src/presentation/ui/battle_view.gd")
 const DrawCommandScript = preload("res://src/domain/commands/draw_command.gd")
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 
 var controller
+var battle_view: BattleView
+var _run_controller
+var _run_action_label: Callable
+var _run_tooltip: Callable
+var _run_details: Callable
 var _selected_instance_ids: Array[String] = []
 var _command_sequence := 0
 
-func _init() -> void:
-	controller = BattleControllerScript.new()
+
+func configure_run(run_controller, action_label: Callable, tooltip: Callable, details: Callable) -> void:
+	_run_controller = run_controller
+	_run_action_label = action_label
+	_run_tooltip = tooltip
+	_run_details = details
+	if is_inside_tree():
+		_show_run_battle()
 
 func _ready() -> void:
+	if _run_controller != null:
+		_show_run_battle()
+		return
+	controller = BattleControllerScript.new()
 	controller.presentation_changed.connect(_render)
 	_render()
+
+
+func _show_run_battle() -> void:
+	var mount := get_node_or_null("RunBattleMount") as Control
+	if mount == null:
+		return
+	for child in get_children():
+		if child is Control and child != mount:
+			child.visible = false
+	mount.visible = true
+	if battle_view == null:
+		battle_view = BattleViewScript.new()
+		battle_view.name = "BattleView"
+		battle_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		battle_view.action_requested.connect(_on_run_action_requested)
+		mount.add_child(battle_view)
+	battle_view.configure(_run_controller, _run_action_label, _run_tooltip, _run_details)
+	if _run_controller is Object and _run_controller.has_signal("presentation_changed"):
+		if not _run_controller.presentation_changed.is_connected(_render_run_battle):
+			_run_controller.presentation_changed.connect(_render_run_battle)
+	battle_view.render()
+
+
+func _on_run_action_requested(action_id: String) -> void:
+	if _run_controller != null and _run_controller.has_method("confirm"):
+		_run_controller.confirm(action_id)
+	else:
+		battle_view.render()
+
+
+func _render_run_battle() -> void:
+	if battle_view != null:
+		battle_view.render()
 
 func _on_draw_pressed() -> void:
 	_command_sequence += 1

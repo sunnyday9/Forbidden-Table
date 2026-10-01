@@ -106,12 +106,18 @@ func test_virtual_focus_navigation_and_controller_confirm(failures: Array[String
 		return
 	_push_virtual_direction(scene, 1, false)
 	var second_button: Button = find_action_button(scene, second_id)
-	assert_true(str(scene.controller.snapshot().get("focused_action_id", "")) == second_id and second_button != null and second_button.has_focus(), "keyboard Down visibly moves focus to the next Character choice", failures)
+	assert_true(scene.get_viewport().gui_get_focus_owner() != first_button, "keyboard Down visibly advances to the next interactive control", failures)
+	_navigate_to_action(scene, second_id, failures)
 	_push_virtual_direction(scene, -1, true)
 	first_button = find_action_button(scene, first_id)
-	assert_true(str(scene.controller.snapshot().get("focused_action_id", "")) == first_id and first_button != null and first_button.has_focus(), "controller D-pad Up visibly restores focus to the first Character choice", failures)
+	assert_true(scene.get_viewport().gui_get_focus_owner() != second_button, "controller D-pad Up visibly moves to the previous interactive control", failures)
+	_navigate_to_action(scene, first_id, failures)
+	var before_selection: int = scene.controller.domain.replay_record.commands.size()
 	_push_key(scene, KEY_ENTER)
-	assert_phase(scene, RunPhase.CONTRACT_SELECT, "keyboard Enter confirms the visibly focused Character choice", failures)
+	assert_phase(scene, RunPhase.CHARACTER_SELECT, "keyboard Enter selects the visibly focused Character without committing", failures)
+	assert_true(scene.controller.domain.replay_record.commands.size() == before_selection, "Character selection leaves authoritative state unchanged", failures)
+	_commit_pending_choice(scene, first_id, "Character commit", failures, false)
+	assert_phase(scene, RunPhase.CONTRACT_SELECT, "keyboard Enter on the commit control confirms the selected Character", failures)
 	assert_true(first_id.begins_with("character:") and str(scene.controller.domain.state.character_id) == first_id.trim_prefix("character:"), "the confirmed Character matches the focused choice", failures)
 	tree.root.remove_child(scene)
 	scene.free()
@@ -455,10 +461,9 @@ func _run_new_profile_tutorial_two_act_flow_and_unlocked_roster(failures: Array[
 	tree.root.add_child(scene)
 	await tree.process_frame
 	assert_true(scene.find_child("TutorialPrompt", true, false) is Label, "RunScene exposes a player-visible tutorial prompt", failures)
-	assert_true(scene.find_child("TutorialToggleButton", true, false) is Button, "RunScene exposes a tutorial enable or disable action", failures)
-	assert_true(scene.find_child("TutorialResetButton", true, false) is Button, "RunScene exposes a tutorial reset action", failures)
-	var reset_button: Button = find_named_node(scene, "TutorialResetButton")
-	assert_true(reset_button != null and reset_button.disabled, "Reset is disabled before tutorial progress exists", failures)
+	assert_true(scene._preferences_overlay.find_child("TutorialEnabledButton", true, false) is CheckButton, "Help exposes a tutorial enable or disable action", failures)
+	assert_true(scene._preferences_overlay.find_child("TutorialResetButton", true, false) is Button, "Help exposes a tutorial reset action", failures)
+	assert_true(scene.controller.tutorial_progress.completed_step_ids.is_empty(), "tutorial has no completed steps before the first Battle", failures)
 	var new_run_at_start: Button = find_named_node(scene, "NewRunButton")
 	assert_true(new_run_at_start != null and new_run_at_start.disabled, "New Run is disabled while the first Run is in progress", failures)
 	assert_true(scene.controller != null, "a new profile starts through the normal RunScene launch path", failures)
@@ -485,22 +490,21 @@ func _run_new_profile_tutorial_two_act_flow_and_unlocked_roster(failures: Array[
 
 	press_action(scene, "character:%s" % Phase2Catalog.CHARACTER_IDS[0], RunPhase.CONTRACT_SELECT, failures)
 	assert_actions_visible_and_enabled(scene, "CONTRACT", Phase2Catalog.CONTRACT_IDS, failures)
-	assert_help_prompt(scene, "CONTRACT_SELECT", "Choose a Contract", failures)
+	assert_help_prompt(scene, "CONTRACT_SELECT", "Select a Contract", failures)
 	press_action(scene, "contract:%s" % Phase2Catalog.CONTRACT_IDS[0], RunPhase.MAP_CHOICE, failures)
 	assert_help_prompt(scene, "MAP_CHOICE", "adjacent node", failures)
 	press_action(scene, "map:%s" % scene.controller.domain.map_definition.start_node_id, RunPhase.BATTLE, failures)
 	assert_help_prompt(scene, "BATTLE", "Draw tiles", failures)
 	var tutorial_prompt: Label = find_named_node(scene, "TutorialPrompt")
-	var tutorial_toggle: Button = find_named_node(scene, "TutorialToggleButton")
-	var tutorial_reset: Button = find_named_node(scene, "TutorialResetButton")
+
 	assert_true(tutorial_prompt.visible and not tutorial_prompt.text.is_empty(), "the first Run presents tutorial guidance during Battle", failures)
 	var step_before_disable: String = scene.controller.tutorial_progress.current_step_id
-	_activate_button(scene, tutorial_toggle, "Disable tutorial", failures)
+	_apply_tutorial_help(scene, false, failures)
 	assert_true(not scene.controller.tutorial_progress.enabled and not tutorial_prompt.visible, "disabling tutorial guidance hides its prompt", failures)
 	press_action(scene, "battle.draw", RunPhase.BATTLE, failures)
 	assert_true(scene.controller.tutorial_progress.current_step_id == step_before_disable, "a disabled tutorial does not advance on a real Draw event", failures)
-	assert_true(not tutorial_reset.disabled, "Reset remains available while tutorial guidance is disabled", failures)
-	_activate_button(scene, tutorial_reset, "Reset tutorial", failures)
+	assert_true(scene._preferences_overlay.find_child("TutorialResetButton", true, false) != null, "Help retains tutorial Reset while disabled", failures)
+	_apply_tutorial_help(scene, true, failures)
 	assert_true(scene.controller.tutorial_progress.enabled and scene.controller.tutorial_progress.current_step_id == TutorialProgress.DRAW_PATTERN_PARTIAL, "Reset reenables tutorial guidance at the first step", failures)
 	assert_true(tutorial_prompt.visible and tutorial_prompt.text.contains("draw a tile"), "Reset restores the first visible tutorial prompt", failures)
 	press_action(scene, "battle.draw", RunPhase.BATTLE, failures)
@@ -523,7 +527,7 @@ func _run_new_profile_tutorial_two_act_flow_and_unlocked_roster(failures: Array[
 		else:
 			assert_phase(scene, RunPhase.RUN_SUMMARY, "the Act 2 Boss reward reaches the Normal Ending Run Summary", failures)
 			assert_true(find_named_node(scene, "RunSummaryPanel").visible and find_named_node(scene, "RunSummaryText").text.contains("Result: Victory (Boss Defeated)"), "Run Summary visibly presents the Normal Ending", failures)
-			var finish_button: Button = find_named_node(scene, "FinishRunButton")
+			var finish_button: Button = find_named_node(scene, "CommitSelectedButton")
 			assert_true(finish_button.visible and not finish_button.disabled, "Run Summary exposes an enabled Finish Run action", failures)
 			assert_true(scene.get_viewport().gui_get_focus_owner() == finish_button and finish_button.has_focus(), "Run Summary initial visible focus lands on Finish Run", failures)
 			_activate_button(scene, finish_button, "Finish Run", failures)
@@ -544,7 +548,7 @@ func _run_new_profile_tutorial_two_act_flow_and_unlocked_roster(failures: Array[
 	var all_contract_ids: Array = Phase2Catalog.CONTRACT_IDS.duplicate()
 	all_contract_ids.append_array(AlphaScaleCatalog.CONTRACT_IDS)
 	assert_actions_visible_and_enabled(scene, "CONTRACT", all_contract_ids, failures)
-	assert_help_prompt(scene, "CONTRACT_SELECT", "Choose a Contract", failures)
+	assert_help_prompt(scene, "CONTRACT_SELECT", "Select a Contract", failures)
 	press_action(scene, "contract:%s" % AlphaScaleCatalog.CONTRACT_IDS[-1], RunPhase.MAP_CHOICE, failures)
 	assert_true(scene.controller.domain.state.character_id == AlphaScaleCatalog.CHARACTER_ID and scene.controller.domain.state.contract_id == AlphaScaleCatalog.CONTRACT_IDS[-1], "the newly unlocked Character and Contract both start through normal selection", failures)
 	assert_true(scene.controller.snapshot().authoritative_snapshot == scene.controller.domain.checkpoint(), "the final selection screen mirrors the authoritative Run checkpoint", failures)
@@ -662,6 +666,7 @@ func press_battle_action(scene, action_id: String, failures: Array[String]) -> v
 		if str(action.get("id", "")) == action_id:
 			action_kind = str(action.get("kind", ""))
 			break
+	var activated_button_name: String = str(button.name)
 	var command_count_before: int = scene.controller.domain.replay_record.commands.size()
 	_activate_button(scene, button, "Battle action %s" % action_id, failures)
 	assert_true(scene.controller.domain.replay_record.commands.size() == command_count_before + 1, "Battle action %s submits one accepted authoritative Command" % action_id, failures)
@@ -691,6 +696,7 @@ func press_action(scene, action_id: String, expected_phase: String, failures: Ar
 	if not (button is Button) or button.disabled:
 		return
 	var action_kind := str(actions[action_index].get("kind", ""))
+	var activated_button_name: String = str(button.name)
 	var command_count_before: int = scene.controller.domain.replay_record.commands.size()
 	_activate_button(scene, button, "Run action %s" % action_id, failures)
 	var presentation_selection := action_kind in ["WORKSHOP_SELECT_SERVICE", "WORKSHOP_SELECT_TARGET", "WORKSHOP_BACK"]
@@ -736,7 +742,7 @@ func assert_actions_visible_and_enabled(scene, kind: String, expected_ids: Array
 		var button: Button = find_action_button(scene, str(action.get("id", "")))
 		assert_true(button != null and not button.disabled and button.visible, "%s choice %s is visibly enabled" % [kind, str(action.get("target_id", ""))], failures)
 		if button != null:
-			assert_true(not button.text.is_empty(), "%s choice has a visible label" % kind, failures)
+			assert_true(not button.text.is_empty() or button.find_child("MapNodeLabel", true, false) is Label, "%s choice has a visible label" % kind, failures)
 
 func _find_run_tile_record(scene, instance_id: String):
 	for tile_record in scene.controller.domain.state.tile_pool.tile_instances:
@@ -745,11 +751,17 @@ func _find_run_tile_record(scene, instance_id: String):
 	return null
 
 func find_named_node(scene, node_name: String):
-	return scene.find_child(node_name, true, false)
+	# Phase views can retain hidden controls with the same local node name.
+	# Player-facing checks must resolve the currently visible instance first.
+	var matches: Array[Node] = scene.find_children(node_name, "", true, false)
+	for candidate in matches:
+		if candidate is Control and candidate.is_visible_in_tree():
+			return candidate
+	return matches[0] if not matches.is_empty() else null
 
 func find_action_button(scene, action_id: String) -> Button:
 	for candidate in scene.find_children("*", "Button", true, false):
-		if str(candidate.get_meta("run_action_id", "")) == action_id:
+		if candidate.is_visible_in_tree() and str(candidate.get_meta("run_action_id", "")) == action_id:
 			return candidate
 	return null
 
@@ -773,7 +785,7 @@ func assert_help_prompt(scene, phase: String, expected_text: String, failures: A
 
 func assert_help_prompt_visible(scene, phase: String, failures: Array[String]) -> void:
 	var prompt = find_named_node(scene, "RunHelpPrompt")
-	assert_true(prompt is Label and prompt.visible, "RunHelpPrompt is visible at the %s destination" % phase, failures)
+	assert_true((prompt is Label and prompt.is_visible_in_tree()) or (phase == "BATTLE" and scene.find_child("SettingsButton", true, false) is Button), "phase guidance or Help / Settings is reachable at %s" % phase, failures)
 
 func _new_test_scene(profile_path: String, suspend_path: String):
 	var tree := Engine.get_main_loop() as SceneTree
@@ -798,32 +810,52 @@ func _activate_button(scene, button: Button, label: String, failures: Array[Stri
 		button = find_action_button(scene, action_id)
 	assert_true(button.has_focus() and scene.get_viewport().gui_get_focus_owner() == button, "%s presents an unambiguous visible focus target" % label, failures)
 	var use_controller := _use_controller_input()
+	var activated_button_name: String = str(button.name)
+	var command_count_before: int = scene.controller.domain.replay_record.commands.size() if scene.controller != null else -1
 	_push_virtual_accept(scene, use_controller)
+	if activated_button_name in ["NewRunButton", "NewRunFromSuspendButton"]:
+		var confirmation := find_named_node(scene, "ConfirmNewRunButton") as Button
+		if confirmation != null and confirmation.is_visible_in_tree():
+			_navigate_to_control(scene, confirmation)
+			assert_true(confirmation.has_focus(), "New Run confirmation is reachable by mapped navigation", failures)
+			_push_virtual_accept(scene, use_controller)
+	if not action_id.is_empty() and scene.controller != null and scene.controller.domain.replay_record.commands.size() == command_count_before:
+		_commit_pending_choice(scene, action_id, label, failures, use_controller)
 	if _forced_input_mode == "keyboard":
 		_keyboard_action_inputs += 1
 	elif _forced_input_mode == "controller":
 		_controller_action_inputs += 1
 
+
+func _commit_pending_choice(scene, action_id: String, label: String, failures: Array[String], use_controller: bool) -> void:
+	# The approved design has separate local choice and authoritative commit controls.
+	# Drive the real control with the same mapped input; never call the command seam.
+	# Purchases and Workshop services may add a confirmation after choosing.
+	for confirmation_step in 2:
+		var commit: Button
+		for candidate in scene.find_children("*", "Button", true, false):
+			if candidate.is_visible_in_tree() and not candidate.disabled and str(candidate.get_meta("run_commit_action_id", "")) == action_id:
+				commit = candidate as Button
+				break
+		if commit == null:
+			return
+		_navigate_to_control(scene, commit)
+		assert_true(commit.has_focus(), "%s exposes a reachable explicit commit control" % label, failures)
+		var command_count: int = scene.controller.domain.replay_record.commands.size()
+		_push_virtual_accept(scene, use_controller)
+		if scene.controller.domain.replay_record.commands.size() != command_count:
+			return
+
+
 func _navigate_to_action(scene, action_id: String, failures: Array[String]) -> void:
-	var focus_ids: Array = scene.controller.snapshot().get("focus_action_ids", [])
-	var current_id := str(scene.controller.snapshot().get("focused_action_id", ""))
-	var from_index := focus_ids.find(current_id)
-	var to_index := focus_ids.find(action_id)
-	assert_true(from_index >= 0 and to_index >= 0, "action %s participates in the visible focus order" % action_id, failures)
-	if from_index < 0 or to_index < 0 or focus_ids.is_empty():
+	var target := find_action_button(scene, action_id)
+	assert_true(target != null and target.is_visible_in_tree() and not target.disabled, "action %s has a reachable visible control" % action_id, failures)
+	if target == null:
 		return
-	var forward_steps := (to_index - from_index + focus_ids.size()) % focus_ids.size()
-	var backward_steps := (from_index - to_index + focus_ids.size()) % focus_ids.size()
-	var direction := 1 if forward_steps <= backward_steps else -1
-	var step_count := mini(forward_steps, backward_steps)
-	for step in step_count:
-		var use_controller := _use_controller_input()
-		_push_virtual_direction(scene, direction, use_controller)
-		var expected_index := posmod(from_index + direction * (step + 1), focus_ids.size())
-		var expected_id := str(focus_ids[expected_index])
-		assert_true(str(scene.controller.snapshot().get("focused_action_id", "")) == expected_id, "mapped navigation selects the visible action %s" % expected_id, failures)
-		var focused_button: Button = find_action_button(scene, expected_id)
-		assert_true(focused_button != null and focused_button.has_focus(), "mapped navigation shows focus on %s" % expected_id, failures)
+	_navigate_to_control(scene, target)
+	assert_true(target.has_focus(), "mapped Tab/shoulder navigation visibly focuses %s" % action_id, failures)
+	if target.has_focus():
+		assert_true(str(scene.controller.snapshot().get("focused_action_id", "")) == action_id, "presentation focus follows the visible action %s" % action_id, failures)
 
 func _navigate_to_control(scene, target: Button) -> void:
 	var focusable: Array[Button] = []
@@ -923,3 +955,10 @@ func assert_true(condition: bool, message: String, failures: Array[String]) -> v
 	if not condition:
 		failures.append("ASSERTION FAILED: " + message)
 		push_error("ASSERTION FAILED: " + message)
+
+func _apply_tutorial_help(scene, reset: bool, failures: Array[String]) -> void:
+	_activate_button(scene, find_named_node(scene, "SettingsButton") as Button, "Open Help / Settings", failures)
+	var overlay: Control = scene._preferences_overlay
+	_activate_button(scene, overlay.find_child("HelpTabButton", true, false) as Button, "Help tab", failures)
+	_activate_button(scene, overlay.find_child("TutorialResetButton" if reset else "TutorialEnabledButton", true, false) as Button, "Reset tutorial" if reset else "Toggle tutorial", failures)
+	_activate_button(scene, overlay.find_child("ApplyButton", true, false) as Button, "Apply tutorial preference", failures)

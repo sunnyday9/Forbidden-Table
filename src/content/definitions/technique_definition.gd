@@ -53,8 +53,8 @@ func validate():
 static func reaction_trigger_label(trigger_id: String) -> String:
 	match trigger_id:
 		REACTION_ENEMY_CONTAMINATION_ADDED:
-			return LocalizationCatalogScript.text("CONTENT_TECHNIQUE_0005")
+			return LocalizationCatalogScript.canonical_text("CONTENT_TECHNIQUE_0005")
 		REACTION_ENEMY_STABILITY_LOST:
-			return LocalizationCatalogScript.text("CONTENT_TECHNIQUE_0006")
+			return LocalizationCatalogScript.canonical_text("CONTENT_TECHNIQUE_0006")
 		_:
-			return LocalizationCatalogScript.text("CONTENT_TECHNIQUE_0007")
+			return LocalizationCatalogScript.canonical_text("CONTENT_TECHNIQUE_0007")

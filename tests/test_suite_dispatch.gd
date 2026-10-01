@@ -12,6 +12,7 @@ const SUITES := [
 	{"id": "stage4-localization", "flag": "--stage4-localization", "default": true},
 	{"id": "stage4-onboarding-flow", "flag": "--stage4-onboarding-flow", "default": false},
 	{"id": "stage4-accessibility", "flag": "--stage4-accessibility", "default": true},
+	{"id": "stage45-ui", "flag": "--stage45-ui", "default": true},
 ]
 
 static func select_suite_ids(test_arguments: PackedStringArray, focused_test_requested: bool) -> Array[String]:

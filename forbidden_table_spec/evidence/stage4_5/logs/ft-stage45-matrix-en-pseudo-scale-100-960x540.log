@@ -1,0 +1,44 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.
+     at: set_use_vsync (platform/linuxbsd/x11/gl_manager_x11.cpp:372)
+OpenGL API 4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.2 - Compatibility - Using Device: Mesa - llvmpipe (LLVM 20.1.2, 256 bits)
+
+STAGE45_VISUAL_CAPTURE state=character_select image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/character_select.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=character_selected image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/character_selected.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=contract_select image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/contract_select.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=map_choice_act_1 image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/map_choice_act_1.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_tutorial_on image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_tutorial_on.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=language_settings image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/language_settings.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=tutorial_help image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/tutorial_help.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_tutorial_disabled image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_tutorial_disabled.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_tutorial_reset image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_tutorial_reset.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=reward_choice image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/reward_choice.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=map_choice_act_2 image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/map_choice_act_2.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=run_summary image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/run_summary.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=run_complete image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/run_complete.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=event_choice image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/event_choice.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=elite_reward image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/elite_reward.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=boss_reward image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/boss_reward.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=shop_unaffordable image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/shop_unaffordable.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=shop image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/shop.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=shop_confirmation image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/shop_confirmation.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=workshop_service_choices image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/workshop_service_choices.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=workshop_target_choice image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/workshop_target_choice.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=workshop_value_choice image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/workshop_value_choice.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=workshop_confirmation image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/workshop_confirmation.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_drawn_hand image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_drawn_hand.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_pattern_selected image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_pattern_selected.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_tile_detail image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_tile_detail.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_complete_hand_selected image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_complete_hand_selected.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=battle_recovery image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/battle_recovery.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=run_summary_defeat image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/run_summary_defeat.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=suspend_resume_choice image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/suspend_resume_choice.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=new_run_confirmation image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/new_run_confirmation.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=resumed_map image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/resumed_map.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=save_recovery_error image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/save_recovery_error.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=save_recovery_details image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/save_recovery_details.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=profile_recovery image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/profile_recovery.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=profile_recovery_details image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/profile_recovery_details.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=profile_reset_result image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/profile_reset_result.png layout_failures=0
+STAGE45_VISUAL_CAPTURE state=profile_manual_recovery image=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540/profile_manual_recovery.png layout_failures=0
+STAGE45_VISUAL_PROBE directory=/tmp/forbidden-table-stage45-validation/forbidden_table_spec/evidence/stage4_5/en-pseudo-scale-100-960x540 captures=38 layout_failures=0 flow_failures=0

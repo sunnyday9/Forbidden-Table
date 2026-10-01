@@ -167,7 +167,7 @@ func run() -> Array[String]:
 		assert_true(not label.begins_with("[MISSING"), "dynamic word %s resolves through %s" % [word, key], failures)
 
 	var status := "PASS" if failures.is_empty() else "FAIL"
-	print("STAGE4_LOCALIZATION_RUNTIME_REPORT content_ids=%d dynamic_words=%d english_only=true final=%s" % [content_count, unique_words.size(), status])
+	print("STAGE4_LOCALIZATION_RUNTIME_REPORT content_ids=%d dynamic_words=%d source_locale=en supported_locales=en/zh_CN final=%s" % [content_count, unique_words.size(), status])
 	return failures
 
 func _append_word_values(value: Variant, output: Array[String]) -> void:

@@ -57,6 +57,11 @@ var save_coordinator
 var _command_sequence := 0
 var _selected_workshop_service_id := ""
 var _selected_workshop_instance_id := ""
+var _last_feedback_events: Array = []
+var _last_localized_event_feedback := ""
+var _event_feedback_is_current := false
+var _localized_feedback_key := ""
+var _localized_feedback_args: Array = []
 
 func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_coordinator = null, initial_suspend_store = null) -> void:
 	assert(run_domain is RunDomainScript)
@@ -81,35 +86,41 @@ func submit(command):
 	var unlock_result: Dictionary = {}
 	if result != null and result.accepted and meta_progress_coordinator != null:
 		unlock_result = meta_progress_coordinator.observe_run_state(domain.state)
-	var suspend_feedback := ""
+	var suspend_feedback_key := ""
+	var suspend_feedback_args: Array = []
 	var stable_boundary := _suspend_boundary_for(command) if result != null and result.accepted else ""
 	if result != null and result.accepted and suspend_store != null and not stable_boundary.is_empty():
 		var save_result: Dictionary = save_coordinator.save(domain, stable_boundary)
 		if save_result.get("accepted", false):
 			var write_result: Dictionary = suspend_store.write_snapshot(save_result.snapshot)
 			if not write_result.get("accepted", false):
-				suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0001") % str(write_result.get("code", "SUSPEND_WRITE_FAILED"))
+				suspend_feedback_key = "UI_RUN_CONTROLLER_0001"
+				suspend_feedback_args = [str(write_result.get("code", "SUSPEND_WRITE_FAILED"))]
 			elif write_result.has("cleanup_warning"):
-				suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0002") % str(write_result.get("cleanup_warning", "SUSPEND_CLEANUP_FAILED"))
+				suspend_feedback_key = "UI_RUN_CONTROLLER_0002"
+				suspend_feedback_args = [str(write_result.get("cleanup_warning", "SUSPEND_CLEANUP_FAILED"))]
 			if write_result.get("accepted", false) and str(domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 				var progression_pending: bool = unlock_result.has("persisted") and not bool(unlock_result.get("persisted", false))
 				if progression_pending:
-					suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0003") % str(unlock_result.get("code", "META_PROGRESS_SAVE_FAILED"))
+					suspend_feedback_key = "UI_RUN_CONTROLLER_0003"
+					suspend_feedback_args = [str(unlock_result.get("code", "META_PROGRESS_SAVE_FAILED"))]
 				else:
 					var clear_result: Dictionary = suspend_store.clear()
 					if not clear_result.get("accepted", false):
-						suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0004") % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+						suspend_feedback_key = "UI_RUN_CONTROLLER_0004"
+						suspend_feedback_args = [str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))]
 		elif str(save_result.get("code", "")) not in ["UNSUPPORTED_CHECKPOINT", "UNSTABLE_CHECKPOINT"]:
-			suspend_feedback = LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0005") % str(save_result.get("code", "SUSPEND_SAVE_FAILED"))
+			suspend_feedback_key = "UI_RUN_CONTROLLER_0005"
+			suspend_feedback_args = [str(save_result.get("code", "SUSPEND_SAVE_FAILED"))]
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
-		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0006")
+		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0006"))
 		presentation_changed.emit()
 	elif unlock_result.has("code") and not unlock_result.get("persisted", false):
-		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0007")
+		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0007"))
 		presentation_changed.emit()
-	if not suspend_feedback.is_empty():
-		state.feedback = suspend_feedback
+	if not suspend_feedback_key.is_empty():
+		_set_formatted_feedback(suspend_feedback_key, suspend_feedback_args)
 		presentation_changed.emit()
 	return result
 
@@ -153,7 +164,7 @@ func confirm(command_or_action = null):
 		return submit(command_or_action)
 	var action_id: String = str(command_or_action) if command_or_action != null else state.focused_action_id()
 	if action_id.is_empty():
-		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0008")
+		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0008"))
 		presentation_changed.emit()
 		return _rejected_presentation_input(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0009"))
 	var action := _find_action(action_id)
@@ -175,7 +186,7 @@ func confirm(command_or_action = null):
 
 func cancel() -> bool:
 	state.clear_details()
-	state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0073")
+	_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0073"))
 	presentation_changed.emit()
 	return true
 
@@ -196,16 +207,26 @@ func details(action_id: String = "") -> Dictionary:
 			state.details_payload = action.duplicate(true)
 			presentation_changed.emit()
 			return state.details_payload.duplicate(true)
-	state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0013")
+	_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0013"))
 	presentation_changed.emit()
 	return {}
 
 func set_mode(mode: String) -> bool:
 	var accepted: bool = state.set_mode(mode)
 	if not accepted:
-		state.feedback = LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0014")
+		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0014"))
 	presentation_changed.emit()
 	return accepted
+
+func refresh_localized_presentation() -> void:
+	if not _localized_feedback_key.is_empty():
+		state.feedback = LocalizationCatalogScript.format(_localized_feedback_key, _localized_feedback_args)
+	elif _event_feedback_is_current and not _last_feedback_events.is_empty():
+		_last_localized_event_feedback = _feedback_for_events(_last_feedback_events)
+		state.feedback = _last_localized_event_feedback
+	else:
+		state.feedback = LocalizationCatalogScript.retranslate_exact_text(state.feedback)
+	_refresh([])
 
 func snapshot() -> Dictionary:
 	return state.to_dictionary()
@@ -228,7 +249,12 @@ func _refresh(events: Array) -> void:
 			state.last_domain_event_types.append(str(event.event_type))
 	state.set_focus_actions(_action_ids(), previous_focus)
 	if not events.is_empty():
-		state.feedback = _feedback_for_events(events)
+		_localized_feedback_key = ""
+		_localized_feedback_args.clear()
+		_last_feedback_events = events.duplicate()
+		_last_localized_event_feedback = _feedback_for_events(_last_feedback_events)
+		_event_feedback_is_current = true
+		state.feedback = _last_localized_event_feedback
 	presentation_changed.emit()
 
 func _action_descriptors() -> Array:
@@ -708,7 +734,7 @@ func _workshop_tile_instance(instance_id: String):
 	return null
 
 func _workshop_selection_result(message: String) -> Dictionary:
-	state.feedback = message
+	_set_feedback(message)
 	_refresh([])
 	return {"accepted": true, "status": "PRESENTATION_SELECTION", "events": []}
 
@@ -783,9 +809,21 @@ func _next_command_id(prefix: String) -> String:
 
 func _rejected_presentation_input(message: String):
 	var result = domain.execute(null)
-	state.feedback = message
+	_set_feedback(message)
 	_refresh([])
 	return result
+
+func _set_feedback(message: String) -> void:
+	state.feedback = message
+	_event_feedback_is_current = false
+	_localized_feedback_key = ""
+	_localized_feedback_args.clear()
+
+func _set_formatted_feedback(key: String, values: Array) -> void:
+	_localized_feedback_key = key
+	_localized_feedback_args = values.duplicate(true)
+	state.feedback = LocalizationCatalogScript.format(key, _localized_feedback_args)
+	_event_feedback_is_current = false
 
 func _feedback_for_events(events: Array) -> String:
 	var critical_feedback: Array[String] = []
@@ -847,7 +885,7 @@ func _feedback_for_events(events: Array) -> String:
 		DomainEventScript.RUN_SUMMARY_REACHED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0067")
 		DomainEventScript.CHARACTER_PASSIVE_TRIGGERED:
 			var passive = domain.content_registry.resolve(str(last_event.data.get("passive_id", "")))
-			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0068") % [str(passive.get("display_name")), str(passive.get("description"))] if passive != null else LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0069")
+			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0068") % [LocalizationCatalogScript.display_text(str(passive.get("display_name"))), LocalizationCatalogScript.display_text(str(passive.get("description")))] if passive != null else LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0069")
 		DomainEventScript.TILE_DISCARDED: return LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0070")
 		DomainEventScript.TECHNIQUE_USED:
 			return LocalizationCatalogScript.template("UI_RUN_CONTROLLER_0071") % _technique_label(str(last_event.data.get("technique_id", "")))
@@ -858,4 +896,4 @@ func _technique_label(technique_id: String) -> String:
 	return LocalizationCatalogScript.content_text(technique_id)
 
 func _reaction_trigger_label(trigger_id: String) -> String:
-	return TechniqueDefinitionScript.reaction_trigger_label(trigger_id) if not trigger_id.is_empty() else ""
+	return LocalizationCatalogScript.display_text(TechniqueDefinitionScript.reaction_trigger_label(trigger_id)) if not trigger_id.is_empty() else ""

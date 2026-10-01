@@ -1,10 +1,10 @@
 # Stage 4.5 UI/UX — design review package
 
-**Latest proposed revision: [V2.2 · English + 简体中文](v2/bilingual/README.md).** The artistic haunted-table direction and standard Chinese Mahjong faces now have 36 matching Chinese screens, bilingual language settings, localized animation feedback, and an English/Chinese review switch. Start with the [English gallery](v2/gallery.html), [Chinese gallery](v2/gallery-zh_CN.html), and [editable Chinese Figma page](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2044-2). [Bilingual MVP acceptance requirements](v2/bilingual/BILINGUAL_MVP.md) record the requested language scope and pending runtime gates. Approval is pending; runtime Chinese support is not implemented.
+**Approved design revision: [V2.2 · English + 简体中文](v2/bilingual/README.md).** The artistic haunted-table direction and standard Chinese Mahjong faces now have 36 matching Chinese screens, bilingual language settings, localized animation feedback, and an English/Chinese review switch. Start with the [English gallery](v2/gallery.html), [Chinese gallery](v2/gallery-zh_CN.html), and [editable Chinese Figma page](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2044-2). [Bilingual MVP acceptance requirements](v2/bilingual/BILINGUAL_MVP.md) record the requested language scope, runtime results and remaining review gates. The maintainer approved implementation on 2026-10-01. Runtime implementation and fresh verification are recorded in [the implementation record](../../STAGE_4_5_IMPLEMENTATION_RECORD.md); implemented-screen review remains pending.
 
 The V1 material below is retained for comparison and as the mechanical audit/input contract. Its visual direction has been revised in V2; it is not the current approval request.
 
-**2026-10-01 · Proposed · Awaiting maintainer review.** Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. This package is design and mockups only. No Godot UI, gameplay, Domain, persistence, content budget, or Stage 5 naming changes are authorized by this package.
+**Historical V1 design snapshot, before V2.2 implementation approval.** Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. This package is design and mockups only. No Godot UI, gameplay, Domain, persistence, content budget, or Stage 5 naming changes are authorized by this package.
 
 [Editable Figma review](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa) · [Local mockup gallery](gallery.html) · [Screen audit and journey](AUDIT_AND_FLOW.md) · [Visual system](VISUAL_SYSTEM.md) · [Interaction and verification plan](INTERACTION_AND_VALIDATION.md) · [Screen/state manifest](screen_manifest.json) · [Design checks](VALIDATION.md) · [Figma sync status](FIGMA_STATUS.md)
 
@@ -22,7 +22,7 @@ The central change is composition: replace the generic overview/actions columns 
 
 Review the complete journey and state captures in the gallery, especially Battle/Settlement, map knowledge visibility, Workshop target/result/commit, and the focus-versus-selection specimens. Values in new mockups are illustrative layout fixtures, not replay captures, balance proposals, or new content. Existing names and Contract tradeoffs come from current source. New explanatory copy is proposed wording for existing mechanics and must be reconciled with localization at implementation time.
 
-The only current supported/tested game viewport in Stage 4 evidence is 960×540 at the default scale. Enlarged-window/text specimens in this package are design targets, not claims of implemented support. The game has no current UI-scale selector. Normal/Fast/Instant exist in the presentation API; the proposed settings surface exposes them without changing rule resolution.
+At the design baseline, the only supported/tested game viewport in Stage 4 evidence is 960×540 at the default scale. Enlarged-window/text specimens in this package are design targets, not claims of implemented support. That baseline had no UI-scale selector; Stage 4.5 runtime evidence is recorded separately. Normal/Fast/Instant exist in the presentation API; the proposed settings surface exposes them without changing rule resolution.
 
 ## Branch provenance
 
@@ -33,6 +33,6 @@ The only current supported/tested game viewport in Stage 4 evidence is 960×540 
 
 ## Approval gate
 
-**Design approval is pending.** Requested decision: approve this visual direction and the versioned mockups, or identify screen/state changes for v2. Approval must name the accepted version and any exceptions before game UI implementation starts. Do not infer approval from file creation, automated layout checks, or screenshots. Record maintainer feedback on #98 when authorized; no issue write or closure is part of this session.
+**Historical V1 approval request (superseded by the V2.2 approval recorded above).** Requested decision: approve this visual direction and the versioned mockups, or identify screen/state changes for v2. Approval must name the accepted version and any exceptions before game UI implementation starts. Do not infer approval from file creation, automated layout checks, or screenshots. Record maintainer feedback on #98 when authorized; no issue write or closure is part of this session.
 
 After approval, implement only the approved presentation changes, then run the existing full and affected gates and capture the real Godot build. Stage 4.5 PASS and issue closure require a separate implemented-evidence review. Stage 5 remains **1.0 Release Candidate**.

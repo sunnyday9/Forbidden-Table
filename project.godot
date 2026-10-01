@@ -10,6 +10,10 @@ config/version="stage3-alpha-playable-1"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene="res://scenes/run/run_scene.tscn"
 
+[autoload]
+
+PresentationPrefs="*res://src/presentation/localization/presentation_preferences.gd"
+
 [display]
 
 window/size/viewport_width=960
@@ -18,7 +22,7 @@ window/size/viewport_height=540
 [internationalization]
 
 locale/fallback="en"
-locale/translations=PackedStringArray("res://localization/en.en.translation")
+locale/translations=PackedStringArray("res://localization/en.en.translation", "res://localization/zh_CN.zh_CN.translation")
 pseudolocalization/expansion_ratio=0.3
 pseudolocalization/skip_placeholders=true
 rendering/root_node_auto_translate=true

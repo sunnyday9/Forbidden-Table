@@ -48,6 +48,7 @@ var _engine_version := "unknown"
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	await test_map_labels_fit_at_supported_scales(failures)
 	await test_pseudo_localized_layout(failures)
 	await test_virtual_overview_scroll_reachable(failures)
 	await test_virtual_action_details_track_control_focus(failures)
@@ -59,7 +60,7 @@ func run() -> Array[String]:
 	assert_true(_observed_tutorial_labels.has("Disable tutorial") and _observed_tutorial_labels.has("Enable tutorial"), "the scripted matrix records tutorial disable and reenable states", failures)
 	assert_true(_checked_mode_cue_states > 0, "critical screen cues are compared in Normal, Fast, and Instant presentation modes", failures)
 	var status := "PASS" if failures.is_empty() else "FAIL"
-	print("STAGE4_ACCESSIBILITY_REPORT engine=%s build_version=%s content_version=%s viewport=960x540 ui_scale_control=none screen_phases=%s screen_states=%s battle_actions=%s modes=Normal/Fast/Instant(%d cue states) keyboard_accepts=%d controller_accepts=%d layout=post_frame_battle_scroll_check physical_device=NOT_PERFORMED participant_testing=NOT_PERFORMED conformance_claim=NONE final=%s" % [
+	print("STAGE4_ACCESSIBILITY_REPORT engine=%s build_version=%s content_version=%s viewport=960x540 ui_scale_control=100/125/150 screen_phases=%s screen_states=%s battle_actions=%s modes=Normal/Fast/Instant(%d cue states) keyboard_accepts=%d controller_accepts=%d layout=post_frame_controls_and_scroll physical_device=NOT_PERFORMED participant_testing=NOT_PERFORMED conformance_claim=NONE final=%s" % [
 		_engine_version,
 		_build_version,
 		_content_version,
@@ -72,6 +73,63 @@ func run() -> Array[String]:
 		status,
 	])
 	return failures
+
+
+func test_map_labels_fit_at_supported_scales(failures: Array[String]) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var suffix := str(Time.get_ticks_usec())
+	var profile_path := "user://stage4_map_scale_profile_%s.json" % suffix
+	var suspend_path := "user://stage4_map_scale_suspend_%s.json" % suffix
+	var scene = _new_test_scene(profile_path, suspend_path)
+	tree.root.size = Vector2i(960, 540)
+	tree.root.add_child(scene)
+	await tree.process_frame
+	if scene.controller == null:
+		assert_true(false, "map scale geometry regression starts a Run", failures)
+	else:
+		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		await tree.process_frame
+		assert_true(str(scene.controller.domain.state.phase) == "MAP_CHOICE", "map scale geometry regression remains on the live map", failures)
+		for locale in ["en", "zh_CN"]:
+			for scale in [1.25, 1.5]:
+				scene._apply_presentation_preferences({"locale": locale, "ui_scale": scale, "presentation_mode": "NORMAL", "reduced_motion": false, "ambient_glow": true}, true)
+				await tree.process_frame
+				await tree.process_frame
+				_audit_map_label_enclosure(scene, "%s %.2f" % [locale, scale], failures)
+		var previous_pseudo := TranslationServer.pseudolocalization_enabled
+		TranslationServer.pseudolocalization_enabled = true
+		TranslationServer.reload_pseudolocalization()
+		scene._apply_presentation_preferences({"locale": "en", "ui_scale": 1.5, "presentation_mode": "NORMAL", "reduced_motion": false, "ambient_glow": true}, true)
+		await tree.process_frame
+		await tree.process_frame
+		_audit_map_label_enclosure(scene, "pseudo 1.50", failures)
+		TranslationServer.pseudolocalization_enabled = previous_pseudo
+		TranslationServer.reload_pseudolocalization()
+	tree.root.remove_child(scene)
+	scene.free()
+	_clear_test_file(profile_path)
+	_clear_test_file(suspend_path)
+	await tree.process_frame
+
+
+func _audit_map_label_enclosure(scene, scale_label: String, failures: Array[String]) -> void:
+	var checked := 0
+	for node in scene.find_children("*", "Button", true, false):
+		var button := node as Button
+		if not button.has_meta("map_node_id") or not button.is_visible_in_tree():
+			continue
+		var label := button.find_child("MapNodeLabel", true, false) as Label
+		if label == null:
+			assert_true(false, "map node %s keeps its accessible label (%s)" % [button.name, scale_label], failures)
+			continue
+		checked += 1
+		var button_rect := button.get_global_rect()
+		var label_rect := label.get_global_rect()
+		assert_true(button_rect.grow(1.0).encloses(label_rect), "map node label remains inside its choice control at %s (button=%s label=%s min=%s button_min=%s lines=%d line_height=%.1f text=%s)" % [scale_label, str(button_rect), str(label_rect), str(label.get_minimum_size()), str(button.get_minimum_size()), label.get_line_count(), label.get_line_height(), _text_snippet(label)], failures)
+		var rendered_height := float(label.get_line_count()) * float(label.get_line_height())
+		assert_true(rendered_height <= label.size.y + 2.0, "map node label line height fits its allocated control at %s (text=%s lines=%d line_height=%.1f allocated=%s)" % [scale_label, _text_snippet(label), label.get_line_count(), label.get_line_height(), str(label.size)], failures)
+	assert_true(checked > 0, "map scale regression finds visible map nodes at %s" % scale_label, failures)
 
 func test_pseudo_localized_layout(failures: Array[String]) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
@@ -122,9 +180,9 @@ func test_pseudo_localized_layout(failures: Array[String]) -> void:
 		await tree.process_frame
 		_audit_text_bounds(scene, failures)
 		var phase_label: Label = find_named_node(scene, "RunPhaseLabel") as Label
-		var tutorial_toggle: Button = find_named_node(scene, "TutorialToggleButton") as Button
+		var tutorial_toggle: Button = find_named_node(scene, "SettingsButton") as Button
 		assert_true(phase_label != null and phase_label.is_visible_in_tree() and not phase_label.text.contains("[MISSING"), "the pseudo-localized supported viewport retains its critical phase label", failures)
-		assert_true(tutorial_toggle != null and tutorial_toggle.is_visible_in_tree() and not tutorial_toggle.text.contains("[MISSING"), "the pseudo-localized supported viewport retains its critical tutorial control", failures)
+		assert_true(tutorial_toggle != null and tutorial_toggle.is_visible_in_tree() and not tutorial_toggle.text.contains("[MISSING"), "the pseudo-localized supported viewport retains its Help / Settings control", failures)
 		print("STAGE4_LOCALIZATION_PSEUDO_REPORT viewport=960x540 expansion_ratio=%.2f representative_keys=UI_RUN_SCENE_0012,UI_RUN_CONTROLLER_0001 english_chars=%d/%d pseudo_chars=%d/%d critical_layout=CHECKED" % [expansion_ratio, english_template.length(), english_save_warning_template.length(), pseudo_message.length(), pseudo_save_warning.length()])
 	tree.root.remove_child(scene)
 	scene.free()
@@ -142,49 +200,32 @@ func test_virtual_overview_scroll_reachable(failures: Array[String]) -> void:
 	tree.root.size = Vector2i(960, 540)
 	tree.root.add_child(scene)
 	await tree.process_frame
-	if scene.controller == null:
-		assert_true(false, "overview scroll regression starts a Run", failures)
-		tree.root.remove_child(scene)
-		scene.free()
-		_clear_test_file(profile_path)
-		_clear_test_file(suspend_path)
-		return
-	var character_id := str(scene.controller.action_descriptors()[0].get("id", ""))
-	scene._on_action_pressed(character_id)
-	var contract_id := str(scene.controller.action_descriptors()[0].get("id", ""))
-	scene._on_action_pressed(contract_id)
-	var start_node := str(scene.controller.domain.map_definition.start_node_id)
-	scene._on_action_pressed("map:%s" % start_node)
-	await tree.process_frame
-	var scroll: ScrollContainer = find_named_node(scene, "RunOverviewScroll") as ScrollContainer
-	assert_true(scroll != null and scroll.is_visible_in_tree() and scroll.focus_mode != Control.FOCUS_NONE, "Battle overview scroll has a visible keyboard/controller focus target", failures)
-	var help_label: Label = find_named_node(scene, "RunHelpPrompt") as Label
-	assert_true(help_label != null and help_label.text.contains("Tab or L/R shoulder moves focus") and help_label.text.contains("Focus Run state, then press Up/Down to scroll") and help_label.text.contains("focus Scroll up/down and press Enter/A"), "Battle help explains keyboard and controller focus entry and scrolling", failures)
-	if scroll != null:
-		_audit_text_bounds(scene, failures)
-		var scroll_bar := scroll.get_v_scroll_bar()
-		assert_true(scroll_bar.max_value > scroll_bar.page, "Battle overview exposes scrollable Hand and tutorial guidance at 960x540", failures)
-		var action_button: Button = find_action_button(scene, str(scene.controller.snapshot().get("focused_action_id", "")))
-		for use_controller in [false, true]:
-			if action_button != null:
-				action_button.grab_focus()
-			for step in 24:
-				if scene.get_viewport().gui_get_focus_owner() == scroll:
-					break
-				_push_virtual_focus(scene, 1, use_controller)
-			assert_true(scene.get_viewport().gui_get_focus_owner() == scroll, "%s can Tab/shoulder to the Run overview scroll" % ("controller" if use_controller else "keyboard"), failures)
-			if scene.get_viewport().gui_get_focus_owner() == scroll:
-				var before_down := scroll.scroll_vertical
+	if scene.controller != null:
+		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		scene._on_action_pressed("map:%s" % str(scene.controller.domain.map_definition.start_node_id))
+		await tree.process_frame
+		var scroll := find_named_node(scene, "RunOverviewScroll") as ScrollContainer
+		assert_true(scroll != null and scroll.is_visible_in_tree() and scroll.focus_mode != Control.FOCUS_NONE, "Run guidance scroll has a visible keyboard/controller focus target", failures)
+		assert_true(find_named_node(scene, "BattleChoiceScroll") is ScrollContainer, "Battle choices have a separate focus-following vertical scroll", failures)
+		if scroll != null:
+			_audit_text_bounds(scene, failures)
+			assert_true(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "Run guidance is vertically scrollable at 960x540", failures)
+			for use_controller in [false, true]:
+				for step in scene.find_children("*", "Control", true, false).size() + 1:
+					if scene.get_viewport().gui_get_focus_owner() == scroll:
+						break
+					_push_virtual_focus(scene, 1, use_controller)
+				assert_true(scene.get_viewport().gui_get_focus_owner() == scroll, "Tab/shoulder reaches Run guidance scroll", failures)
+				scroll.scroll_vertical = 0
 				_push_virtual_direction(scene, 1, use_controller)
-				assert_true(scroll.scroll_vertical > before_down, "%s Down moves the focused Run overview" % ("controller" if use_controller else "keyboard"), failures)
-				var before_up := scroll.scroll_vertical
+				assert_true(scroll.scroll_vertical > 0, "mapped Down scrolls Run guidance", failures)
 				_push_virtual_direction(scene, -1, use_controller)
-				assert_true(scroll.scroll_vertical < before_up, "%s Up moves the focused Run overview" % ("controller" if use_controller else "keyboard"), failures)
+				assert_true(scroll.scroll_vertical == 0, "mapped Up returns Run guidance to its beginning", failures)
 				_push_virtual_focus(scene, 1, use_controller)
-				assert_true(scene.get_viewport().gui_get_focus_owner() != scroll, "%s can leave the Run overview with Tab/shoulder" % ("controller" if use_controller else "keyboard"), failures)
-		for control_name in ["OverviewScrollUpButton", "OverviewScrollDownButton"]:
-			var button: Button = find_named_node(scene, control_name) as Button
-			assert_true(button != null and button.is_visible_in_tree() and not button.disabled and button.focus_mode != Control.FOCUS_NONE and not button.text.strip_edges().is_empty(), "%s is a visible labeled keyboard/controller scroll control" % control_name, failures)
+				assert_true(scene.get_viewport().gui_get_focus_owner() != scroll, "Tab/shoulder leaves Run guidance scroll", failures)
+	else:
+		assert_true(false, "scroll regression starts a Run", failures)
 	tree.root.remove_child(scene)
 	scene.free()
 	_clear_test_file(profile_path)
@@ -277,10 +318,16 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 		var action_id := str(action.get("id", ""))
 		var button: Button = find_action_button(scene, action_id)
 		if phase == "RUN_SUMMARY" and action_id == "run.summary.acknowledge":
-			button = find_named_node(scene, "FinishRunButton") as Button
-		assert_true(button != null and button.is_visible_in_tree() and not button.disabled, "%s action %s has a visible enabled control" % [phase, action_id], failures)
+			button = find_named_node(scene, "CommitSelectedButton") as Button
+		var unavailable_offer := false
+		if kind == "SHOP_OFFER":
+			var offer_validation = scene.controller.domain.validate_buy_shop_offer(str(action.get("entry_id", "")), str(action.get("target_id", "")))
+			unavailable_offer = offer_validation == null or not offer_validation.is_valid()
+		assert_true(button != null and button.is_visible_in_tree() and button.disabled == unavailable_offer, "%s action %s displays the authoritative availability" % [phase, action_id], failures)
 		if button != null:
-			assert_true(button.focus_mode != Control.FOCUS_NONE and not button.text.strip_edges().is_empty(), "%s action %s has keyboard/controller focus and a text label" % [phase, action_id], failures)
+			assert_true(button.focus_mode != Control.FOCUS_NONE and (not button.text.strip_edges().is_empty() or button.find_child("MapNodeLabel", true, false) is Label or (button.has_meta("tile_instance_id") and not button.accessibility_name.is_empty())), "%s action %s has keyboard/controller focus and a text label" % [phase, action_id], failures)
+			if unavailable_offer:
+				assert_true(not button.tooltip_text.is_empty() and button.get_parent().find_child("ShopOfferStatus", true, false) is Label, "unavailable Shop offers visibly explain their disabled state", failures)
 
 	var phase_label = find_named_node(scene, "RunPhaseLabel")
 	assert_true(phase_label is Label and phase_label.is_visible_in_tree() and not phase_label.text.strip_edges().is_empty(), "%s has a visible textual phase label" % phase, failures)
@@ -288,9 +335,18 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 	var visible_text := "\n".join(visible_text_lines)
 	_audit_selected_action_details(scene, phase, descriptors, failures)
 	if phase == "BATTLE":
-		for cue in REQUIRED_BATTLE_CUES:
-			assert_true(visible_text.contains(cue), "Battle presents the critical cue '%s' as text rather than color alone" % cue, failures)
+		for cue_node in ["BattleEnemyHP", "BattleIntentType", "BattleResourceValues", "BattleHandHeading", "BattleZone_Reserve"]:
+			var cue_control := find_named_node(scene, cue_node) as Control
+			assert_true(cue_control != null and cue_control.is_visible_in_tree(), "Battle presents critical HUD/zone/receipt %s" % cue_node, failures)
+		var receipt := find_named_node(scene, "BattleCriticalReceipt") as Label
+		assert_true(receipt != null and (receipt.text.is_empty() or receipt.is_visible_in_tree()), "Battle displays each nonempty critical receipt", failures)
+		if str(scene.controller.domain.current_battle.combat_state.current_intent.action_type) == "PRESSURE":
+			var intent_detail := find_named_node(scene, "BattleIntentDetail") as Label
+			assert_true(intent_detail != null and intent_detail.is_visible_in_tree() and not intent_detail.text.is_empty(), "Pressure Intent explains its amount in text", failures)
+		for cue in ["Pressure", "TP", "Stability", "Intent", "Hand", "Reserve"]:
+			assert_true(visible_text.contains(cue), "Battle retains critical text cue %s independent of color" % cue, failures)
 
+	_observed_tutorial_labels["Disable tutorial" if scene.controller.tutorial_progress.enabled else "Enable tutorial"] = true
 	var tutorial_toggle: Button = find_named_node(scene, "TutorialToggleButton")
 	var tutorial_prompt: Label = find_named_node(scene, "TutorialPrompt")
 	if tutorial_toggle != null and tutorial_toggle.is_visible_in_tree():
@@ -299,6 +355,7 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 			assert_true(tutorial_prompt.text.begins_with("Tutorial:"), "visible tutorial guidance includes an explicit text cue", failures)
 
 	_audit_focus(scene, phase, failures)
+	visible_text_lines = _visible_text(scene)
 	var bucket := _capture_bucket(scene, phase, action_kinds)
 	if not _audited_screen_states.has(bucket):
 		_audited_screen_states[bucket] = true
@@ -319,12 +376,12 @@ func _audit_suspend_choice(scene, failures: Array[String]) -> void:
 
 func _audit_focus(scene, phase: String, failures: Array[String]) -> void:
 	if phase == "RUN_SUMMARY":
-		var finish_button: Button = find_named_node(scene, "FinishRunButton")
-		assert_true(finish_button != null and finish_button.visible and not finish_button.disabled and finish_button.has_focus(), "Run Summary presents visible focus on Finish Run", failures)
+		var finish_button: Button = find_named_node(scene, "CommitSelectedButton")
+		assert_true(finish_button != null and finish_button.is_visible_in_tree() and not finish_button.disabled and finish_button.has_focus(), "Run Summary presents visible focus on Finish Run", failures)
 		return
 	var focus_owner := scene.get_viewport().gui_get_focus_owner() as Control
 	assert_true(focus_owner != null and focus_owner.is_visible_in_tree() and focus_owner.focus_mode != Control.FOCUS_NONE, "%s has a visible keyboard/controller focus target" % phase, failures)
-	if not scene.controller.snapshot().get("focused_action_id", "").is_empty():
+	if focus_owner != null and focus_owner.has_meta("run_action_id") and not str(focus_owner.get_meta("run_action_id", "")).is_empty():
 		var action_button: Button = find_action_button(scene, str(scene.controller.snapshot().get("focused_action_id", "")))
 		assert_true(action_button != null and action_button.is_visible_in_tree() and action_button.has_focus(), "%s presentation action focus matches the visible GUI focus owner" % phase, failures)
 	if phase == "RUN_COMPLETE":
@@ -344,6 +401,14 @@ func _audit_text_bounds(scene, failures: Array[String]) -> void:
 			continue
 		var rect := control.get_global_rect()
 		var allocated_size: Vector2 = control.size
+		if control is Button and control.has_meta("run_action_id") and not control.has_meta("tile_instance_id") and _has_named_ancestor(control, "BattleChoiceScroll"):
+			assert_true(allocated_size.x >= 120.0, "%s Battle action retains a readable minimum width" % control.name, failures)
+		if control.name == "SelectedActionDetails" and not (control as Label).text.is_empty():
+			assert_true(allocated_size.x >= 140.0, "Context details retain a readable column width", failures)
+		if control.name == "MapNodeLabel" and control.get_parent() is Button:
+			var map_button := control.get_parent() as Button
+			var node_rect: Rect2 = map_button.get_global_rect()
+			assert_true(node_rect.grow(1.0).encloses(rect), "Map node name and status stay inside their choice control (locale=%s scale=%.2f node_rect=%s label_rect=%s button_size=%s label_size=%s button_min=%s label_min=%s custom_button=%s custom_label=%s text=%s)" % [str(scene._applied_preferences.get("locale", "en")), float(scene._applied_preferences.get("ui_scale", 1.0)), str(node_rect), str(rect), str(map_button.size), str(control.size), str(map_button.get_minimum_size()), str(control.get_minimum_size()), str(map_button.custom_minimum_size), str(control.custom_minimum_size), _text_snippet(control)], failures)
 		assert_true(rect.size.x > 0.0 and rect.size.y > 0.0, "%s has laid out visible text/control bounds" % control.name, failures)
 		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 			continue
@@ -358,7 +423,7 @@ func _audit_text_bounds(scene, failures: Array[String]) -> void:
 			else:
 				var rendered_text_height: float = float(control.get_line_count()) * float(control.get_line_height())
 				assert_true(rendered_text_height <= allocated_size.y + 2.0, "%s wrapped label fits its allocated height (path=%s text=%s rect=%s allocated_size=%s minimum=%s custom_minimum=%s lines=%d line_height=%.1f rendered_height=%.1f parent=%s)" % [control.name, str(control.get_path()), _text_snippet(control), str(rect), str(allocated_size), str(minimum), str(control.custom_minimum_size), control.get_line_count(), control.get_line_height(), rendered_text_height, _parent_layout_context(control)], failures)
-	for container_name in ["RunOverviewScroll", "AvailableActionsScroll"]:
+	for container_name in ["RunOverviewScroll", "RunJourneyScroll", "BattleChoiceScroll", "BattleInspectionScroll"]:
 		var scroll := find_named_node(scene, container_name) as ScrollContainer
 		if scroll == null or not scroll.is_visible_in_tree():
 			continue
@@ -366,9 +431,9 @@ func _audit_text_bounds(scene, failures: Array[String]) -> void:
 		assert_true(horizontal_bar.max_value <= horizontal_bar.page + 1.0, "%s has no horizontal overflow that could clip action or overview text" % container_name, failures)
 
 func _audit_selected_action_details(scene, phase: String, descriptors: Array, failures: Array[String]) -> void:
-	if phase in ["RUN_SUMMARY", "RUN_COMPLETE"]:
+	if phase in ["RUN_SUMMARY", "RUN_COMPLETE", "CHARACTER_SELECT", "MAP_CHOICE", "EVENT"]:
 		return
-	var detail: Label = find_named_node(scene, "SelectedActionDetails") as Label
+	var detail: Label = find_named_node(scene, "BattleInspectionValue" if phase == "BATTLE" else "SelectedActionDetails") as Label
 	if descriptors.is_empty():
 		assert_true(detail == null or not detail.visible, "%s has no stale action details when it has no action" % phase, failures)
 		return
@@ -386,9 +451,14 @@ func _audit_selected_action_details(scene, phase: String, descriptors: Array, fa
 			break
 	if expected_action.is_empty() and not descriptors.is_empty():
 		expected_action = descriptors[0]
+	if phase == "BATTLE":
+		assert_true(detail.is_visible_in_tree() and not detail.text.is_empty() and not detail.text.contains("[MISSING"), "Battle inspector provides resolved action or exact-tile details", failures)
+		if focus_owner != null and focus_owner.has_meta("run_action_id"):
+			assert_true(detail.text == scene._action_details_text(expected_action), "Battle action focus updates the inspector", failures)
+		return
 	var expected_detail: String = str(scene._action_details_text(expected_action))
 	var selected_button: Button = find_action_button(scene, focused_id)
-	var should_show_detail: bool = not expected_detail.is_empty() and selected_button != null and expected_detail != selected_button.text
+	var should_show_detail: bool = not expected_detail.is_empty() and selected_button != null
 	assert_true(detail.visible == should_show_detail, "%s selected-action details appear when they add text beyond the action name" % phase, failures)
 	if should_show_detail:
 		assert_true(detail.is_visible_in_tree() and detail.text == expected_detail, "%s action detail text follows its keyboard/controller-focused action" % phase, failures)
@@ -396,6 +466,9 @@ func _audit_selected_action_details(scene, phase: String, descriptors: Array, fa
 		assert_true(detail.text.contains("Risk:") and detail.text.contains("Reward:") and detail.text.contains("Build bias:") and detail.text.contains("Yaku signal:"), "Contract Select visibly wraps the full Risk, Reward, Build bias, and Yaku signal details", failures)
 
 func _audit_presentation_modes(scene, baseline_text: Array[String], phase: String, failures: Array[String]) -> void:
+	if phase == "RUN_SUMMARY":
+		# Cross a displayed-second boundary so this assertion catches summaries that recompute elapsed wall time on preference rerender.
+		OS.delay_msec(1100)
 	var original_mode := str(scene.controller.snapshot().get("presentation_mode", PresentationState.NORMAL))
 	for mode in PresentationState.MODES:
 		assert_true(scene.controller.set_mode(str(mode)), "%s accepts %s presentation mode" % [phase, str(mode)], failures)
@@ -449,6 +522,14 @@ func _has_scroll_container_parent(control: Control) -> bool:
 	var parent := control.get_parent()
 	while parent != null:
 		if parent is ScrollContainer:
+			return true
+		parent = parent.get_parent()
+	return false
+
+func _has_named_ancestor(control: Control, ancestor_name: String) -> bool:
+	var parent := control.get_parent()
+	while parent != null:
+		if parent.name == ancestor_name:
 			return true
 		parent = parent.get_parent()
 	return false

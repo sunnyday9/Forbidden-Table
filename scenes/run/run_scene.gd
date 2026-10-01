@@ -16,6 +16,12 @@ const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapp
 const ContentVersionMigrationScript = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const SuspendSaveStoreScript = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
+const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.gd")
+const TableBackdropScript = preload("res://src/presentation/ui/table_backdrop.gd")
+const RunJourneyViewScript = preload("res://src/presentation/ui/run_journey_view.gd")
+const RunSummaryViewScript = preload("res://src/presentation/ui/run_summary_view.gd")
+const PreferencesOverlayScript = preload("res://src/presentation/ui/preferences_overlay.gd")
+const BattleViewPath := "res://src/presentation/ui/battle_view.gd"
 
 var controller
 var meta_progress_coordinator
@@ -38,18 +44,66 @@ var _tutorial_reset_button: Button
 var _overview_scroll: ScrollContainer
 var _feedback_value: Label
 var _profile_status: Label
+var _profile_recovery_scroll: ScrollContainer
+var _profile_recovery_content: VBoxContainer
+var _profile_details_button: Button
+var _profile_details_scroll: ScrollContainer
+var _profile_details_value: Label
+var _profile_technical_details: Dictionary = {}
+var _profile_details_expanded := false
 var _reset_profile_button: Button
 var _new_run_button: Button
 var _suspend_choice_panel: VBoxContainer
+var _suspend_status_scroll: ScrollContainer
 var _suspend_status: Label
+var _suspend_details_button: Button
+var _suspend_details_scroll: ScrollContainer
+var _suspend_details_value: Label
 var _resume_run_button: Button
 var _new_run_from_suspend_button: Button
+var _suspend_message_parts: Array[Dictionary] = []
+var _suspend_technical_details: Dictionary = {}
+var _suspend_details_expanded := false
+var _suspend_new_run_label_key := "UI_RUN_SCENE_0044"
+var _suspend_resume_visible := false
+var _suspend_can_start_new := false
+var _meta_progress_warning_parts: Array[Dictionary] = []
 var _actions_column: VBoxContainer
 var _action_details_value: Label
-var _run_columns: HBoxContainer
+var _run_columns: Control
 var _summary_panel: PanelContainer
 var _summary_value: Label
 var _summary_acknowledge_button: Button
+var _table_backdrop
+var _page: VBoxContainer
+var _journey_host: Control
+var _journey_view
+var _summary_view
+var _battle_view
+var _run_status_panel: PanelContainer
+var _settings_button: Button
+var _commit_selected_button: Button
+var _back_button: Button
+var _preferences_overlay: Control
+var _confirmation_overlay: Control
+var _confirmation_message: Label
+var _confirm_new_run_button: Button
+var _cancel_new_run_button: Button
+var _new_run_from_suspend_pending := false
+var _new_run_confirmation_origin: Control
+var _applied_preferences: Dictionary = {}
+var _battle_focus_action_id := ""
+var _battle_configured_controller
+var _suppress_controller_render := false
+var _last_rendered_phase := ""
+var _summary_duration_identity := ""
+var _summary_duration_anchor_unix_seconds := -1
+
+func _init() -> void:
+	# Copy is already resolved through Localization; controls must not translate
+	# it a second time (which also doubles pseudo-localization expansion).
+	auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+
 
 func _ready() -> void:
 	_register_controller_input_mappings()
@@ -60,9 +114,17 @@ func _ready() -> void:
 	var meta_load: Dictionary = meta_progress_coordinator.load_profile()
 	if not meta_load.get("accepted", false):
 		var recovery_path := str(meta_load.get("preserved_path", ""))
-		var preservation_text := LocalizationCatalogScript.template("UI_RUN_SCENE_0001") % recovery_path if not recovery_path.is_empty() else LocalizationCatalogScript.text("UI_RUN_SCENE_0002")
-		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0003") % [str(meta_load.get("code", "LOAD_FAILED")), preservation_text]
+		var profile_path := ProjectSettings.globalize_path(str(meta_progress_coordinator.store.file_path))
+		var error_codes: Array[String] = [str(meta_load.get("code", "LOAD_FAILED"))]
+		var source_preserved := bool(meta_load.get("rejected_source_preserved", false))
+		if not source_preserved:
+			error_codes.append(str(meta_load.get("preservation_error", "META_PROGRESS_PRESERVE_FAILED")))
+		_profile_technical_details = {"profile_path": profile_path, "recovery_path": recovery_path, "codes": error_codes, "manual_recovery_required": not source_preserved}
+		var warning_key := "UI_PROFILE_RECOVERY_PRESERVED" if source_preserved else "UI_PROFILE_RECOVERY_UNPRESERVED"
+		_meta_progress_warning_parts = [_localized_message_part(warning_key)]
+		_meta_progress_load_warning = _message_parts_text(_meta_progress_warning_parts)
 	_build_interface()
+	_connect_presentation_preferences()
 	var registry_result := _validated_content_registry()
 	if not registry_result.get("accepted", false):
 		_startup_error = str(registry_result.get("message", LocalizationCatalogScript.text("UI_RUN_SCENE_0004")))
@@ -72,17 +134,37 @@ func _ready() -> void:
 	_render()
 
 func _input(event: InputEvent) -> void:
+	if _preferences_overlay != null and _preferences_overlay.visible:
+		_preferences_overlay.call("_input", event)
+		return
+	if _confirmation_overlay != null and _confirmation_overlay.visible:
+		var modal_action := _mapped_ui_action(event)
+		if modal_action == "ui_cancel":
+			_close_new_run_confirmation(true)
+			get_viewport().set_input_as_handled()
+		elif modal_action == "ui_accept":
+			_confirm_focused_control()
+			get_viewport().set_input_as_handled()
+		elif modal_action == "ui_focus_next":
+			_move_control_focus(1)
+			get_viewport().set_input_as_handled()
+		elif modal_action == "ui_focus_prev":
+			_move_control_focus(-1)
+			get_viewport().set_input_as_handled()
+		return
 	var action := _mapped_ui_action(event)
 	if action.is_empty():
 		return
 	match action:
 		"ui_accept":
 			_confirm_focused_control()
-			_render()
 		"ui_cancel":
-			if controller != null:
+			if _journey_view != null and _journey_view.has_method("cancel_local_state") and _journey_view.cancel_local_state():
+				_refresh_action_rail()
+			elif _battle_view != null and _battle_view.visible and _battle_view.has_method("cancel") and _battle_view.cancel():
+				pass
+			elif controller != null:
 				controller.back()
-				_render()
 		"ui_focus_next":
 			_move_control_focus(1)
 		"ui_focus_prev":
@@ -123,42 +205,59 @@ func _register_controller_input_mappings() -> void:
 			InputMap.action_add_event(action, event)
 
 func _move_directional_focus(direction: int) -> void:
-	if _overview_scroll != null and get_viewport().gui_get_focus_owner() == _overview_scroll:
-		_scroll_overview(direction)
+	if _preferences_overlay != null and _preferences_overlay.visible:
 		return
-	if controller == null:
+	if _confirmation_overlay != null and _confirmation_overlay.visible:
 		_move_control_focus(direction)
 		return
-	var focused_button := get_viewport().gui_get_focus_owner() as Button
-	if focused_button != null and focused_button.has_meta("run_action_id"):
-		if direction > 0:
-			controller.focus_next()
-		else:
-			controller.focus_previous()
-		_render()
+	if _journey_view != null and bool(_journey_view.get("is_confirmation_open")):
+		_move_control_focus(direction)
+		return
+	var viewport := get_viewport()
+	if viewport != null and _suspend_status_scroll != null and viewport.gui_get_focus_owner() == _suspend_status_scroll:
+		_scroll_suspend_text(_suspend_status_scroll, direction)
+		return
+	if viewport != null and _suspend_details_scroll != null and viewport.gui_get_focus_owner() == _suspend_details_scroll:
+		_scroll_suspend_text(_suspend_details_scroll, direction)
+		return
+	if viewport != null and _profile_details_scroll != null and viewport.gui_get_focus_owner() == _profile_details_scroll:
+		_scroll_suspend_text(_profile_details_scroll, direction)
+		return
+	if viewport != null and _overview_scroll != null and viewport.gui_get_focus_owner() == _overview_scroll:
+		_scroll_overview(direction)
 		return
 	_move_control_focus(direction)
 
 func _move_control_focus(direction: int) -> void:
 	var focusable: Array[Control] = []
-	for candidate in find_children("*", "Control", true, false):
-		if not (candidate is Button or candidate == _overview_scroll):
-			continue
-		var control := candidate as Control
-		if not control.is_visible_in_tree() or control.focus_mode == Control.FOCUS_NONE:
-			continue
-		if control is Button and control.disabled:
-			continue
-		focusable.append(control)
+	if _confirmation_overlay != null and _confirmation_overlay.visible:
+		focusable = [_cancel_new_run_button, _confirm_new_run_button]
+	elif _journey_view != null and bool(_journey_view.get("is_confirmation_open")):
+		focusable = [_back_button, _commit_selected_button]
+	else:
+		for candidate in find_children("*", "Control", true, false):
+			if not (candidate is BaseButton or candidate == _overview_scroll or candidate == _suspend_status_scroll or candidate == _suspend_details_scroll or candidate == _profile_details_scroll):
+				continue
+			var control := candidate as Control
+			if not control.is_visible_in_tree() or control.focus_mode == Control.FOCUS_NONE:
+				continue
+			if control is BaseButton and (control as BaseButton).disabled:
+				continue
+			if control == _commit_selected_button and str(control.get_meta("run_commit_action_id", "")).is_empty():
+				continue
+			focusable.append(control)
 	if focusable.is_empty():
 		return
-	var current := get_viewport().gui_get_focus_owner() as Control
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var current := viewport.gui_get_focus_owner() as Control
 	var index := focusable.find(current)
 	if index < 0:
 		index = 0 if direction > 0 else focusable.size() - 1
 	else:
 		index = (index + direction + focusable.size()) % focusable.size()
-	focusable[index].grab_focus()
+	_grab_focus_if_available(focusable[index])
 
 func _scroll_overview(direction: int) -> void:
 	if _overview_scroll == null:
@@ -168,12 +267,36 @@ func _scroll_overview(direction: int) -> void:
 	var step := maxi(72, int(scrollbar.page * 0.75))
 	_overview_scroll.scroll_vertical = clampi(_overview_scroll.scroll_vertical + direction * step, 0, maximum)
 
+
+func _scroll_suspend_text(scroll: ScrollContainer, direction: int) -> void:
+	var scrollbar := scroll.get_v_scroll_bar()
+	var maximum := maxi(0, int(scrollbar.max_value - scrollbar.page))
+	var step := maxi(48, int(scrollbar.page * 0.75))
+	scroll.scroll_vertical = clampi(scroll.scroll_vertical + direction * step, 0, maximum)
+
+
+func _grab_focus_if_available(control: Control) -> void:
+	if control != null and is_instance_valid(control) and control.is_inside_tree() and control.is_visible_in_tree() and control.focus_mode != Control.FOCUS_NONE:
+		control.grab_focus()
+
 func _confirm_focused_control() -> void:
-	var focused_button := get_viewport().gui_get_focus_owner() as Button
-	if focused_button == null or not focused_button.is_visible_in_tree() or focused_button.disabled:
+	var viewport := get_viewport()
+	if viewport == null:
 		return
-	if controller != null and focused_button.has_meta("run_action_id"):
-		controller.confirm(str(focused_button.get_meta("run_action_id")))
+	var focused_control := viewport.gui_get_focus_owner() as Control
+	if focused_control == null or not focused_control.is_visible_in_tree():
+		return
+	if focused_control == _commit_selected_button:
+		if str(_commit_selected_button.get_meta("run_commit_action_id", "")).is_empty() or _commit_selected_button.disabled:
+			return
+		_commit_selected_button.emit_signal("pressed")
+		return
+	if not focused_control is BaseButton or (focused_control as BaseButton).disabled:
+		return
+	var focused_button := focused_control as Button
+	if focused_button.has_meta("run_action_id"):
+		# Action cards only change selected presentation state. The action rail is the command seam.
+		focused_button.emit_signal("pressed")
 		return
 	focused_button.emit_signal("pressed")
 
@@ -208,18 +331,21 @@ func _load_suspend_or_start_new(registry) -> void:
 			if interrupted_preservation.get("accepted", false):
 				_suspend_rejected_copy_path = str(interrupted_preservation.get("path", ""))
 				_show_suspend_recovery_required(
-					LocalizationCatalogScript.template("UI_RUN_SCENE_0012") % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), _suspend_rejected_copy_path],
+					_localized_message_part("UI_RUN_RECOVERY_INTERRUPTED_PRESERVED"),
 					true,
+					_suspend_details([str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED"))], _suspend_rejected_copy_path),
 				)
 			else:
 				_show_suspend_recovery_required(
-					LocalizationCatalogScript.template("UI_RUN_SCENE_0013") % [str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), str(interrupted_preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+					_localized_message_part("UI_RUN_RECOVERY_INTERRUPTED_MANUAL_COPY"),
 					false,
+					_suspend_details([str(stored.get("code", "SUSPEND_COMMIT_INTERRUPTED")), str(interrupted_preservation.get("code", "SUSPEND_PRESERVE_FAILED"))]),
 				)
 			return
 		_show_suspend_recovery_required(
-			LocalizationCatalogScript.template("UI_RUN_SCENE_0014") % str(stored.get("code", "SUSPEND_READ_FAILED")),
+			_localized_message_part("UI_RUN_RECOVERY_MANUAL_COPY"),
 			false,
+			_suspend_details([str(stored.get("code", "SUSPEND_READ_FAILED"))]),
 		)
 		return
 	if not stored.get("exists", false):
@@ -228,17 +354,31 @@ func _load_suspend_or_start_new(registry) -> void:
 	var loaded: Dictionary = _load_suspend_contents(str(stored.get("contents", "")), registry)
 	if not loaded.get("accepted", false):
 		var preservation: Dictionary = suspend_store.preserve_source()
+		var unsupported_version := _has_load_validation_error(loaded, "UNSUPPORTED_CONTENT_VERSION") or _has_load_validation_error(loaded, "UNSUPPORTED_GAME_VERSION")
 		if preservation.get("accepted", false):
 			_suspend_rejected_copy_path = str(preservation.get("path", ""))
-			var explanation := _suspend_load_error(loaded)
+			var preserved_message: Array[Dictionary] = [_localized_message_part("UI_RUN_RECOVERY_PRESERVED")]
+			if unsupported_version:
+				var version_detail := _suspend_load_error_part(loaded)
+				version_detail["separator_before"] = ""
+				preserved_message = [version_detail, _localized_message_part("UI_RUN_RECOVERY_PRESERVED")]
+				preserved_message[1]["separator_before"] = "\n"
 			_show_suspend_recovery_required(
-				LocalizationCatalogScript.template("UI_RUN_SCENE_0015") % [explanation, _suspend_rejected_copy_path],
+				preserved_message,
 				true,
+				_suspend_details([str(loaded.get("code", "SUSPEND_LOAD_FAILED"))], _suspend_rejected_copy_path),
 			)
 		else:
+			var preserve_code := str(preservation.get("code", "SUSPEND_PRESERVE_FAILED"))
+			var manual_copy_message: Array[Dictionary] = [_localized_message_part("UI_RUN_RECOVERY_MANUAL_COPY")]
+			if unsupported_version:
+				var version_detail := _suspend_load_error_part(loaded)
+				manual_copy_message = [version_detail, _localized_message_part("UI_RUN_RECOVERY_MANUAL_COPY")]
+				manual_copy_message[1]["separator_before"] = "\n"
 			_show_suspend_recovery_required(
-				LocalizationCatalogScript.template("UI_RUN_SCENE_0016") % [_suspend_load_error(loaded), str(preservation.get("code", "SUSPEND_PRESERVE_FAILED"))],
+				manual_copy_message,
 				false,
+				_suspend_details([str(loaded.get("code", "SUSPEND_LOAD_FAILED")), preserve_code]),
 			)
 		return
 	var saved_domain = loaded.domain
@@ -246,10 +386,12 @@ func _load_suspend_or_start_new(registry) -> void:
 	if not finalized.get("accepted", false):
 		var preservation: Dictionary = suspend_store.preserve_source()
 		var recovery_path := str(preservation.get("path", "")) if preservation.get("accepted", false) else ""
-		var suffix := LocalizationCatalogScript.template("UI_RUN_SCENE_0017") % recovery_path if not recovery_path.is_empty() else LocalizationCatalogScript.text("UI_RUN_SCENE_0018")
+		var suffix_part := _localized_message_part("UI_RUN_SCENE_0017", [recovery_path]) if not recovery_path.is_empty() else _localized_message_part("UI_RUN_SCENE_0018")
+		var finalized_code := str(finalized.get("code", "SUSPEND_RECOVERY_FAILED"))
 		_show_suspend_recovery_required(
-			LocalizationCatalogScript.template("UI_RUN_SCENE_0019") % [str(finalized.get("code", "SUSPEND_RECOVERY_FAILED")), suffix],
+			_localized_message_part("UI_RUN_SCENE_0019", [finalized_code, suffix_part]),
 			preservation.get("accepted", false),
+			_suspend_details([finalized_code], recovery_path, str(saved_domain.state.run_id), str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", ""))),
 		)
 		if preservation.get("accepted", false):
 			_suspend_rejected_copy_path = recovery_path
@@ -262,13 +404,14 @@ func _load_suspend_or_start_new(registry) -> void:
 			_start_new_run(registry)
 		else:
 			_pending_resume_domain = saved_domain
-			var prefix := LocalizationCatalogScript.template("UI_RUN_SCENE_0020") % str(cleared.get("code", "META_PROGRESS_SAVE_FAILED")) if progression_pending else LocalizationCatalogScript.template("UI_RUN_SCENE_0021") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+			var error_code := str(cleared.get("code", "META_PROGRESS_SAVE_FAILED")) if progression_pending else str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+			var prefix := _localized_message_part("UI_RUN_SCENE_0020", [error_code]) if progression_pending else _localized_message_part("UI_RUN_SCENE_0021", [error_code])
 			_show_valid_suspend_choice(saved_domain, prefix, not progression_pending, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
 		return
 	_pending_resume_domain = saved_domain
-	var cleanup_prefix := ""
+	var cleanup_prefix: Dictionary = {}
 	if finalized.has("cleanup_warning"):
-		cleanup_prefix = LocalizationCatalogScript.template("UI_RUN_SCENE_0022") % str(finalized.get("cleanup_warning"))
+		cleanup_prefix = _localized_message_part("UI_RUN_SCENE_0022", [str(finalized.get("cleanup_warning"))])
 	_show_valid_suspend_choice(saved_domain, cleanup_prefix, true, str(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "")))
 
 func _load_suspend_contents(contents: String, registry) -> Dictionary:
@@ -316,42 +459,139 @@ func _has_load_validation_error(loaded: Dictionary, code: String) -> bool:
 			return true
 	return false
 
-func _suspend_load_error(loaded: Dictionary) -> String:
+func _suspend_load_error_part(loaded: Dictionary) -> Dictionary:
 	for issue in loaded.get("errors", []):
 		var code := str(issue.get("code", "")) if issue is Dictionary else ""
 		if code == "UNSUPPORTED_CONTENT_VERSION":
-			return LocalizationCatalogScript.text("UI_RUN_SCENE_0023")
+			return _localized_message_part("UI_RUN_SCENE_0023")
 		if code == "UNSUPPORTED_GAME_VERSION":
-			return LocalizationCatalogScript.text("UI_RUN_SCENE_0024")
-	return LocalizationCatalogScript.template("UI_RUN_SCENE_0025") % str(loaded.get("code", "SUSPEND_LOAD_FAILED"))
+			return _localized_message_part("UI_RUN_SCENE_0024")
+	return _localized_message_part("UI_RUN_SCENE_0025", [str(loaded.get("code", "SUSPEND_LOAD_FAILED"))])
 
-func _show_valid_suspend_choice(saved_domain, prefix: String = "", can_start_new: bool = true, saved_boundary: String = "") -> void:
+func _show_valid_suspend_choice(saved_domain, prefix: Dictionary = {}, can_start_new: bool = true, saved_boundary: String = "") -> void:
 	var checkpoint: Dictionary = saved_domain.checkpoint()
-	var message := LocalizationCatalogScript.template("UI_RUN_SCENE_0026") % str(saved_domain.state.run_id)
-	var boundary := saved_boundary if not saved_boundary.is_empty() else str(checkpoint.get("stable_boundary", ""))
-	if not boundary.is_empty():
-		message += LocalizationCatalogScript.template("UI_RUN_SCENE_0027") % _pretty_words(boundary)
+	var message_parts: Array[Dictionary] = []
 	if not prefix.is_empty():
-		message = "%s\n%s" % [prefix, message]
-	_show_suspend_choice(message, true, LocalizationCatalogScript.text("UI_RUN_SCENE_0028"), can_start_new)
+		message_parts.append(prefix)
+	var run_id := str(saved_domain.state.run_id)
+	var boundary := saved_boundary if not saved_boundary.is_empty() else str(checkpoint.get("stable_boundary", ""))
+	if prefix.is_empty():
+		message_parts.append(_localized_message_part("UI_RUN_RECOVERY_READY"))
+	else:
+		message_parts.append(_localized_message_part("UI_RUN_SCENE_0026", [run_id]))
+	var codes: Array[String] = []
+	if not prefix.is_empty():
+		codes.append(str(prefix.get("args", [""])[0]))
+	_show_suspend_choice_parts(
+		message_parts,
+		true,
+		"UI_RUN_SCENE_0028",
+		can_start_new,
+		_suspend_details(codes, suspend_file_path, run_id, boundary),
+	)
 
-func _show_suspend_recovery_required(message: String, can_start_new: bool) -> void:
-	_show_suspend_choice(message, false, LocalizationCatalogScript.text("UI_RUN_SCENE_0029"), can_start_new)
+func _show_suspend_recovery_required(message: Variant, can_start_new: bool, technical_details: Dictionary = {}) -> void:
+	var message_parts: Array[Dictionary] = []
+	if message is Array:
+		for part in message:
+			if part is Dictionary:
+				message_parts.append(part)
+	elif message is Dictionary:
+		message_parts.append(message)
+	_show_suspend_choice_parts(message_parts, false, "UI_RUN_SCENE_0029", can_start_new, technical_details)
 
-func _show_suspend_choice(message: String, can_resume: bool, new_run_label: String, can_start_new: bool) -> void:
+func _show_suspend_choice_parts(message_parts: Array[Dictionary], can_resume: bool, new_run_label_key: String, can_start_new: bool, technical_details: Dictionary = {}) -> void:
+	_suspend_message_parts = message_parts.duplicate(true)
+	_suspend_resume_visible = can_resume
+	_suspend_new_run_label_key = new_run_label_key
+	_suspend_can_start_new = can_start_new
+	_suspend_technical_details = technical_details.duplicate(true)
+	_suspend_details_expanded = false
 	_suspend_choice_panel.visible = true
-	_set_wrapped_label_text(_suspend_status, message)
-	_resume_run_button.visible = can_resume
-	_resume_run_button.disabled = not can_resume
-	_new_run_from_suspend_button.text = new_run_label
-	_new_run_from_suspend_button.visible = true
-	_new_run_from_suspend_button.disabled = not can_start_new
+	_refresh_suspend_presentation()
 	_run_columns.visible = false
 	_summary_panel.visible = false
 	_new_run_button.disabled = true
 	var initial_choice: Button = _resume_run_button if _resume_run_button.visible and not _resume_run_button.disabled else _new_run_from_suspend_button
 	if initial_choice.visible and not initial_choice.disabled and initial_choice.is_inside_tree():
 		initial_choice.grab_focus()
+
+
+func _localized_message_part(key: String, args: Array = []) -> Dictionary:
+	return {"key": key, "args": args.duplicate(true)}
+
+
+func _message_part_text(part: Dictionary) -> String:
+	if part.has("raw"):
+		return str(part.get("raw", ""))
+	var values: Array = []
+	for value in part.get("args", []):
+		values.append(_message_part_text(value) if value is Dictionary and value.has("key") else value)
+	var result := LocalizationCatalogScript.format(str(part.get("key", "")), values)
+	for suffix in part.get("append", []):
+		if suffix is Dictionary:
+			result += _message_part_text(suffix)
+	return result
+
+
+func _message_parts_text(parts: Array[Dictionary]) -> String:
+	var result := ""
+	for index in parts.size():
+		var part: Dictionary = parts[index]
+		var separator := str(part.get("separator_before", "\n" if index > 0 else ""))
+		result += separator + _message_part_text(part)
+	return result
+
+
+func _suspend_details(codes: Array, recovery_path: String = "", run_id: String = "", boundary: String = "") -> Dictionary:
+	return {
+		"source_path": ProjectSettings.globalize_path(suspend_file_path),
+		"recovery_path": recovery_path,
+		"run_id": run_id,
+		"boundary": _pretty_words(boundary) if not boundary.is_empty() else "",
+		"codes": codes.duplicate(),
+	}
+
+
+func _refresh_suspend_presentation() -> void:
+	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	if _suspend_status_scroll != null:
+		_suspend_status_scroll.custom_minimum_size.y = 80.0 * scale
+	if _suspend_status != null:
+		_set_wrapped_label_text(_suspend_status, _message_parts_text(_suspend_message_parts))
+	if _resume_run_button != null:
+		_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
+		_resume_run_button.visible = _suspend_resume_visible
+		_resume_run_button.disabled = not _suspend_resume_visible
+	if _new_run_from_suspend_button != null:
+		_new_run_from_suspend_button.text = LocalizationCatalogScript.text(_suspend_new_run_label_key)
+		_new_run_from_suspend_button.visible = true
+		_new_run_from_suspend_button.disabled = not _suspend_can_start_new
+	if _suspend_details_button != null:
+		var has_details := not _suspend_technical_details.is_empty()
+		_suspend_details_button.visible = has_details
+		_suspend_details_button.text = LocalizationCatalogScript.text("UI_RUN_RECOVERY_DETAILS_HIDE" if _suspend_details_expanded else "UI_RUN_RECOVERY_DETAILS_SHOW")
+	if _suspend_details_value != null:
+		var codes: Array = _suspend_technical_details.get("codes", [])
+		_suspend_details_value.text = LocalizationCatalogScript.format("UI_RUN_RECOVERY_DETAILS_BODY", [
+			str(_suspend_technical_details.get("source_path", "")),
+			str(_suspend_technical_details.get("recovery_path", "")),
+			str(_suspend_technical_details.get("run_id", "")),
+			str(_suspend_technical_details.get("boundary", "")),
+			", ".join(PackedStringArray(codes)),
+		]) if not _suspend_technical_details.is_empty() else ""
+		_suspend_details_value.visible = not _suspend_technical_details.is_empty() and _suspend_details_expanded
+	if _suspend_details_scroll != null:
+		_suspend_details_scroll.visible = not _suspend_technical_details.is_empty() and _suspend_details_expanded
+		# Long translated headers leave less space at the minimum viewport.
+		# Technical details remain scrollable without displacing the action rail.
+		var viewport_height := get_viewport_rect().size.y if is_inside_tree() else 540.0
+		_suspend_details_scroll.custom_minimum_size.y = minf(72.0 * scale, viewport_height * 0.13) if _suspend_details_scroll.visible else 0.0
+
+
+func _on_suspend_details_pressed() -> void:
+	_suspend_details_expanded = not _suspend_details_expanded
+	_refresh_suspend_presentation()
 
 func _start_new_run(registry) -> void:
 	var seed := int(Time.get_ticks_usec() % 2147483647)
@@ -360,7 +600,15 @@ func _start_new_run(registry) -> void:
 
 func _attach_controller(run_domain) -> void:
 	controller = RunPresentationControllerScript.new(run_domain, null, meta_progress_coordinator, suspend_store)
-	controller.presentation_changed.connect(_render)
+	_summary_duration_identity = ""
+	_summary_duration_anchor_unix_seconds = -1
+	controller.set_mode(str(_applied_preferences.get("presentation_mode", "NORMAL")))
+	controller.presentation_changed.connect(_on_controller_presentation_changed)
+
+
+func _on_controller_presentation_changed() -> void:
+	if not _suppress_controller_render:
+		_render()
 
 func _on_resume_run_pressed() -> void:
 	if _pending_resume_domain == null:
@@ -370,12 +618,18 @@ func _on_resume_run_pressed() -> void:
 	if str(resumed_domain.state.phase) == RunPhaseScript.RUN_COMPLETE:
 		var unlock_retry: Dictionary = meta_progress_coordinator.observe_run_state(resumed_domain.state)
 		if unlock_retry.has("persisted") and not unlock_retry.get("persisted", false):
-			_set_wrapped_label_text(_suspend_status, LocalizationCatalogScript.template("UI_RUN_SCENE_0030") % str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED")))
+			var progression_code := str(unlock_retry.get("code", "META_PROGRESS_SAVE_FAILED"))
+			_suspend_message_parts = [_localized_message_part("UI_RUN_SCENE_0030", [progression_code])]
+			_suspend_technical_details["codes"] = [progression_code]
+			_refresh_suspend_presentation()
 			_pending_resume_domain = resumed_domain
 			return
 		var clear_result: Dictionary = suspend_store.clear()
 		if not clear_result.get("accepted", false):
-			_set_wrapped_label_text(_suspend_status, LocalizationCatalogScript.template("UI_RUN_SCENE_0031") % str(clear_result.get("code", "SUSPEND_CLEAR_FAILED")))
+			var clear_code := str(clear_result.get("code", "SUSPEND_CLEAR_FAILED"))
+			_suspend_message_parts = [_localized_message_part("UI_RUN_SCENE_0031", [clear_code])]
+			_suspend_technical_details["codes"] = [clear_code]
+			_refresh_suspend_presentation()
 			_pending_resume_domain = resumed_domain
 			return
 	_suspend_choice_panel.visible = false
@@ -387,9 +641,23 @@ func _on_new_run_from_suspend_pressed() -> void:
 		return
 	if _pending_resume_domain == null and _suspend_rejected_copy_path.is_empty():
 		return
+	_open_new_run_confirmation(true)
+
+
+func _perform_new_run_from_suspend() -> void:
 	var cleared: Dictionary = suspend_store.clear()
 	if not cleared.get("accepted", false):
-		_suspend_status.text += LocalizationCatalogScript.template("UI_RUN_SCENE_0032") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		var clear_code := str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
+		_suspend_message_parts.append({
+			"key": "UI_RUN_SCENE_0032",
+			"args": [clear_code],
+			"separator_before": "",
+		})
+		var existing_codes: Array = _suspend_technical_details.get("codes", [])
+		existing_codes.append(clear_code)
+		_suspend_technical_details["codes"] = existing_codes
+		_refresh_suspend_presentation()
+		_refresh_action_rail()
 		return
 	_pending_resume_domain = null
 	_suspend_rejected_copy_path = ""
@@ -422,71 +690,159 @@ func _append_content_validation_errors(errors: Array[String], source: String, re
 
 func _build_interface() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var preference_service = _preferences_service()
+	var initial_preferences: Dictionary = preference_service.call("snapshot") if preference_service != null else {"locale": "en", "ui_scale": 1.0, "presentation_mode": "NORMAL", "reduced_motion": false, "ambient_glow": true}
+	var initial_locale := str(initial_preferences.get("locale", "en"))
+	var initial_scale := float(initial_preferences.get("ui_scale", 1.0))
+	theme = ForbiddenThemeScript.create_theme(initial_locale, initial_scale)
+	_applied_preferences = initial_preferences.duplicate(true)
+	_table_backdrop = TableBackdropScript.new()
+	_table_backdrop.name = "TableBackdrop"
+	_table_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_table_backdrop.z_index = -20
+	add_child(_table_backdrop)
+	_table_backdrop.call("configure", str(initial_preferences.get("presentation_mode", "NORMAL")), bool(initial_preferences.get("reduced_motion", false)), bool(initial_preferences.get("ambient_glow", true)))
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 22)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_right", 22)
-	margin.add_theme_constant_override("margin_bottom", 16)
+	margin.add_theme_constant_override("margin_left", 18)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 18)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	add_child(margin)
 
-	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 10)
-	margin.add_child(page)
+	_page = VBoxContainer.new()
+	_page.name = "RunJourneyPage"
+	_page.add_theme_constant_override("separation", 5)
+	margin.add_child(_page)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 14)
-	page.add_child(header)
+	header.name = "RunHeader"
+	header.add_theme_constant_override("separation", 10)
+	header.custom_minimum_size.y = 38.0 * initial_scale
+	_page.add_child(header)
 	var title := Label.new()
+	title.name = "GameTitle"
 	title.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0038")
-	title.add_theme_font_size_override("font_size", 23)
-	_configure_wrapped_label(title)
+	ForbiddenThemeScript.title(title, initial_locale)
+	title.add_theme_font_size_override("font_size", roundi(25.0 * initial_scale))
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.custom_minimum_size.y = 38.0 * initial_scale
 	header.add_child(title)
-	var tutorial_controls := HBoxContainer.new()
-	tutorial_controls.name = "TutorialControls"
-	tutorial_controls.add_theme_constant_override("separation", 8)
-	_tutorial_toggle_button = Button.new()
-	_tutorial_toggle_button.name = "TutorialToggleButton"
-	_tutorial_toggle_button.pressed.connect(_on_tutorial_toggle_pressed)
-	tutorial_controls.add_child(_tutorial_toggle_button)
-	_tutorial_reset_button = Button.new()
-	_tutorial_reset_button.name = "TutorialResetButton"
-	_tutorial_reset_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0039")
-	_tutorial_reset_button.pressed.connect(_on_tutorial_reset_pressed)
-	tutorial_controls.add_child(_tutorial_reset_button)
-	header.add_child(tutorial_controls)
+	_phase_value = Label.new()
+	_phase_value.name = "RunPhaseLabel"
+	_phase_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_phase_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_phase_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_phase_value.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
+	header.add_child(_phase_value)
+	_settings_button = Button.new()
+	_settings_button.name = "SettingsButton"
+	_settings_button.text = LocalizationCatalogScript.text("UI_PREFS_TAB_SETTINGS")
+	_settings_button.pressed.connect(_on_settings_pressed)
+	ForbiddenThemeScript.style_button(_settings_button)
+	header.add_child(_settings_button)
 	_new_run_button = Button.new()
 	_new_run_button.name = "NewRunButton"
 	_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0040")
 	_new_run_button.disabled = true
+	_new_run_button.visible = false
 	_new_run_button.pressed.connect(_on_new_run_pressed)
 	header.add_child(_new_run_button)
 
-	_phase_value = Label.new()
-	_phase_value.name = "RunPhaseLabel"
-	_phase_value.add_theme_font_size_override("font_size", 17)
-	page.add_child(_phase_value)
+	_profile_recovery_scroll = ScrollContainer.new()
+	_profile_recovery_scroll.name = "ProfileRecoveryScroll"
+	_profile_recovery_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_profile_recovery_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_profile_recovery_scroll.follow_focus = true
+	_profile_recovery_scroll.focus_mode = Control.FOCUS_ALL
+	_profile_recovery_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_page.add_child(_profile_recovery_scroll)
+	_profile_recovery_content = VBoxContainer.new()
+	_profile_recovery_content.name = "ProfileRecoveryContent"
+	_profile_recovery_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_profile_recovery_content.add_theme_constant_override("separation", 5)
+	_profile_recovery_scroll.add_child(_profile_recovery_content)
 	_profile_status = Label.new()
+	_profile_status.name = "ProfileRecoveryStatus"
 	_configure_wrapped_label(_profile_status)
 	_profile_status.text = _meta_progress_load_warning
 	_profile_status.visible = not _meta_progress_load_warning.is_empty()
-	page.add_child(_profile_status)
+	_profile_recovery_content.add_child(_profile_status)
+	_profile_details_button = Button.new()
+	_profile_details_button.name = "ProfileDetailsButton"
+	_profile_details_button.text = LocalizationCatalogScript.text("UI_RUN_RECOVERY_DETAILS_SHOW")
+	_profile_details_button.visible = not _profile_technical_details.is_empty()
+	_profile_details_button.pressed.connect(_on_profile_details_pressed)
+	ForbiddenThemeScript.style_button(_profile_details_button)
+	_profile_recovery_content.add_child(_profile_details_button)
+	_profile_details_scroll = ScrollContainer.new()
+	_profile_details_scroll.name = "ProfileDetailsScroll"
+	_profile_details_scroll.visible = false
+	_profile_details_scroll.custom_minimum_size.y = 0.0
+	_profile_details_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_profile_details_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_profile_details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_profile_details_scroll.follow_focus = true
+	_profile_details_scroll.focus_mode = Control.FOCUS_ALL
+	_profile_recovery_content.add_child(_profile_details_scroll)
+	_profile_details_value = Label.new()
+	_profile_details_value.name = "ProfileDetailsValue"
+	_configure_wrapped_label(_profile_details_value)
+	_profile_details_value.visible = false
+	_profile_details_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_profile_details_scroll.add_child(_profile_details_value)
 	_reset_profile_button = Button.new()
+	_reset_profile_button.name = "ResetProfileButton"
 	_reset_profile_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0041")
 	_reset_profile_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0042")
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
+	_reset_profile_button.disabled = _profile_reset_unavailable()
 	_reset_profile_button.pressed.connect(_on_reset_profile_pressed)
-	page.add_child(_reset_profile_button)
+	_profile_recovery_content.add_child(_reset_profile_button)
 	_suspend_choice_panel = VBoxContainer.new()
 	_suspend_choice_panel.name = "SuspendChoicePanel"
 	_suspend_choice_panel.visible = false
 	_suspend_choice_panel.add_theme_constant_override("separation", 8)
-	page.add_child(_suspend_choice_panel)
+	_page.add_child(_suspend_choice_panel)
+	_suspend_status_scroll = ScrollContainer.new()
+	_suspend_status_scroll.name = "SuspendMessageScroll"
+	_suspend_status_scroll.custom_minimum_size.y = 80.0 * initial_scale
+	_suspend_status_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_suspend_status_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_suspend_status_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_suspend_status_scroll.follow_focus = true
+	_suspend_status_scroll.focus_mode = Control.FOCUS_ALL
+	_suspend_choice_panel.add_child(_suspend_status_scroll)
 	_suspend_status = Label.new()
 	_suspend_status.name = "SuspendStatus"
 	_configure_wrapped_label(_suspend_status)
-	_suspend_choice_panel.add_child(_suspend_status)
+	_suspend_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_suspend_status_scroll.add_child(_suspend_status)
+	_suspend_details_button = Button.new()
+	_suspend_details_button.name = "SuspendDetailsButton"
+	_suspend_details_button.text = LocalizationCatalogScript.text("UI_RUN_RECOVERY_DETAILS_SHOW")
+	_suspend_details_button.visible = false
+	_suspend_details_button.pressed.connect(_on_suspend_details_pressed)
+	ForbiddenThemeScript.style_button(_suspend_details_button)
+	_suspend_choice_panel.add_child(_suspend_details_button)
+	_suspend_details_scroll = ScrollContainer.new()
+	_suspend_details_scroll.name = "SuspendDetailsScroll"
+	_suspend_details_scroll.visible = false
+	_suspend_details_scroll.custom_minimum_size.y = 0.0
+	_suspend_details_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_suspend_details_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_suspend_details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_suspend_details_scroll.follow_focus = true
+	_suspend_details_scroll.focus_mode = Control.FOCUS_ALL
+	_suspend_choice_panel.add_child(_suspend_details_scroll)
+	_suspend_details_value = Label.new()
+	_suspend_details_value.name = "SuspendDetailsValue"
+	_configure_wrapped_label(_suspend_details_value)
+	_suspend_details_value.visible = false
+	_suspend_details_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_suspend_details_scroll.add_child(_suspend_details_value)
 	_resume_run_button = Button.new()
 	_resume_run_button.name = "ResumeRunButton"
 	_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
@@ -498,131 +854,358 @@ func _build_interface() -> void:
 	_new_run_from_suspend_button.pressed.connect(_on_new_run_from_suspend_pressed)
 	_suspend_choice_panel.add_child(_new_run_from_suspend_button)
 
-	var columns := HBoxContainer.new()
-	_run_columns = columns
-	columns.add_theme_constant_override("separation", 18)
-	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	page.add_child(columns)
-
-	var overview_panel := PanelContainer.new()
-	overview_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	overview_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	overview_panel.size_flags_stretch_ratio = 1.0
-	columns.add_child(overview_panel)
-	var overview_layout := VBoxContainer.new()
-	overview_layout.add_theme_constant_override("separation", 8)
-	overview_panel.add_child(overview_layout)
-	var overview_header := HBoxContainer.new()
-	overview_header.add_theme_constant_override("separation", 6)
-	overview_layout.add_child(overview_header)
-	var overview_heading := Label.new()
-	overview_heading.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0045")
-	overview_heading.add_theme_font_size_override("font_size", 16)
-	overview_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	overview_header.add_child(overview_heading)
-	var overview_scroll_up_button := Button.new()
-	overview_scroll_up_button.name = "OverviewScrollUpButton"
-	overview_scroll_up_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0046")
-	overview_scroll_up_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0047")
-	overview_scroll_up_button.pressed.connect(_scroll_overview.bind(-1))
-	overview_header.add_child(overview_scroll_up_button)
-	var overview_scroll_down_button := Button.new()
-	overview_scroll_down_button.name = "OverviewScrollDownButton"
-	overview_scroll_down_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0048")
-	overview_scroll_down_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0049")
-	overview_scroll_down_button.pressed.connect(_scroll_overview.bind(1))
-	overview_header.add_child(overview_scroll_down_button)
+	_run_status_panel = PanelContainer.new()
+	_run_status_panel.name = "RunStatusRail"
+	_run_status_panel.custom_minimum_size.y = 54.0 * initial_scale
+	ForbiddenThemeScript.style_panel(_run_status_panel, "raised")
+	_page.add_child(_run_status_panel)
 	_overview_scroll = ScrollContainer.new()
 	_overview_scroll.name = "RunOverviewScroll"
-	_overview_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_overview_scroll.custom_minimum_size.y = 42.0 * initial_scale
 	_overview_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_overview_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_overview_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_overview_scroll.follow_focus = true
 	_overview_scroll.focus_mode = Control.FOCUS_ALL
 	_overview_scroll.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0050")
-	overview_layout.add_child(_overview_scroll)
+	_run_status_panel.add_child(_overview_scroll)
 	var overview := VBoxContainer.new()
-	overview.add_theme_constant_override("separation", 12)
+	overview.add_theme_constant_override("separation", 2)
 	overview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_overview_scroll.add_child(overview)
 	_run_value = _add_wrapped_label(overview)
-	_add_section_heading(overview, LocalizationCatalogScript.text("UI_RUN_SCENE_0149"))
 	_battle_value = _add_wrapped_label(overview)
-	_add_section_heading(overview, LocalizationCatalogScript.text("UI_RUN_SCENE_0051"))
 	_hand_value = _add_wrapped_label(overview)
 	_help_value = _add_wrapped_label(overview)
 	_help_value.name = "RunHelpPrompt"
-	_help_value.modulate = Color(0.78, 0.82, 0.9)
-	_help_value.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_help_value.add_theme_color_override("font_color", ForbiddenThemeScript.color("muted"))
 	_tutorial_prompt = _add_wrapped_label(overview)
 	_tutorial_prompt.name = "TutorialPrompt"
-	_tutorial_prompt.modulate = Color(0.95, 0.86, 0.62)
+	_tutorial_prompt.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
 	_tutorial_prompt.visible = false
 
-	var actions_panel := PanelContainer.new()
-	actions_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actions_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	actions_panel.size_flags_stretch_ratio = 1.0
-	columns.add_child(actions_panel)
-	var action_layout := VBoxContainer.new()
-	action_layout.add_theme_constant_override("separation", 8)
-	actions_panel.add_child(action_layout)
-	_add_section_heading(action_layout, LocalizationCatalogScript.text("UI_RUN_SCENE_0052"))
-	var scroll := ScrollContainer.new()
-	scroll.name = "AvailableActionsScroll"
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.follow_focus = true
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_action_details_value = Label.new()
-	_action_details_value.name = "SelectedActionDetails"
-	_configure_wrapped_label(_action_details_value)
-	_action_details_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_action_details_value.visible = false
-	action_layout.add_child(_action_details_value)
-	action_layout.add_child(scroll)
-	_actions_column = VBoxContainer.new()
-	_actions_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_actions_column.add_theme_constant_override("separation", 7)
-	scroll.add_child(_actions_column)
+	_run_columns = PanelContainer.new()
+	_run_columns.name = "RunJourneyStage"
+	_run_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_run_columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ForbiddenThemeScript.style_panel(_run_columns, "table")
+	_page.add_child(_run_columns)
+	_journey_host = Control.new()
+	_journey_host.name = "JourneyHost"
+	_journey_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_journey_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_run_columns.add_child(_journey_host)
+	_journey_view = RunJourneyViewScript.new()
+	_journey_view.name = "RunJourneyView"
+	_journey_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_journey_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_journey_view.configure(Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"), Callable(self, "_pretty_id"), Callable(self, "_pretty_words"))
+	_journey_view.connect("selection_changed", Callable(self, "_on_journey_selection_changed"))
+	_journey_view.connect("action_committed", Callable(self, "_on_journey_action_committed"))
+	_journey_view.connect("focus_changed", Callable(self, "_on_journey_focus_changed"))
+	_journey_view.connect("confirmation_changed", Callable(self, "_on_journey_confirmation_changed"))
+	_journey_host.add_child(_journey_view)
+	_action_details_value = _journey_view.details_label()
 
 	_summary_panel = PanelContainer.new()
 	_summary_panel.name = "RunSummaryPanel"
 	_summary_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_summary_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_summary_panel.visible = false
-	page.add_child(_summary_panel)
-	var summary_layout := VBoxContainer.new()
-	summary_layout.add_theme_constant_override("separation", 10)
-	_summary_panel.add_child(summary_layout)
-	var summary_scroll := ScrollContainer.new()
-	summary_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	summary_layout.add_child(summary_scroll)
-	_summary_value = Label.new()
-	_summary_value.name = "RunSummaryText"
-	_configure_wrapped_label(_summary_value)
-	_summary_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	summary_scroll.add_child(_summary_value)
-	_summary_acknowledge_button = Button.new()
-	_summary_acknowledge_button.name = "FinishRunButton"
-	_summary_acknowledge_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
-	_summary_acknowledge_button.pressed.connect(_on_action_pressed.bind("run.summary.acknowledge"))
-	summary_layout.add_child(_summary_acknowledge_button)
+	ForbiddenThemeScript.style_panel(_summary_panel, "table")
+	_page.add_child(_summary_panel)
+	_summary_view = RunSummaryViewScript.new()
+	_summary_view.name = "RunSummaryView"
+	_summary_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_summary_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_summary_panel.add_child(_summary_view)
+	_summary_view.render(null, "", initial_locale, initial_scale)
+	_summary_value = _summary_view.summary_label()
 
 	_feedback_value = Label.new()
+	_feedback_value.name = "RunFeedback"
 	_configure_wrapped_label(_feedback_value)
-	page.add_child(_feedback_value)
+	_feedback_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var footer := HBoxContainer.new()
+	footer.name = "RunActionRail"
+	footer.add_theme_constant_override("separation", 10)
+	_page.add_child(footer)
+	footer.add_child(_feedback_value)
+	_back_button = Button.new()
+	_back_button.name = "BackButton"
+	_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
+	_back_button.custom_minimum_size = Vector2(140.0, 44.0)
+	_back_button.pressed.connect(_on_back_pressed)
+	ForbiddenThemeScript.style_button(_back_button)
+	footer.add_child(_back_button)
+	_commit_selected_button = Button.new()
+	_commit_selected_button.name = "CommitSelectedButton"
+	_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0037")
+	_commit_selected_button.custom_minimum_size = Vector2(220.0, 44.0)
+	_commit_selected_button.pressed.connect(_on_commit_selected_pressed)
+	ForbiddenThemeScript.style_button(_commit_selected_button, true)
+	footer.add_child(_commit_selected_button)
+	_summary_acknowledge_button = _commit_selected_button
 
-func _render() -> void:
-	if controller == null:
-		if _phase_value != null:
-			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0054")
+	_build_new_run_confirmation()
+	_preferences_overlay = PreferencesOverlayScript.new()
+	_preferences_overlay.name = "PreferencesOverlay"
+	_preferences_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_preferences_overlay.connect("preferences_applied", Callable(self, "_on_preferences_applied"))
+	add_child(_preferences_overlay)
+
+
+func _build_new_run_confirmation() -> void:
+	_confirmation_overlay = Control.new()
+	_confirmation_overlay.name = "NewRunConfirmation"
+	_confirmation_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_confirmation_overlay.visible = false
+	_confirmation_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_confirmation_overlay.z_index = 30
+	add_child(_confirmation_overlay)
+	var scrim := ColorRect.new()
+	scrim.name = "ConfirmationScrim"
+	scrim.color = Color(0.015, 0.055, 0.043, 0.9)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_confirmation_overlay.add_child(scrim)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_confirmation_overlay.add_child(center)
+	var card := PanelContainer.new()
+	card.name = "NewRunConfirmationCard"
+	card.custom_minimum_size = Vector2(540.0, 220.0)
+	ForbiddenThemeScript.style_panel(card, "paper", true)
+	center.add_child(card)
+	var layout := VBoxContainer.new()
+	layout.add_theme_constant_override("separation", 12)
+	card.add_child(layout)
+	var heading := Label.new()
+	heading.name = "ConfirmationHeading"
+	heading.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0034")
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ForbiddenThemeScript.title(heading, str(_applied_preferences.get("locale", "en")))
+	layout.add_child(heading)
+	_confirmation_message = Label.new()
+	_confirmation_message.name = "ConfirmationDetails"
+	_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
+	_confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_confirmation_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(_confirmation_message)
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 10)
+	layout.add_child(buttons)
+	_cancel_new_run_button = Button.new()
+	_cancel_new_run_button.name = "CancelNewRunButton"
+	_cancel_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0036")
+	_cancel_new_run_button.custom_minimum_size = Vector2(200.0, 44.0)
+	_cancel_new_run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cancel_new_run_button.pressed.connect(_close_new_run_confirmation.bind(true))
+	ForbiddenThemeScript.style_button(_cancel_new_run_button)
+	buttons.add_child(_cancel_new_run_button)
+	_confirm_new_run_button = Button.new()
+	_confirm_new_run_button.name = "ConfirmNewRunButton"
+	_confirm_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0019")
+	_confirm_new_run_button.custom_minimum_size = Vector2(200.0, 44.0)
+	_confirm_new_run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_confirm_new_run_button.pressed.connect(_confirm_pending_new_run)
+	ForbiddenThemeScript.style_button(_confirm_new_run_button, true)
+	buttons.add_child(_confirm_new_run_button)
+
+
+func _connect_presentation_preferences() -> void:
+	var preferences = _preferences_service()
+	if preferences != null and not preferences.is_connected("preferences_changed", Callable(self, "_on_preferences_changed")):
+		preferences.connect("preferences_changed", Callable(self, "_on_preferences_changed"))
+	_apply_presentation_preferences(_applied_preferences, false)
+
+
+func _on_preferences_changed(preferences: Dictionary) -> void:
+	_apply_presentation_preferences(preferences, true)
+
+
+func _on_preferences_applied(preferences: Dictionary) -> void:
+	if preferences == _applied_preferences:
+		# The overlay can apply tutorial-only changes without emitting
+		# preferences_changed. Refresh that prompt after it mutates progress, while
+		# avoiding a second full journey rebuild for the same settings apply.
+		_refresh_tutorial_presentation()
+		return
+	_apply_presentation_preferences(preferences, true)
+
+
+func _refresh_tutorial_presentation() -> void:
+	if controller == null or _tutorial_prompt == null:
+		return
+	var phase := str(controller.domain.state.phase)
+	_render_tutorial(phase)
+	if _run_status_panel != null:
+		if phase == RunPhaseScript.BATTLE:
+			_run_status_panel.visible = _tutorial_prompt.visible
+			_run_status_panel.custom_minimum_size.y = (34.0 if _tutorial_prompt.visible else 0.0) * float(_applied_preferences.get("ui_scale", 1.0))
+			var overview_scroll := _run_status_panel.find_child("RunOverviewScroll", true, false) as ScrollContainer
+			if overview_scroll != null:
+				overview_scroll.custom_minimum_size.y = 24.0 * float(_applied_preferences.get("ui_scale", 1.0))
+		else:
+			_run_status_panel.visible = true
+			_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
+
+
+func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_descriptors: bool) -> void:
+	var locale := "zh_CN" if str(preferences.get("locale", "en")).to_lower().begins_with("zh") else "en"
+	var normalized := preferences.duplicate(true)
+	normalized["locale"] = locale
+	_applied_preferences = normalized
+	TranslationServer.set_locale(locale)
+	var scale := float(normalized.get("ui_scale", 1.0))
+	theme = ForbiddenThemeScript.create_theme(locale, scale)
+	if _table_backdrop != null:
+		_table_backdrop.call("configure", str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)), bool(normalized.get("ambient_glow", true)))
+	if _journey_view != null:
+		_journey_view.set_presentation_preferences(locale, scale, str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)))
+	if _battle_view != null and _battle_view.has_method("set_presentation_preferences"):
+		_battle_view.call("set_presentation_preferences", locale, scale, str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)), bool(normalized.get("ambient_glow", true)))
+	_refresh_static_labels()
+	if controller != null:
+		_suppress_controller_render = true
+		if str(controller.snapshot().get("presentation_mode", "NORMAL")) != str(normalized.get("presentation_mode", "NORMAL")):
+			controller.set_mode(str(normalized.get("presentation_mode", "NORMAL")))
+		if refresh_cached_descriptors:
+			# Rebuild only presentation descriptors; the Run Domain, checkpoint and replay bytes are unchanged.
+			controller.refresh_localized_presentation()
+		_suppress_controller_render = false
+	_render()
+
+
+func _refresh_static_labels() -> void:
+	if not _meta_progress_warning_parts.is_empty():
+		_meta_progress_load_warning = _message_parts_text(_meta_progress_warning_parts)
 		if _profile_status != null:
 			_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
-			_profile_status.visible = not _meta_progress_load_warning.is_empty()
+	if _settings_button != null:
+		_settings_button.text = LocalizationCatalogScript.text("UI_PREFS_TAB_SETTINGS")
+	if _back_button != null:
+		_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
+	if _cancel_new_run_button != null:
+		_cancel_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0036")
+	if _confirm_new_run_button != null:
+		_confirm_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0019")
+	if _confirmation_message != null:
+		_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
+	if _tutorial_reset_button != null:
+		_tutorial_reset_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0039")
+	if _new_run_button != null:
+		_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0040")
+	if _reset_profile_button != null:
+		_reset_profile_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0041")
+		_reset_profile_button.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0042")
+		_reset_profile_button.disabled = _profile_reset_unavailable()
+	if _page != null:
+		var title := _page.find_child("GameTitle", true, false) as Label
+		if title != null:
+			title.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0038")
+			ForbiddenThemeScript.title(title, str(_applied_preferences.get("locale", "en")))
+	_refresh_suspend_presentation()
+	_refresh_action_rail()
+
+
+func _refresh_profile_recovery_presentation() -> void:
+	if _profile_status == null:
+		return
+	_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
+	_profile_status.visible = not _meta_progress_load_warning.is_empty()
+	var has_details := not _profile_technical_details.is_empty()
+	if _profile_details_button != null:
+		_profile_details_button.visible = has_details
+		_profile_details_button.text = LocalizationCatalogScript.text("UI_RUN_RECOVERY_DETAILS_HIDE" if _profile_details_expanded else "UI_RUN_RECOVERY_DETAILS_SHOW")
+	if _profile_details_value != null:
+		var codes: Array = _profile_technical_details.get("codes", [])
+		var recovery_path := str(_profile_technical_details.get("recovery_path", ""))
+		var details_text := LocalizationCatalogScript.format("UI_PROFILE_RECOVERY_DETAILS_BODY", [
+			str(_profile_technical_details.get("profile_path", "")),
+			recovery_path,
+			", ".join(PackedStringArray(codes)),
+		]) if has_details else ""
+		if has_details and bool(_profile_technical_details.get("manual_recovery_required", false)):
+			details_text += "\n\n" + LocalizationCatalogScript.text("UI_PROFILE_MANUAL_RECOVERY_STEPS")
+		_profile_details_value.text = details_text
+		_profile_details_value.visible = has_details and _profile_details_expanded
+	if _profile_details_scroll != null:
+		_profile_details_scroll.visible = has_details and _profile_details_expanded
+		_profile_details_scroll.custom_minimum_size.y = 72.0 * float(_applied_preferences.get("ui_scale", 1.0)) if _profile_details_scroll.visible else 0.0
+	if _profile_recovery_scroll != null:
+		_profile_recovery_scroll.visible = _profile_status.visible or has_details
+		var viewport_height := get_viewport_rect().size.y if is_inside_tree() else 540.0
+		var recovery_budget := minf(190.0, viewport_height * 0.35)
+		_profile_recovery_scroll.custom_minimum_size.y = minf(_profile_recovery_content.get_combined_minimum_size().y, recovery_budget) if _profile_recovery_scroll.visible else 0.0
+
+
+func _on_profile_details_pressed() -> void:
+	_profile_details_expanded = not _profile_details_expanded
+	_refresh_profile_recovery_presentation()
+
+
+func _profile_reset_unavailable() -> bool:
+	return meta_progress_coordinator != null and meta_progress_coordinator.recovery_required and str(meta_progress_coordinator.last_rejected_profile_path).is_empty()
+
+
+func _on_settings_pressed() -> void:
+	var preferences_service = _preferences_service()
+	if _preferences_overlay == null or preferences_service == null:
+		return
+	var preferences: Dictionary = preferences_service.call("snapshot")
+	_preferences_overlay.call("open", preferences, _settings_button, controller.tutorial_progress if controller != null else null)
+
+
+func _preferences_service():
+	var scene_tree := Engine.get_main_loop() as SceneTree
+	if scene_tree == null or scene_tree.root == null:
+		return null
+	return scene_tree.root.get_node_or_null("PresentationPrefs")
+
+
+func _open_new_run_confirmation(from_suspend: bool) -> void:
+	_new_run_from_suspend_pending = from_suspend
+	_new_run_confirmation_origin = _new_run_from_suspend_button if from_suspend else _new_run_button
+	_confirmation_overlay.visible = true
+	_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
+	_grab_focus_if_available(_cancel_new_run_button)
+
+
+func _close_new_run_confirmation(restore_focus: bool = false) -> void:
+	if _confirmation_overlay == null or not _confirmation_overlay.visible:
+		return
+	_confirmation_overlay.visible = false
+	_new_run_from_suspend_pending = false
+	if restore_focus and is_instance_valid(_new_run_confirmation_origin) and _new_run_confirmation_origin.is_visible_in_tree():
+		_grab_focus_if_available(_new_run_confirmation_origin)
+	_new_run_confirmation_origin = null
+
+
+func _confirm_pending_new_run() -> void:
+	if _confirmation_overlay == null or not _confirmation_overlay.visible:
+		return
+	var from_suspend := _new_run_from_suspend_pending
+	_close_new_run_confirmation(false)
+	if from_suspend:
+		_perform_new_run_from_suspend()
+	else:
+		_perform_terminal_new_run()
+
+func _render() -> void:
+	var viewport := get_viewport()
+	var focused_control: Control = viewport.gui_get_focus_owner() as Control if viewport != null else null
+	var prior_focus_name: String = focused_control.name if focused_control != null else ""
+	var prior_action_id := str(focused_control.get_meta("run_action_id", "")) if focused_control != null else ""
+	var prior_commit_focus := focused_control == _commit_selected_button
+	if controller == null:
+		_last_rendered_phase = ""
+		if _phase_value != null:
+			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0054")
+		_refresh_profile_recovery_presentation()
 		if _reset_profile_button != null:
 			_reset_profile_button.visible = meta_progress_coordinator.recovery_required
+			_reset_profile_button.disabled = _profile_reset_unavailable()
 		if _run_columns != null:
 			_run_columns.visible = false
 		if _tutorial_prompt != null:
@@ -633,77 +1216,301 @@ func _render() -> void:
 			_tutorial_reset_button.disabled = true
 		if _summary_panel != null:
 			_summary_panel.visible = false
+		if _run_status_panel != null:
+			_run_status_panel.visible = false
+		if _journey_view != null:
+			_journey_view.visible = false
+		if _battle_view != null:
+			_battle_view.visible = false
 		if _new_run_button != null:
 			_new_run_button.disabled = true
 		if _feedback_value != null:
 			_set_wrapped_label_text(_feedback_value, _startup_error)
+		_refresh_action_rail()
 		return
 	_suspend_choice_panel.visible = false
+	_run_status_panel.visible = true
 	var state = controller.domain.state
 	var phase := str(state.phase)
+	var phase_changed := phase != _last_rendered_phase
 	_phase_value.text = LocalizationCatalogScript.template("UI_RUN_SCENE_0055") % [state.act_index, state.act_count, _pretty_words(phase)]
-	_set_wrapped_label_text(_run_value, LocalizationCatalogScript.template("UI_RUN_SCENE_0056") % [
-		state.run_id,
-		_pretty_id(state.character_id),
-		_pretty_id(state.contract_id),
+	_set_wrapped_label_text(_run_value, LocalizationCatalogScript.format("UI_RUN_JOURNEY_RESOURCES", [
 		state.gold,
 		state.refinement_tokens,
-		_pretty_id(state.map_state.current_node_id),
-	])
+		_pretty_id(state.character_id),
+		_pretty_id(state.contract_id),
+	]))
 	_set_wrapped_label_text(_battle_value, _battle_summary())
 	_set_wrapped_label_text(_hand_value, _hand_summary())
 	_set_wrapped_label_text(_help_value, _help_text(phase))
+	_run_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_run_value.visible = phase != RunPhaseScript.BATTLE
+	_battle_value.visible = false
+	_hand_value.visible = false
+	_help_value.visible = phase != RunPhaseScript.BATTLE
 	_render_tutorial(phase)
+	if phase == RunPhaseScript.BATTLE:
+		_run_status_panel.visible = _tutorial_prompt.visible
+		_run_status_panel.custom_minimum_size.y = (34.0 if _tutorial_prompt.visible else 0.0) * float(_applied_preferences.get("ui_scale", 1.0))
+		_overview_scroll.custom_minimum_size.y = 24.0 * float(_applied_preferences.get("ui_scale", 1.0))
+	else:
+		_run_status_panel.visible = true
+		_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
+		_overview_scroll.custom_minimum_size.y = 42.0 * float(_applied_preferences.get("ui_scale", 1.0))
 	_set_wrapped_label_text(_feedback_value, str(controller.snapshot().get("feedback", "")))
-	_set_wrapped_label_text(_profile_status, _meta_progress_load_warning)
-	_profile_status.visible = not _meta_progress_load_warning.is_empty()
+	_refresh_profile_recovery_presentation()
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
+	_reset_profile_button.disabled = _profile_reset_unavailable()
 	var showing_summary := phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]
 	_run_columns.visible = not showing_summary
 	_summary_panel.visible = showing_summary
-	_set_wrapped_label_text(_summary_value, RunSummaryPresenterScript.format(state))
-	_summary_acknowledge_button.visible = phase == RunPhaseScript.RUN_SUMMARY
+	var summary_clock_anchor := _summary_clock_anchor(state) if phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE] else -1
+	_summary_view.render(state, RunSummaryPresenterScript.format(state, summary_clock_anchor), str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)))
+	_summary_acknowledge_button.visible = false
 	_new_run_button.disabled = phase != RunPhaseScript.RUN_COMPLETE
+	_new_run_button.visible = phase == RunPhaseScript.RUN_COMPLETE
 	_render_actions()
-	if phase == RunPhaseScript.RUN_SUMMARY and _summary_acknowledge_button.visible and not _summary_acknowledge_button.disabled:
-		_summary_acknowledge_button.grab_focus()
-	elif phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled and _new_run_button.is_inside_tree():
-		_new_run_button.grab_focus()
+	_refresh_action_rail()
+	if viewport != null and not _preferences_overlay.visible and not _confirmation_overlay.visible:
+		if phase_changed and phase == RunPhaseScript.BATTLE:
+			_focus_initial_battle_control()
+		elif phase_changed and phase == RunPhaseScript.RUN_SUMMARY and not _commit_selected_button.disabled and _commit_selected_button.visible:
+			_grab_focus_if_available(_commit_selected_button)
+		elif phase_changed and phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled and _new_run_button.visible:
+			_grab_focus_if_available(_new_run_button)
+		elif phase_changed and _journey_view.visible:
+			_focus_initial_journey_choice()
+		elif prior_commit_focus and not _commit_selected_button.disabled and _commit_selected_button.visible:
+			_grab_focus_if_available(_commit_selected_button)
+		elif not prior_action_id.is_empty() and _journey_view.visible:
+			var same_choice: Button = _journey_view.action_button(prior_action_id)
+			if same_choice != null and not same_choice.disabled:
+				_grab_focus_if_available(same_choice)
+		elif prior_focus_name == "SettingsButton" and _settings_button.visible:
+			_grab_focus_if_available(_settings_button)
+		elif phase == RunPhaseScript.RUN_SUMMARY and not _commit_selected_button.disabled:
+			_grab_focus_if_available(_commit_selected_button)
+		elif phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled:
+			_grab_focus_if_available(_new_run_button)
+		elif _journey_view.visible and _journey_view.get("focused_action_id") != "":
+			var focused_choice: Button = _journey_view.action_button(str(_journey_view.get("focused_action_id")))
+			if focused_choice != null and focused_choice.is_inside_tree():
+				_grab_focus_if_available(focused_choice)
+		_restore_focus_after_render(phase)
+	_last_rendered_phase = phase
+
+
+func _summary_clock_anchor(run_state) -> int:
+	if run_state == null or run_state.terminal_summary == null:
+		return -1
+	var summary_identity := "%s:%s" % [str(run_state.run_id), JSON.stringify(run_state.terminal_summary.to_dictionary())]
+	if summary_identity != _summary_duration_identity:
+		_summary_duration_identity = summary_identity
+		_summary_duration_anchor_unix_seconds = int(Time.get_unix_time_from_system())
+	return _summary_duration_anchor_unix_seconds
+
+
+func _restore_focus_after_render(phase: String) -> void:
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var focus_owner := viewport.gui_get_focus_owner() as Control
+	if phase == RunPhaseScript.BATTLE and _battle_view != null and _battle_view.visible:
+		if focus_owner == null or not focus_owner.is_visible_in_tree() or not _battle_view.is_ancestor_of(focus_owner):
+			_focus_initial_battle_control()
+		return
+	if _journey_view == null or not _journey_view.visible:
+		return
+	if focus_owner == null or not focus_owner.is_visible_in_tree() or (focus_owner is BaseButton and (focus_owner as BaseButton).disabled):
+		_focus_initial_journey_choice()
+
+
+func _focus_initial_journey_choice() -> void:
+	if controller == null or _journey_view == null or not _journey_view.visible:
+		return
+	var action_id := str(_journey_view.get("focused_action_id"))
+	var button: Button = _journey_view.action_button(action_id)
+	if button == null or button.disabled or not button.is_visible_in_tree():
+		for action in controller.action_descriptors():
+			button = _journey_view.action_button(str(action.get("id", "")))
+			if button != null and not button.disabled and button.is_visible_in_tree():
+				break
+	if button != null and not button.disabled:
+		_grab_focus_if_available(button)
 
 func _render_actions() -> void:
-	for child in _actions_column.get_children():
-		_actions_column.remove_child(child)
-		child.queue_free()
-	var descriptors: Array = controller.action_descriptors()
-	if descriptors.is_empty():
-		_set_wrapped_label_text(_action_details_value, "")
-		_action_details_value.visible = false
-		var empty_label := Label.new()
-		empty_label.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0057")
-		_configure_wrapped_label(empty_label)
-		_actions_column.add_child(empty_label)
+	if controller == null:
 		return
-	var focused_id := str(controller.snapshot().get("focused_action_id", ""))
-	var focused_button: Button
-	var focused_action: Dictionary = {}
-	for action in descriptors:
-		var action_id := str(action.get("id", ""))
-		var button := Button.new()
-		button.text = _compact_action_label(action)
-		button.set_meta("run_action_id", action_id)
-		button.tooltip_text = _action_tooltip(action)
-		button.custom_minimum_size.y = 42
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.pressed.connect(_on_action_pressed.bind(action_id))
-		button.focus_entered.connect(_on_action_focus_entered.bind(action_id))
-		_actions_column.add_child(button)
-		if focused_button == null or action_id == focused_id:
-			focused_button = button
-			focused_action = action
-	_set_wrapped_label_text(_action_details_value, _action_details_text(focused_action))
-	_action_details_value.visible = not _action_details_value.text.is_empty() and focused_button != null and _action_details_value.text != focused_button.text
-	if focused_button != null and focused_button.is_inside_tree() and not _reset_profile_button.has_focus():
-		focused_button.grab_focus()
+	var descriptors: Array = controller.action_descriptors()
+	var phase := str(controller.domain.state.phase)
+	var effective_mode := str(controller.snapshot().get("presentation_mode", _applied_preferences.get("presentation_mode", "NORMAL")))
+	if phase == RunPhaseScript.BATTLE and _ensure_battle_view():
+		_journey_view.visible = false
+		_battle_view.visible = true
+		if str(_battle_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_battle_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_battle_view.get("_presentation_mode")) != effective_mode or bool(_battle_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)) or bool(_battle_view.get("_ambient_glow")) != bool(_applied_preferences.get("ambient_glow", true)):
+			_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
+		_battle_view.render()
+		_back_button.visible = false
+		_commit_selected_button.visible = false
+		return
+	if _battle_view != null:
+		_battle_view.visible = false
+		if _battle_view.has_method("sync_persistent_receipt"):
+			_battle_view.call("sync_persistent_receipt")
+	_journey_view.visible = true
+	_back_button.visible = true
+	_commit_selected_button.visible = true
+	if str(_journey_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_journey_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_journey_view.get("_presentation_mode")) != effective_mode or bool(_journey_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)):
+		_journey_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)))
+	var preferred_focus := str(_journey_view.get("focused_action_id"))
+	_journey_view.render(controller, descriptors, preferred_focus)
+	_action_details_value = _journey_view.details_label()
+	if phase in [RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD, RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE] and _battle_view != null and _battle_view.has_method("persistent_receipt_text"):
+		var receipt := str(_battle_view.call("persistent_receipt_text"))
+		if not receipt.is_empty():
+			var feedback := str(controller.snapshot().get("feedback", ""))
+			var combined_feedback := receipt if feedback.is_empty() else "%s\n%s" % [feedback, receipt]
+			_set_wrapped_label_text(_feedback_value, combined_feedback)
+
+
+func _ensure_battle_view() -> bool:
+	if _battle_view != null:
+		if _battle_configured_controller != controller:
+			_battle_view.configure(controller, Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"))
+			_battle_configured_controller = controller
+		return true
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(BattleViewPath)):
+		return false
+	var script = load(BattleViewPath)
+	if script == null:
+		return false
+	_battle_view = script.new()
+	_battle_view.name = "BattleView"
+	_battle_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_battle_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_battle_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if _battle_view.has_method("set_external_preferences_owner"):
+		_battle_view.call("set_external_preferences_owner", true)
+	_battle_view.configure(controller, Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"))
+	_battle_configured_controller = controller
+	_battle_view.action_requested.connect(_on_battle_action_requested)
+	_battle_view.focus_requested.connect(_on_battle_focus_requested)
+	_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), str(_applied_preferences.get("presentation_mode", "NORMAL")), bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
+	_journey_host.add_child(_battle_view)
+	return true
+
+
+func _on_battle_action_requested(action_id: String) -> void:
+	if controller == null:
+		return
+	controller.confirm(action_id)
+
+
+func _on_battle_focus_requested(action_id: String) -> void:
+	_battle_focus_action_id = action_id
+	_sync_presentation_focus(action_id)
+	if _action_details_value != null and controller != null:
+		for action in controller.action_descriptors():
+			if str(action.get("id", "")) == action_id:
+				_action_details_value.text = _action_details_text(action)
+				return
+
+
+func _refresh_action_rail() -> void:
+	if _commit_selected_button == null or _back_button == null:
+		return
+	var action_id := ""
+	var action: Dictionary = {}
+	var is_confirming := _journey_view != null and bool(_journey_view.get("is_confirmation_open"))
+	if is_confirming:
+		action_id = str(_journey_view.confirmation_action_id())
+		action = _journey_view.selected_action()
+		_commit_selected_button.text = _journey_view.confirmation_commit_label()
+	elif controller != null and str(controller.domain.state.phase) == RunPhaseScript.RUN_SUMMARY:
+		for candidate in controller.action_descriptors():
+			if str(candidate.get("kind", "")) == "RUN_SUMMARY":
+				action = candidate
+				action_id = str(candidate.get("id", ""))
+				break
+		_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
+	else:
+		if _journey_view != null:
+			action = _journey_view.selected_action()
+			action_id = str(action.get("id", ""))
+		var kind := str(action.get("kind", ""))
+		if kind == "SHOP_OFFER":
+			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0038")
+		elif kind == "WORKSHOP_SERVICE":
+			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0039")
+		else:
+			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0037")
+	_commit_selected_button.set_meta("run_commit_action_id", action_id)
+	_commit_selected_button.tooltip_text = _action_tooltip(action) if not action.is_empty() else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013")
+	_commit_selected_button.disabled = action_id.is_empty() or controller == null
+	_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0015") if is_confirming else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
+	_back_button.disabled = controller == null
+	var in_battle := controller != null and str(controller.domain.state.phase) == RunPhaseScript.BATTLE
+	_back_button.visible = not in_battle
+	_commit_selected_button.visible = not in_battle
+	if _feedback_value != null:
+		_feedback_value.visible = not _feedback_value.text.is_empty()
+
+
+func _on_journey_selection_changed(action_id: String) -> void:
+	_refresh_action_rail()
+
+
+func _on_journey_focus_changed(action_id: String) -> void:
+	_battle_focus_action_id = action_id
+	_sync_presentation_focus(action_id)
+
+
+func _on_journey_confirmation_changed(_opened: bool) -> void:
+	_refresh_action_rail()
+
+
+func _on_journey_action_committed(action_id: String) -> void:
+	if controller == null:
+		return
+	var result = controller.confirm(action_id)
+	if result != null and result.accepted:
+		_journey_view.clear_committed_selection()
+
+
+func _sync_presentation_focus(action_id: String) -> void:
+	if controller == null or action_id.is_empty():
+		return
+	var focused_index: int = controller.state.focus_action_ids.find(action_id)
+	if focused_index >= 0:
+		controller.state.focused_index = focused_index
+
+
+func _on_commit_selected_pressed() -> void:
+	if _confirmation_overlay != null and _confirmation_overlay.visible:
+		_confirm_pending_new_run()
+		return
+	if controller == null:
+		return
+	if str(controller.domain.state.phase) in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]:
+		var action_id := str(_commit_selected_button.get_meta("run_commit_action_id", ""))
+		if not action_id.is_empty():
+			_on_action_pressed(action_id)
+		return
+	if _journey_view != null and _journey_view.visible:
+		_journey_view.commit_selected()
+
+
+func _on_back_pressed() -> void:
+	if _confirmation_overlay != null and _confirmation_overlay.visible:
+		_close_new_run_confirmation(true)
+		return
+	if _journey_view != null and _journey_view.visible and _journey_view.cancel_local_state():
+		_refresh_action_rail()
+		return
+	if _battle_view != null and _battle_view.visible and _battle_view.has_method("cancel") and _battle_view.cancel():
+		return
+	if controller != null:
+		controller.back()
 
 func _on_action_focus_entered(action_id: String) -> void:
 	if controller == null or _action_details_value == null:
@@ -711,13 +1518,28 @@ func _on_action_focus_entered(action_id: String) -> void:
 	for action in controller.action_descriptors():
 		if str(action.get("id", "")) == action_id:
 			_set_wrapped_label_text(_action_details_value, _action_details_text(action))
-			var focused_button := get_viewport().gui_get_focus_owner() as Button
+			var viewport := get_viewport()
+			var focused_button := viewport.gui_get_focus_owner() as Button if viewport != null else null
 			_action_details_value.visible = not _action_details_value.text.is_empty() and focused_button != null and _action_details_value.text != focused_button.text
 			return
 
+
+func _focus_initial_battle_control() -> void:
+	if controller == null or _battle_view == null or not _battle_view.visible or not _battle_view.has_method("action_button"):
+		return
+	var action_id := str(_battle_view.get("focused_action_id"))
+	var button := _battle_view.call("action_button", action_id) as Button
+	if button == null or button.disabled or not button.is_visible_in_tree():
+		for action in controller.action_descriptors():
+			button = _battle_view.call("action_button", str(action.get("id", ""))) as Button
+			if button != null and not button.disabled and button.is_visible_in_tree():
+				break
+	if button != null and not button.disabled:
+		_grab_focus_if_available(button)
+
+
 func _on_action_pressed(action_id: String):
 	var result = controller.confirm(action_id)
-	_render()
 	return result
 
 func _on_tutorial_toggle_pressed() -> void:
@@ -738,10 +1560,6 @@ func _on_tutorial_reset_pressed() -> void:
 func _render_tutorial(phase: String) -> void:
 	var progress = controller.tutorial_progress
 	var active_step := str(progress.current_step_id)
-	var complete: bool = progress.is_complete()
-	_tutorial_toggle_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0058") if complete else (LocalizationCatalogScript.text("UI_RUN_SCENE_0059") if progress.enabled else LocalizationCatalogScript.text("UI_RUN_SCENE_0060"))
-	_tutorial_toggle_button.disabled = complete
-	_tutorial_reset_button.disabled = progress.enabled and progress.completed_step_ids.is_empty()
 	_set_wrapped_label_text(_tutorial_prompt, _tutorial_prompt_for_step(active_step))
 	_tutorial_prompt.visible = phase == RunPhaseScript.BATTLE and progress.enabled and not active_step.is_empty()
 
@@ -762,6 +1580,12 @@ func _tutorial_prompt_for_step(step_id: String) -> String:
 func _on_new_run_pressed() -> void:
 	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_COMPLETE:
 		return
+	_open_new_run_confirmation(false)
+
+
+func _perform_terminal_new_run() -> void:
+	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_COMPLETE:
+		return
 	var registry_result := _validated_content_registry()
 	if not registry_result.get("accepted", false):
 		_startup_error = str(registry_result.get("message", LocalizationCatalogScript.text("UI_RUN_SCENE_0066")))
@@ -778,19 +1602,29 @@ func _on_new_run_pressed() -> void:
 		controller.state.feedback = LocalizationCatalogScript.template("UI_RUN_SCENE_0068") % str(cleared.get("code", "SUSPEND_CLEAR_FAILED"))
 		_render()
 		return
-	if controller != null and controller.presentation_changed.is_connected(_render):
-		controller.presentation_changed.disconnect(_render)
+	if controller != null and controller.presentation_changed.is_connected(_on_controller_presentation_changed):
+		controller.presentation_changed.disconnect(_on_controller_presentation_changed)
 	controller = null
 	_content_registry = registry_result.registry
 	_start_new_run(_content_registry)
 	_render()
 
 func _on_reset_profile_pressed() -> void:
+	if _profile_reset_unavailable():
+		return
 	var result: Dictionary = meta_progress_coordinator.reset_profile()
 	if result.get("accepted", false):
-		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0069") % str(result.get("preserved_path", LocalizationCatalogScript.text("UI_RUN_SCENE_0070")))
+		_meta_progress_warning_parts = [_localized_message_part("UI_PROFILE_RESET_PRESERVED")]
+		_profile_technical_details["recovery_path"] = str(result.get("preserved_path", _profile_technical_details.get("recovery_path", "")))
 	else:
-		_meta_progress_load_warning = LocalizationCatalogScript.template("UI_RUN_SCENE_0071") % str(result.get("code", "RESET_FAILED"))
+		_meta_progress_warning_parts = [_localized_message_part("UI_PROFILE_RESET_FAILED")]
+		var codes: Array = _profile_technical_details.get("codes", [])
+		var reset_code := str(result.get("code", "RESET_FAILED"))
+		if not codes.has(reset_code):
+			codes.append(reset_code)
+		_profile_technical_details["codes"] = codes
+	_meta_progress_load_warning = _message_parts_text(_meta_progress_warning_parts)
+	_refresh_profile_recovery_presentation()
 	_render()
 
 func _battle_summary() -> String:
@@ -807,7 +1641,7 @@ func _battle_summary() -> String:
 	var intent = battle.combat_state.current_intent
 	var intent_text := LocalizationCatalogScript.text("WORD_NONE")
 	if intent != null:
-		intent_text = LocalizationCatalogScript.template("UI_RUN_SCENE_0074") % [intent.display_name, intent.pressure_amount]
+		intent_text = LocalizationCatalogScript.template("UI_RUN_SCENE_0074") % [LocalizationCatalogScript.display_text(str(intent.display_name)), intent.pressure_amount]
 	var outcome := str(battle_state.get("terminal_outcome", "ONGOING"))
 	var pattern_count: int = battle.settlement_window.candidates().size() if battle.settlement_window != null else 0
 	return LocalizationCatalogScript.template("UI_RUN_SCENE_0075") % [

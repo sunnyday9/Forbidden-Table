@@ -3,6 +3,12 @@ extends RefCounted
 
 const FORMAT_TOKEN := "%"
 
+static var _english_translation: Translation
+static var _source_key_by_english: Dictionary = {}
+static var _source_key_index_loaded := false
+static var _feedback_key_by_exact_text: Dictionary = {}
+static var _feedback_key_index_loaded := false
+
 static func text(key: String) -> String:
 	if key.is_empty():
 		push_error("Localization key must not be empty.")
@@ -14,7 +20,122 @@ static func text(key: String) -> String:
 	if _placeholder_count(translated) > 0 or _has_invalid_format_token(translated):
 		push_error("Localization key %s requires arguments; use Localization.format()." % key)
 		return "[INVALID FORMAT %s]" % key
-	return translated
+	return translated.replace("%%", "%")
+
+
+static func canonical_text(key: String) -> String:
+	# Catalogs use the English resource for authoritative labels so state and
+	# replay data do not depend on the active presentation locale.
+	if key.is_empty():
+		push_error("Localization key must not be empty.")
+		return "[MISSING LOCALIZATION KEY]"
+	if _english_translation == null:
+		_english_translation = TranslationServer.get_translation_object("en") as Translation
+	if _english_translation == null:
+		push_error("English source translation is unavailable.")
+		return "[MISSING %s]" % key
+	var source := str(_english_translation.get_message(key))
+	if source.is_empty():
+		push_error("Missing English source localization key: %s" % key)
+		return "[MISSING %s]" % key
+	return source.replace("%%", "%")
+
+
+static func display_text(canonical_english: String) -> String:
+	# Translate exact English source strings at presentation seams. Unknown or
+	# dynamically composed text remains unchanged.
+	if canonical_english.is_empty():
+		return ""
+	_load_source_key_index()
+	var key := str(_source_key_by_english.get(canonical_english, ""))
+	if key.is_empty():
+		return canonical_english
+	var translated := str(TranslationServer.translate(key))
+	if translated == key:
+		return canonical_english
+	return translated.replace("%%", "%") if _placeholder_count(translated) == 0 else translated
+
+
+static func retranslate_exact_text(previously_localized_text: String) -> String:
+	# Restore feedback that is an exact catalog value. Formatted warnings and
+	# dynamic text are intentionally returned intact when no exact key matches.
+	if previously_localized_text.is_empty():
+		return ""
+	_load_feedback_key_index()
+	var key := str(_feedback_key_by_exact_text.get(previously_localized_text, ""))
+	if key.is_empty():
+		return previously_localized_text
+	var translated := str(TranslationServer.translate(key))
+	if translated == key:
+		return previously_localized_text
+	return translated.replace("%%", "%") if _placeholder_count(translated) == 0 else translated
+
+
+static func _load_source_key_index() -> void:
+	if _source_key_index_loaded:
+		return
+	_source_key_index_loaded = true
+	if _english_translation == null:
+		_english_translation = TranslationServer.get_translation_object("en") as Translation
+	if _english_translation == null:
+		push_error("English source translation is unavailable.")
+		return
+	for raw_key in _english_translation.get_message_list():
+		var key := str(raw_key)
+		var source := str(_english_translation.get_message(key))
+		if key.is_empty() or source.is_empty():
+			continue
+		var current_key := str(_source_key_by_english.get(source, ""))
+		if current_key.is_empty() or _source_key_priority(key) < _source_key_priority(current_key):
+			_source_key_by_english[source] = key
+
+
+static func _load_feedback_key_index() -> void:
+	if _feedback_key_index_loaded:
+		return
+	_feedback_key_index_loaded = true
+	for locale in ["en", "zh_CN"]:
+		var translation := TranslationServer.get_translation_object(locale) as Translation
+		if translation == null:
+			push_error("Feedback translation resource is unavailable: %s" % locale)
+			continue
+		for raw_key in translation.get_message_list():
+			var key := str(raw_key)
+			var value := str(translation.get_message(key))
+			if key.is_empty() or value.is_empty():
+				continue
+			var current_key := str(_feedback_key_by_exact_text.get(value, ""))
+			if current_key.is_empty() or _feedback_key_priority(key) < _feedback_key_priority(current_key):
+				_feedback_key_by_exact_text[value] = key
+
+
+static func _source_key_priority(key: String) -> int:
+	# Domain-backed content identities win over generic words and UI phrasing.
+	# This makes duplicate English source strings resolve consistently to their
+	# authored content translation while keeping the reverse map deterministic.
+	if key.begins_with("base.character.") or key.begins_with("base.passive."):
+		return 0
+	if key.begins_with("alpha.") or key.begins_with("base."):
+		return 1
+	if key.begins_with("CONTENT_"):
+		return 2
+	if key.begins_with("WORD_"):
+		return 3
+	if key.begins_with("UI_"):
+		return 4
+	return 5
+
+
+static func _feedback_key_priority(key: String) -> int:
+	if key.begins_with("UI_RUN_CONTROLLER_"):
+		return 0
+	if key.begins_with("UI_"):
+		return 1
+	if key.begins_with("CONTENT_"):
+		return 2
+	if key.begins_with("WORD_"):
+		return 3
+	return 4
 
 static func format(key: String, values: Array) -> String:
 	if key.is_empty():
@@ -30,7 +151,7 @@ static func format(key: String, values: Array) -> String:
 	if _placeholder_count(template) != values.size():
 		push_error("Localization key %s has unresolved interpolation values." % key)
 		return "[UNRESOLVED %s]" % key
-	return template % values if not values.is_empty() else template
+	return template % values if not values.is_empty() else template.replace("%%", "%")
 
 static func template(key: String) -> String:
 	if key.is_empty():
