@@ -1,4 +1,6 @@
-# Forbidden Table · V2.1 design review
+# Forbidden Table · V2.2 bilingual design review
+
+**Latest: [V2.2 bilingual review](bilingual/README.md).** Compare [English](gallery.html) and [简体中文](gallery-zh_CN.html), inspect [language settings](language.html), and review [bilingual MVP requirements](bilingual/BILINGUAL_MVP.md). The same art direction and 34 tile faces are used in both languages. All 36 Chinese frames are editable on Figma page **05 · V2.2 — 中文 / English**. Runtime Chinese translation and UI implementation await explicit mockup approval.
 
 **2026-10-01 · Proposed V2.1 · Approval pending.** This revision responds to the feedback that V1 felt too formal and that the tiles should use standard Chinese faces. It proposes an atmospheric supernatural Mahjong game: a rain-lit salon, painted Character portraits, lacquered decision surfaces, carved brass edges, and recognizable Chinese Mahjong tiles.
 
@@ -32,6 +34,6 @@ Readability > state clarity > tile recognition > animation feedback > decoration
 
 ## Approval gate
 
-Review the V2.1 tile catalog, Character portraits and Battle composition first, then replay the four motion studies and inspect the full journey. Approval must explicitly identify **V2.1** and any exceptions before game UI implementation starts. Tile assets, portrait appearances, background art, revised headings, and material treatments are proposed cosmetic choices.
+Review the V2.2 bilingual screens, language settings and tile catalog, Character portraits and Battle composition first, then replay the four motion studies and inspect the full journey. Approval must explicitly identify **V2.2** and any exceptions before game UI implementation starts. Tile assets, portrait appearances, background art, revised headings, and material treatments are proposed cosmetic choices.
 
 Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. No UI game code, gameplay system, Domain state, content budget, or release-stage change is included. Stage 5 remains **1.0 Release Candidate**. This package has not been approved and does not constitute Stage 4.5 PASS.

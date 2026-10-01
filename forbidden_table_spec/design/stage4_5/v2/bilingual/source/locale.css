@@ -1,0 +1,11 @@
+@font-face{font-family:'Noto Sans SC';src:url('../fonts/NotoSansSC-Regular.otf');font-weight:400;font-display:block}
+@font-face{font-family:'Noto Sans SC';src:url('../fonts/NotoSansSC-Medium.otf');font-weight:600;font-display:block}
+@font-face{font-family:'Noto Serif SC';src:url('../fonts/NotoSerifSC-Regular.otf');font-weight:400;font-display:block}
+html[lang=zh-CN] body{font-family:'Noto Sans SC','Noto Sans',sans-serif}
+html[lang=zh-CN] .text,html[lang=zh-CN] .action{line-break:strict;word-break:normal}
+html[lang=zh-CN] .text.serif,html[lang=zh-CN] .review-head strong,html[lang=zh-CN] .demo-stamp{font-family:'Noto Serif SC','Noto Serif',serif;letter-spacing:0}
+/* Language autonyms are always readable, including in the English specimen. */
+#language,.language-study .screen{font-family:'Noto Sans SC','Noto Sans',sans-serif}
+.language-study .text.serif{font-family:'Noto Serif SC','Noto Serif',serif}
+.map-node{white-space:pre-line}
+.language-study .motion-controls,.language-study #motion-caption,.language-study .receipt{display:none}

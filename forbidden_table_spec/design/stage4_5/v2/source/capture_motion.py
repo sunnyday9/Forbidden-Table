@@ -2,8 +2,11 @@
 import json,subprocess,sys
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+ZH=len(sys.argv)>3 and sys.argv[3]=='zh_CN'
+if ZH: ROOT=ROOT/'bilingual'
+(ROOT/'motion').mkdir(exist_ok=True)
 code=r'''async page=>{
- await page.goto('http://127.0.0.1:8845/forbidden_table_spec/design/stage4_5/v2/gallery.html');
+ await page.goto('http://127.0.0.1:8845/forbidden_table_spec/design/stage4_5/v2/__GALLERY__');
  await page.evaluate(()=>document.fonts.ready);await page.locator('#ambient').uncheck();
  const results=[];
  for(const mode of ['Normal','Fast','Instant']){
@@ -29,12 +32,13 @@ code=r'''async page=>{
  }
  await page.evaluate(()=>window.FT_V2_STOP());
  return {scope:'Browser design viewer only; no Domain or Godot execution',results,reduced,escape,interrupt};
-}'''.replace('__ROOT__',json.dumps(str(ROOT)))
+}'''.replace('__ROOT__',json.dumps(str(ROOT))).replace('__GALLERY__','gallery-zh_CN.html' if ZH else 'gallery.html')
 r=subprocess.run(['bash',sys.argv[1],'-s='+sys.argv[2],'run-code',code],cwd='/tmp',text=True,capture_output=True)
 if r.returncode:print(r.stdout+r.stderr);raise SystemExit(r.returncode)
 payload=json.loads(r.stdout.split('### Result\n',1)[1].split('\n### ',1)[0]);(ROOT/'source/motion_checks.json').write_text(json.dumps(payload,indent=2)+'\n')
 assert len(payload['results'])==12
-assert all(x['receipt']=='Complete Hand settled. → Boss enters phase 2. → Victory!' for x in payload['results'])
+expected='完整和牌已结算。→ 首领进入第二阶段。→ 胜利！' if ZH else 'Complete Hand settled. → Boss enters phase 2. → Victory!'
+assert all(x['receipt']==expected for x in payload['results'])
 assert payload['escape']['animationCount']==0 and payload['escape']['stampCount']==0
 assert payload['interrupt']['active']=='character' and payload['interrupt']['stampCount']==0
 assert payload['reduced']['ambient']=='false' and all(d==0 for d in payload['reduced']['durations'])

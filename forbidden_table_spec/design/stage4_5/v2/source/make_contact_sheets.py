@@ -1,12 +1,14 @@
 """Compose review indexes from captured mockup PNGs (requires Pillow)."""
-import json
+import json,sys
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
-manifest = json.loads((ROOT / 'screen_manifest.json').read_text(encoding='utf-8'))
-font = ImageFont.truetype(str(ROOT.parent / 'source/fonts/NotoSans-Regular.ttf'), 16)
-heading = ImageFont.truetype(str(ROOT.parent / 'source/fonts/NotoSerif-Regular.ttf'), 24)
+ZH=len(sys.argv)>1 and sys.argv[1]=='zh_CN'
+if ZH: ROOT=ROOT/'bilingual'
+manifest = json.loads((ROOT / ('source/screens.zh_CN.json' if ZH else 'screen_manifest.json')).read_text(encoding='utf-8'))
+font = ImageFont.truetype(str(ROOT/'fonts/NotoSansSC-Regular.otf') if ZH else str(ROOT.parent / 'source/fonts/NotoSans-Regular.ttf'), 16)
+heading = ImageFont.truetype(str(ROOT/'fonts/NotoSerifSC-Regular.otf') if ZH else str(ROOT.parent / 'source/fonts/NotoSerif-Regular.ttf'), 24)
 
 def sheet(entries, name, columns, cell_width):
     gap, top, caption = 16, 72, 40
@@ -15,8 +17,8 @@ def sheet(entries, name, columns, cell_width):
     canvas = Image.new('RGB', (columns*(cell_width+gap)+gap,
                        top+rows*(cell_height+caption+gap)+gap), '#101D1B')
     draw = ImageDraw.Draw(canvas)
-    draw.text((gap, 12), 'Forbidden Table · Stage 4.5 · V2.1 · Chinese tile faces', fill='#F3EBD8', font=heading)
-    draw.text((gap, 43), 'PROPOSED v2.1 · Approval pending · Browser mockups, not game captures', fill='#D8B875', font=font)
+    draw.text((gap, 12), '禁忌牌桌 · Stage 4.5 · V2.2 · 中文设计' if ZH else 'Forbidden Table · Stage 4.5 · V2.1 · Chinese tile faces', fill='#F3EBD8', font=heading)
+    draw.text((gap, 43), '中文提案 · 尚待批准 · 浏览器设计图，非游戏截图' if ZH else 'PROPOSED v2.1 · Approval pending · Browser mockups, not game captures', fill='#D8B875', font=font)
     for i, entry in enumerate(entries):
         x, y = gap+(i % columns)*(cell_width+gap), top+(i // columns)*(cell_height+caption+gap)
         capture = Image.open(ROOT / 'mockups' / (entry['id']+'-'+entry['slug']+'.png')).convert('RGB')

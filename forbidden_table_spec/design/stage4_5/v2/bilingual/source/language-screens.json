@@ -1,0 +1,434 @@
+[
+  {
+    "id": "L1",
+    "slug": "language",
+    "title": "Language settings",
+    "notes": "Proposed language preference; no Run mutation. English and Simplified Chinese are MVP targets.",
+    "states": [
+      "selected",
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540,
+    "tree": {
+      "type": "screen",
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "col",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "FORBIDDEN TABLE  /  THE HAUNTED TABLE",
+                  "w": 620,
+                  "size": 14,
+                  "color": "muted",
+                  "serif": false
+                },
+                {
+                  "type": "text",
+                  "text": "Language settings",
+                  "w": 620,
+                  "size": 32,
+                  "color": "text",
+                  "serif": true
+                }
+              ],
+              "w": 620,
+              "h": null,
+              "gap": 0
+            },
+            {
+              "type": "button",
+              "text": "Help / Settings",
+              "w": 292,
+              "h": 44,
+              "state": "default"
+            }
+          ],
+          "w": 928,
+          "h": 60,
+          "gap": 16,
+          "name": "Title rail"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "text",
+              "text": "Act 1 of 2  |  Reserve · Pool Bias  |  Gold 24  |  Refinement 1",
+              "w": 928,
+              "size": 14,
+              "color": "muted",
+              "serif": false
+            }
+          ],
+          "w": 928,
+          "h": 20,
+          "gap": 8,
+          "name": "Run rail"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "panel",
+              "name": "Feedback mode",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Presentation speed",
+                  "w": 424,
+                  "size": 18,
+                  "color": "text",
+                  "serif": false
+                },
+                {
+                  "type": "button",
+                  "text": "Normal · selected",
+                  "w": 424,
+                  "h": 44,
+                  "state": "selected"
+                },
+                {
+                  "type": "button",
+                  "text": "Fast",
+                  "w": 424,
+                  "h": 44,
+                  "state": "default"
+                },
+                {
+                  "type": "button",
+                  "text": "Instant",
+                  "w": 424,
+                  "h": 44,
+                  "state": "default"
+                },
+                {
+                  "type": "text",
+                  "text": "All modes preserve readable Complete Hand, Boss transition and victory feedback.",
+                  "w": 424,
+                  "size": 16,
+                  "color": "text",
+                  "serif": false
+                }
+              ],
+              "w": 448,
+              "h": 348,
+              "gap": 8,
+              "surface": "lacquer"
+            },
+            {
+              "type": "panel",
+              "name": "Language settings",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "Language",
+                  "size": 18,
+                  "w": 432,
+                  "color": "text"
+                },
+                {
+                  "type": "button",
+                  "text": "English · selected",
+                  "w": 432,
+                  "h": 44,
+                  "state": "selected"
+                },
+                {
+                  "type": "button",
+                  "text": "简体中文",
+                  "w": 432,
+                  "h": 44,
+                  "state": "focused"
+                },
+                {
+                  "type": "text",
+                  "text": "Language changes display text only. Your Run stays at the same decision.",
+                  "size": 16,
+                  "w": 432,
+                  "color": "text"
+                },
+                {
+                  "type": "text",
+                  "text": "Keyboard / controller: choose a language, then confirm.",
+                  "size": 14,
+                  "w": 432,
+                  "color": "text"
+                }
+              ],
+              "w": 456,
+              "h": 348,
+              "gap": 8,
+              "surface": "lacquer"
+            }
+          ],
+          "w": 928,
+          "h": null,
+          "gap": 24,
+          "name": "Decision surface"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "button",
+              "text": "Back / Cancel",
+              "w": 180,
+              "h": 44,
+              "state": "default"
+            },
+            {
+              "type": "text",
+              "text": "Tab / shoulders: focus · Enter / A: accept · Esc / B: back",
+              "w": 496,
+              "size": 14,
+              "color": "muted",
+              "serif": false
+            },
+            {
+              "type": "button",
+              "text": "Apply language",
+              "w": 236,
+              "h": 44,
+              "state": "default",
+              "role": "commit"
+            }
+          ],
+          "w": 928,
+          "h": 44,
+          "gap": 8,
+          "name": "Commit rail"
+        }
+      ],
+      "w": 960,
+      "h": 540,
+      "gap": 8,
+      "pad": 16,
+      "art": "salon",
+      "name": "Haunted table composition"
+    },
+    "version": "Proposed v2.1"
+  },
+  {
+    "id": "L2",
+    "slug": "language-zh",
+    "title": "语言设置",
+    "notes": "语言为本机显示偏好；确认后保留同一决策点、所选牌实例与焦点目标。取消保留原语言。",
+    "states": [
+      "selected",
+      "focused",
+      "disabled",
+      "contextual-detail"
+    ],
+    "width": 960,
+    "height": 540,
+    "tree": {
+      "type": "screen",
+      "children": [
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "col",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "禁忌牌桌  /  幽灯牌局",
+                  "w": 620,
+                  "size": 14,
+                  "color": "muted",
+                  "serif": false
+                },
+                {
+                  "type": "text",
+                  "text": "语言设置",
+                  "w": 620,
+                  "size": 32,
+                  "color": "text",
+                  "serif": true
+                }
+              ],
+              "w": 620,
+              "h": null,
+              "gap": 0
+            },
+            {
+              "type": "button",
+              "text": "帮助 / 设置",
+              "w": 292,
+              "h": 44,
+              "state": "default"
+            }
+          ],
+          "w": 928,
+          "h": 60,
+          "gap": 16,
+          "name": "Title rail"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "text",
+              "text": "第 1 / 2 幕  |  藏牌师 · 牌池偏向  |  金币 24  |  精炼 1",
+              "w": 928,
+              "size": 14,
+              "color": "muted",
+              "serif": false
+            }
+          ],
+          "w": 928,
+          "h": 20,
+          "gap": 8,
+          "name": "Run rail"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "panel",
+              "name": "Feedback mode",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "反馈速度",
+                  "w": 424,
+                  "size": 18,
+                  "color": "text",
+                  "serif": false
+                },
+                {
+                  "type": "button",
+                  "text": "标准 · 已选择",
+                  "w": 424,
+                  "h": 44,
+                  "state": "selected"
+                },
+                {
+                  "type": "button",
+                  "text": "快速",
+                  "w": 424,
+                  "h": 44,
+                  "state": "default"
+                },
+                {
+                  "type": "button",
+                  "text": "瞬时",
+                  "w": 424,
+                  "h": 44,
+                  "state": "default"
+                },
+                {
+                  "type": "text",
+                  "text": "所有模式均保留可读的完整和牌、首领阶段变化与胜利反馈。",
+                  "w": 424,
+                  "size": 16,
+                  "color": "text",
+                  "serif": false
+                }
+              ],
+              "w": 448,
+              "h": 348,
+              "gap": 8,
+              "surface": "lacquer"
+            },
+            {
+              "type": "panel",
+              "name": "Language settings",
+              "children": [
+                {
+                  "type": "text",
+                  "text": "语言",
+                  "size": 18,
+                  "w": 432,
+                  "color": "text"
+                },
+                {
+                  "type": "button",
+                  "text": "English",
+                  "w": 432,
+                  "h": 44,
+                  "state": "focused"
+                },
+                {
+                  "type": "button",
+                  "text": "简体中文 · 已选择",
+                  "w": 432,
+                  "h": 44,
+                  "state": "selected"
+                },
+                {
+                  "type": "text",
+                  "text": "语言仅改变显示文字。当前旅程停留在同一决策点。",
+                  "size": 16,
+                  "w": 432,
+                  "color": "text"
+                },
+                {
+                  "type": "text",
+                  "text": "键盘 / 手柄：选择语言后确认。",
+                  "size": 14,
+                  "w": 432,
+                  "color": "text"
+                }
+              ],
+              "w": 456,
+              "h": 348,
+              "gap": 8,
+              "surface": "lacquer"
+            }
+          ],
+          "w": 928,
+          "h": null,
+          "gap": 24,
+          "name": "Decision surface"
+        },
+        {
+          "type": "row",
+          "children": [
+            {
+              "type": "button",
+              "text": "返回 / 取消",
+              "w": 180,
+              "h": 44,
+              "state": "default"
+            },
+            {
+              "type": "text",
+              "text": "Tab / 肩键：切换焦点 · Enter / A：确认 · Esc / B：返回",
+              "w": 496,
+              "size": 14,
+              "color": "muted",
+              "serif": false
+            },
+            {
+              "type": "button",
+              "text": "应用语言",
+              "w": 236,
+              "h": 44,
+              "state": "default",
+              "role": "commit"
+            }
+          ],
+          "w": 928,
+          "h": 44,
+          "gap": 8,
+          "name": "Commit rail"
+        }
+      ],
+      "w": 960,
+      "h": 540,
+      "gap": 8,
+      "pad": 16,
+      "art": "salon",
+      "name": "Haunted table composition"
+    },
+    "version": "Proposed v2.1"
+  }
+]

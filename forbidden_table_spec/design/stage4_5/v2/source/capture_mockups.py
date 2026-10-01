@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if len(sys.argv)>3 and sys.argv[3]=='zh_CN': ROOT=ROOT/'bilingual'
 capture_dir = ROOT / 'mockups'
 capture_dir.mkdir(exist_ok=True)
 code = r'''async (page) => {

@@ -1,0 +1,303 @@
+{
+  "scope": "Browser design viewer only",
+  "chinese": {
+    "locale": "zh-CN",
+    "screen": "workshop-target",
+    "mode": "Fast",
+    "reduced": true,
+    "ambient": false,
+    "specimen": "deck",
+    "tiles": [
+      {
+        "face": "BAM:1",
+        "state": "default",
+        "label": "一条"
+      },
+      {
+        "face": "BAM:2",
+        "state": "default",
+        "label": "二条"
+      },
+      {
+        "face": "BAM:2",
+        "state": "selectedFocused",
+        "label": "二条，副本 2"
+      },
+      {
+        "face": "BAM:3",
+        "state": "default",
+        "label": "三条"
+      },
+      {
+        "face": "CHR:4",
+        "state": "default",
+        "label": "四万"
+      },
+      {
+        "face": "CHR:5",
+        "state": "default",
+        "label": "五万"
+      },
+      {
+        "face": "CHR:6",
+        "state": "default",
+        "label": "六万"
+      },
+      {
+        "face": "DOT:7",
+        "state": "default",
+        "label": "七筒"
+      },
+      {
+        "face": "DOT:8",
+        "state": "default",
+        "label": "八筒"
+      },
+      {
+        "face": "DOT:9",
+        "state": "default",
+        "label": "九筒"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "东风"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "东风"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "白板"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "白板"
+      }
+    ]
+  },
+  "english": {
+    "locale": "en",
+    "screen": "workshop-target",
+    "mode": "Fast",
+    "reduced": true,
+    "ambient": false,
+    "specimen": "deck",
+    "tiles": [
+      {
+        "face": "BAM:1",
+        "state": "default",
+        "label": "Bamboo 1"
+      },
+      {
+        "face": "BAM:2",
+        "state": "default",
+        "label": "Bamboo 2"
+      },
+      {
+        "face": "BAM:2",
+        "state": "selectedFocused",
+        "label": "Bamboo 2, copy 2"
+      },
+      {
+        "face": "BAM:3",
+        "state": "default",
+        "label": "Bamboo 3"
+      },
+      {
+        "face": "CHR:4",
+        "state": "default",
+        "label": "Characters 4"
+      },
+      {
+        "face": "CHR:5",
+        "state": "default",
+        "label": "Characters 5"
+      },
+      {
+        "face": "CHR:6",
+        "state": "default",
+        "label": "Characters 6"
+      },
+      {
+        "face": "DOT:7",
+        "state": "default",
+        "label": "Dots 7"
+      },
+      {
+        "face": "DOT:8",
+        "state": "default",
+        "label": "Dots 8"
+      },
+      {
+        "face": "DOT:9",
+        "state": "default",
+        "label": "Dots 9"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "East"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "East"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "White dragon"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "White dragon"
+      }
+    ]
+  },
+  "roundtrip": {
+    "locale": "zh-CN",
+    "screen": "workshop-target",
+    "mode": "Fast",
+    "reduced": true,
+    "ambient": false,
+    "specimen": "deck",
+    "tiles": [
+      {
+        "face": "BAM:1",
+        "state": "default",
+        "label": "一条"
+      },
+      {
+        "face": "BAM:2",
+        "state": "default",
+        "label": "二条"
+      },
+      {
+        "face": "BAM:2",
+        "state": "selectedFocused",
+        "label": "二条，副本 2"
+      },
+      {
+        "face": "BAM:3",
+        "state": "default",
+        "label": "三条"
+      },
+      {
+        "face": "CHR:4",
+        "state": "default",
+        "label": "四万"
+      },
+      {
+        "face": "CHR:5",
+        "state": "default",
+        "label": "五万"
+      },
+      {
+        "face": "CHR:6",
+        "state": "default",
+        "label": "六万"
+      },
+      {
+        "face": "DOT:7",
+        "state": "default",
+        "label": "七筒"
+      },
+      {
+        "face": "DOT:8",
+        "state": "default",
+        "label": "八筒"
+      },
+      {
+        "face": "DOT:9",
+        "state": "default",
+        "label": "九筒"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "东风"
+      },
+      {
+        "face": "HON:E",
+        "state": "default",
+        "label": "东风"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "白板"
+      },
+      {
+        "face": "HON:W",
+        "state": "default",
+        "label": "白板"
+      }
+    ]
+  },
+  "tileFeedback": "查看牌：一条。实例选择仅为示例。",
+  "focus": {
+    "label": "二条",
+    "outline": "solid",
+    "width": "3px"
+  },
+  "autonyms": "English\n简体中文",
+  "languages": [
+    {
+      "slug": "language",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "figma": "https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2045-535",
+      "static": "bilingual/mockups/L1-language.png"
+    },
+    {
+      "slug": "language-zh",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "figma": "https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2045-579",
+      "static": "bilingual/mockups/L2-language-zh.png"
+    }
+  ],
+  "englishLayouts": [
+    {
+      "slug": "character",
+      "width": 958,
+      "height": 538,
+      "buttonOverflow": []
+    },
+    {
+      "slug": "battle-table",
+      "width": 958,
+      "height": 538,
+      "buttonOverflow": []
+    },
+    {
+      "slug": "settings",
+      "width": 958,
+      "height": 538,
+      "buttonOverflow": []
+    },
+    {
+      "slug": "workshop-target",
+      "width": 958,
+      "height": 538,
+      "buttonOverflow": []
+    },
+    {
+      "slug": "save-error",
+      "width": 958,
+      "height": 538,
+      "buttonOverflow": []
+    }
+  ],
+  "errors": []
+}

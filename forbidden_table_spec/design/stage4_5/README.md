@@ -1,6 +1,6 @@
 # Stage 4.5 UI/UX — design review package
 
-**Latest proposed revision: [V2.1 · The haunted table](v2/README.md).** The maintainer requested a more artistic game presentation after reviewing V1, then standard Chinese Mahjong faces. Start with the [interactive gallery](v2/gallery.html), [Chinese tile catalog](v2/tile-atlas.html), and [editable Figma](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2022-2). V2.1 uses 34 sourced Chinese tile faces alongside the original salon/portrait artwork, material treatments, and replayable motion studies across the same complete journey. Approval is pending.
+**Latest proposed revision: [V2.2 · English + 简体中文](v2/bilingual/README.md).** The artistic haunted-table direction and standard Chinese Mahjong faces now have 36 matching Chinese screens, bilingual language settings, localized animation feedback, and an English/Chinese review switch. Start with the [English gallery](v2/gallery.html), [Chinese gallery](v2/gallery-zh_CN.html), and [editable Chinese Figma page](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2044-2). [Bilingual MVP acceptance requirements](v2/bilingual/BILINGUAL_MVP.md) record the requested language scope and pending runtime gates. Approval is pending; runtime Chinese support is not implemented.
 
 The V1 material below is retained for comparison and as the mechanical audit/input contract. Its visual direction has been revised in V2; it is not the current approval request.
 
