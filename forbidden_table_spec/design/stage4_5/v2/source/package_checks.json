@@ -1,0 +1,495 @@
+{
+  "scope": "Design artifacts only; approval pending",
+  "screens": 36,
+  "browserPngs": 45,
+  "nativePngs": 10,
+  "motionPngs": 7,
+  "artAssets": 2,
+  "baselineSolidColorContrast": {
+    "text/panel": 13.94,
+    "muted/raised": 7.97,
+    "ink/brass": 8.76,
+    "focus/panel": 11.58,
+    "error/paper": 8.93
+  },
+  "checks": {
+    "layout": true,
+    "nativeLayout": true,
+    "motion": true,
+    "nativePlayback": true,
+    "localMarkdownLinks": true,
+    "noSignedUrls": true
+  },
+  "files": [
+    {
+      "path": "ART_AND_MOTION.md",
+      "sha256": "a85d6b1c2f0f478f55ebb9038a7b3e1c95c46f5394db13e9cfc6bb918685b9db",
+      "bytes": 8359
+    },
+    {
+      "path": "README.md",
+      "sha256": "92d91e5e784d9fde9d20a21ebb1967a05553f3a69e17135929aa3ed0677a5ae2",
+      "bytes": 3532
+    },
+    {
+      "path": "VALIDATION.md",
+      "sha256": "79ac17a91106b2150346b22a53c8d72b520a4db3807b4a8be09b713d86898e47",
+      "bytes": 4800
+    },
+    {
+      "path": "assets/README.md",
+      "sha256": "76af27f7a4a70773380cce62f8d6fd73e064052baca15e4ffd207e287a449e7c",
+      "bytes": 1207
+    },
+    {
+      "path": "assets/character-triptych.png",
+      "sha256": "df43fdc7022a4318f5e4fe740eaf1819b9e03ee6f6f3c675830a8247230e0922",
+      "bytes": 2388219
+    },
+    {
+      "path": "assets/haunted-salon.png",
+      "sha256": "d912c656441bc9093080d99e980c62be7406ce8147c25a0abdc34993932a08e6",
+      "bytes": 2276852
+    },
+    {
+      "path": "gallery.html",
+      "sha256": "7f8a5f7fb8292440d7b6ed066e97fce54e153d09d03aa21d69a62af936c4b761",
+      "bytes": 2753
+    },
+    {
+      "path": "mockups/01-character.png",
+      "sha256": "c05d91a2afc3693b2dd3919870ec65c3f9a8fc594947cd7d0f0cee71c0693697",
+      "bytes": 619237
+    },
+    {
+      "path": "mockups/02-contract.png",
+      "sha256": "a5f20f834f24fbeec745a503b12115077c728d4161092ffa9b1dbad1d6fb271a",
+      "bytes": 434966
+    },
+    {
+      "path": "mockups/03-map-act-1.png",
+      "sha256": "b693938aa53b725f3ef5c6adf2129019767ea6d47b2effa703321d01c50d615f",
+      "bytes": 502891
+    },
+    {
+      "path": "mockups/04-map-act-2.png",
+      "sha256": "31ada46242d77752d9ef8cf54687ce4744bfd69873e5122c802dde7cdacda823",
+      "bytes": 503247
+    },
+    {
+      "path": "mockups/05-battle-empty.png",
+      "sha256": "dda2df775d711a1d4cae7d38a1d3f458e5c10a5151e64e31748d7c88b451497f",
+      "bytes": 458073
+    },
+    {
+      "path": "mockups/06-battle-table.png",
+      "sha256": "a245ab04ae961bac2381c479c90fbe2afde6452234b9d085c81cb18516ab7aa3",
+      "bytes": 455689
+    },
+    {
+      "path": "mockups/07-pattern-settlement.png",
+      "sha256": "bf83b482b6630b52451f9476b29528f1b5eaed3b7a0f27c09d99f96c5f6ab10a",
+      "bytes": 478949
+    },
+    {
+      "path": "mockups/08-complete-hand.png",
+      "sha256": "da997313fdcc4c8eb82d6799ac8eaf64cf571551495a17c16af2d650dca7fb82",
+      "bytes": 558295
+    },
+    {
+      "path": "mockups/09-tile-detail.png",
+      "sha256": "0099a714379de3cb32c7fb500330b8b40e9b8db54050c61e54678e67bda0ecc4",
+      "bytes": 435956
+    },
+    {
+      "path": "mockups/10-critical-feedback.png",
+      "sha256": "64b55c444ba8bba4d2b6771bf35afd806d351d4e92c57522cfa35eb8ceb9c5b7",
+      "bytes": 549371
+    },
+    {
+      "path": "mockups/11-event.png",
+      "sha256": "6fb2b223fa36259a0ed6b107e3353e74acaa36888fd06b802e6b8c8a8d6e66ee",
+      "bytes": 434068
+    },
+    {
+      "path": "mockups/12-event-unavailable.png",
+      "sha256": "bf88deed10647f840787232f6ad244afd5e30426847089f35f5cba0dda35305f",
+      "bytes": 423156
+    },
+    {
+      "path": "mockups/13-reward-normal.png",
+      "sha256": "66f292926cfec49d4f183f66a826c452d8d89799457b4dfb523b14c3de98faee",
+      "bytes": 484132
+    },
+    {
+      "path": "mockups/14-reward-elite.png",
+      "sha256": "6708b2feae9a4001bfb033d6106f49508d9b274355335d04b665b4f8f7e5fb1c",
+      "bytes": 480835
+    },
+    {
+      "path": "mockups/15-reward-boss.png",
+      "sha256": "935f240ae7847d6b27b50bda1554cc1945027a481efa961ee1c143eeb293f551",
+      "bytes": 489584
+    },
+    {
+      "path": "mockups/16-act-transition.png",
+      "sha256": "6beb4fde2a325d86d1ff97c74df2d72861d376199ec814d4aac99503ded36ce7",
+      "bytes": 469033
+    },
+    {
+      "path": "mockups/17-shop.png",
+      "sha256": "2014e70c1bcf207e30c43de697d8d4c884204a249fdb0f61e3cdffb91ac57635",
+      "bytes": 414700
+    },
+    {
+      "path": "mockups/18-shop-empty.png",
+      "sha256": "3a8d5af88aee3c63fdbc829c255ee69520e1f44e7ff3f92d9a742057b921fa5a",
+      "bytes": 440931
+    },
+    {
+      "path": "mockups/19-purchase-confirm.png",
+      "sha256": "37f669c1768ac5bff013647ed7147cbf4d5a862b2bab73f225e58f106851c229",
+      "bytes": 434622
+    },
+    {
+      "path": "mockups/20-workshop-services.png",
+      "sha256": "b6c2fec8750264f2d4489c04b334d8dbb1a0e8d67280a91a47372ae575a84ff1",
+      "bytes": 397847
+    },
+    {
+      "path": "mockups/21-workshop-target.png",
+      "sha256": "704af61469c806e578332a651c1447be32bffedc46d3d00e2a53b8c2266a2737",
+      "bytes": 511937
+    },
+    {
+      "path": "mockups/22-workshop-value.png",
+      "sha256": "e331e627de1e93ab68804ea84ca60862c6238bd4d1be70666d7743b62038d256",
+      "bytes": 414155
+    },
+    {
+      "path": "mockups/23-workshop-confirm.png",
+      "sha256": "7a64dd58b711b82e3b7a95b234272a0eed310c5d69f7426849fdecb1275f3634",
+      "bytes": 425588
+    },
+    {
+      "path": "mockups/24-tutorial.png",
+      "sha256": "cddda2d1aeccd481e91ab9fae4b86149efc7a6bb171546324c2a16ef0b2ceae7",
+      "bytes": 463731
+    },
+    {
+      "path": "mockups/25-help.png",
+      "sha256": "b142e68b7d9c143a94a0d0c39fdd5ae97389565f4d71e7ae2a7de22b47f38112",
+      "bytes": 463660
+    },
+    {
+      "path": "mockups/26-settings.png",
+      "sha256": "1d577d5f8e0fd4095a70820b113ab60b90d2346c3c88807d4d47ed4a4550cb14",
+      "bytes": 402647
+    },
+    {
+      "path": "mockups/27-summary-victory.png",
+      "sha256": "b41a9ddd8294f51d516fd2dcdeab1f05efca028819780751a6c6ad00e8f5c525",
+      "bytes": 461694
+    },
+    {
+      "path": "mockups/28-summary-defeat.png",
+      "sha256": "b50e80e77c4d2333852606c543c29c34b6a6dd6c357e051ec7d4134f53cea51b",
+      "bytes": 464231
+    },
+    {
+      "path": "mockups/29-summary-legacy.png",
+      "sha256": "9e56ca1e931220d10c2ba70f44efbd6011dc0757b8446e0ab7d1adf96d3326ef",
+      "bytes": 463303
+    },
+    {
+      "path": "mockups/30-run-complete.png",
+      "sha256": "02983bf439e9d450f7b59b0c9765cf7659fe7995aa93b75870d76544471a3179",
+      "bytes": 442054
+    },
+    {
+      "path": "mockups/31-resume.png",
+      "sha256": "3941ab4956e9e442378ddcecbbfe6492d9794d55fe1447d604ee31968ea1f2e7",
+      "bytes": 437875
+    },
+    {
+      "path": "mockups/32-save-error.png",
+      "sha256": "7c07cd83cc3ad5755efee1e4e52a560c9f37a538f4b2434e68d305b693f88b01",
+      "bytes": 443535
+    },
+    {
+      "path": "mockups/33-abandon-confirm.png",
+      "sha256": "fc72868da06cc296bf137658c2b5ee1f5d296cfd1ca2340320de6988e775b6d4",
+      "bytes": 434134
+    },
+    {
+      "path": "mockups/34-action-error.png",
+      "sha256": "dc501c038e1b785f0d9e6a3be61a384e36ebd6fb7c835c097f0bbad84109013f",
+      "bytes": 454346
+    },
+    {
+      "path": "mockups/35-state-specimens.png",
+      "sha256": "c36188cbb69eb11da86197723c8d7a85f58a055a519f862d9285ca0ad021f085",
+      "bytes": 393824
+    },
+    {
+      "path": "mockups/36-pseudo-expansion.png",
+      "sha256": "16967f23afcd50a2e1a17155b6d3c02463d9245d27772ae1f04ac25a539d5238",
+      "bytes": 463400
+    },
+    {
+      "path": "mockups/contact-1.png",
+      "sha256": "05fa343b4a3dd5b3f6ccf67e0c9ff0801dc6b22d959b77894f988b8494baf6bb",
+      "bytes": 1081210
+    },
+    {
+      "path": "mockups/contact-2.png",
+      "sha256": "b26f08486a020e1aaede2e4a8d73920fd7b8f827489cd75f9a43aa56bcbf76d1",
+      "bytes": 918568
+    },
+    {
+      "path": "mockups/contact-3.png",
+      "sha256": "cee646e811978747be7804d0e2f05ca09bdeb987ca962f4bac2fff37f2adf33c",
+      "bytes": 929650
+    },
+    {
+      "path": "mockups/figma/README.md",
+      "sha256": "76d20a63f5088eedf0a17de3257411ddb099ae275a64780d5623613b25d5cd9b",
+      "bytes": 783
+    },
+    {
+      "path": "mockups/figma/battle-table.png",
+      "sha256": "de917dd112e2c34d744fd696da2983ee6034c7e4fa5221105ed6bf4367ddd3c0",
+      "bytes": 516795
+    },
+    {
+      "path": "mockups/figma/character.png",
+      "sha256": "f5caccb4c59a2a8906759d65a37b6d1dca0759cf000c3fc3499a19bdec3f0c3f",
+      "bytes": 739878
+    },
+    {
+      "path": "mockups/figma/index-1.png",
+      "sha256": "983cb710235ad71896340d1c1b4774f4f2dbe12034cd7a33984cfcad1b320ea8",
+      "bytes": 1741139
+    },
+    {
+      "path": "mockups/figma/index-2.png",
+      "sha256": "29b31252ba895b6bdf71df328e237354d22774b251c2bcd0d8a5596399faf71a",
+      "bytes": 1608527
+    },
+    {
+      "path": "mockups/figma/index-3.png",
+      "sha256": "412ecde7eaf7d2d00ccb9f6ca4b782d2c560397c464002ffa8a3a00dfd123eb3",
+      "bytes": 1582315
+    },
+    {
+      "path": "mockups/figma/map-act-1.png",
+      "sha256": "9d3ba3cc98e796336730e1967467086e66b50f18b52c15a4e0061552f88e5da8",
+      "bytes": 542820
+    },
+    {
+      "path": "mockups/figma/pattern-settlement.png",
+      "sha256": "7f5a91ef674cdb1a3b9c8f188889e8d121d2ca93fcde5c173fd88573fe166c40",
+      "bytes": 527623
+    },
+    {
+      "path": "mockups/figma/reward-normal.png",
+      "sha256": "81690184e632cb5b380a80e7dec02a44f26e3a6dc31be4b62f8ef86e0c789048",
+      "bytes": 512725
+    },
+    {
+      "path": "mockups/figma/summary-victory.png",
+      "sha256": "788a5b92c8fee0c7e879000aacf2832462a0c844467a7a13fd62f400e198b8e9",
+      "bytes": 507129
+    },
+    {
+      "path": "mockups/figma/workshop-target.png",
+      "sha256": "62231fb67ae2d821155fb7099fe7c1e896a9d58cfef0e8512043f93cbf9a1e64",
+      "bytes": 568477
+    },
+    {
+      "path": "mockups/overview.png",
+      "sha256": "1c8d5af6571c60d0d220a3e113de6f26b963600940732c1338803f34697e533d",
+      "bytes": 835751
+    },
+    {
+      "path": "mockups/stress-expanded.png",
+      "sha256": "7370388436078b799bb0a2438f0c35e65f4a0268793ab4a3bf9c1512827a7cc3",
+      "bytes": 499657
+    },
+    {
+      "path": "mockups/stress-large-text.png",
+      "sha256": "1a96495f4dc3d133c276c83c8fd7e16c43ce1cde7f23609981c1f44aab81b4b0",
+      "bytes": 518082
+    },
+    {
+      "path": "mockups/window-deck.png",
+      "sha256": "67c1ee613a083314d8b9ff105d14ba99321cb98f7b14db4874463ceac8bb291e",
+      "bytes": 415268
+    },
+    {
+      "path": "mockups/window-desktop.png",
+      "sha256": "d37bd3682c117e40a869c28040fc1de3b84066645aca1878c5e8d008232db282",
+      "bytes": 284683
+    },
+    {
+      "path": "mockups/window-wide.png",
+      "sha256": "7e963349be75f917770a2fee42c7803cfcf94a869e8c4b80e1d9fd39371f71d0",
+      "bytes": 414193
+    },
+    {
+      "path": "motion/draw-mid.png",
+      "sha256": "f3cd0c31f518bb8557ec2044c37a1706ac061b6c67140d9eb2ce20d6eba9ecda",
+      "bytes": 469242
+    },
+    {
+      "path": "motion/draw-settled.png",
+      "sha256": "75afa1f64e328c544c7ddafe2f713f978d5ca4d6e39f663798b3cc93ddb1cac3",
+      "bytes": 465339
+    },
+    {
+      "path": "motion/draw-start.png",
+      "sha256": "2a3fcaaf2904d4c0cecbba553cbe984b67dd35b44e02786618e28612b90ee893",
+      "bytes": 466227
+    },
+    {
+      "path": "motion/figma-tile-arrival.mp4",
+      "sha256": "be6b8dbaf9d1a9f17ca305c8d72de568effd1d35046b3e63106cc02d2a5ca050",
+      "bytes": 447208
+    },
+    {
+      "path": "motion/native-held.png",
+      "sha256": "12947a348b46565cb6df89768114bc09047336de8c954d0d1363dd085ecc4745",
+      "bytes": 422845
+    },
+    {
+      "path": "motion/native-mid.png",
+      "sha256": "e1fc3c61ccbe4034676e8b67bcb147206fb0f5a8fdc4f2d76330cfa84e7d4ae3",
+      "bytes": 425336
+    },
+    {
+      "path": "motion/native-settled.png",
+      "sha256": "dcbfdc349800a5575dce0bb8f836bc46e3068dcac95d14f263462de0d8749dae",
+      "bytes": 422933
+    },
+    {
+      "path": "motion/native-start.png",
+      "sha256": "c8141485f69b49fff8c81d9378bd791739938c5fac4be0657b878aa6d60f7bcc",
+      "bytes": 421394
+    },
+    {
+      "path": "motion/video-review.html",
+      "sha256": "d36e8e36408914de3a2b624c62e4af440fda6efda874250cb50bb2a8ae630701",
+      "bytes": 617
+    },
+    {
+      "path": "screen_manifest.json",
+      "sha256": "d51d9356a4184fd4423261017711af0caaee1462a576af3d7eb56296fcbfd7f8",
+      "bytes": 14235
+    },
+    {
+      "path": "source/README.md",
+      "sha256": "faf6af12a340ea16828a2b668f08a16a413970d69480bd2895a466eccf1b294f",
+      "bytes": 1981
+    },
+    {
+      "path": "source/art_prompts.json",
+      "sha256": "c9b00e6146b3b1869a7690365c3e5a83b1dee3d87355133da59dca060cee498c",
+      "bytes": 2981
+    },
+    {
+      "path": "source/build_v2.py",
+      "sha256": "05278e6a9bfb779a36f8741426cc2cec7a5c64240cd4bd86022fd9f3a037ba26",
+      "bytes": 4526
+    },
+    {
+      "path": "source/capture_mockups.py",
+      "sha256": "562af2c59bb00ff1369b18e6ccf2e54f034ed89c67fccbad5cff0d89015ffefb",
+      "bytes": 4664
+    },
+    {
+      "path": "source/capture_motion.py",
+      "sha256": "6138b030838e76daa4217f84702e4f91273ecdd31af2680bf3ba8841c9d0c464",
+      "bytes": 3756
+    },
+    {
+      "path": "source/capture_native_motion.py",
+      "sha256": "bea297aa2fa9d417f9b03ffd9039d555ab0efdc7163d8d47fba03961a09262bc",
+      "bytes": 2013
+    },
+    {
+      "path": "source/check_package.py",
+      "sha256": "803e260adb2f36dd1896ea7122d6846a05f25e445996be719f01f5586d2c10ba",
+      "bytes": 3661
+    },
+    {
+      "path": "source/figma_checks.json",
+      "sha256": "42d40f61d93c804cc4edb16f53c4e3522c701bf99be4b18e30be7ea7409b250a",
+      "bytes": 16690
+    },
+    {
+      "path": "source/figma_ledger.json",
+      "sha256": "aef5a1e04ca69198882420066b8a5422b01b2e6a1201bec4e3cc431f10d5552e",
+      "bytes": 19196
+    },
+    {
+      "path": "source/figma_motion.js",
+      "sha256": "26d5bf2eeba04bc402036e028e183babe81c8d2e7ffd8130c9d65b8f243af426",
+      "bytes": 1429
+    },
+    {
+      "path": "source/figma_v2_screens.js",
+      "sha256": "8932241d9c452a051b4b85fff421f00c0edb528ef689dbcfcc60fc2f52cbf589",
+      "bytes": 12445
+    },
+    {
+      "path": "source/interaction_checks.json",
+      "sha256": "eadc09096aaa813a24b4b8b44b0f63b6e2497e8b982c2692214c19cd387c125b",
+      "bytes": 434
+    },
+    {
+      "path": "source/layout_checks.json",
+      "sha256": "71bd49aa528a257fa4921378059e1ec867235941cbc5a637b16f396a6708638c",
+      "bytes": 10321
+    },
+    {
+      "path": "source/make_contact_sheets.py",
+      "sha256": "d7d46fcb9f74344980e1e32ed4ff37f79317aac245bc79a389c1eeb68af1076c",
+      "bytes": 1979
+    },
+    {
+      "path": "source/motion_checks.json",
+      "sha256": "05c7d81899f5b3275736844de6083d91b9b9c7748cf1d4d9eedbb2e5cabff9f2",
+      "bytes": 5069
+    },
+    {
+      "path": "source/native_motion_checks.json",
+      "sha256": "3ed341905cc954b577a316d272ae2fc8ad6c7f631d93626c47bb467ec2f67079",
+      "bytes": 689
+    },
+    {
+      "path": "source/review.css",
+      "sha256": "b2ae092bdc04e247162158edaeac2b6ed7ec4c7ffb2759cd850c54ad53383e7a",
+      "bytes": 7408
+    },
+    {
+      "path": "source/review.js",
+      "sha256": "5f722543186860b7413ff2628a35a5cfca06fd0d0d27e0c5d951de7be6286db1",
+      "bytes": 10859
+    },
+    {
+      "path": "source/review_data.js",
+      "sha256": "94054c2981e374883463327f16c8f6f12979839e4b54e09c11657e8e02bfd6f3",
+      "bytes": 136656
+    },
+    {
+      "path": "source/screens.json",
+      "sha256": "96e8ab20ce2a4a8dac4f7450868c272c0d56354f537302dfbe3fc756bf01401f",
+      "bytes": 267773
+    },
+    {
+      "path": "source/tokens.json",
+      "sha256": "be6626b3a57b55e173e71e14c2acee7f007d96b90f4993f1d069532ba5d45bcb",
+      "bytes": 292
+    }
+  ]
+}

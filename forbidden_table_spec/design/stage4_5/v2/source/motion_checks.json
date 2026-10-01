@@ -1,0 +1,180 @@
+{
+  "scope": "Browser design viewer only; no Domain or Godot execution",
+  "results": [
+    {
+      "mode": "Normal",
+      "kind": "draw",
+      "animations": [
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 draw animation study. No game action executed.",
+      "tiles": 13
+    },
+    {
+      "mode": "Normal",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "tiles": 14
+    },
+    {
+      "mode": "Normal",
+      "kind": "reward",
+      "animations": [
+        {
+          "duration": 420,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 420,
+          "delay": 90,
+          "playState": "running"
+        },
+        {
+          "duration": 420,
+          "delay": 180,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 reward animation study. No game action executed.",
+      "tiles": 3
+    },
+    {
+      "mode": "Normal",
+      "kind": "workshop",
+      "animations": [
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 workshop animation study. No game action executed.",
+      "tiles": 2
+    },
+    {
+      "mode": "Fast",
+      "kind": "draw",
+      "animations": [
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 draw animation study. No game action executed.",
+      "tiles": 13
+    },
+    {
+      "mode": "Fast",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "tiles": 14
+    },
+    {
+      "mode": "Fast",
+      "kind": "reward",
+      "animations": [
+        {
+          "duration": 168,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 168,
+          "delay": 36,
+          "playState": "running"
+        },
+        {
+          "duration": 168,
+          "delay": 72,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 reward animation study. No game action executed.",
+      "tiles": 3
+    },
+    {
+      "mode": "Fast",
+      "kind": "workshop",
+      "animations": [
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 workshop animation study. No game action executed.",
+      "tiles": 2
+    },
+    {
+      "mode": "Instant",
+      "kind": "draw",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 draw animation study. No game action executed.",
+      "tiles": 13
+    },
+    {
+      "mode": "Instant",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "tiles": 14
+    },
+    {
+      "mode": "Instant",
+      "kind": "reward",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 reward animation study. No game action executed.",
+      "tiles": 3
+    },
+    {
+      "mode": "Instant",
+      "kind": "workshop",
+      "animations": [],
+      "receipt": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!",
+      "caption": "Final readable state \u00b7 workshop animation study. No game action executed.",
+      "tiles": 2
+    }
+  ],
+  "reduced": {
+    "durations": [],
+    "ambient": "false"
+  },
+  "escape": {
+    "animationCount": 0,
+    "stampCount": 0
+  },
+  "interrupt": {
+    "active": "character",
+    "stampCount": 0,
+    "caption": "Choose a motion study and Replay. All game values are illustrative."
+  }
+}

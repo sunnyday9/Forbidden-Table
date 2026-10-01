@@ -1,4 +1,8 @@
-# Stage 4.5 UI/UX — design review v1
+# Stage 4.5 UI/UX — design review package
+
+**Latest proposed revision: [V2 · The haunted table](v2/README.md).** The maintainer requested a more artistic game presentation after reviewing V1. Start with the [V2 interactive gallery](v2/gallery.html) and [editable Figma V2](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2022-2). V2 adds original salon/portrait artwork, material treatments, and replayable motion studies across the same complete journey. Approval is pending.
+
+The V1 material below is retained for comparison and as the mechanical audit/input contract. Its visual direction has been revised in V2; it is not the current approval request.
 
 **2026-10-01 · Proposed · Awaiting maintainer review.** Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. This package is design and mockups only. No Godot UI, gameplay, Domain, persistence, content budget, or Stage 5 naming changes are authorized by this package.
 

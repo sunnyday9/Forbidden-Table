@@ -1,0 +1,454 @@
+{
+  "renderer": "Playwright Chromium, browser design fixtures",
+  "screens": [
+    {
+      "id": "01",
+      "slug": "character",
+      "file": "01-character.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "02",
+      "slug": "contract",
+      "file": "02-contract.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "03",
+      "slug": "map-act-1",
+      "file": "03-map-act-1.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": [
+        "Node detail"
+      ]
+    },
+    {
+      "id": "04",
+      "slug": "map-act-2",
+      "file": "04-map-act-2.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": [
+        "Node detail"
+      ]
+    },
+    {
+      "id": "05",
+      "slug": "battle-empty",
+      "file": "05-battle-empty.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "06",
+      "slug": "battle-table",
+      "file": "06-battle-table.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "07",
+      "slug": "pattern-settlement",
+      "file": "07-pattern-settlement.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "08",
+      "slug": "complete-hand",
+      "file": "08-complete-hand.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "09",
+      "slug": "tile-detail",
+      "file": "09-tile-detail.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "10",
+      "slug": "critical-feedback",
+      "file": "10-critical-feedback.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "11",
+      "slug": "event",
+      "file": "11-event.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "12",
+      "slug": "event-unavailable",
+      "file": "12-event-unavailable.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "13",
+      "slug": "reward-normal",
+      "file": "13-reward-normal.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "14",
+      "slug": "reward-elite",
+      "file": "14-reward-elite.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "15",
+      "slug": "reward-boss",
+      "file": "15-reward-boss.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "16",
+      "slug": "act-transition",
+      "file": "16-act-transition.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "17",
+      "slug": "shop",
+      "file": "17-shop.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "18",
+      "slug": "shop-empty",
+      "file": "18-shop-empty.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "19",
+      "slug": "purchase-confirm",
+      "file": "19-purchase-confirm.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "20",
+      "slug": "workshop-services",
+      "file": "20-workshop-services.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "21",
+      "slug": "workshop-target",
+      "file": "21-workshop-target.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "22",
+      "slug": "workshop-value",
+      "file": "22-workshop-value.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "23",
+      "slug": "workshop-confirm",
+      "file": "23-workshop-confirm.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "24",
+      "slug": "tutorial",
+      "file": "24-tutorial.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "25",
+      "slug": "help",
+      "file": "25-help.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "26",
+      "slug": "settings",
+      "file": "26-settings.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "27",
+      "slug": "summary-victory",
+      "file": "27-summary-victory.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "28",
+      "slug": "summary-defeat",
+      "file": "28-summary-defeat.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "29",
+      "slug": "summary-legacy",
+      "file": "29-summary-legacy.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "30",
+      "slug": "run-complete",
+      "file": "30-run-complete.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "31",
+      "slug": "resume",
+      "file": "31-resume.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "32",
+      "slug": "save-error",
+      "file": "32-save-error.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "33",
+      "slug": "abandon-confirm",
+      "file": "33-abandon-confirm.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "34",
+      "slug": "action-error",
+      "file": "34-action-error.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "35",
+      "slug": "state-specimens",
+      "file": "35-state-specimens.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    },
+    {
+      "id": "36",
+      "slug": "pseudo-expansion",
+      "file": "36-pseudo-expansion.png",
+      "width": 960,
+      "height": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "horizontalPanelOverflow": [],
+      "scrollPanels": []
+    }
+  ],
+  "stress": [
+    {
+      "specimen": "expanded",
+      "footerBottom": 524,
+      "buttonOverflow": []
+    },
+    {
+      "specimen": "large-text",
+      "footerBottom": 524,
+      "buttonOverflow": []
+    }
+  ],
+  "modes": [
+    {
+      "mode": "Normal",
+      "text": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!"
+    },
+    {
+      "mode": "Fast",
+      "text": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!"
+    },
+    {
+      "mode": "Instant",
+      "text": "Complete Hand settled. \u2192 Boss enters phase 2. \u2192 Victory!"
+    }
+  ],
+  "keyboard": {
+    "label": "Bamboo 1",
+    "outline": "solid",
+    "width": "3px"
+  },
+  "fonts": [
+    {
+      "family": "Noto Sans",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Sans",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Serif",
+      "status": "loaded"
+    },
+    {
+      "family": "Noto Tile",
+      "status": "loaded"
+    }
+  ]
+}
