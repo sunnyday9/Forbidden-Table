@@ -3,7 +3,7 @@
     "id": "01",
     "slug": "character",
     "title": "Take your seat",
-    "notes": "Three production Characters; locked state is an illustrative initial profile. No portrait asset required. V2 artwork and effects are presentation proposals only. Portrait appearances are new cosmetic concepts, not lore or final approved Character art.",
+    "notes": "Three production Characters; locked state is an illustrative initial profile. No portrait asset required. V2.1 Chinese tile faces, artwork and effects are presentation proposals only. Portrait appearances are new cosmetic concepts, not lore or final approved Character art.",
     "states": [
       "selected",
       "focused",
@@ -268,13 +268,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "02",
     "slug": "contract",
     "title": "Sign your Contract",
-    "notes": "Pool Bias is both selected and focused; independent state variants are shown on the component specimen. V2 artwork and effects are presentation proposals only.",
+    "notes": "Pool Bias is both selected and focused; independent state variants are shown on the component specimen. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "selected",
@@ -504,13 +504,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "03",
     "slug": "map-act-1",
     "title": "Act 1 · Choose your path",
-    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2 artwork and effects are presentation proposals only.",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "selected",
@@ -699,13 +699,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "04",
     "slug": "map-act-2",
     "title": "Act 2 · Choose your path",
-    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2 artwork and effects are presentation proposals only.",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "selected",
@@ -894,13 +894,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "05",
     "slug": "battle-empty",
     "title": "Battle · Draw first",
-    "notes": "Empty Hand and Reserve; disabled Settlement has a visible reason. Domain still validates every command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Empty Hand and Reserve; disabled Settlement has a visible reason. Domain still validates every command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "empty",
       "disabled",
@@ -1237,13 +1237,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "06",
     "slug": "battle-table",
     "title": "Your turn at the table",
-    "notes": "Intent/resources never require overview scrolling; illustrative values, not replay evidence. V2 artwork and effects are presentation proposals only.",
+    "notes": "Intent/resources never require overview scrolling; illustrative values, not replay evidence. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "selected",
@@ -1705,13 +1705,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "07",
     "slug": "pattern-settlement",
     "title": "Choose a Pattern",
-    "notes": "Map candidates to actual instance IDs; do not infer damage or add an evaluator. V2 artwork and effects are presentation proposals only.",
+    "notes": "Map candidates to actual instance IDs; do not infer damage or add an evaluator. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -2195,13 +2195,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "08",
     "slug": "complete-hand",
     "title": "Complete Hand · Interpretation",
-    "notes": "Standard interpretation specimen. Seven Pairs uses 7 distinct-definition pairs; Quads may expand physical tile count. V2 artwork and effects are presentation proposals only.",
+    "notes": "Standard interpretation specimen. Seven Pairs uses 7 distinct-definition pairs; Quads may expand physical tile count. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -2537,13 +2537,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "09",
     "slug": "tile-detail",
     "title": "Tile detail · Reserve / Discard / Swap",
-    "notes": "Modifier sample is an existing category; identity flexibility is context-sensitive. Actions reflect existing validation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Modifier sample is an existing category; identity flexibility is context-sensitive. Actions reflect existing validation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -2776,13 +2776,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "10",
     "slug": "critical-feedback",
     "title": "Battle · Ordered feedback",
-    "notes": "Critical receipt is a presentation fixture; next surface follows actual command result, not a new Continue command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Critical receipt is a presentation fixture; next surface follows actual command result, not a new Continue command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "contextual-detail"
     ],
@@ -3114,13 +3114,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "11",
     "slug": "event",
     "title": "Event · Risk bargain",
-    "notes": "Copy is structural where source lacks prose; implementation must use actual Event choice labels/effect summaries. V2 artwork and effects are presentation proposals only.",
+    "notes": "Copy is structural where source lacks prose; implementation must use actual Event choice labels/effect summaries. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -3319,13 +3319,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "12",
     "slug": "event-unavailable",
     "title": "Event · Conditional choice",
-    "notes": "Use existing authored alternatives only; these generic fixture labels are not new content. V2 artwork and effects are presentation proposals only.",
+    "notes": "Use existing authored alternatives only; these generic fixture labels are not new content. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "disabled",
       "focused",
@@ -3508,13 +3508,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "13",
     "slug": "reward-normal",
     "title": "Choose your reward",
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -3820,13 +3820,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "14",
     "slug": "reward-elite",
     "title": "Elite reward",
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -4093,13 +4093,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "15",
     "slug": "reward-boss",
     "title": "Boss reward · Rule Breaker",
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -4366,13 +4366,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "16",
     "slug": "act-transition",
     "title": "Act 1 complete · Act 2 reached",
-    "notes": "No new phase, Continue command or artificial state gate. V2 artwork and effects are presentation proposals only.",
+    "notes": "No new phase, Continue command or artificial state gate. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "contextual-detail"
     ],
@@ -4555,13 +4555,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "17",
     "slug": "shop",
     "title": "Shop · Compare before you buy",
-    "notes": "Prices are illustrative. Refresh price/remaining count comes from actual shop state; do not assume it is free. V2 artwork and effects are presentation proposals only.",
+    "notes": "Prices are illustrative. Refresh price/remaining count comes from actual shop state; do not assume it is free. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -4812,13 +4812,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "18",
     "slug": "shop-empty",
     "title": "Shop · No available offers",
-    "notes": "Explicit empty and exhausted-refresh state; no automatic free refresh. V2 artwork and effects are presentation proposals only.",
+    "notes": "Explicit empty and exhausted-refresh state; no automatic free refresh. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "empty",
       "disabled",
@@ -5002,13 +5002,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "19",
     "slug": "purchase-confirm",
     "title": "Confirm purchase",
-    "notes": "Local confirmation only; safest initial focus is Cancel. Domain revalidates offer and funds. V2 artwork and effects are presentation proposals only.",
+    "notes": "Local confirmation only; safest initial focus is Cancel. Domain revalidates offer and funds. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "confirmation",
       "focused",
@@ -5192,13 +5192,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "20",
     "slug": "workshop-services",
     "title": "Workshop · Choose a service",
-    "notes": "All six existing service families are described; only services currently available are enabled. V2 artwork and effects are presentation proposals only.",
+    "notes": "All six existing service families are described; only services currently available are enabled. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "disabled",
@@ -5402,13 +5402,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "21",
     "slug": "workshop-target",
     "title": "Workshop · Choose the tile",
-    "notes": "Target identity remains stable as focus moves or values change. V2 artwork and effects are presentation proposals only.",
+    "notes": "Target identity remains stable as focus moves or values change. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -5735,13 +5735,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "22",
     "slug": "workshop-value",
     "title": "Workshop · Choose the result",
-    "notes": "Before/after/cost in one place; final local confirmation does not add a Domain command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Before/after/cost in one place; final local confirmation does not add a Domain command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -5965,13 +5965,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "23",
     "slug": "workshop-confirm",
     "title": "Confirm Workshop change",
-    "notes": "Initial focus Cancel; no optimistic currency or pool mutation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Initial focus Cancel; no optimistic currency or pool mutation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "confirmation",
       "focused"
@@ -6180,13 +6180,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "24",
     "slug": "tutorial",
     "title": "Battle · Tutorial enabled",
-    "notes": "All five existing tutorial steps are mapped in interaction notes. V2 artwork and effects are presentation proposals only.",
+    "notes": "All five existing tutorial steps are mapped in interaction notes. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "disabled",
@@ -6649,13 +6649,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "25",
     "slug": "help",
     "title": "Help · Pattern and input reference",
-    "notes": "Help closes to original control and never submits a game command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Help closes to original control and never submits a game command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "contextual-detail"
@@ -6846,13 +6846,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "26",
     "slug": "settings",
     "title": "Settings · Presentation",
-    "notes": "Local settings overlay proposed; Normal/Fast/Instant controls require no rule change. V2 artwork and effects are presentation proposals only.",
+    "notes": "Local settings overlay proposed; Normal/Fast/Instant controls require no rule change. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "selected",
       "focused",
@@ -7065,13 +7065,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "27",
     "slug": "summary-victory",
     "title": "Victory · Your Build Story",
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "contextual-detail"
@@ -7357,13 +7357,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "28",
     "slug": "summary-defeat",
     "title": "Defeat · Pressure limit reached",
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "contextual-detail"
@@ -7648,13 +7648,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "29",
     "slug": "summary-legacy",
     "title": "Run Summary · Older record",
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "empty"
@@ -7861,13 +7861,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "30",
     "slug": "run-complete",
     "title": "Run complete",
-    "notes": "New Run gets guaranteed visible initial focus. V2 artwork and effects are presentation proposals only.",
+    "notes": "New Run gets guaranteed visible initial focus. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "contextual-detail"
@@ -8050,13 +8050,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "31",
     "slug": "resume",
     "title": "Welcome back · Suspended Run",
-    "notes": "No fake autosave guarantee. Preserve existing compatibility/load contracts. V2 artwork and effects are presentation proposals only.",
+    "notes": "No fake autosave guarantee. Preserve existing compatibility/load contracts. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "confirmation"
@@ -8239,13 +8239,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "32",
     "slug": "save-error",
     "title": "Save recovery · Action required",
-    "notes": "Same UI template covers content validation, incompatible save and profile recovery, but actions remain governed by their existing outcomes. V2 artwork and effects are presentation proposals only.",
+    "notes": "Same UI template covers content validation, incompatible save and profile recovery, but actions remain governed by their existing outcomes. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "error",
       "disabled",
@@ -8437,13 +8437,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "33",
     "slug": "abandon-confirm",
     "title": "Leave this Suspend Save?",
-    "notes": "No new abandon-Run Domain system; this confirms the existing startup New Run choice. V2 artwork and effects are presentation proposals only.",
+    "notes": "No new abandon-Run Domain system; this confirms the existing startup New Run choice. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "confirmation",
       "focused"
@@ -8618,13 +8618,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "34",
     "slug": "action-error",
     "title": "Workshop · Change rejected",
-    "notes": "Error is adjacent to attempted action, not a timer-only toast. Save-write failure after an accepted action uses a separate success-with-warning receipt. V2 artwork and effects are presentation proposals only.",
+    "notes": "Error is adjacent to attempted action, not a timer-only toast. Save-write failure after an accepted action uses a separate success-with-warning receipt. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "error",
       "focused",
@@ -8842,13 +8842,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "35",
     "slug": "state-specimens",
     "title": "Component states · Focus is independent",
-    "notes": "Brass inner edge is selection; cyan perimeter is focus. Both may appear together. V2 artwork and effects are presentation proposals only.",
+    "notes": "Brass inner edge is selection; cyan perimeter is focus. Both may appear together. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "focused",
       "selected",
@@ -9132,13 +9132,13 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   },
   {
     "id": "36",
     "slug": "pseudo-expansion",
     "title": "Recovery · Expanded text",
-    "notes": "Illustrative pseudo text; actual Godot pseudo-localization must be rerun after approved implementation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative pseudo text; actual Godot pseudo-localization must be rerun after approved implementation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "states": [
       "error",
       "focused",
@@ -9295,6 +9295,6 @@
       "art": "salon",
       "name": "Haunted table composition"
     },
-    "version": "Proposed v2"
+    "version": "Proposed v2.1"
   }
 ]

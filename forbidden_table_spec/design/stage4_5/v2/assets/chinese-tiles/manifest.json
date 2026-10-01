@@ -1,0 +1,461 @@
+{
+  "repository": "https://github.com/zddd312/mahjong-tiles",
+  "commit": "7629eeeba620ba9f0a98907bc40c0776523af989",
+  "license": "M+ font license; see LICENSE",
+  "originalSize": [
+    272,
+    360
+  ],
+  "modifications": "None; displayed with contain scaling",
+  "assets": [
+    {
+      "key": "CHR:1",
+      "suit": "CHR",
+      "rank": "1",
+      "file": "1m.png",
+      "sha256": "8f5cc2b1934701d652defe1f873da7e838b7346ddd7571b5bbfb84108fc1069e",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/1m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.1"
+    },
+    {
+      "key": "CHR:2",
+      "suit": "CHR",
+      "rank": "2",
+      "file": "2m.png",
+      "sha256": "9dbf3023ce8f008e719cd5619da00165c2d74bda895765c976db05a1d28050c8",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/2m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.2"
+    },
+    {
+      "key": "CHR:3",
+      "suit": "CHR",
+      "rank": "3",
+      "file": "3m.png",
+      "sha256": "0453bab16c11f703749213747c8b81ad6f9fdd45dbfca7058c9bc4a2f0d196b3",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/3m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.3"
+    },
+    {
+      "key": "CHR:4",
+      "suit": "CHR",
+      "rank": "4",
+      "file": "4m.png",
+      "sha256": "00f47fd252ef41e9e1e1e0bf23cf24fe41154a373039d5e6c71629cfb01fd95c",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/4m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.4"
+    },
+    {
+      "key": "CHR:5",
+      "suit": "CHR",
+      "rank": "5",
+      "file": "5m.png",
+      "sha256": "155c9cf51f53594e4b22c9100e3b7b6a9a908e67137d68faf73297be4d81e0d5",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/5m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.5"
+    },
+    {
+      "key": "CHR:6",
+      "suit": "CHR",
+      "rank": "6",
+      "file": "6m.png",
+      "sha256": "f57cbfbde091325b80127c7bfa7f6b0df735c07f4a0d8da82ec8419167a7d3a2",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/6m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.6"
+    },
+    {
+      "key": "CHR:7",
+      "suit": "CHR",
+      "rank": "7",
+      "file": "7m.png",
+      "sha256": "64007a29cb7f3676d0c4006869ba3f2b307a94f6d7a2410d575236b1d1360e52",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/7m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.7"
+    },
+    {
+      "key": "CHR:8",
+      "suit": "CHR",
+      "rank": "8",
+      "file": "8m.png",
+      "sha256": "bd646b45672625dce27a9d5784da76ebf13831c7be684d901ba84c2b3e2d230a",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/8m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.8"
+    },
+    {
+      "key": "CHR:9",
+      "suit": "CHR",
+      "rank": "9",
+      "file": "9m.png",
+      "sha256": "b97c23a3e1154639c90be4fb084a5c9c6a70393557701ca7b1b1191620fd06c4",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/9m.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.characters.9"
+    },
+    {
+      "key": "DOT:1",
+      "suit": "DOT",
+      "rank": "1",
+      "file": "1p.png",
+      "sha256": "9583a5130e2f33eaf71d1fa73cc1383d0d5be10c9a4785601ea3c8f6de01bb45",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/1p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.1"
+    },
+    {
+      "key": "DOT:2",
+      "suit": "DOT",
+      "rank": "2",
+      "file": "2p.png",
+      "sha256": "bf680b82a73d53de8e1376e6d81d5a5be1db4524f3152628d2aaa7d427b90ef2",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/2p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.2"
+    },
+    {
+      "key": "DOT:3",
+      "suit": "DOT",
+      "rank": "3",
+      "file": "3p.png",
+      "sha256": "a0f131721494b2398ffc8b5bd7133ded3f0921a822c0c482445ed33881273191",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/3p.png",
+      "size": [
+        271,
+        360
+      ],
+      "definitionId": "base.tile.dots.3"
+    },
+    {
+      "key": "DOT:4",
+      "suit": "DOT",
+      "rank": "4",
+      "file": "4p.png",
+      "sha256": "f50d879d1488e7837d0a6186af38ce5ad697228c91025ba85816723912a72bcd",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/4p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.4"
+    },
+    {
+      "key": "DOT:5",
+      "suit": "DOT",
+      "rank": "5",
+      "file": "5p.png",
+      "sha256": "602a2f12ad07fe1956ef42618e9e4b8d920969918de4049c0c6f7110b7405fef",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/5p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.5"
+    },
+    {
+      "key": "DOT:6",
+      "suit": "DOT",
+      "rank": "6",
+      "file": "6p.png",
+      "sha256": "2509b233b3e0236d3329a9b8eafb90311dae7559c0b3e63d262d96b2b2f1d43e",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/6p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.6"
+    },
+    {
+      "key": "DOT:7",
+      "suit": "DOT",
+      "rank": "7",
+      "file": "7p.png",
+      "sha256": "088a5d4135df789a54873a924d7c2f27381d99260ed393521d4c91bbfae643fd",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/7p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.7"
+    },
+    {
+      "key": "DOT:8",
+      "suit": "DOT",
+      "rank": "8",
+      "file": "8p.png",
+      "sha256": "d069ea921f5a35718e58f7ae5107a8bde1ddf3404156b2a7781581067bfdac70",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/8p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.8"
+    },
+    {
+      "key": "DOT:9",
+      "suit": "DOT",
+      "rank": "9",
+      "file": "9p.png",
+      "sha256": "6ae3e8c5f95ea026fa340500596af6dfd244e85540b539176f38f56bac05f960",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/9p.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.dots.9"
+    },
+    {
+      "key": "BAM:1",
+      "suit": "BAM",
+      "rank": "1",
+      "file": "1s.png",
+      "sha256": "0cfc1fa9ec31ab5a359d3c33bae62bf0c91bd4aa82e81db5330f9f90b1a9ec75",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/1s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.1"
+    },
+    {
+      "key": "BAM:2",
+      "suit": "BAM",
+      "rank": "2",
+      "file": "2s.png",
+      "sha256": "fb3cde661011e6cb0b9c1d18ea6f2be20a3695f56c17f82bac210a4afc1135b8",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/2s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.2"
+    },
+    {
+      "key": "BAM:3",
+      "suit": "BAM",
+      "rank": "3",
+      "file": "3s.png",
+      "sha256": "5b50eacec17eb1491a4b51c6bb98603e1e976626b9feac670009539e9149df44",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/3s.png",
+      "size": [
+        271,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.3"
+    },
+    {
+      "key": "BAM:4",
+      "suit": "BAM",
+      "rank": "4",
+      "file": "4s.png",
+      "sha256": "0b8a5faa33a16922ce4c33cafc5d163522576d6f612085c947a652924c072086",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/4s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.4"
+    },
+    {
+      "key": "BAM:5",
+      "suit": "BAM",
+      "rank": "5",
+      "file": "5s.png",
+      "sha256": "51adeb1e51fd828f4f75b9e72be13da648b036b01e77daa3cbf94aed740207e1",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/5s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.5"
+    },
+    {
+      "key": "BAM:6",
+      "suit": "BAM",
+      "rank": "6",
+      "file": "6s.png",
+      "sha256": "8b346192cff6550ee9841f8f820bc1cb665d9ea44c3672531e722d38430f0a87",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/6s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.6"
+    },
+    {
+      "key": "BAM:7",
+      "suit": "BAM",
+      "rank": "7",
+      "file": "7s.png",
+      "sha256": "36ab91cc37934165d59d5f5ce6a2c77ac8f8020707c8c3f186d6446a7f682173",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/7s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.7"
+    },
+    {
+      "key": "BAM:8",
+      "suit": "BAM",
+      "rank": "8",
+      "file": "8s.png",
+      "sha256": "271afea8e2e1f09abba5d73b119abfd2af3094addab75e8cceeb10b2889cb0a0",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/8s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.8"
+    },
+    {
+      "key": "BAM:9",
+      "suit": "BAM",
+      "rank": "9",
+      "file": "9s.png",
+      "sha256": "5a2f9b4160c868ad7f1865053d030b0a08fd471785a8c8183ab960edd073f8fe",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/9s.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.bamboo.9"
+    },
+    {
+      "key": "HON:E",
+      "suit": "HON",
+      "rank": "E",
+      "honor": "East",
+      "file": "z1.png",
+      "sha256": "466302ecd7cf450fb2a848f848a194a8e7558d625bc843d94d53025b826037b1",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z1.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.east"
+    },
+    {
+      "key": "HON:S",
+      "suit": "HON",
+      "rank": "S",
+      "honor": "South",
+      "file": "z2.png",
+      "sha256": "9bf4cfa677eaae9f8723ddc69cf257f8ba2a88bcf965889f6d889df7aaecd8db",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z2.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.south"
+    },
+    {
+      "key": "HON:WEST",
+      "suit": "HON",
+      "rank": "WEST",
+      "honor": "West",
+      "file": "z3.png",
+      "sha256": "07a5e4f5f42bf1006454876965301706959480c42a926afc5717c5e9aaa9fb61",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z3.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.west"
+    },
+    {
+      "key": "HON:N",
+      "suit": "HON",
+      "rank": "N",
+      "honor": "North",
+      "file": "z4.png",
+      "sha256": "894c448b8fa23d2095a448a96d509f5e8cdd42ae8a586ca4a97ea797f9c70f1a",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z4.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.north"
+    },
+    {
+      "key": "HON:R",
+      "suit": "HON",
+      "rank": "R",
+      "honor": "Red dragon",
+      "file": "z5.png",
+      "sha256": "4f9d068ccafd938d03acb5b8ff8b263a01ac6e06a3f8bdaa4b704f13674189f1",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z5.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.red"
+    },
+    {
+      "key": "HON:G",
+      "suit": "HON",
+      "rank": "G",
+      "honor": "Green dragon",
+      "file": "z6.png",
+      "sha256": "b232f6ae72be8fc8b904458f828ca24dcfdaa516c9a8bc01c83936498237f2f4",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z6.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.green"
+    },
+    {
+      "key": "HON:W",
+      "suit": "HON",
+      "rank": "W",
+      "honor": "White dragon",
+      "file": "z7.png",
+      "sha256": "111c7e7f259f3cfaec67bd754bd9b2e63fc5c511fd1ee6bd18e676f03cf973a9",
+      "source": "https://raw.githubusercontent.com/zddd312/mahjong-tiles/7629eeeba620ba9f0a98907bc40c0776523af989/tiles/z7.png",
+      "size": [
+        272,
+        360
+      ],
+      "definitionId": "base.tile.honors.white"
+    }
+  ]
+}

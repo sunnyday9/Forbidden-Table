@@ -1,4 +1,4 @@
-# V2 review evidence · 2026-10-01
+# V2.1 review evidence · 2026-10-01
 
 **Proposed design; approval pending.** These checks concern browser/Figma design artifacts. They do not constitute a real game playthrough, controller test, Godot regression gate, or Stage 4.5 PASS.
 
@@ -18,7 +18,7 @@ The [audit/flow map](../AUDIT_AND_FLOW.md) continues to document the Stage 4 cap
 - 125% and 150% pseudo-localized recovery sheets retain their action rail at y=524, with no button text overflow.
 - 1280×720, 1280×800, and 1920×1080 captures show the centered composition; these are design targets.
 - A real Tab step produces a visible solid 3 px focus ring.
-- Four local font faces report loaded after visiting the screen set.
+- Three preview text font faces report loaded after visiting the screen set. The old Noto Tile glyph subset is unused because Chinese faces are image assets.
 
 This is geometry/fixture evidence, not full text-scale support for every game screen. Contrast is controlled through dark material surfaces and scrims; textured compositing still needs production capture review after implementation.
 
@@ -33,6 +33,12 @@ Reduced motion eliminates timed animation and ambient glow. Escape stops active 
 The browser draw start/mid/settled phase captures are in [motion/](motion/). They show cosmetic playback over fixed illustrative state. They are not screenshots of a Domain Draw operation.
 
 ## Native Figma
+
+V2.1 replaces the old Latin rank/suit face labels with 34 unmodified, pinned Chinese tile assets. The [source/identity/hash manifest](assets/chinese-tiles/manifest.json) covers the existing 34 Domain TileDefinition IDs. The [license and attribution](assets/chinese-tiles/README.md) are saved with the files. Flowers and alternate tile types are excluded.
+
+[chinese_face_checks.json](source/chinese_face_checks.json) verifies 219 native Tile instances across the 36 main screens, motion study, and three indexes: every face has the correct image hash and contain scaling, and the legacy text-face layers are hidden. Focus/selection layers, instance identity, and screen roots are preserved. The separate full-34 catalog has no caption overflow.
+
+All 36 browser captures, contact sheets, enlarged-text/window specimens, tile-bearing native core exports, three native indexes, browser motion phase captures, and native MP4/phase captures were refreshed. The Character/map/Summary native exports remain valid because their frames contain no tiles and were not changed. The browser and native tile catalogs were visually inspected at 960×540.
 
 [figma_checks.json](source/figma_checks.json) records all 36 roots at 960×540, commit rails at y=512, minimum button height 44 px, and no detected header/button overflow. The supplied Education copy contains scoped V2 variables and reuses its native Button/Tile component families. [figma_ledger.json](source/figma_ledger.json) links every fixture to the actual Figma node.
 

@@ -36,7 +36,12 @@ function instance(d) {
  if((d.role==='commit'||d.state==='primary')&&d.state!=='disabled'){i.fills=[gradient('#F3CF82','#D4A44E')];const label=i.findOne(n=>n.type==='TEXT');label.fills=[paint('ink')];}
  // Selection remains a brass edge and focus adds an outer cyan perimeter.
  if(d.state==='focused'||d.state==='selectedFocused'){const ring=i.findOne(n=>n.type==='RECTANGLE'&&n.name.startsWith('Focus perimeter'));if(!ring)throw new Error('Missing native focus perimeter');ring.strokes=[paint('focus')];/* Native component perimeter stretches with the instance. */}
- if(d.large)for(const t of i.findAllWithCriteria({types:['TEXT']})){const size=t.name==='Rank'?34:t.name==='Glyph'?24:16;t.fontSize=size;t.lineHeight={unit:'PIXELS',value:t.name==='Rank'?39:t.name==='Glyph'?28:20};}
+ if(d.type==='tile'){
+  const key=d.suit+':'+d.rank,hash=ledger.tileFaces?.images[key];if(!hash)throw new Error('Missing Chinese face '+key);
+  for(const t of i.findAllWithCriteria({types:['TEXT']}))t.visible=false;
+  i.primaryAxisSizingMode='FIXED';i.counterAxisSizingMode='FIXED';
+  i.fills=[{type:'SOLID',color:{r:1,g:.961,b:.875}},{type:'IMAGE',imageHash:hash,scaleMode:'FIT'}];
+ }
  return i;
 }
 function map(d) {

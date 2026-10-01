@@ -478,7 +478,7 @@
       "footerBottom": 512
     }
   ],
-  "version": "Proposed v2; approval pending",
+  "version": "Proposed v2.1; approval pending",
   "motion": {
     "rootId": "2027:532",
     "tileId": "2027:574",
@@ -789,5 +789,252 @@
       "w": 1410,
       "h": 1146.5999755859375
     }
-  ]
+  ],
+  "tileFaces": {
+    "source": "assets/chinese-tiles/manifest.json",
+    "images": {
+      "CHR:1": "9ef6c57b6b8456f4bbebd87578532860720129a1",
+      "CHR:2": "3152a125a4b11f134779136f45f2cdced08de15e",
+      "CHR:3": "ceac77bd580368701fe32121c4748445d00ffb18",
+      "CHR:4": "a355a14f1d266c00182f3685a78cb4fc039f3814",
+      "CHR:5": "42cc297cad21a17c88fdd37d67091bfce70fd993",
+      "CHR:6": "1d1931beadf3a744f99aa57ea0479f12a32edd13",
+      "CHR:7": "fdfd6ceb6551c4ffe5d65b53cb55f16717853461",
+      "CHR:8": "0777c9a987dbb4aac5ad33ecf428f72aacde87f9",
+      "CHR:9": "58a20ee76fe80305da8e16e857b2217559218ebd",
+      "DOT:1": "b5e32c0f38140bb263414787c4a09d55beac0d01",
+      "DOT:2": "4b7e9c472107e9b65087708b536909fbc951c331",
+      "DOT:3": "2cf90811e36dd67918a04b1acd9cb395f5767ca6",
+      "DOT:4": "8e96dfe05548bd69ef019fc4a4d4ff3694697942",
+      "DOT:5": "7c18445efb8bc5fad76bd78f20bf1b6ee7c36993",
+      "DOT:6": "b80cfae9f1bfa7abd7eafe1a3654efa11660a940",
+      "DOT:7": "e1372e6514964aec4633e4a9bfd102a01d540e01",
+      "DOT:8": "3a818b8777af3683fa6bcea27abc947d9faf2747",
+      "DOT:9": "d3aaf75b8a2b4e0009f5b1dc79db6e4263a42d05",
+      "BAM:1": "03cb54a517f20837bf458050e487e3d2bb294935",
+      "BAM:2": "57bdfcd1cf7d84d8b28f786445fb6aa23e9ccfd1",
+      "BAM:3": "99a058296bd474a0ba2d766102c2b30b19069014",
+      "BAM:4": "fd2c67f6255d7bd3461b7a32bf311d171e69e847",
+      "BAM:5": "88e064c20456e1b5247936452d4f799c33287a79",
+      "BAM:6": "3d260190818f62634d5ed03b5d3e640e438a2f56",
+      "BAM:7": "93138ba98931c31aef2cd6b21fce163b75064cda",
+      "BAM:8": "8991b37eeb022d97e08fac2fac9d317a24aab513",
+      "BAM:9": "7808efe900a1a1c44363fc165c5b4e5676a76bee",
+      "HON:E": "3d5c38741c05a0f90c45624807760ddd6015f8c8",
+      "HON:S": "da51e14973a8ff8cd66c4d87efa2523a4b885399",
+      "HON:WEST": "b0e190904dc8e290723d86225dfcec342b947742",
+      "HON:N": "b148e3b25666cc50a6fa20696c070635f12d6497",
+      "HON:R": "6c3d6df24acf1af7ba18470016af048756c8d761",
+      "HON:G": "f5b9362fdfd6cb43a11d4579ea8e06df470ec7fc",
+      "HON:W": "c176ccd4e83b62f96640613f154ecf39aced29f7"
+    },
+    "masters": [
+      {
+        "key": "CHR:1",
+        "file": "1m.png",
+        "hash": "9ef6c57b6b8456f4bbebd87578532860720129a1",
+        "nodeId": "2034:1109"
+      },
+      {
+        "key": "CHR:2",
+        "file": "2m.png",
+        "hash": "3152a125a4b11f134779136f45f2cdced08de15e",
+        "nodeId": "2034:2207"
+      },
+      {
+        "key": "CHR:3",
+        "file": "3m.png",
+        "hash": "ceac77bd580368701fe32121c4748445d00ffb18",
+        "nodeId": "2034:2206"
+      },
+      {
+        "key": "CHR:4",
+        "file": "4m.png",
+        "hash": "a355a14f1d266c00182f3685a78cb4fc039f3814",
+        "nodeId": "2034:2208"
+      },
+      {
+        "key": "CHR:5",
+        "file": "5m.png",
+        "hash": "42cc297cad21a17c88fdd37d67091bfce70fd993",
+        "nodeId": "2034:2209"
+      },
+      {
+        "key": "CHR:6",
+        "file": "6m.png",
+        "hash": "1d1931beadf3a744f99aa57ea0479f12a32edd13",
+        "nodeId": "2034:2210"
+      },
+      {
+        "key": "CHR:7",
+        "file": "7m.png",
+        "hash": "fdfd6ceb6551c4ffe5d65b53cb55f16717853461",
+        "nodeId": "2035:1109"
+      },
+      {
+        "key": "CHR:8",
+        "file": "8m.png",
+        "hash": "0777c9a987dbb4aac5ad33ecf428f72aacde87f9",
+        "nodeId": "2034:2212"
+      },
+      {
+        "key": "CHR:9",
+        "file": "9m.png",
+        "hash": "58a20ee76fe80305da8e16e857b2217559218ebd",
+        "nodeId": "2034:2211"
+      },
+      {
+        "key": "DOT:1",
+        "file": "1p.png",
+        "hash": "b5e32c0f38140bb263414787c4a09d55beac0d01",
+        "nodeId": "2034:2213"
+      },
+      {
+        "key": "DOT:2",
+        "file": "2p.png",
+        "hash": "4b7e9c472107e9b65087708b536909fbc951c331",
+        "nodeId": "2034:2214"
+      },
+      {
+        "key": "DOT:3",
+        "file": "3p.png",
+        "hash": "2cf90811e36dd67918a04b1acd9cb395f5767ca6",
+        "nodeId": "2034:2215"
+      },
+      {
+        "key": "DOT:4",
+        "file": "4p.png",
+        "hash": "8e96dfe05548bd69ef019fc4a4d4ff3694697942",
+        "nodeId": "2034:2216"
+      },
+      {
+        "key": "DOT:5",
+        "file": "5p.png",
+        "hash": "7c18445efb8bc5fad76bd78f20bf1b6ee7c36993",
+        "nodeId": "2034:2217"
+      },
+      {
+        "key": "DOT:6",
+        "file": "6p.png",
+        "hash": "b80cfae9f1bfa7abd7eafe1a3654efa11660a940",
+        "nodeId": "2034:2218"
+      },
+      {
+        "key": "DOT:7",
+        "file": "7p.png",
+        "hash": "e1372e6514964aec4633e4a9bfd102a01d540e01",
+        "nodeId": "2034:2219"
+      },
+      {
+        "key": "DOT:8",
+        "file": "8p.png",
+        "hash": "3a818b8777af3683fa6bcea27abc947d9faf2747",
+        "nodeId": "2034:2220"
+      },
+      {
+        "key": "DOT:9",
+        "file": "9p.png",
+        "hash": "d3aaf75b8a2b4e0009f5b1dc79db6e4263a42d05",
+        "nodeId": "2034:2221"
+      },
+      {
+        "key": "BAM:1",
+        "file": "1s.png",
+        "hash": "03cb54a517f20837bf458050e487e3d2bb294935",
+        "nodeId": "2034:2222"
+      },
+      {
+        "key": "BAM:2",
+        "file": "2s.png",
+        "hash": "57bdfcd1cf7d84d8b28f786445fb6aa23e9ccfd1",
+        "nodeId": "2034:2223"
+      },
+      {
+        "key": "BAM:3",
+        "file": "3s.png",
+        "hash": "99a058296bd474a0ba2d766102c2b30b19069014",
+        "nodeId": "2034:2224"
+      },
+      {
+        "key": "BAM:4",
+        "file": "4s.png",
+        "hash": "fd2c67f6255d7bd3461b7a32bf311d171e69e847",
+        "nodeId": "2034:2225"
+      },
+      {
+        "key": "BAM:5",
+        "file": "5s.png",
+        "hash": "88e064c20456e1b5247936452d4f799c33287a79",
+        "nodeId": "2034:2226"
+      },
+      {
+        "key": "BAM:6",
+        "file": "6s.png",
+        "hash": "3d260190818f62634d5ed03b5d3e640e438a2f56",
+        "nodeId": "2034:2227"
+      },
+      {
+        "key": "BAM:7",
+        "file": "7s.png",
+        "hash": "93138ba98931c31aef2cd6b21fce163b75064cda",
+        "nodeId": "2034:2228"
+      },
+      {
+        "key": "BAM:8",
+        "file": "8s.png",
+        "hash": "8991b37eeb022d97e08fac2fac9d317a24aab513",
+        "nodeId": "2034:2229"
+      },
+      {
+        "key": "BAM:9",
+        "file": "9s.png",
+        "hash": "7808efe900a1a1c44363fc165c5b4e5676a76bee",
+        "nodeId": "2034:2231"
+      },
+      {
+        "key": "HON:E",
+        "file": "z1.png",
+        "hash": "3d5c38741c05a0f90c45624807760ddd6015f8c8",
+        "nodeId": "2034:2230"
+      },
+      {
+        "key": "HON:S",
+        "file": "z2.png",
+        "hash": "da51e14973a8ff8cd66c4d87efa2523a4b885399",
+        "nodeId": "2034:2232"
+      },
+      {
+        "key": "HON:WEST",
+        "file": "z3.png",
+        "hash": "b0e190904dc8e290723d86225dfcec342b947742",
+        "nodeId": "2034:2233"
+      },
+      {
+        "key": "HON:N",
+        "file": "z4.png",
+        "hash": "b148e3b25666cc50a6fa20696c070635f12d6497",
+        "nodeId": "2034:2234"
+      },
+      {
+        "key": "HON:R",
+        "file": "z5.png",
+        "hash": "6c3d6df24acf1af7ba18470016af048756c8d761",
+        "nodeId": "2034:2235"
+      },
+      {
+        "key": "HON:G",
+        "file": "z6.png",
+        "hash": "f5b9362fdfd6cb43a11d4579ea8e06df470ec7fc",
+        "nodeId": "2034:2236"
+      },
+      {
+        "key": "HON:W",
+        "file": "z7.png",
+        "hash": "c176ccd4e83b62f96640613f154ecf39aced29f7",
+        "nodeId": "2034:2237"
+      }
+    ],
+    "revision": "V2.1 Chinese Mahjong faces; approval pending",
+    "catalogId": "2036:1109"
+  }
 }

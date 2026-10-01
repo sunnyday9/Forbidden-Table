@@ -1,8 +1,10 @@
-# Forbidden Table · V2 design review
+# Forbidden Table · V2.1 design review
 
-**2026-10-01 · Proposed V2 · Approval pending.** This revision responds to the feedback that V1 felt too formal. It proposes an atmospheric supernatural Mahjong game: a rain-lit salon, painted Character portraits, lacquered decision surfaces, carved brass edges, and tactile ivory tiles.
+**2026-10-01 · Proposed V2.1 · Approval pending.** This revision responds to the feedback that V1 felt too formal and that the tiles should use standard Chinese faces. It proposes an atmospheric supernatural Mahjong game: a rain-lit salon, painted Character portraits, lacquered decision surfaces, carved brass edges, and recognizable Chinese Mahjong tiles.
 
 [Editable Figma V2](https://www.figma.com/design/xXzt7gEelGQh37Ak51ogGa?node-id=2022-2) · [Interactive gallery](gallery.html) · [Art, components, and motion rules](ART_AND_MOTION.md) · [Validation evidence](VALIDATION.md) · [36-screen manifest](screen_manifest.json)
+
+[Chinese tile catalog](tile-atlas.html) · [Tile source, attribution, and license](assets/chinese-tiles/README.md). All 34 existing tile identities have exact asset mappings. The visible faces use Chinese numerals/萬, counted circles and bamboo, 東南西北, 中, 發, and framed 白板. English names remain in inspection and accessible labels.
 
 ![V2 core screens](mockups/overview.png)
 
@@ -18,7 +20,7 @@ python3 -m http.server 8845 --bind 127.0.0.1
 
 `http://127.0.0.1:8845/forbidden_table_spec/design/stage4_5/v2/gallery.html`
 
-The Figma page **04 · V2 — Haunted Table & Motion** contains all 36 editable screen frames, two artwork masters, scoped V2 variables, a native motion study, and three review indexes. V1 remains available for comparison. Native Figma exports are in [mockups/figma](mockups/figma/README.md); browser captures are in `mockups/`. These are separate renderers, with small differences in material effects and text rasterization.
+The Figma page **04 · V2 — Haunted Table & Motion** contains all 36 editable screen frames, two artwork masters, 34 Chinese tile-face masters and their catalog, scoped V2 variables, a native motion study, and three review indexes. V1 remains available for comparison. Native Figma exports are in [mockups/figma](mockups/figma/README.md); browser captures are in `mockups/`. These are separate renderers, with small differences in material effects and text rasterization.
 
 ## Coverage and inherited constraints
 
@@ -30,6 +32,6 @@ Readability > state clarity > tile recognition > animation feedback > decoration
 
 ## Approval gate
 
-Review the V2 Character portraits and Battle composition first, then replay the four motion studies and inspect the full journey. Approval must explicitly identify **V2** and any exceptions before game UI implementation starts. Portrait appearances, background art, revised headings, and material treatments are proposed cosmetic choices.
+Review the V2.1 tile catalog, Character portraits and Battle composition first, then replay the four motion studies and inspect the full journey. Approval must explicitly identify **V2.1** and any exceptions before game UI implementation starts. Tile assets, portrait appearances, background art, revised headings, and material treatments are proposed cosmetic choices.
 
 Issue [#98](https://github.com/sunnyday9/Forbidden-Table/issues/98) remains open. No UI game code, gameplay system, Domain state, content budget, or release-stage change is included. Stage 5 remains **1.0 Release Candidate**. This package has not been approved and does not constitute Stage 4.5 PASS.

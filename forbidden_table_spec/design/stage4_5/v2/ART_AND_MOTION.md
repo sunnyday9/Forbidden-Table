@@ -23,13 +23,15 @@ All functional text sits on a controlled dark surface or protective scrim. Use t
 
 ## Typography and layout
 
-Retain Noto Sans for mechanics and Noto Serif for short screen titles/Character names. The preview uses the licensed local fonts in the parent package. Title 32/40, Character name 24/30, body 16/24, compact secondary copy 14/20. Keep suit/rank labels in plain type. Font sizes below body scale are for secondary labels only.
+Retain Noto Sans for mechanics and Noto Serif for short screen titles/Character names. The preview uses the licensed local fonts in the parent package. Title 32/40, Character name 24/30, body 16/24, compact secondary copy 14/20. Suit/rank names use plain type in inspectors; tile faces use the supplied Chinese artwork. Font sizes below body scale are for secondary labels only.
 
 The 960×540 composition uses 16 px outside space, 8 px component gaps, a 60 px title rail, a 20 px Run rail, then a purpose-specific decision surface. The main commit rail stays at y=468..512. Panels are arranged around the actual decision: portraits, map plus inspector, Hand plus choices, offers plus comparison, or before/after plus confirmation.
 
 Body panels may scroll independently. Keep critical Battle resources, intent, the visible Hand, Back/Cancel, and the main action outside secondary scrolling. Never hide duplicate TileInstances behind a single tile face.
 
-Hand faces are 42×64 in the baseline fixture; reward faces are 63×96. At implementation, extend each small face's hit region to at least 44 px wide inside the existing gap, without overlapping adjacent targets. The rank, suit glyph, and suit abbreviation remain separate. Pattern grouping and selected instances stay explicit. A Pair remains visible in Complete Hand grouping and is not presented as an independently settleable Pattern.
+Tile containers are 42×64 in the Hand fixture and 63×96 in rewards. Use contain scaling for the source face; do not crop, distort, or recolor its identifying marks. At implementation, extend each small face's hit region to at least 44 px wide inside the existing gap, without overlapping adjacent targets. Chinese numerals/萬, counted circle/bamboo patterns, and Honor artwork carry identity; remove Latin rank/suit abbreviations from the visible face. Keep full names and duplicate-instance details in inspection and accessible labels. Pattern grouping and selected instances stay explicit. A Pair remains visible in Complete Hand grouping and is not presented as an independently settleable Pattern.
+
+V2.1 uses the [pinned Chinese tile asset set](assets/chinese-tiles/README.md) for all 34 existing TileDefinition identities. 一索 is a bird, Red dragon is 中, Green dragon is 發, and White dragon is framed 白板. West wind is 西 and has an explicit separate mapping from White dragon. The source's flower/alternate tiles are excluded. Attach existing Modifier/Integrity/zone annotations beside or outside the face, preserving the base identity; put full meanings in the contextual inspector.
 
 At larger windows, center the baseline table composition with additional surrounding space. At increased text scales, let detail sheets wrap and scroll while the action rail remains reachable. The existing 125%/150% specimens are enlarged-text recovery sheets, not a complete responsive redesign of every screen. Preserve pseudo-localized placeholders and the full longest recovery message.
 
@@ -46,7 +48,7 @@ Primitive, semantic, and component tokens are scoped to V2 in Figma, so V1 remai
 | Error / success | #FFB09B / #ADE1BC | Accompany explicit result/reason text |
 | Table / paper | #0E1916 / #292218 | Dark space and warm document surfaces |
 
-Reuse the existing seven-state Button and sixteen-variant Tile families in the supplied Figma copy. V2 instances apply the scoped palette and material treatment. This is a review library, not a new production Godot Theme.
+Reuse the existing seven-state Button and sixteen-variant Tile families in the supplied Figma copy. V2.1 Tile instances override their face fill with the correct uploaded Chinese asset and hide the legacy rank/glyph/suit text layers. Selection and focus layers remain intact. The 34 source-image masters are cataloged separately. V1 is unchanged. This is a review library, not a new production Godot Theme.
 
 Buttons use a minimum 44 px height, ordinary localized labels, and generous space around the hit region. Brass fills identify the main commit; green controls inspect or choose. Disabled controls retain readable text, a dashed edge, and a nearby reason. Focus does not imply selection; selected + focused displays both.
 

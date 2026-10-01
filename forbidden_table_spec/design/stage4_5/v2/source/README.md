@@ -7,6 +7,8 @@ This directory authors design fixtures and the browser/Figma review. It does not
 - figma_v2_screens.js is the native screen-authoring template. Supply __LEDGER__, __SCREENS__, __PAGE__, __PALETTE__, and __UPDATE__ through the Figma MCP authoring workflow. Existing roots can be preserved during a revision; do not run a creation batch blindly against populated frames.
 - figma_motion.js records the repair/authoring operation for the existing motion-study node IDs. It is provenance, not an idempotent sync command; replaying it would add a wrapper again.
 - art_prompts.json records both final generated artwork prompts. Artwork originals are in ../assets/.
+- fetch_chinese_tiles.py saves 34 unmodified, commit-pinned Chinese tile PNGs plus their license and identity/hash manifest. Flowers and alternate tile types are excluded.
+- figma_chinese_faces.js updates the existing V2 instances in place; supply __ROOTS__ and __IMAGES__ from the ledger. It preserves component/state identity and hides the legacy text-face layers. tile-atlas.html displays the same full 34-face registry.
 - figma_ledger.json records the actual supplied copy, V2 page, 36 roots, indexes, scoped variables, uploaded artwork hashes, and motion study.
 - capture_mockups.py verifies/captures the browser compositions. capture_motion.py checks four studies in three modes, reduced motion, Escape cancellation, screen interruption, and deterministic browser draw phases.
 - make_contact_sheets.py composes existing screenshots into review indexes; it does not alter source artwork.

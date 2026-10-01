@@ -1,5 +1,6 @@
 /* A design review viewer. It never calls, imitates or replaces the game Domain. */
 const SCREENS=window.FT_V2.screens, LEDGER=window.FT_V2.ledger||{frames:[],fileKey:"xXzt7gEelGQh37Ak51ogGa"};
+const TILE_FACES=Object.fromEntries((window.FT_V2.chineseTiles?.assets||[]).map(a=>[a.key,a.file]));
 let active=SCREENS[0];
 let running=[],playToken=0;
 function cancelMotion(){playToken++;for(const a of running)a.cancel();running=[];document.querySelectorAll(".demo-stamp").forEach(n=>n.remove());}
@@ -15,7 +16,7 @@ function build(d){
   e=document.createElement('button');e.className='action';e.textContent=d.text;e.dataset.state=d.state;if(d.role)e.dataset.role=d.role;e.disabled=d.state==='disabled';e.setAttribute('aria-label',d.text);size(e,{w:d.w});e.addEventListener('click',()=>{document.getElementById('review-feedback').textContent='Review selection: '+d.text+'. No game action was executed.';if(!/Back|Cancel|Close|Help|Inspect|New Run|Settle|Choose|Buy|Transform|Finish|End Turn|Draw|Return|Take|Review|Dismiss/.test(d.text)){e.dataset.state='selectedFocused';}});return e;
  }
  if(d.type==='tile'){
-  e=document.createElement('button');e.className='tile'+(d.large?' large':'');size(e,d);e.dataset.state=d.state;e.setAttribute('aria-label',({BAM:'Bamboo',DOT:'Dots',CHR:'Characters',HON:'Honor'}[d.suit])+' '+d.rank+(d.instanceLabel?', '+d.instanceLabel:''));const glyph=d.suit==='HON'?({E:'東',W:'白',N:'北',S:'南',R:'中',G:'發'}[d.rank]||'東'):d.suit==='CHR'?'萬':d.suit==='DOT'?'●':'| |';for(const [cls,value] of [['rank',d.rank],['glyph',glyph],['suit',d.suit]]){const span=document.createElement('span');span.className=cls;span.textContent=value;e.append(span);}e.addEventListener('click',()=>{e.dataset.state=e.dataset.state==='selected'?'selectedFocused':'selected';document.getElementById('review-feedback').textContent='Tile inspected: '+e.getAttribute('aria-label')+'. Instance selection is illustrative.';});return e;
+  e=document.createElement('button');e.className='tile'+(d.large?' large':'');size(e,d);e.dataset.state=d.state;const key=d.suit+':'+d.rank,file=TILE_FACES[key];if(!file)throw new Error('Missing Chinese tile face '+key);e.dataset.face=key;const label=d.suit==='HON'?({E:'East',S:'South',WEST:'West',N:'North',R:'Red dragon',G:'Green dragon',W:'White dragon'}[d.rank]):({BAM:'Bamboo',DOT:'Dots',CHR:'Characters'}[d.suit])+' '+d.rank;e.setAttribute('aria-label',label+(d.instanceLabel?', '+d.instanceLabel:''));const img=document.createElement('img');img.src='assets/chinese-tiles/'+file;img.alt='';img.draggable=false;e.append(img);e.addEventListener('click',()=>{e.dataset.state=e.dataset.state==='selected'?'selectedFocused':'selected';document.getElementById('review-feedback').textContent='Tile inspected: '+e.getAttribute('aria-label')+'. Instance selection is illustrative.';});return e;
  }
  if(d.type==='map'){
   e=document.createElement('div');e.className='map';size(e,d);

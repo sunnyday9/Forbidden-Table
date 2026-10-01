@@ -8,6 +8,16 @@ layout=json.loads((ROOT/'source/layout_checks.json').read_text())
 native=json.loads((ROOT/'source/figma_checks.json').read_text())
 motion=json.loads((ROOT/'source/motion_checks.json').read_text())
 clip=json.loads((ROOT/'source/native_motion_checks.json').read_text())
+faces=json.loads((ROOT/'assets/chinese-tiles/manifest.json').read_text())
+native_faces=json.loads((ROOT/'source/chinese_face_checks.json').read_text())
+assert len(faces['assets'])==34 and len({a['definitionId'] for a in faces['assets']})==34
+assert not native_faces['failures'] and not native_faces['catalogCaptionOverflow']
+assert native_faces['registryFaces']==34 and native_faces['tileInstances']==219
+assert {a['file'] for a in faces['assets']}=={p.name for p in (ROOT/'assets/chinese-tiles').glob('*.png')}
+for a in faces['assets']:
+ assert hashlib.sha256((ROOT/'assets/chinese-tiles'/a['file']).read_bytes()).hexdigest()==a['sha256'],a['key']
+assert next(a['file'] for a in faces['assets'] if a['key']=='HON:W')=='z7.png'
+assert next(a['file'] for a in faces['assets'] if a['key']=='HON:WEST')=='z3.png'
 assert len(screens)==len(ledger['frames'])==len(layout['screens'])==len(native['measurements'])==36
 assert {s['slug'] for s in screens}=={s['slug'] for s in ledger['frames']}
 assert len({s['id'] for s in ledger['frames']})==36
@@ -45,6 +55,6 @@ pairs=[('text','panel'),('muted','raised'),('ink','brass'),('focus','panel'),('e
 contrasts={f'{a}/{b}':contrast(tokens[a],tokens[b]) for a,b in pairs}
 assert all(v>=4.5 for v in contrasts.values()),contrasts
 files=[p for p in ROOT.rglob('*') if p.is_file() and p.name!='package_checks.json']
-report={'scope':'Design artifacts only; approval pending','screens':36,'browserPngs':len(list((ROOT/'mockups').glob('*.png'))),'nativePngs':len(list((ROOT/'mockups/figma').glob('*.png'))),'motionPngs':len(list((ROOT/'motion').glob('*.png'))),'artAssets':2,'baselineSolidColorContrast':contrasts,'checks':{'layout':True,'nativeLayout':True,'motion':True,'nativePlayback':True,'localMarkdownLinks':True,'noSignedUrls':True},'files':[{'path':str(p.relative_to(ROOT)),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(files)]}
+report={'scope':'Design artifacts only; approval pending','revision':'V2.1 Chinese tile faces','screens':36,'browserPngs':len(list((ROOT/'mockups').glob('*.png'))),'nativePngs':len(list((ROOT/'mockups/figma').glob('*.png'))),'motionPngs':len(list((ROOT/'motion').glob('*.png'))),'generatedArtAssets':2,'chineseTileAssets':34,'baselineSolidColorContrast':contrasts,'checks':{'layout':True,'nativeLayout':True,'motion':True,'nativePlayback':True,'chineseFaceMapping':True,'localMarkdownLinks':True,'noSignedUrls':True},'files':[{'path':str(p.relative_to(ROOT)),'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),'bytes':p.stat().st_size} for p in sorted(files)]}
 (ROOT/'source/package_checks.json').write_text(json.dumps(report,indent=2)+'\n')
 print(json.dumps({k:v for k,v in report.items() if k!='files'}))

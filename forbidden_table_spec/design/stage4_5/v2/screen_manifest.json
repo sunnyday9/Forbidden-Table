@@ -9,7 +9,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Three production Characters; locked state is an illustrative initial profile. No portrait asset required. V2 artwork and effects are presentation proposals only. Portrait appearances are new cosmetic concepts, not lore or final approved Character art.",
+    "notes": "Three production Characters; locked state is an illustrative initial profile. No portrait asset required. V2.1 Chinese tile faces, artwork and effects are presentation proposals only. Portrait appearances are new cosmetic concepts, not lore or final approved Character art.",
     "width": 960,
     "height": 540
   },
@@ -23,7 +23,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Pool Bias is both selected and focused; independent state variants are shown on the component specimen. V2 artwork and effects are presentation proposals only.",
+    "notes": "Pool Bias is both selected and focused; independent state variants are shown on the component specimen. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -37,7 +37,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2 artwork and effects are presentation proposals only.",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -51,7 +51,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2 artwork and effects are presentation proposals only.",
+    "notes": "Exact 10-node catalog topology. Reachability in fixture: Intro → Normal left/right. Future nodes are displayed as unavailable; unseen payload labels are withheld. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -64,7 +64,7 @@
       "disabled",
       "focused"
     ],
-    "notes": "Empty Hand and Reserve; disabled Settlement has a visible reason. Domain still validates every command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Empty Hand and Reserve; disabled Settlement has a visible reason. Domain still validates every command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -77,7 +77,7 @@
       "selected",
       "contextual-detail"
     ],
-    "notes": "Intent/resources never require overview scrolling; illustrative values, not replay evidence. V2 artwork and effects are presentation proposals only.",
+    "notes": "Intent/resources never require overview scrolling; illustrative values, not replay evidence. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -90,7 +90,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Map candidates to actual instance IDs; do not infer damage or add an evaluator. V2 artwork and effects are presentation proposals only.",
+    "notes": "Map candidates to actual instance IDs; do not infer damage or add an evaluator. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -104,7 +104,7 @@
       "confirmation",
       "contextual-detail"
     ],
-    "notes": "Standard interpretation specimen. Seven Pairs uses 7 distinct-definition pairs; Quads may expand physical tile count. V2 artwork and effects are presentation proposals only.",
+    "notes": "Standard interpretation specimen. Seven Pairs uses 7 distinct-definition pairs; Quads may expand physical tile count. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -117,7 +117,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Modifier sample is an existing category; identity flexibility is context-sensitive. Actions reflect existing validation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Modifier sample is an existing category; identity flexibility is context-sensitive. Actions reflect existing validation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -128,7 +128,7 @@
     "states": [
       "contextual-detail"
     ],
-    "notes": "Critical receipt is a presentation fixture; next surface follows actual command result, not a new Continue command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Critical receipt is a presentation fixture; next surface follows actual command result, not a new Continue command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -141,7 +141,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Copy is structural where source lacks prose; implementation must use actual Event choice labels/effect summaries. V2 artwork and effects are presentation proposals only.",
+    "notes": "Copy is structural where source lacks prose; implementation must use actual Event choice labels/effect summaries. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -154,7 +154,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Use existing authored alternatives only; these generic fixture labels are not new content. V2 artwork and effects are presentation proposals only.",
+    "notes": "Use existing authored alternatives only; these generic fixture labels are not new content. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -167,7 +167,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -180,7 +180,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -193,7 +193,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative draft assembled from existing labels, not a guaranteed offer roster. Preserve current draft semantics; no added skip/reroll. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -204,7 +204,7 @@
     "states": [
       "contextual-detail"
     ],
-    "notes": "No new phase, Continue command or artificial state gate. V2 artwork and effects are presentation proposals only.",
+    "notes": "No new phase, Continue command or artificial state gate. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -218,7 +218,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Prices are illustrative. Refresh price/remaining count comes from actual shop state; do not assume it is free. V2 artwork and effects are presentation proposals only.",
+    "notes": "Prices are illustrative. Refresh price/remaining count comes from actual shop state; do not assume it is free. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -231,7 +231,7 @@
       "disabled",
       "focused"
     ],
-    "notes": "Explicit empty and exhausted-refresh state; no automatic free refresh. V2 artwork and effects are presentation proposals only.",
+    "notes": "Explicit empty and exhausted-refresh state; no automatic free refresh. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -244,7 +244,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Local confirmation only; safest initial focus is Cancel. Domain revalidates offer and funds. V2 artwork and effects are presentation proposals only.",
+    "notes": "Local confirmation only; safest initial focus is Cancel. Domain revalidates offer and funds. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -257,7 +257,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "All six existing service families are described; only services currently available are enabled. V2 artwork and effects are presentation proposals only.",
+    "notes": "All six existing service families are described; only services currently available are enabled. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -270,7 +270,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Target identity remains stable as focus moves or values change. V2 artwork and effects are presentation proposals only.",
+    "notes": "Target identity remains stable as focus moves or values change. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -283,7 +283,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Before/after/cost in one place; final local confirmation does not add a Domain command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Before/after/cost in one place; final local confirmation does not add a Domain command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -295,7 +295,7 @@
       "confirmation",
       "focused"
     ],
-    "notes": "Initial focus Cancel; no optimistic currency or pool mutation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Initial focus Cancel; no optimistic currency or pool mutation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -308,7 +308,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "All five existing tutorial steps are mapped in interaction notes. V2 artwork and effects are presentation proposals only.",
+    "notes": "All five existing tutorial steps are mapped in interaction notes. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -320,7 +320,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Help closes to original control and never submits a game command. V2 artwork and effects are presentation proposals only.",
+    "notes": "Help closes to original control and never submits a game command. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -334,7 +334,7 @@
       "disabled",
       "contextual-detail"
     ],
-    "notes": "Local settings overlay proposed; Normal/Fast/Instant controls require no rule change. V2 artwork and effects are presentation proposals only.",
+    "notes": "Local settings overlay proposed; Normal/Fast/Instant controls require no rule change. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -346,7 +346,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -358,7 +358,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. Duration is an illustrative recorded-value fixture; older records show not tracked. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -370,7 +370,7 @@
       "focused",
       "empty"
     ],
-    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. V2 artwork and effects are presentation proposals only.",
+    "notes": "Never invent duration or stats for older saves. Snapshot outcome controls the result; fixtures are not a completed real Run. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -382,7 +382,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "New Run gets guaranteed visible initial focus. V2 artwork and effects are presentation proposals only.",
+    "notes": "New Run gets guaranteed visible initial focus. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -394,7 +394,7 @@
       "focused",
       "confirmation"
     ],
-    "notes": "No fake autosave guarantee. Preserve existing compatibility/load contracts. V2 artwork and effects are presentation proposals only.",
+    "notes": "No fake autosave guarantee. Preserve existing compatibility/load contracts. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -408,7 +408,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Same UI template covers content validation, incompatible save and profile recovery, but actions remain governed by their existing outcomes. V2 artwork and effects are presentation proposals only.",
+    "notes": "Same UI template covers content validation, incompatible save and profile recovery, but actions remain governed by their existing outcomes. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -420,7 +420,7 @@
       "confirmation",
       "focused"
     ],
-    "notes": "No new abandon-Run Domain system; this confirms the existing startup New Run choice. V2 artwork and effects are presentation proposals only.",
+    "notes": "No new abandon-Run Domain system; this confirms the existing startup New Run choice. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -433,7 +433,7 @@
       "focused",
       "selected"
     ],
-    "notes": "Error is adjacent to attempted action, not a timer-only toast. Save-write failure after an accepted action uses a separate success-with-warning receipt. V2 artwork and effects are presentation proposals only.",
+    "notes": "Error is adjacent to attempted action, not a timer-only toast. Save-write failure after an accepted action uses a separate success-with-warning receipt. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -449,7 +449,7 @@
       "error",
       "contextual-detail"
     ],
-    "notes": "Brass inner edge is selection; cyan perimeter is focus. Both may appear together. V2 artwork and effects are presentation proposals only.",
+    "notes": "Brass inner edge is selection; cyan perimeter is focus. Both may appear together. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   },
@@ -462,7 +462,7 @@
       "focused",
       "contextual-detail"
     ],
-    "notes": "Illustrative pseudo text; actual Godot pseudo-localization must be rerun after approved implementation. V2 artwork and effects are presentation proposals only.",
+    "notes": "Illustrative pseudo text; actual Godot pseudo-localization must be rerun after approved implementation. V2.1 Chinese tile faces, artwork and effects are presentation proposals only.",
     "width": 960,
     "height": 540
   }

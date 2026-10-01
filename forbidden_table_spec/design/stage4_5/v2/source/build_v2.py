@@ -9,7 +9,7 @@ def walk(d):
  yield d
  for c in d.get('children',[]):yield from walk(c)
 for s in screens:
- s['version']='Proposed v2';s['notes']+=' V2 artwork and effects are presentation proposals only.'
+ s['version']='Proposed v2.1';s['notes']+=' V2.1 Chinese tile faces, artwork and effects are presentation proposals only.'
  root=s['tree'];root['art']='salon';root['name']='Haunted table composition'
  header,status,body,footer=root['children'];header['h']=60;header['name']='Title rail';status['h']=20;status['name']='Run rail';body['name']=body.get('name','Decision surface');footer['name']='Commit rail'
  header['children'][0]['children'][0]['text']='FORBIDDEN TABLE  /  '+('NEW RUN' if s['slug'] in ['character','contract'] else 'THE HAUNTED TABLE')
@@ -56,7 +56,9 @@ for s in screens:
  if s['slug'].startswith('summary-') or s['slug'] in ['act-transition','run-complete']:
   body['children'][0]['surface']='chronicle'
   if s['slug']=='summary-victory':body['children'][0]['sigil']=0
-root_data={'version':'Proposed v2','screens':screens,'tokens':tokens}
+root_data={'version':'Proposed v2.1','screens':screens,'tokens':tokens}
+tile_manifest=ROOT/'assets/chinese-tiles/manifest.json'
+if tile_manifest.exists():root_data['chineseTiles']=json.loads(tile_manifest.read_text())
 ledger=ROOT/'source/figma_ledger.json'
 if ledger.exists():root_data['ledger']=json.loads(ledger.read_text())
 (ROOT/'source/screens.json').write_text(json.dumps(screens,ensure_ascii=False,indent=2)+'\n')

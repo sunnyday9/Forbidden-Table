@@ -15,8 +15,8 @@ def sheet(entries, name, columns, cell_width):
     canvas = Image.new('RGB', (columns*(cell_width+gap)+gap,
                        top+rows*(cell_height+caption+gap)+gap), '#101D1B')
     draw = ImageDraw.Draw(canvas)
-    draw.text((gap, 12), 'Forbidden Table · Stage 4.5 · V2 art and motion', fill='#F3EBD8', font=heading)
-    draw.text((gap, 43), 'PROPOSED v2 · Approval pending · Browser mockups, not game captures', fill='#D8B875', font=font)
+    draw.text((gap, 12), 'Forbidden Table · Stage 4.5 · V2.1 · Chinese tile faces', fill='#F3EBD8', font=heading)
+    draw.text((gap, 43), 'PROPOSED v2.1 · Approval pending · Browser mockups, not game captures', fill='#D8B875', font=font)
     for i, entry in enumerate(entries):
         x, y = gap+(i % columns)*(cell_width+gap), top+(i // columns)*(cell_height+caption+gap)
         capture = Image.open(ROOT / 'mockups' / (entry['id']+'-'+entry['slug']+'.png')).convert('RGB')
