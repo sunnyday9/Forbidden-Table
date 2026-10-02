@@ -10,6 +10,14 @@ Approved reference: design package commit `91a1013`, the English/Simplified Chin
 
 Working branch: `codex/stage4-5-uiux-design`, descended from Stage 4 PASS `0f565b9`, with the spec selectively carried from `9003451`. The unrelated main checkout, graphify output and caches remain untouched. No push is authorized.
 
+## Current project location
+
+On 2026-10-02 the maintainer required all project work and artifacts to stay under `F:\Forbidden Table`. The implementation worktree is now `F:\Forbidden Table\.codex-worktrees\stage4-5-uiux-design`, with its original `05219b3` implementation content verified and preserved. The old C-drive task directory and four task-owned visualization captures were relocated; existing project-specific Windows user data was preserved under the F-drive worktree's ignored `.cache/windows/` folder. The main research checkout and unrelated artifacts were preserved.
+
+Use `PLAY_FORBIDDEN_TABLE.cmd` to play or `EDIT_FORBIDDEN_TABLE.cmd` and F5 to run from the editor. These launchers keep Godot data/cache/temp/logs under F using process-local environment variables. Future project docs/code/evidence/exports must be written under the F-drive project folder. Historical source logs retain their original paths as provenance. No release or issue closure is authorized by the relocation.
+
+Native Windows Godot 4.7.2 validation passed after relocation: the actual play launcher completed a headless editor import with exit 0, and a separate storage probe verified F-drive data/config/cache/user-data/temp paths and successfully wrote and removed a user-data probe file. Both logs contain no script or load errors. The full suite and human playtest were not rerun for this storage-only change. Local logs remain under `.cache/`.
+
 ## Module ownership and integration contract
 
 The parent orchestrates scope, interfaces, integration, review and evidence. Workers share the isolated worktree, edit only their assigned files, and do not stage, commit, push, alter Domain/content rules or write to the issue tracker. Dependent scene modules use the shared UI interfaces after foundation delivery; localization and preference work can proceed independently.
