@@ -8,7 +8,7 @@ On 2026-10-01 the maintainer approved the current V2.2 design and requested impl
 
 Approved reference: design package commit `91a1013`, the English/Simplified Chinese V2.2 review, and Figma Education copy `xXzt7gEelGQh37Ak51ogGa`. Live Figma implementation context was retrieved for Chinese Character `2044:2`, Battle `2044:258`, and language settings `2045:579`, with screenshots and component guidance. Other phase references are the corresponding approved editable frames and checked-in fixtures. Actual gameplay values must replace illustrative fixtures.
 
-Implementation branch: `codex/stage4-5-uiux-design`, descended from Stage 4 PASS `0f565b9`, with the spec selectively carried from `9003451`. Unrelated local files, graphify output and caches remain untouched. No push is authorized.
+Implementation branch: `codex/stage4-5-uiux-design`, descended from Stage 4 PASS `0f565b9`, with the spec selectively carried from `9003451`. Unrelated local files, graphify output and caches remain untouched. On 2026-10-02 the maintainer requested the recommended documentation merge and appropriate source publication; publication uses a draft PR from `codex/stage4-5-primary-project`, with final Stage 4.5 review and release gates still pending.
 
 ## Current project location
 
@@ -21,6 +21,8 @@ Use `F:\Forbidden Table\PLAY_FORBIDDEN_TABLE.cmd` to play or `F:\Forbidden Table
 Native Windows Godot 4.7.2 validation passed after relocation: the actual play launcher completed a headless editor import with exit 0, and a separate storage probe verified F-drive data/config/cache/user-data/temp paths and successfully wrote and removed a user-data probe file. Both logs contain no script or load errors. The full suite and human playtest were not rerun for this storage-only change. Local logs remain under `.cache/`.
 
 Root-project promotion validation also passed with native Windows Godot 4.7.2: clean final import, normal main-scene headless startup, F-only storage/write probe, and `--stage45-ui --stage4-accessibility --run-scene` (five UI modules, zero failures). The initial import generated missing locale resources; the final import and validation logs contain no script, parse or load errors. All 411 non-configuration files in the tested source manifest match the root checkout; `project.godot` differs only by preserved preexisting editor comments/property order. Local evidence is under `.cache/main-project-verification/`. Physical-device/human playtesting and the full suite were not repeated.
+
+On 2026-10-02, the recommended merge restored the accepted Stage 4 inventory/specification without runtime changes. The exact merged source passed fresh full, focused UI/accessibility and localization checks; all 412 runtime/source/test/asset manifest files match. Source publication is recorded in [the publication verification record](evidence/stage4_5/PUBLICATION_VERIFICATION_2026_10_02.md), with the interrupted full-suite attempt excluded from passing evidence. Final implementation review/#98 remains pending.
 
 ## Module ownership and integration contract
 
