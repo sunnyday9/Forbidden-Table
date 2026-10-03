@@ -26,6 +26,7 @@ const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
+const PublicActRouteFixture = preload("res://tests/fixtures/public_act_route_fixture.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
@@ -40,6 +41,8 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_event_entry_choice_resolution_and_exit_are_explicit(failures)
 	test_invalid_event_choice_is_atomic_and_uses_stable_ids(failures)
+	test_rule_memory_unique_choices_are_rejected_before_execution_across_acts(failures)
+	test_duplicate_replace_and_refresh_event_modifiers_remain_eligible(failures)
 	test_event_alternatives_are_deterministic_and_stream_isolated(failures)
 	test_run_scoped_contract_modifier_cleans_up_without_leaking(failures)
 	test_phase_2_event_identity_contracts_are_explicit(failures)
@@ -106,6 +109,134 @@ func test_invalid_event_choice_is_atomic_and_uses_stable_ids(failures: Array[Str
 	assert_true(domain.checkpoint() == before, "a rejected Event option leaves RunState unchanged", failures)
 	assert_true(domain.rng_snapshot() == rng_before, "a rejected Event option leaves every RNG stream unchanged", failures)
 	assert_true(not ChooseEventOptionCommand.new("event.ids", "accept_bargain").to_dictionary().has("option_index"), "Event Commands never serialize a UI option index", failures)
+
+func test_rule_memory_unique_choices_are_rejected_before_execution_across_acts(failures: Array[String]) -> void:
+	var act_two_cases: Array[Dictionary] = [
+		{"event_id": "alpha.event.act_two.rule_memory", "choice_id": "study_yaku", "seed": 0},
+		{"event_id": "alpha.event.act_two.rule_memory.cross_reference", "choice_id": "cross_reference", "seed": 18},
+	]
+	for case_index in act_two_cases.size():
+		var event_case: Dictionary = act_two_cases[case_index]
+		var setup: Dictionary = PublicActRouteFixture.two_act_rule_memory_domain(
+			"event.rule_memory.unique.%d" % case_index,
+			int(event_case["seed"]),
+			str(event_case["event_id"]),
+			failures,
+		)
+		assert_true(bool(setup.get("accepted", false)), "controlled public-command fixture traverses the authored two-Act Rule Memory route", failures)
+		if not bool(setup.get("accepted", false)):
+			continue
+		var domain: RunDomain = setup["domain"]
+		var expected_act_one_path := [
+			"base.map_node.intro",
+			"base.map_node.normal.right",
+			"base.map_node.event.right",
+			"base.map_node.normal.mid",
+			"base.map_node.elite",
+			"base.map_node.boss",
+		]
+		var expected_act_two_path := [
+			"base.map_node.act_two.intro",
+			"base.map_node.act_two.normal.right",
+			"base.map_node.act_two.event.right",
+		]
+		assert_true(setup.get("act_one_path", []) == expected_act_one_path, "actual Act 1 ordered_path visits Intro, right Normal, Rule Memory, mid Normal, Elite, and Boss", failures)
+		assert_true(str(setup.get("act_one_boss_reward_command_type", "")) == "ChooseReward" and bool(setup.get("act_one_boss_transition_emitted", false)), "the Act 1 Boss reward's public ChooseRewardCommand naturally emits the Act transition", failures)
+		assert_true(setup.get("act_two_path", []) == expected_act_two_path, "actual Act 2 ordered_path reaches Rule Memory through its Intro, right Normal, and Event route", failures)
+		assert_true(domain.state.act_index == 2 and domain.state.active_modifier("event.act_two.rule_memory") != null, "the Act 1 unique Rule Memory modifier carries across the public Boss reward boundary", failures)
+		assert_true(domain.state.event_state.event_id == str(event_case["event_id"]), "EnterEventCommand enters the selected authored Act 2 Rule Memory Event", failures)
+		assert_true(domain.state.event_state.legal_choice_ids().has(str(event_case["choice_id"])), "Act 2 Event exposes its authored Rule Memory choice", failures)
+		if not domain.state.event_state.active:
+			continue
+
+		var event_id := str(event_case["event_id"])
+		var choice_id := str(event_case["choice_id"])
+		var entry_id: String = domain.state.event_state.entry_id
+		var preview_before := domain.checkpoint()
+		var preview_rng_before := domain.rng_snapshot()
+		var preview_replay_count: int = domain.replay_record.commands.size()
+		var choice_validation = domain.validate_choose_event_option(event_id, entry_id, choice_id)
+		assert_true(not choice_validation.is_valid(), "%s is unavailable in preview after Act 1 installed the same UNIQUE modifier" % choice_id, failures)
+		assert_true(choice_validation.code == "EFFECT_ALREADY_ACTIVE", "%s preview reports the LifecycleResolver UNIQUE conflict" % choice_id, failures)
+		assert_true(domain.checkpoint() == preview_before, "%s preview leaves authoritative Event and Run state unchanged" % choice_id, failures)
+		assert_true(domain.rng_snapshot() == preview_rng_before, "%s preview does not advance any RNG stream" % choice_id, failures)
+		assert_true(domain.replay_record.commands.size() == preview_replay_count, "%s preview does not append an accepted Replay command" % choice_id, failures)
+
+		var execute_before := domain.checkpoint()
+		var execute_rng_before := domain.rng_snapshot()
+		var execute_replay_count: int = domain.replay_record.commands.size()
+		var rejected = domain.execute(ChooseEventOptionCommand.new(
+			"rule-memory.act2.%d.%s" % [case_index, choice_id],
+			choice_id,
+			event_id,
+			entry_id,
+		))
+		assert_true(not rejected.accepted and rejected.validation.code == "EFFECT_ALREADY_ACTIVE", "%s execution rejects the same lifecycle conflict reported by preview" % choice_id, failures)
+		assert_true(rejected.events.is_empty(), "%s rejection emits no authoritative events" % choice_id, failures)
+		assert_true(domain.checkpoint() == execute_before and domain.state.event_state.active, "%s rejection is atomic and leaves the Event available" % choice_id, failures)
+		assert_true(domain.rng_snapshot() == execute_rng_before, "%s rejection leaves every RNG stream unchanged" % choice_id, failures)
+		assert_true(domain.replay_record.commands.size() == execute_replay_count, "%s rejection does not append an accepted Replay command" % choice_id, failures)
+
+		var leave_validation = domain.validate_choose_event_option(event_id, entry_id, "leave")
+		var leave = domain.execute(ChooseEventOptionCommand.new(
+			"rule-memory.act2.%d.leave" % case_index,
+			"leave",
+			event_id,
+			entry_id,
+		))
+		assert_true(leave_validation.is_valid() and leave.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "Leave remains available after the unavailable Rule Memory choice", failures)
+
+func test_duplicate_replace_and_refresh_event_modifiers_remain_eligible(failures: Array[String]) -> void:
+	var policies: Array[Dictionary] = [
+		{"stack_policy": StackPolicy.REPLACE, "choice_id": "carry_clause"},
+		{"stack_policy": StackPolicy.REFRESH_DURATION, "choice_id": "refresh_clause"},
+	]
+	for case_index in policies.size():
+		var policy_case: Dictionary = policies[case_index]
+		var event_id := "alpha.event.act_two.contract_clause"
+		var registry := _production_event_registry()
+		var domain := _production_event_domain("event.modifier-policy.%d" % case_index, 3350 + case_index, 2, registry)
+		var definition: EventDefinition = registry.resolve(event_id)
+		if policy_case["stack_policy"] == StackPolicy.REFRESH_DURATION:
+			definition.choices.append({
+				"choice_id": "refresh_clause",
+				"label": "Refresh the clause",
+				"effects": [{
+					"kind": "RUN_MODIFIER",
+					"modifier_id": "event.act_two.contract_clause",
+					"value": 1,
+					"scope": DurationSpec.ACT,
+					"duration_amount": 1,
+					"stack_policy": StackPolicy.REFRESH_DURATION,
+					"source_id": "fixture.event.act_two.contract_clause",
+					"parameters": {},
+				}],
+			})
+		var existing_modifier_effect := Effect.new("fixture.existing.event.act_two.contract_clause", null, [], [], [
+			ApplyRunModifierOperation.new(
+				"event.act_two.contract_clause",
+				1,
+				DurationSpec.new(DurationSpec.ACT, 1),
+				StackPolicy.REPLACE,
+				"fixture.existing.event.act_two.contract_clause",
+			),
+		])
+		var install_result = existing_modifier_effect.resolve(null, domain.state, 0)
+		assert_true(install_result.is_resolved() and domain.state.active_modifier("event.act_two.contract_clause") != null, "%s fixture begins with the same Act modifier already active" % str(policy_case["stack_policy"]), failures)
+		var event_entry = _prepare_act_two_event(domain, event_id, "modifier-policy.%d" % case_index)
+		assert_true(event_entry.accepted, "%s Event enters with the existing modifier active" % str(policy_case["stack_policy"]), failures)
+		if not event_entry.accepted:
+			continue
+		var choice_id := str(policy_case["choice_id"])
+		var validation = domain.validate_choose_event_option(event_id, domain.state.event_state.entry_id, choice_id)
+		assert_true(validation.is_valid(), "duplicate %s effects remain eligible during Event preview" % str(policy_case["stack_policy"]), failures)
+		var choice = domain.execute(ChooseEventOptionCommand.new(
+			"modifier-policy.%d.choose" % case_index,
+			choice_id,
+			event_id,
+			domain.state.event_state.entry_id,
+		))
+		assert_true(choice.accepted and domain.state.active_modifier("event.act_two.contract_clause") != null, "duplicate %s effects remain resolvable" % str(policy_case["stack_policy"]), failures)
 
 func test_event_alternatives_are_deterministic_and_stream_isolated(failures: Array[String]) -> void:
 	var first := _event_domain("event.deterministic", 3303)

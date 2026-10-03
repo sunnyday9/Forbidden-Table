@@ -34,6 +34,7 @@ const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const MigrationPipeline = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
 const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
+const SuspendCheckpointPolicy = preload("res://src/domain/run/suspend_checkpoint_policy.gd")
 const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicy = preload("res://src/domain/effects/stack_policy.gd")
@@ -72,6 +73,7 @@ func run() -> Array[String]:
 	test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failures)
 	test_phase2_v1_pending_boss_reward_migrates_deterministically(failures)
 	test_save_coordinator_accepts_stable_and_rejects_unstable_boundaries(failures)
+	test_checkpoint_policy_writer_loader_phase_matrix_and_transitions(failures)
 	return failures
 
 func test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures: Array[String]) -> void:
@@ -784,15 +786,80 @@ func test_save_coordinator_accepts_stable_and_rejects_unstable_boundaries(failur
 	var domain := _domain("persist.coordinator", 1205)
 	domain.execute(ChooseCharacterCommand.new("persist.coordinator.character", "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("persist.coordinator.contract", "base.contract.pressure"))
-	var stable = SaveCoordinator.new().save(domain)
+	var coordinator := SaveCoordinator.new()
+	var stable = coordinator.save(domain)
 	assert_true(stable.accepted, "Map node is a stable save checkpoint", failures)
-	for boundary in SaveCoordinator.STABLE_BOUNDARIES:
-		assert_true(SaveCoordinator.new().can_save(domain, boundary).accepted, "%s is an allowed stable checkpoint" % boundary, failures)
+	assert_true(coordinator.can_save(domain, "MAP_NODE").accepted, "MAP_NODE remains a valid checkpoint in Map Choice", failures)
+	var invalid_map_boundary = coordinator.can_save(domain, "BATTLE_ACTION")
+	assert_true(not invalid_map_boundary.accepted and invalid_map_boundary.get("code", "") == "CHECKPOINT_BOUNDARY_MISMATCH", "the writer rejects a Battle label for a Map Choice state", failures)
+	var map_node_id: String = domain.map_definition.start_node_id
+	var battle_entry = domain.execute(SelectMapNodeCommand.new("persist.coordinator.select-map-node", map_node_id))
+	assert_true(battle_entry.accepted and domain.state.phase == RunPhase.BATTLE, "the writer fixture enters a real Battle through SelectMapNode", failures)
+	assert_true(coordinator.can_save(domain, "DRAW_ACTION").accepted, "Battle action checkpoints remain valid in the resulting Battle phase", failures)
+	var invalid_battle_boundary = coordinator.can_save(domain, "MAP_NODE")
+	assert_true(not invalid_battle_boundary.accepted and invalid_battle_boundary.get("code", "") == "CHECKPOINT_BOUNDARY_MISMATCH", "the writer rejects MAP_NODE after Battle begins", failures)
 	domain.state.phase = "UNSTABLE_EFFECT_QUEUE"
 	var unstable = SaveCoordinator.new().save(domain)
 	assert_true(not unstable.accepted, "unstable resolution boundaries are rejected", failures)
 	for boundary in ["EFFECT_QUEUE", "REACTION_WINDOW", "PATTERN_RESOLUTION", "BOSS_TRANSITION"]:
-		assert_true(not SaveCoordinator.new().can_save(domain, boundary).accepted, "%s is not a save boundary" % boundary, failures)
+		assert_true(not coordinator.can_save(domain, boundary).accepted, "%s is not a save boundary" % boundary, failures)
+
+func test_checkpoint_policy_writer_loader_phase_matrix_and_transitions(failures: Array[String]) -> void:
+	var expected_boundaries_by_phase: Dictionary = {
+		RunPhase.MAP_CHOICE: ["MAP_NODE"],
+		RunPhase.BATTLE: ["BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE"],
+		RunPhase.SHOP: ["SHOP"],
+		RunPhase.WORKSHOP: ["WORKSHOP"],
+		RunPhase.EVENT: ["EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER"],
+		RunPhase.REWARD_CHOICE: ["REWARD"],
+		RunPhase.ELITE_REWARD: ["REWARD"],
+		RunPhase.BOSS_REWARD: ["REWARD"],
+		RunPhase.RUN_SUMMARY: ["RUN_SUMMARY"],
+		RunPhase.RUN_COMPLETE: ["RUN_COMPLETE"],
+	}
+	var domain := _domain("persist.checkpoint.policy", 1206)
+	domain.execute(ChooseCharacterCommand.new("persist.checkpoint.policy.character", "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("persist.checkpoint.policy.contract", "base.contract.pressure"))
+	var coordinator := SaveCoordinator.new()
+	var validator := LoadValidator.new()
+	for phase in RunPhase.all():
+		domain.state.phase = phase
+		var expected: Array = expected_boundaries_by_phase.get(phase, [])
+		for boundary in SaveCoordinator.STABLE_BOUNDARIES:
+			var should_accept: bool = expected.has(boundary)
+			var writer_result: Dictionary = coordinator.can_save(domain, boundary)
+			assert_true(writer_result.get("accepted", false) == should_accept, "writer phase matrix %s/%s agrees with the checkpoint contract" % [phase, boundary], failures)
+			var battle_snapshot: Dictionary = {"fixture": true} if phase == RunPhase.BATTLE else {}
+			var checkpoint_errors: Array = []
+			validator._validate_checkpoint(
+				{"stable": true, "stable_boundary": boundary},
+				{"phase": phase, "current_battle_snapshot": battle_snapshot},
+				checkpoint_errors,
+			)
+			var loader_rejects_mismatch: bool = checkpoint_errors.any(func(error): return str(error.get("code", "")) == "CHECKPOINT_BOUNDARY_MISMATCH")
+			assert_true(loader_rejects_mismatch == not should_accept, "loader phase matrix %s/%s agrees with the checkpoint contract" % [phase, boundary], failures)
+
+	var transitions: Array[Dictionary] = [
+		{"phase": RunPhase.BATTLE, "requested": "MAP_NODE", "inferred": "BATTLE_START", "expected": "BATTLE_START", "context": "map entry"},
+		{"phase": RunPhase.REWARD_CHOICE, "requested": "ENEMY_INTENT_COMPLETE", "inferred": "REWARD", "expected": "REWARD", "context": "Battle victory"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "ENEMY_INTENT_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "terminal Battle defeat"},
+		{"phase": RunPhase.REWARD_CHOICE, "requested": "SETTLEMENT_COMPLETE", "inferred": "REWARD", "expected": "REWARD", "context": "settlement into Reward"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "SETTLEMENT_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "terminal settlement into Summary"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "REWARD", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Reward exit"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "REWARD", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "Reward completion into Summary"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "EVENT_CHOICE_AFTER", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Event exit"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "SHOP", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Shop exit"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "WORKSHOP", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Workshop exit"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "RUN_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "summary remains open"},
+		{"phase": RunPhase.RUN_COMPLETE, "requested": "RUN_COMPLETE", "inferred": "RUN_COMPLETE", "expected": "RUN_COMPLETE", "context": "acknowledged summary"},
+	]
+	for transition in transitions:
+		var resolved: String = SuspendCheckpointPolicy.resolve_result_boundary(
+			str(transition.get("requested", "")),
+			str(transition.get("phase", "")),
+			str(transition.get("inferred", "")),
+		)
+		assert_true(resolved == str(transition.get("expected", "")), "%s resolves to a checkpoint valid for its resulting phase" % transition.get("context", "transition"), failures)
 
 func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Array[String]) -> void:
 	var source: Dictionary = Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot()

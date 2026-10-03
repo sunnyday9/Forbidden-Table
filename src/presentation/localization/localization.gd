@@ -1,6 +1,8 @@
 class_name Localization
 extends RefCounted
 
+const ContentTextCatalogScript = preload("res://src/content/text/content_text_catalog.gd")
+
 const FORMAT_TOKEN := "%"
 
 static var _english_translation: Translation
@@ -24,21 +26,7 @@ static func text(key: String) -> String:
 
 
 static func canonical_text(key: String) -> String:
-	# Catalogs use the English resource for authoritative labels so state and
-	# replay data do not depend on the active presentation locale.
-	if key.is_empty():
-		push_error("Localization key must not be empty.")
-		return "[MISSING LOCALIZATION KEY]"
-	if _english_translation == null:
-		_english_translation = TranslationServer.get_translation_object("en") as Translation
-	if _english_translation == null:
-		push_error("English source translation is unavailable.")
-		return "[MISSING %s]" % key
-	var source := str(_english_translation.get_message(key))
-	if source.is_empty():
-		push_error("Missing English source localization key: %s" % key)
-		return "[MISSING %s]" % key
-	return source.replace("%%", "%")
+	return ContentTextCatalogScript.canonical_text(key)
 
 
 static func display_text(canonical_english: String) -> String:

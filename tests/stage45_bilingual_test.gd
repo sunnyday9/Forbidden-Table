@@ -61,6 +61,7 @@ func run() -> Array[String]:
 	_test_unsupported_preference(unsupported_config_path, failures)
 	_test_corrupt_preferences(corrupt_config_path, failures)
 	await _test_overlay_interaction(test_config_path, failures)
+	await _test_modal_focus_and_help_scrolling(failures)
 	_test_persistence_failure(failure_config_path, failures)
 	_test_font_coverage(failures)
 
@@ -293,6 +294,8 @@ func _test_corrupt_preferences(path: String, failures: Array[String]) -> void:
 
 func _test_overlay_interaction(path: String, failures: Array[String]) -> void:
 	var tree := Engine.get_main_loop() as SceneTree
+	var original_viewport_size := tree.root.size
+	tree.root.size = Vector2i(960, 540)
 	var controller_bindings: Array[Dictionary] = [
 		_bind_joypad_action("ui_focus_next", JOY_BUTTON_RIGHT_SHOULDER),
 		_bind_joypad_action("ui_focus_prev", JOY_BUTTON_LEFT_SHOULDER),
@@ -404,6 +407,152 @@ func _test_overlay_interaction(path: String, failures: Array[String]) -> void:
 	host.queue_free()
 	for binding in controller_bindings:
 		_remove_joypad_binding(binding)
+	await tree.process_frame
+	tree.root.size = original_viewport_size
+
+
+func _test_modal_focus_and_help_scrolling(failures: Array[String]) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var original_viewport_size := tree.root.size
+	var original_preferences: Dictionary = _prefs.snapshot()
+	var scenarios: Array[Dictionary] = [
+		{"label": "English 960x540", "size": Vector2i(960, 540), "locale": "en"},
+		{"label": "Chinese 960x540", "size": Vector2i(960, 540), "locale": "zh_CN"},
+		{"label": "English 1920x1080", "size": Vector2i(1920, 1080), "locale": "en"},
+		{"label": "Chinese 1920x1080", "size": Vector2i(1920, 1080), "locale": "zh_CN"},
+	]
+	for scenario in scenarios:
+		tree.root.size = scenario.size
+		_prefs.apply_preferences({"locale": scenario.locale, "ui_scale": 1.5})
+		var host := Control.new()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tree.root.add_child(host)
+		var origin := Button.new()
+		origin.name = "FocusScrollOrigin"
+		host.add_child(origin)
+		origin.grab_focus()
+		var overlay = PreferencesOverlayScript.new()
+		host.add_child(overlay)
+		overlay.open(_prefs.snapshot(), origin, TutorialProgressScript.new())
+		await _wait_for_ui_layout(tree)
+		var label := str(scenario.label)
+		var settings_scroll: ScrollContainer = overlay._settings_scroll
+		assert_true(settings_scroll.size.y > 0.0 and settings_scroll.get_v_scroll_bar().max_value > settings_scroll.get_v_scroll_bar().page, "%s Settings has scrollable content" % label, failures)
+		await _assert_modal_focus_and_scroll(overlay, settings_scroll, label + " Settings", failures)
+		var help_tab := overlay.find_child("HelpTabButton", true, false) as Button
+		if help_tab != null:
+			var reached_help_tab := false
+			for _attempt in range(overlay._visible_focusables().size()):
+				if tree.root.get_viewport().gui_get_focus_owner() == help_tab:
+					reached_help_tab = true
+					break
+				await _send_overlay_action(overlay, "ui_focus_next", tree)
+			if tree.root.get_viewport().gui_get_focus_owner() == help_tab:
+				reached_help_tab = true
+			assert_true(reached_help_tab, "%s reaches the Help tab within the modal focus order" % str(scenario.label), failures)
+			if reached_help_tab:
+				await _send_overlay_action(overlay, "ui_accept", tree)
+		await _wait_for_ui_layout(tree)
+		assert_true(str(overlay.get("_current_page")) == "help", "%s opens Help through focused keyboard accept" % label, failures)
+		var help_scroll: ScrollContainer = overlay._help_scroll
+		assert_true(help_scroll.size.y > 0.0 and help_scroll.get_v_scroll_bar().max_value > help_scroll.get_v_scroll_bar().page, "%s Help has scrollable reading content" % label, failures)
+		await _assert_modal_focus_and_scroll(overlay, help_scroll, label + " Help", failures)
+		overlay.close()
+		assert_true(tree.root.get_viewport().gui_get_focus_owner() == origin, "%s closing the modal restores its originating focus" % label, failures)
+		host.queue_free()
+		await tree.process_frame
+	tree.root.size = original_viewport_size
+	_prefs.apply_preferences(original_preferences)
+	await tree.process_frame
+	await _test_focus_reveal_teardown(tree, failures)
+
+
+func _test_focus_reveal_teardown(tree: SceneTree, failures: Array[String]) -> void:
+	var host := Control.new()
+	tree.root.add_child(host)
+	var overlay = PreferencesOverlayScript.new()
+	var overlay_ref: WeakRef = weakref(overlay)
+	tree.process_frame.connect(func() -> void:
+		var pending_overlay: PreferencesOverlay = overlay_ref.get_ref() as PreferencesOverlay
+		if pending_overlay != null:
+			pending_overlay.free()
+	, CONNECT_ONE_SHOT)
+	# Register teardown before entering the tree, where focus can queue a reveal.
+	host.add_child(overlay)
+	overlay.open(_prefs.snapshot())
+	await tree.process_frame
+	assert_true(not is_instance_valid(overlay), "freeing a modal with a pending focus reveal disconnects its one-shot callback", failures)
+	host.queue_free()
+	await tree.process_frame
+
+
+func _assert_modal_focus_and_scroll(overlay: PreferencesOverlay, scroll: ScrollContainer, state: String, failures: Array[String]) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var focusables: Array[Control] = overlay._visible_focusables()
+	var scroll_was_focusable := false
+	var scroll_input_moved := false
+	var vertical_bar := scroll.get_v_scroll_bar()
+	var horizontal_bar := scroll.get_h_scroll_bar()
+	assert_true(not focusables.has(vertical_bar) and not focusables.has(horizontal_bar), "%s keeps internal scrollbars out of modal tab order" % state, failures)
+	for _index in range(focusables.size()):
+		await _send_overlay_action(overlay, "ui_focus_next", tree)
+		var focused := tree.root.get_viewport().gui_get_focus_owner() as Control
+		assert_true(focused != null and overlay.is_ancestor_of(focused), "%s keyboard focus stays trapped inside the modal" % state, failures)
+		assert_true(focused != vertical_bar and focused != horizontal_bar, "%s keyboard traversal skips internal scrollbars" % state, failures)
+		if focused == scroll:
+			scroll_was_focusable = true
+			var focus_outline := scroll.get_parent().find_child("ScrollFocusOutline", true, false) as Panel
+			assert_true(focus_outline != null and focus_outline.visible, "%s draws a visible ring around its focused reading surface" % state, failures)
+			scroll.scroll_vertical = 0
+			await tree.process_frame
+			var before_scroll := scroll.scroll_vertical
+			await _send_overlay_action(overlay, "ui_down", tree)
+			assert_true(tree.root.get_viewport().gui_get_focus_owner() == scroll, "%s down-arrow scrolling keeps the reading surface focused" % state, failures)
+			assert_true(scroll.scroll_vertical > before_scroll, "%s down arrow scrolls the focused page" % state, failures)
+			scroll_input_moved = scroll.scroll_vertical > before_scroll
+		if scroll.is_ancestor_of(focused):
+			var ring_margin := ceilf(3.0 * float(_prefs.ui_scale))
+			var focus_with_ring := focused.get_global_rect().grow(ring_margin)
+			assert_true(_scroll_content_view_rect(scroll).encloses(focus_with_ring), "%s keeps the complete focused control and focus ring in its usable scroll viewport" % state, failures)
+	assert_true(scroll_was_focusable, "%s exposes its reading viewport in the modal focus order" % state, failures)
+	assert_true(scroll_input_moved, "%s provides an operable keyboard path for reading its long content" % state, failures)
+
+
+func _send_overlay_action(overlay: PreferencesOverlay, action: String, tree: SceneTree) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	overlay.call("_input", event)
+	await tree.process_frame
+	await tree.process_frame
+
+
+func _wait_for_ui_layout(tree: SceneTree) -> void:
+	for _frame in range(4):
+		await tree.process_frame
+
+
+func _scroll_content_view_rect(scroll: ScrollContainer) -> Rect2:
+	var rect := scroll.get_global_rect()
+	var vertical_bar := scroll.get_v_scroll_bar()
+	if vertical_bar.is_visible_in_tree():
+		var bar_rect := vertical_bar.get_global_rect()
+		if bar_rect.position.x >= rect.position.x + rect.size.x * 0.5:
+			rect.size.x = maxf(0.0, bar_rect.position.x - rect.position.x)
+		else:
+			var right_edge := rect.end.x
+			rect.position.x = bar_rect.end.x
+			rect.size.x = maxf(0.0, right_edge - rect.position.x)
+	var horizontal_bar := scroll.get_h_scroll_bar()
+	if horizontal_bar.is_visible_in_tree():
+		var bar_rect := horizontal_bar.get_global_rect()
+		if bar_rect.position.y >= rect.position.y + rect.size.y * 0.5:
+			rect.size.y = maxf(0.0, bar_rect.position.y - rect.position.y)
+		else:
+			var bottom_edge := rect.end.y
+			rect.position.y = bar_rect.end.y
+			rect.size.y = maxf(0.0, bottom_edge - rect.position.y)
+	return rect
 
 
 func _assert_help_page_fills_scroll(overlay: PreferencesOverlay, state: String, failures: Array[String]) -> void:

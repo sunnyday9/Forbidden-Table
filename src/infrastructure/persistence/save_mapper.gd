@@ -237,9 +237,12 @@ static func _tile_pool_from_dictionary(data: Dictionary):
 
 static func _shop_from_dictionary(data: Dictionary):
 	var result := ShopStateScript.new()
-	for field in ["active", "completed", "node_id", "entry_id", "base_refresh_allowance", "refreshes_remaining", "refresh_count", "entry_sequence", "shop_rng_state", "completed_node_ids"]:
+	for field in ["active", "completed", "node_id", "entry_id", "base_refresh_allowance", "refreshes_remaining", "refresh_count", "entry_sequence", "shop_rng_state"]:
 		if data.has(field):
 			result.set(field, data[field].duplicate(true) if data[field] is Array or data[field] is Dictionary else data[field])
+	var completed_node_ids: Variant = data.get("completed_node_ids", [])
+	if completed_node_ids is Array:
+		result.completed_node_ids = _string_array(completed_node_ids)
 	for value in data.get("offers", []):
 		var offer := ShopOfferScript.new(str(value.get("offer_id", "")), int(value.get("slot_index", 0)), str(value.get("kind", "")), str(value.get("content_id", "")), int(value.get("price", 0)), value.get("metadata", {}))
 		offer.status = str(value.get("status", ShopOfferScript.AVAILABLE))
@@ -257,8 +260,11 @@ static func _workshop_from_dictionary(data: Dictionary):
 
 static func _event_from_dictionary(data: Dictionary):
 	var result := EventStateScript.new()
-	for field in ["active", "completed", "node_id", "entry_id", "event_id", "choices", "selected_choice_id", "resolved_alternative_id", "entry_sequence", "event_rng_state", "completed_node_ids"]:
+	for field in ["active", "completed", "node_id", "entry_id", "event_id", "choices", "selected_choice_id", "resolved_alternative_id", "entry_sequence", "event_rng_state"]:
 		if data.has(field): result.set(field, data[field].duplicate(true) if data[field] is Array or data[field] is Dictionary else data[field])
+	var completed_node_ids: Variant = data.get("completed_node_ids", [])
+	if completed_node_ids is Array:
+		result.completed_node_ids = _string_array(completed_node_ids)
 	return result
 
 static func _build_from_dictionary(data: Dictionary):

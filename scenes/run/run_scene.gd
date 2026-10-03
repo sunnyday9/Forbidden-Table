@@ -1198,6 +1198,7 @@ func _render() -> void:
 	var prior_focus_name: String = focused_control.name if focused_control != null else ""
 	var prior_action_id := str(focused_control.get_meta("run_action_id", "")) if focused_control != null else ""
 	var prior_commit_focus := focused_control == _commit_selected_button
+	var prior_confirmation_open := _journey_view != null and bool(_journey_view.get("is_confirmation_open"))
 	if controller == null:
 		_last_rendered_phase = ""
 		if _phase_value != null:
@@ -1272,7 +1273,9 @@ func _render() -> void:
 	_render_actions()
 	_refresh_action_rail()
 	if viewport != null and not _preferences_overlay.visible and not _confirmation_overlay.visible:
-		if phase_changed and phase == RunPhaseScript.BATTLE:
+		if _journey_view.is_confirmation_open:
+			_grab_focus_if_available(_commit_selected_button if prior_confirmation_open and prior_commit_focus else _back_button)
+		elif phase_changed and phase == RunPhaseScript.BATTLE:
 			_focus_initial_battle_control()
 		elif phase_changed and phase == RunPhaseScript.RUN_SUMMARY and not _commit_selected_button.disabled and _commit_selected_button.visible:
 			_grab_focus_if_available(_commit_selected_button)
@@ -1467,6 +1470,8 @@ func _on_journey_focus_changed(action_id: String) -> void:
 
 func _on_journey_confirmation_changed(_opened: bool) -> void:
 	_refresh_action_rail()
+	if _opened:
+		_grab_focus_if_available(_back_button)
 
 
 func _on_journey_action_committed(action_id: String) -> void:

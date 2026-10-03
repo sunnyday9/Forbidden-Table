@@ -39,6 +39,8 @@ var _settings_tab: Button
 var _help_tab: Button
 var _settings_page: Control
 var _help_page: Control
+var _settings_scroll_frame: Control
+var _help_scroll_frame: Control
 var _mode_buttons: Dictionary = {}
 var _language_buttons: Dictionary = {}
 var _scale_buttons: Dictionary = {}
@@ -52,6 +54,7 @@ var _cancel_button: Button
 var _settings_scroll: ScrollContainer
 var _help_scroll: ScrollContainer
 var _refreshing := false
+var _reveal_pending := false
 
 
 func _ready() -> void:
@@ -110,11 +113,21 @@ func _input(event: InputEvent) -> void:
 		_move_modal_focus(-1)
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("ui_down") or event.is_action_pressed("ui_right"):
+	if event.is_action_pressed("ui_down"):
+		if not _scroll_focused_page(1):
+			_move_modal_focus(1)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("ui_up"):
+		if not _scroll_focused_page(-1):
+			_move_modal_focus(-1)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("ui_right"):
 		_move_modal_focus(1)
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("ui_up") or event.is_action_pressed("ui_left"):
+	if event.is_action_pressed("ui_left"):
 		_move_modal_focus(-1)
 		get_viewport().set_input_as_handled()
 
@@ -127,6 +140,19 @@ func _move_modal_focus(direction: int) -> void:
 	var index := focusables.find(current)
 	var next_index := 0 if index < 0 and direction > 0 else (focusables.size() - 1 if index < 0 else wrapi(index + direction, 0, focusables.size()))
 	focusables[next_index].grab_focus()
+	call_deferred("_reveal_focused_control_after_layout")
+
+
+func _scroll_focused_page(direction: int) -> bool:
+	var focused := get_viewport().gui_get_focus_owner() as Control
+	if focused != _settings_scroll and focused != _help_scroll:
+		return false
+	var scroll := focused as ScrollContainer
+	var scrollbar := scroll.get_v_scroll_bar()
+	var maximum := maxi(0, roundi(scrollbar.max_value - scrollbar.page))
+	var step := maxi(48, roundi(scrollbar.page * 0.75))
+	scroll.scroll_vertical = clampi(scroll.scroll_vertical + direction * step, 0, maximum)
+	return true
 
 
 func _activate_focused_control() -> void:
@@ -217,11 +243,11 @@ func _build_ui() -> void:
 	_settings_scroll = _make_page_scroll("SettingsPage")
 	_settings_page = _build_settings_page()
 	_settings_scroll.add_child(_settings_page)
-	_stack.add_child(_settings_scroll)
+	_stack.add_child(_settings_scroll_frame)
 	_help_scroll = _make_page_scroll("HelpPage")
 	_help_page = _build_help_page()
 	_help_scroll.add_child(_help_page)
-	_stack.add_child(_help_scroll)
+	_stack.add_child(_help_scroll_frame)
 
 	_status_label = Label.new()
 	_status_label.name = "StatusLabel"
@@ -329,12 +355,47 @@ func _build_help_page() -> Control:
 
 
 func _make_page_scroll(node_name: String) -> ScrollContainer:
+	var frame := Control.new()
+	frame.name = node_name + "FocusFrame"
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var scroll := ScrollContainer.new()
 	scroll.name = node_name + "Scroll"
 	scroll.custom_minimum_size.y = 0
 	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	scroll.focus_mode = Control.FOCUS_ALL
+	frame.add_child(scroll)
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var focus_outline := Panel.new()
+	focus_outline.name = "ScrollFocusOutline"
+	focus_outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	focus_outline.focus_mode = Control.FOCUS_NONE
+	focus_outline.visible = false
+	focus_outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var outline_style := StyleBoxFlat.new()
+	outline_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
+	outline_style.draw_center = false
+	outline_style.border_color = ForbiddenTheme.color("focus")
+	var outline_width := roundi(3.0 * (float(_prefs.ui_scale) if _prefs != null else 1.0))
+	outline_style.border_width_left = outline_width
+	outline_style.border_width_top = outline_width
+	outline_style.border_width_right = outline_width
+	outline_style.border_width_bottom = outline_width
+	outline_style.expand_margin_left = outline_width
+	outline_style.expand_margin_top = outline_width
+	outline_style.expand_margin_right = outline_width
+	outline_style.expand_margin_bottom = outline_width
+	focus_outline.add_theme_stylebox_override("panel", outline_style)
+	frame.add_child(focus_outline)
+	scroll.focus_entered.connect(func() -> void: focus_outline.visible = true)
+	scroll.focus_exited.connect(func() -> void: focus_outline.visible = false)
+	if node_name == "SettingsPage":
+		_settings_scroll_frame = frame
+	else:
+		_help_scroll_frame = frame
 	return scroll
 
 
@@ -435,8 +496,8 @@ func _refresh() -> void:
 		ForbiddenTheme.style_panel(node as Control, "lacquer")
 	_settings_tab.button_pressed = _current_page == "settings"
 	_help_tab.button_pressed = _current_page == "help"
-	_settings_scroll.visible = _current_page == "settings"
-	_help_scroll.visible = _current_page == "help"
+	_settings_scroll_frame.visible = _current_page == "settings"
+	_help_scroll_frame.visible = _current_page == "help"
 	_settings_tab.text = Localization.text("UI_PREFS_TAB_SETTINGS")
 	_help_tab.text = Localization.text("UI_PREFS_TAB_HELP")
 	_reduced_motion_button.text = Localization.text("UI_PREFS_REDUCED_MOTION")
@@ -467,6 +528,7 @@ func _refresh() -> void:
 	_tutorial_reset_button_visibility()
 	_apply_button.text = Localization.text("UI_PREFS_APPLY_LANGUAGE" if str(_preferences.get("locale", "en")) != active_locale else "UI_PREFS_APPLY_SETTINGS")
 	call_deferred("_fit_to_viewport")
+	call_deferred("_reveal_focused_control_after_layout")
 
 
 func _tutorial_reset_button_visibility() -> void:
@@ -479,6 +541,65 @@ func _tutorial_reset_button_visibility() -> void:
 func _focus_initial() -> void:
 	if visible and is_instance_valid(_language_buttons.get(str(_preferences.get("locale", "en")))):
 		(_language_buttons[str(_preferences.get("locale", "en"))] as Button).grab_focus()
+		call_deferred("_reveal_focused_control_after_layout")
+
+
+func _reveal_focused_control_after_layout() -> void:
+	if _reveal_pending or not is_inside_tree():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	_reveal_pending = true
+	tree.process_frame.connect(Callable(self, "_reveal_focused_control_after_layout_after_frame"), CONNECT_ONE_SHOT)
+
+
+func _reveal_focused_control_after_layout_after_frame() -> void:
+	_reveal_pending = false
+	if not is_inside_tree() or not visible:
+		return
+	var viewport := get_viewport()
+	if viewport == null:
+		return
+	var focused := viewport.gui_get_focus_owner() as Control
+	if focused == null or not is_ancestor_of(focused):
+		return
+	var scroll := _page_scroll_containing(focused)
+	if scroll == null or focused == scroll:
+		return
+	scroll.ensure_control_visible(focused)
+	var usable_rect := scroll.get_global_rect()
+	var horizontal_bar := scroll.get_h_scroll_bar()
+	if horizontal_bar.is_visible_in_tree():
+		var horizontal_rect := horizontal_bar.get_global_rect()
+		if horizontal_rect.position.y >= usable_rect.position.y + usable_rect.size.y * 0.5:
+			usable_rect.size.y = maxf(0.0, horizontal_rect.position.y - usable_rect.position.y)
+		else:
+			var bottom_edge := usable_rect.end.y
+			usable_rect.position.y = horizontal_rect.end.y
+			usable_rect.size.y = maxf(0.0, bottom_edge - usable_rect.position.y)
+	var scale := float(_prefs.ui_scale) if _prefs != null else 1.0
+	var ring_margin := maxf(3.0, ceilf(3.0 * scale))
+	var focused_rect := focused.get_global_rect()
+	if focused_rect.size.y + ring_margin * 2.0 > usable_rect.size.y:
+		return
+	var correction := 0
+	if focused_rect.position.y < usable_rect.position.y + ring_margin:
+		correction = floori(focused_rect.position.y - usable_rect.position.y - ring_margin)
+	elif focused_rect.end.y > usable_rect.end.y - ring_margin:
+		correction = ceili(focused_rect.end.y - usable_rect.end.y + ring_margin)
+	if correction != 0:
+		var scrollbar := scroll.get_v_scroll_bar()
+		var maximum := maxi(0, roundi(scrollbar.max_value - scrollbar.page))
+		scroll.scroll_vertical = clampi(scroll.scroll_vertical + correction, 0, maximum)
+
+
+func _page_scroll_containing(control: Control) -> ScrollContainer:
+	if control == _settings_scroll or (_settings_scroll != null and _settings_scroll.is_ancestor_of(control)):
+		return _settings_scroll
+	if control == _help_scroll or (_help_scroll != null and _help_scroll.is_ancestor_of(control)):
+		return _help_scroll
+	return null
 
 
 func _on_settings_tab_pressed() -> void:
@@ -560,6 +681,7 @@ func _on_apply_pressed() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _built and is_instance_valid(_settings_scroll) and is_instance_valid(_help_scroll):
 		_fit_to_viewport()
+		call_deferred("_reveal_focused_control_after_layout")
 
 
 func _visible_focusables() -> Array[Control]:

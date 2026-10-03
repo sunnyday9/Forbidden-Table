@@ -48,6 +48,37 @@ class LocalizationAuditTest(unittest.TestCase):
         self.assertEqual(report.coverage, (1, 1))
         self.assertEqual(report.unresolved, [])
 
+    def test_content_text_catalog_calls_count_as_canonical_references(self):
+        root = self._project(
+            'ContentTextCatalogScript.canonical_text("CONTENT_LABEL")\n',
+            'keys,en\nCONTENT_LABEL,Canonical label\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertTrue(report.passed, report.render())
+        self.assertEqual(report.coverage, (1, 1))
+        self.assertEqual(report.unresolved, [])
+
+    def test_content_cannot_import_presentation_localization(self):
+        root = self._project(
+            'ContentTextCatalogScript.canonical_text("CONTENT_LABEL")\n',
+            'keys,en\nCONTENT_LABEL,Canonical label\n',
+        )
+        content_catalog = root / "src" / "content" / "catalogs" / "fixture_catalog.gd"
+        content_catalog.parent.mkdir(parents=True)
+        content_catalog.write_text(
+            'const Localization = preload("res://src/presentation/localization/localization.gd")\n',
+            encoding="utf-8",
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertIn(
+            "Content code must not depend on Presentation",
+            " ".join(report.structural_errors),
+        )
+
     def test_cached_recovery_message_parts_validate_keys_and_placeholders(self):
         root = self._project(
             '_localized_message_part("UI_READY")\n_localized_message_part("UI_ERROR", [code])\n',

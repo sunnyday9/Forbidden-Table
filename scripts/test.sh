@@ -95,8 +95,9 @@ test_output="$(timeout "$test_timeout_seconds" "$godot_binary" --headless --path
 test_status=$?
 set -e
 printf '%s\n' "$test_output"
-if printf '%s\n' "$test_output" | grep -Eq 'SCRIPT ERROR|Parse Error|Compile Error|Failed to load script'; then
-  echo "ERROR: Godot reported a script or load error." >&2
+# Consume the full stream so an early match cannot SIGPIPE printf under pipefail.
+if printf '%s\n' "$test_output" | grep -E '^ERROR:|SCRIPT ERROR|Parse Error|Compile Error|Failed to load script' >/dev/null; then
+  echo "ERROR: Godot reported a runtime, script, or load error." >&2
   test_status=1
 fi
 if [[ "$test_status" -eq 124 ]]; then

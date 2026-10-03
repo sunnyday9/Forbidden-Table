@@ -15,7 +15,8 @@ KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]*$")
 FORMAT_RE = re.compile(r"%(?:[0-9]+\$)?([sdif])")
 FORMAT_TOKEN_RE = re.compile(r"%(?:[0-9]+\$)?[sdif]|%%")
 LITERAL_PERCENT_RE = re.compile(r"%%")
-CALL_RE = re.compile(r'Localization(?:CatalogScript)?\.(text|format|template|canonical_text)\s*\(\s*"([^"]+)"')
+CALL_RE = re.compile(r'(?:Localization(?:CatalogScript)?|ContentTextCatalogScript)\.(text|format|template|canonical_text)\s*\(\s*"([^"]+)"')
+CONTENT_PRESENTATION_IMPORT_RE = re.compile(r'["\']res://src/presentation/')
 MESSAGE_PART_CALL_RE = re.compile(r'(?<![A-Za-z0-9_])_localized_message_part\s*\(\s*"([^"]+)"')
 SCENE_KEY_RE = re.compile(r'^\s*text\s*=\s*"([A-Za-z][A-Za-z0-9_.-]*)"\s*$', re.MULTILINE)
 DIRECT_UI_TEXT_CALL_RE = re.compile(r'_(?:add_section_heading|set_wrapped_label_text)\([^,]+,\s*"([^"]*)"')
@@ -313,6 +314,14 @@ def audit(root: Path) -> Report:
     orphan_chinese = sorted(set(chinese_keys) - set(keys))
     structural_errors.extend(f"{chinese_path.relative_to(root)}: missing Chinese translation for {key}" for key in missing_chinese)
     structural_errors.extend(f"{chinese_path.relative_to(root)}: orphan Chinese key {key}" for key in orphan_chinese)
+    content_paths = sorted((root / "src" / "content").rglob("*.gd"))
+    for path in content_paths:
+        source = path.read_text(encoding="utf-8")
+        for match in CONTENT_PRESENTATION_IMPORT_RE.finditer(source):
+            line_number = source.count("\n", 0, match.start()) + 1
+            structural_errors.append(
+                f"{path.relative_to(root)}:{line_number}: Content code must not depend on Presentation"
+            )
     for key in sorted(set(keys).intersection(chinese_keys)):
         source_tokens = FORMAT_TOKEN_RE.findall(keys[key])
         translated_tokens = FORMAT_TOKEN_RE.findall(chinese_keys[key])
@@ -325,7 +334,7 @@ def audit(root: Path) -> Report:
     references: list[Reference] = []
     unresolved: list[str] = []
     source_paths = sorted(
-        [*root.glob("scenes/**/*.gd"), *root.glob("src/presentation/**/*.gd"), *root.glob("src/content/catalogs/*.gd"), *root.glob("src/content/definitions/*.gd")]
+        [*root.glob("scenes/**/*.gd"), *root.glob("src/presentation/**/*.gd"), *content_paths]
     )
     for path in source_paths:
         source = path.read_text(encoding="utf-8")

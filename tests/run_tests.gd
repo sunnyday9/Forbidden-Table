@@ -34,7 +34,9 @@ const ShopWorkshopTest = preload("res://tests/shop_workshop_test.gd")
 const EventsTest = preload("res://tests/events_test.gd")
 const ContaminationTest = preload("res://tests/contamination_test.gd")
 const ContentCatalogTest = preload("res://tests/content_catalog_test.gd")
+const ContentTextOwnershipTest = preload("res://tests/content_text_ownership_test.gd")
 const PersistenceTest = preload("res://tests/persistence_test.gd")
+const EventRestoreTest = preload("res://tests/event_restore_test.gd")
 const Stage2ExitReviewTest = preload("res://tests/stage2_exit_review_test.gd")
 const AlphaSimulationTest = preload("res://tests/alpha_simulation_test.gd")
 const AlphaSimulationCoverageTest = preload("res://tests/alpha_simulation_coverage_test.gd")
@@ -206,8 +208,10 @@ func _run_tests() -> void:
 		failures.append_array(ContaminationTest.new().run())
 	if not focused_test_requested or content_catalog_only:
 		failures.append_array(ContentCatalogTest.new().run())
+		failures.append_array(ContentTextOwnershipTest.new().run())
 	if not focused_test_requested or persistence_only:
 		failures.append_array(PersistenceTest.new().run())
+		failures.append_array(EventRestoreTest.new().run())
 	if selected_suite_ids.has("stage2-exit-review"):
 		failures.append_array(Stage2ExitReviewTest.new().run())
 	if selected_suite_ids.has("alpha-simulation"):

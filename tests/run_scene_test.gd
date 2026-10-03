@@ -8,6 +8,7 @@ const RunScene = preload("res://scenes/run/run_scene.tscn")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
+const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
@@ -35,6 +36,12 @@ const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_stat
 const Phase2V1SuspendSnapshotFixtureScript = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
+const SelectMapNodeCommandScript = preload("res://src/domain/commands/select_map_node_command.gd")
+const EnterShopCommandScript = preload("res://src/domain/commands/enter_shop_command.gd")
+const ExitShopCommandScript = preload("res://src/domain/commands/exit_shop_command.gd")
+const EnterWorkshopCommandScript = preload("res://src/domain/commands/enter_workshop_command.gd")
+const ExitWorkshopCommandScript = preload("res://src/domain/commands/exit_workshop_command.gd")
+const ShopWorkshopTestScript = preload("res://tests/shop_workshop_test.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -42,6 +49,8 @@ func run() -> Array[String]:
 	test_contract_choices_explain_alpha_tradeoffs(failures)
 	test_scene_dispatches_allowlisted_content_migrations_for_full_registry(failures)
 	test_scene_rejects_active_changed_event_migration_and_preserves_source(failures)
+	test_controller_autosave_reloads_resulting_battle_phase(failures)
+	test_controller_autosaves_reload_shop_and_workshop_exits(failures)
 	test_run_scene_persists_and_resumes_suspend_save(failures)
 	test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures)
 	test_interrupted_suspend_sources_are_not_rolled_back(failures)
@@ -426,6 +435,76 @@ func test_run_scene_persists_and_resumes_suspend_save(failures: Array[String]) -
 	_clear_test_file(profile_path)
 	for suffix in [".tmp", ".bak", ".rejected"]:
 		_clear_test_file(suspend_path + suffix)
+
+func test_controller_autosave_reloads_resulting_battle_phase(failures: Array[String]) -> void:
+	var suspend_path := "user://run_controller_battle_entry_%d.json" % Time.get_ticks_usec()
+	var registry = ContentRegistryScript.new()
+	for report in [
+		Phase2CatalogScript.register_all(registry),
+		AlphaActTwoCatalogScript.register_all(registry),
+		AlphaScaleCatalogScript.register_all(registry),
+	]:
+		assert_true(report.is_valid(), "the autosave fixture's content registration is valid", failures)
+	assert_true(registry.validate().is_valid(), "the autosave fixture registry validates before Run start", failures)
+	var store = SuspendSaveStoreScript.new(suspend_path)
+	store.clear()
+	var domain = RunDomainScript.new_alpha_run("run.controller.battle-entry", 481516, registry)
+	var controller = RunPresentationControllerScript.new(domain, null, null, store)
+	var character_result = controller.submit(ChooseCharacterCommandScript.new("run.controller.character", "base.character.sequence"))
+	var contract_result = controller.submit(ChooseContractCommandScript.new("run.controller.contract", "base.contract.pressure"))
+	assert_true(character_result.accepted and contract_result.accepted, "the real controller reaches Map Choice before entering Battle", failures)
+	var select_result = controller.submit(SelectMapNodeCommandScript.new("run.controller.select-map-node", domain.map_definition.start_node_id))
+	assert_true(select_result.accepted and domain.state.phase == RunPhaseScript.BATTLE, "the real controller accepts SelectMapNode into the resulting Battle phase", failures)
+	var saved_source: Dictionary = store.read_source()
+	assert_true(saved_source.get("accepted", false) and saved_source.get("exists", false), "the real controller has already written the map-entry autosave", failures)
+	if saved_source.get("accepted", false) and saved_source.get("exists", false):
+		var loaded: Dictionary = SaveMapperScript.load_into_domain(str(saved_source.get("contents", "")), registry)
+		assert_true(loaded.get("accepted", false), "the immediate map-entry autosave reloads (%s: %s)" % [loaded.get("code", ""), loaded.get("errors", [])], failures)
+		if loaded.get("accepted", false):
+			assert_true(loaded.domain.state.phase == RunPhaseScript.BATTLE, "the immediate autosave resumes in the resulting Battle phase", failures)
+			assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_START", "the immediate autosave records the resulting Battle boundary", failures)
+			assert_true(loaded.domain.checkpoint() == domain.checkpoint(), "the immediate autosave preserves the exact authoritative Battle state", failures)
+			assert_true(loaded.domain.verify_replay().status == "MATCH", "the immediate autosave preserves accepted-command replay", failures)
+	store.clear()
+	_clear_test_file(suspend_path)
+
+func test_controller_autosaves_reload_shop_and_workshop_exits(failures: Array[String]) -> void:
+	var registry = ShopWorkshopTestScript.new()._registry()
+	registry.register(ContentDefinitionScript.new("base.special.copy_license"))
+	registry.register(ContentDefinitionScript.new("base.special.refinement_token"))
+	var transitions: Array[Dictionary] = [
+		{"kind": "Shop", "branch": "base.map_node.normal.left", "node": "base.map_node.shop", "enter": EnterShopCommandScript, "exit": ExitShopCommandScript},
+		{"kind": "Workshop", "branch": "base.map_node.normal.right", "node": "base.map_node.workshop", "enter": EnterWorkshopCommandScript, "exit": ExitWorkshopCommandScript},
+	]
+	for transition in transitions:
+		var kind: String = str(transition.get("kind", ""))
+		var run_id := "run.controller.%s-exit" % kind.to_lower()
+		var domain = RunDomainScript.new(run_id, 481517 if kind == "Shop" else 481518, registry)
+		var character = domain.execute(ChooseCharacterCommandScript.new("%s.character" % run_id, "base.character.sequence"))
+		var contract = domain.execute(ChooseContractCommandScript.new("%s.contract" % run_id, "base.contract.pressure"))
+		var intro = domain.execute(SelectMapNodeCommandScript.new("%s.intro" % run_id, "base.map_node.intro"))
+		var branch = domain.execute(SelectMapNodeCommandScript.new("%s.branch" % run_id, str(transition.get("branch", ""))))
+		var target = domain.execute(SelectMapNodeCommandScript.new("%s.target" % run_id, str(transition.get("node", ""))))
+		assert_true(character.accepted and contract.accepted and intro.accepted and branch.accepted and target.accepted, "%s autosave fixture reaches its authored node through accepted Run Commands" % kind, failures)
+		assert_true(domain.state.phase == RunPhaseScript.MAP_CHOICE, "%s autosave fixture remains in Map Choice before entry" % kind, failures)
+		var suspend_path := "user://run_controller_%s_exit_%d.json" % [kind.to_lower(), Time.get_ticks_usec()]
+		var store = SuspendSaveStoreScript.new(suspend_path)
+		store.clear()
+		var controller = RunPresentationControllerScript.new(domain, null, null, store)
+		var entered = controller.submit(transition.get("enter").new("%s.enter" % run_id))
+		assert_true(entered.accepted, "the real controller enters %s" % kind, failures)
+		var exited = controller.submit(transition.get("exit").new("%s.exit" % run_id))
+		assert_true(exited.accepted and domain.state.phase == RunPhaseScript.MAP_CHOICE, "the real controller exits %s to Map Choice" % kind, failures)
+		var saved_source: Dictionary = store.read_source()
+		assert_true(saved_source.get("accepted", false) and saved_source.get("exists", false), "the real controller writes the immediate %s-exit autosave" % kind, failures)
+		if saved_source.get("accepted", false) and saved_source.get("exists", false):
+			var loaded: Dictionary = SaveMapperScript.load_into_domain(str(saved_source.get("contents", "")), registry)
+			assert_true(loaded.get("accepted", false), "the immediate %s-exit autosave reloads (%s: %s)" % [kind, loaded.get("code", ""), loaded.get("errors", [])], failures)
+			if loaded.get("accepted", false):
+				assert_true(loaded.domain.state.phase == RunPhaseScript.MAP_CHOICE, "the immediate %s-exit autosave resumes in Map Choice" % kind, failures)
+				assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "MAP_NODE", "the immediate %s-exit autosave records the Map Node boundary" % kind, failures)
+		store.clear()
+		_clear_test_file(suspend_path)
 
 func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Array[String]) -> void:
 	var suspend_path := "user://run_scene_rejected_suspend_%d.json" % Time.get_ticks_usec()

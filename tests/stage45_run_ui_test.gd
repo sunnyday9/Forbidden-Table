@@ -34,7 +34,7 @@ const SelectMapNodeCommandScript = preload("res://src/domain/commands/select_map
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_character_contract_selection_and_map_state(failures)
-	test_shop_and_workshop_review_before_commit(failures)
+	await test_shop_and_workshop_review_before_commit(failures)
 	await test_terminal_warning_and_receipt(failures)
 	await test_suspend_recovery_locale_and_disclosure(failures)
 	await test_profile_recovery_locale_and_disclosure(failures)
@@ -111,7 +111,9 @@ func test_character_contract_selection_and_map_state(failures: Array[String]) ->
 
 
 func test_shop_and_workshop_review_before_commit(failures: Array[String]) -> void:
-	var scene = _new_scene("journey_service_review")
+	var tree := Engine.get_main_loop() as SceneTree
+	var scene = await _new_input_scene("journey_service_review", tree)
+	var initial_preferences: Dictionary = scene._applied_preferences.duplicate(true)
 	var shop_domain = _service_fixture_domain(scene, "shop")
 	scene._attach_controller(shop_domain)
 	scene._render()
@@ -123,9 +125,11 @@ func test_shop_and_workshop_review_before_commit(failures: Array[String]) -> voi
 		return
 	var before_entry: Dictionary = shop_domain.checkpoint()
 	var command_count: int = scene.controller._command_sequence
-	enter_shop.emit_signal("pressed")
+	enter_shop.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(shop_domain.checkpoint() == before_entry and scene.controller._command_sequence == command_count, "choosing Enter Shop is still only a pending presentation selection", failures)
-	scene._commit_selected_button.emit_signal("pressed")
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(shop_domain.state.phase == RunPhaseScript.SHOP, "the current room is entered only through the separate commit rail", failures)
 	assert_true(scene.controller._command_sequence == command_count + 1, "Enter Shop dispatches one controller command", failures)
 
@@ -146,67 +150,114 @@ func test_shop_and_workshop_review_before_commit(failures: Array[String]) -> voi
 	var gold_before: int = shop_domain.state.gold
 	var offer_checkpoint: Dictionary = shop_domain.checkpoint()
 	var offer_command_count: int = scene.controller._command_sequence
-	offer_button.emit_signal("pressed")
+	offer_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(shop_domain.checkpoint() == offer_checkpoint and shop_domain.state.gold == gold_before, "selecting a Shop offer does not charge Gold", failures)
-	scene._commit_selected_button.emit_signal("pressed")
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(view.is_confirmation_open and shop_domain.checkpoint() == offer_checkpoint, "the first purchase commit opens a review without changing the offer", failures)
+	assert_true(tree.root.get_viewport().gui_get_focus_owner() == scene._back_button, "opening a Shop review focuses Cancel before Confirm", failures)
 	_audit_confirmation_locale_switch(scene, "UI_RUN_JOURNEY_0016", failures)
-	scene._commit_selected_button.emit_signal("pressed")
+	await _send_run_action(scene, "ui_accept", tree)
+	assert_true(not view.is_confirmation_open, "a second accept on default Cancel closes the Shop review", failures)
+	assert_true(shop_domain.checkpoint() == offer_checkpoint and shop_domain.state.gold == gold_before and scene.controller._command_sequence == offer_command_count, "default Shop cancellation creates no command and spends no Gold", failures)
+	assert_true(view.selected_action_id == offer_id and tree.root.get_viewport().gui_get_focus_owner() == view.action_button(offer_id), "cancelling restores the selected Shop offer and its focus", failures)
+	scene._apply_presentation_preferences({"locale": "zh_CN", "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
+	await tree.process_frame
+	assert_true(view.selected_action_id == offer_id and tree.root.get_viewport().gui_get_focus_owner() == view.action_button(offer_id), "Shop cancellation keeps stable selection and focus after relocalizing", failures)
+	assert_true(shop_domain.checkpoint() == offer_checkpoint and shop_domain.state.gold == gold_before and scene.controller._command_sequence == offer_command_count, "Shop relocalization after cancel preserves Run state", failures)
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
+	assert_true(view.is_confirmation_open and tree.root.get_viewport().gui_get_focus_owner() == scene._back_button, "reopening the Shop review again defaults to Cancel", failures)
+	await _send_run_action(scene, "ui_focus_next", tree)
+	assert_true(tree.root.get_viewport().gui_get_focus_owner() == scene._commit_selected_button, "explicit focus navigation moves from Shop Cancel to Confirm", failures)
+	await _send_run_action(scene, "ui_accept", tree)
 	var offer_details: Dictionary = shop_offer.get("details", {})
 	var stored_offer = shop_domain.state.shop_state.offer_by_id(str(offer_details.get("offer_id", shop_offer.get("target_id", ""))))
 	assert_true(stored_offer != null and str(stored_offer.status) == "SOLD", "the second purchase commit routes exactly the reviewed Shop action", failures)
-	assert_true(shop_domain.state.gold < gold_before and scene.controller._command_sequence == offer_command_count + 1, "only the final review commit consumes Gold and adds one command", failures)
+	assert_true(shop_domain.state.gold < gold_before and scene.controller._command_sequence == offer_command_count + 1, "only explicitly focusing Confirm consumes Gold and adds one command", failures)
 	assert_true(not view.is_confirmation_open and view.selected_action_id.is_empty(), "an accepted same-phase Shop action clears the pending choice", failures)
 
+	scene._apply_presentation_preferences({"locale": "en", "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
 	var workshop_domain = _service_fixture_domain(scene, "workshop")
 	scene._attach_controller(workshop_domain)
 	scene._render()
 	var enter_workshop: Button = view.action_button("run.enter.workshop")
 	assert_true(enter_workshop != null, "the current Workshop room exposes its existing Enter Workshop action", failures)
 	if enter_workshop == null:
+		_restore_run_scene_preferences(scene, initial_preferences)
 		_free_scene(scene)
 		return
-	enter_workshop.emit_signal("pressed")
-	scene._commit_selected_button.emit_signal("pressed")
+	enter_workshop.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(workshop_domain.state.phase == RunPhaseScript.WORKSHOP, "Workshop services read the actual active Workshop state", failures)
 	var service_action := _action_with_kind(scene.controller.action_descriptors(), "WORKSHOP_SELECT_SERVICE", "service_id", "TRANSFORM")
 	var service_id := str(service_action.get("id", ""))
 	var service_button: Button = view.action_button(service_id)
 	assert_true(service_button != null, "Workshop renders legal service choices from the controller", failures)
 	if service_button == null:
+		_restore_run_scene_preferences(scene, initial_preferences)
 		_free_scene(scene)
 		return
 	var workshop_before: Dictionary = workshop_domain.checkpoint()
 	var workshop_command_count: int = scene.controller._command_sequence
-	service_button.emit_signal("pressed")
-	scene._commit_selected_button.emit_signal("pressed")
+	service_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(workshop_domain.checkpoint() == workshop_before and scene.controller._command_sequence == workshop_command_count, "choosing a Workshop service only updates the existing presentation selection", failures)
 	var target_action := _first_action(scene.controller.action_descriptors(), "WORKSHOP_SELECT_TARGET")
 	var target_button: Button = view.action_button(str(target_action.get("id", "")))
 	assert_true(target_button != null, "the selected Workshop service presents its actual legal TileInstance targets", failures)
 	if target_button == null:
+		_restore_run_scene_preferences(scene, initial_preferences)
 		_free_scene(scene)
 		return
-	target_button.emit_signal("pressed")
-	scene._commit_selected_button.emit_signal("pressed")
+	target_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	var change_action := _first_action(scene.controller.action_descriptors(), "WORKSHOP_SERVICE")
 	var change_button: Button = view.action_button(str(change_action.get("id", "")))
 	assert_true(change_button != null and view.find_child("WorkshopBeforeAfter", true, false) != null, "Workshop previews the exact before / after target and cost", failures)
 	if change_button == null:
+		_restore_run_scene_preferences(scene, initial_preferences)
 		_free_scene(scene)
 		return
 	var selected_tile_id := str(change_action.get("instance_id", ""))
 	var old_definition_id := str(workshop_domain.tile_pool_editor.find_instance(selected_tile_id).definition_id)
 	var change_checkpoint: Dictionary = workshop_domain.checkpoint()
 	var final_command_count: int = scene.controller._command_sequence
-	change_button.emit_signal("pressed")
+	change_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(workshop_domain.checkpoint() == change_checkpoint, "selecting a Workshop result leaves the TileInstance unchanged", failures)
-	scene._commit_selected_button.emit_signal("pressed")
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(view.is_confirmation_open and workshop_domain.checkpoint() == change_checkpoint, "the first Workshop commit opens its explicit change review", failures)
+	assert_true(tree.root.get_viewport().gui_get_focus_owner() == scene._back_button, "opening a Workshop review focuses Cancel before Confirm", failures)
 	_audit_confirmation_locale_switch(scene, "UI_RUN_JOURNEY_0017", failures)
-	scene._commit_selected_button.emit_signal("pressed")
+	change_button = view.action_button(str(change_action.get("id", "")))
+	var service_command_count: int = scene.controller._command_sequence
+	await _send_run_action(scene, "ui_accept", tree)
+	assert_true(not view.is_confirmation_open, "a second accept on default Cancel closes the Workshop review", failures)
+	assert_true(workshop_domain.checkpoint() == change_checkpoint and scene.controller._command_sequence == service_command_count, "default Workshop cancellation creates no command and leaves the TileInstance unchanged", failures)
+	assert_true(view.selected_action_id == str(change_action.get("id", "")) and tree.root.get_viewport().gui_get_focus_owner() == change_button, "cancelling restores the selected Workshop result and its focus", failures)
+	scene._apply_presentation_preferences({"locale": "zh_CN", "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
+	await tree.process_frame
+	change_button = view.action_button(str(change_action.get("id", "")))
+	assert_true(view.selected_action_id == str(change_action.get("id", "")) and tree.root.get_viewport().gui_get_focus_owner() == change_button, "Workshop cancellation keeps stable selection and focus after relocalizing", failures)
+	assert_true(workshop_domain.checkpoint() == change_checkpoint and scene.controller._command_sequence == service_command_count, "Workshop relocalization after cancel preserves Run state", failures)
+	scene._commit_selected_button.grab_focus()
+	await _send_run_action(scene, "ui_accept", tree)
+	assert_true(view.is_confirmation_open and tree.root.get_viewport().gui_get_focus_owner() == scene._back_button, "reopening the Workshop review again defaults to Cancel", failures)
+	await _send_run_action(scene, "ui_focus_next", tree)
+	assert_true(tree.root.get_viewport().gui_get_focus_owner() == scene._commit_selected_button, "explicit focus navigation moves from Workshop Cancel to Confirm", failures)
+	await _send_run_action(scene, "ui_accept", tree)
 	assert_true(workshop_domain.tile_pool_editor.find_instance(selected_tile_id).definition_id != old_definition_id, "the confirmed service updates the exact existing TileInstance", failures)
-	assert_true(scene.controller._command_sequence == final_command_count + 1 and view.selected_action_id.is_empty(), "one reviewed Workshop change creates one command and clears local selection", failures)
+	assert_true(scene.controller._command_sequence == final_command_count + 1 and view.selected_action_id.is_empty(), "one explicitly confirmed Workshop change creates one command and clears local selection", failures)
+	_restore_run_scene_preferences(scene, initial_preferences)
 	_free_scene(scene)
 
 
@@ -215,10 +266,12 @@ func _audit_confirmation_locale_switch(scene, heading_key: String, failures: Arr
 	var checkpoint: Dictionary = scene.controller.domain.checkpoint()
 	var replay: String = scene.controller.domain.replay_record.serialize()
 	var pending_id: String = view._pending_confirmation_action_id
+	scene._apply_presentation_preferences({"locale": "en", "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
 	var english_copy: String = view._modal_copy.text
 	for locale in ["zh_CN", "en"]:
 		scene._apply_presentation_preferences({"locale": locale, "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
 		assert_true(view.is_confirmation_open and view._pending_confirmation_action_id == pending_id, "locale switch preserves the pending Shop/Workshop review", failures)
+		assert_true(scene.get_viewport().gui_get_focus_owner() == scene._back_button, "locale switch keeps default Cancel focus inside the pending Shop/Workshop review", failures)
 		assert_true(view._modal_heading.text == LocalizationCatalogScript.text(heading_key), "open confirmation heading refreshes in the applied locale", failures)
 		assert_true(not view._modal_copy.text.is_empty() and (view._modal_copy.text != english_copy if locale == "zh_CN" else view._modal_copy.text == english_copy), "open confirmation details refresh English to Chinese and back", failures)
 		assert_true(scene.controller.domain.checkpoint() == checkpoint and scene.controller.domain.replay_record.serialize() == replay, "confirmation locale switch does not submit or alter a command", failures)
@@ -411,6 +464,31 @@ func _new_scene(prefix: String):
 	)
 	scene._ready()
 	return scene
+
+
+func _new_input_scene(prefix: String, tree: SceneTree):
+	var suffix := str(Time.get_ticks_usec())
+	var scene = RunScene.instantiate()
+	scene.suspend_file_path = "user://stage45_%s_%s_input_suspend.json" % [prefix, suffix]
+	scene.meta_progress_coordinator = MetaProgressCoordinatorScript.new(
+		MetaProgressStoreScript.new("user://stage45_%s_%s_input_profile.json" % [prefix, suffix]),
+	)
+	tree.root.add_child(scene)
+	await tree.process_frame
+	return scene
+
+
+func _restore_run_scene_preferences(scene, preferences: Dictionary) -> void:
+	scene._apply_presentation_preferences(preferences, true)
+
+
+func _send_run_action(scene, action: String, tree: SceneTree) -> void:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	scene.call("_input", event)
+	await tree.process_frame
+	await tree.process_frame
 
 
 func _service_fixture_domain(scene, kind: String):

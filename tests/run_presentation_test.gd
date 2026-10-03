@@ -7,7 +7,10 @@ const ContentRegistry = preload("res://src/content/registry/content_registry.gd"
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
+const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SettleCompleteHandCommand = preload("res://src/domain/commands/settle_complete_hand_command.gd")
+const SuspendSaveStore = preload("res://src/infrastructure/persistence/suspend_save_store.gd")
+const PublicActRouteFixture = preload("res://tests/fixtures/public_act_route_fixture.gd")
 const TileInstance = preload("res://src/domain/tiles/tile_instance.gd")
 const TileZone = preload("res://src/domain/tiles/tile_zone.gd")
 const Localization = preload("res://src/presentation/localization/localization.gd")
@@ -26,6 +29,7 @@ func run() -> Array[String]:
 	test_critical_battle_feedback_preserves_domain_event_order_in_all_modes(failures)
 	test_actual_boss_cue_path_is_immediate_and_ordered_in_all_modes(failures)
 	test_critical_screen_descriptors(failures)
+	test_event_descriptors_filter_ineligible_choices_and_leave_saves(failures)
 	test_onboarding_progress_is_independent_and_resettable(failures)
 	test_same_seed_commands_match_across_modes_and_domain_is_presentation_free(failures)
 	return failures
@@ -192,6 +196,69 @@ func test_critical_screen_descriptors(failures: Array[String]) -> void:
 		domain.state.phase = phase
 		controller._refresh([])
 		assert_true(controller.action_descriptors() is Array, "%s screen exposes a descriptor collection" % phase, failures)
+
+func test_event_descriptors_filter_ineligible_choices_and_leave_saves(failures: Array[String]) -> void:
+	var cases: Array[Dictionary] = [
+		{"event_id": "alpha.event.act_two.rule_memory", "choice_id": "study_yaku", "seed": 0},
+		{"event_id": "alpha.event.act_two.rule_memory.cross_reference", "choice_id": "cross_reference", "seed": 18},
+	]
+	for case_index in cases.size():
+		var event_case: Dictionary = cases[case_index]
+		var setup: Dictionary = PublicActRouteFixture.two_act_rule_memory_domain(
+			"presentation.event.eligibility.%d" % case_index,
+			int(event_case["seed"]),
+			str(event_case["event_id"]),
+			failures,
+		)
+		assert_true(bool(setup.get("accepted", false)), "controller fixture traverses the authored two-Act Rule Memory route through public Commands", failures)
+		if not bool(setup.get("accepted", false)):
+			continue
+		var domain: RunDomain = setup["domain"]
+		var expected_act_one_path := [
+			"base.map_node.intro",
+			"base.map_node.normal.right",
+			"base.map_node.event.right",
+			"base.map_node.normal.mid",
+			"base.map_node.elite",
+			"base.map_node.boss",
+		]
+		var expected_act_two_path := [
+			"base.map_node.act_two.intro",
+			"base.map_node.act_two.normal.right",
+			"base.map_node.act_two.event.right",
+		]
+		assert_true(setup.get("act_one_path", []) == expected_act_one_path, "controller fixture's actual Act 1 ordered_path reaches the Boss", failures)
+		assert_true(str(setup.get("act_one_boss_reward_command_type", "")) == "ChooseReward" and bool(setup.get("act_one_boss_transition_emitted", false)), "Act 1 Boss reward uses ChooseRewardCommand and emits the natural Act transition", failures)
+		assert_true(setup.get("act_two_path", []) == expected_act_two_path, "controller fixture's actual Act 2 ordered_path reaches the Rule Memory Event", failures)
+		var suspend_path := "user://presentation_event_leave_suspend_%d.json" % Time.get_ticks_usec()
+		var store := SuspendSaveStore.new(suspend_path)
+		var controller := RunPresentationController.new(domain, null, null, store)
+		var before := domain.checkpoint()
+		var rng_before := domain.rng_snapshot()
+		var replay_count: int = domain.replay_record.commands.size()
+		var descriptors := controller.action_descriptors()
+		var action_ids: Array = descriptors.map(func(action): return str(action.get("id", "")))
+		var advertised_choice_ids: Array = descriptors.filter(func(action): return action.get("kind", "") == "EVENT_OPTION").map(func(action): return str(action.get("target_id", "")))
+		assert_true(not action_ids.has("event:study_yaku") and not action_ids.has("event:cross_reference"), "the controller hides both unavailable Act 2 Rule Memory choices", failures)
+		assert_true(not advertised_choice_ids.has(str(event_case["choice_id"])), "%s is not advertised by the Act 2 Event controller" % str(event_case["choice_id"]), failures)
+		assert_true(advertised_choice_ids == ["leave"], "Leave is the only advertised choice for the active Rule Memory Event", failures)
+		assert_true(action_ids.has("event:leave"), "the Act 2 Event controller continues to advertise Leave", failures)
+		assert_true(domain.checkpoint() == before and domain.rng_snapshot() == rng_before, "building Event descriptors does not change Run state or RNG", failures)
+		assert_true(domain.replay_record.commands.size() == replay_count, "building Event descriptors does not append an accepted Replay command", failures)
+		var untouched_source := store.read_source()
+		assert_true(untouched_source.accepted and not untouched_source.exists, "Event eligibility preview does not write a suspend checkpoint", failures)
+
+		var leave = controller.confirm("event:leave")
+		assert_true(leave.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "the advertised Leave choice returns to Map Choice", failures)
+		var saved_source := store.read_source()
+		assert_true(saved_source.accepted and saved_source.exists, "accepted Leave writes a suspend snapshot from Event back to the Map", failures)
+		if saved_source.accepted and saved_source.exists:
+			var loaded := SaveMapper.load_into_domain(str(saved_source.get("contents", "")), domain.content_registry)
+			assert_true(loaded.get("accepted", false), "the immediately reloaded Event-exit suspend snapshot is valid", failures)
+			if loaded.get("accepted", false):
+				assert_true(loaded.domain.checkpoint() == domain.checkpoint(), "the Event-exit snapshot reload exactly matches the live Run checkpoint", failures)
+		var cleared := store.clear()
+		assert_true(cleared.accepted, "the isolated Event-exit suspend fixture is cleaned up", failures)
 
 func test_onboarding_progress_is_independent_and_resettable(failures: Array[String]) -> void:
 	var progress := TutorialProgress.new()

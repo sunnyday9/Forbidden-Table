@@ -6,6 +6,7 @@ signal presentation_changed
 
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const SuspendCheckpointPolicyScript = preload("res://src/domain/run/suspend_checkpoint_policy.gd")
 const RunPresentationStateScript = preload("res://src/presentation/run/run_presentation_state.gd")
 const TutorialProgressScript = preload("res://src/presentation/run/tutorial_progress.gd")
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
@@ -88,7 +89,15 @@ func submit(command):
 		unlock_result = meta_progress_coordinator.observe_run_state(domain.state)
 	var suspend_feedback_key := ""
 	var suspend_feedback_args: Array = []
-	var stable_boundary := _suspend_boundary_for(command) if result != null and result.accepted else ""
+	var stable_boundary := ""
+	if result != null and result.accepted:
+		var requested_boundary := _suspend_boundary_for(command)
+		if not requested_boundary.is_empty():
+			stable_boundary = SuspendCheckpointPolicyScript.resolve_result_boundary(
+				requested_boundary,
+				str(domain.state.phase),
+				save_coordinator.boundary_for(domain),
+			)
 	if result != null and result.accepted and suspend_store != null and not stable_boundary.is_empty():
 		var save_result: Dictionary = save_coordinator.save(domain, stable_boundary)
 		if save_result.get("accepted", false):
@@ -752,8 +761,13 @@ func _pretty_service_name(service_id: String) -> String:
 
 func _event_actions() -> Array:
 	var actions: Array = []
+	var event_id: String = domain.state.event_state.event_id
+	var entry_id: String = domain.state.event_state.entry_id
 	for option_id in domain.state.event_state.legal_choice_ids():
-		actions.append({"id": ACTION_PREFIX_EVENT + option_id, "kind": "EVENT_OPTION", "target_id": option_id, "event_id": domain.state.event_state.event_id, "entry_id": domain.state.event_state.entry_id})
+		var validation: RefCounted = domain.validate_choose_event_option(event_id, entry_id, option_id)
+		if validation == null or not validation.is_valid():
+			continue
+		actions.append({"id": ACTION_PREFIX_EVENT + option_id, "kind": "EVENT_OPTION", "target_id": option_id, "event_id": event_id, "entry_id": entry_id})
 	return actions
 
 func _command_for_action(action_id: String):
