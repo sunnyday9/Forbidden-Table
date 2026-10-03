@@ -3,9 +3,10 @@ extends RefCounted
 
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const SuspendCheckpointPolicyScript = preload("res://src/domain/run/suspend_checkpoint_policy.gd")
 
-const STABLE_BOUNDARIES := ["MAP_NODE", "BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE", "SHOP", "WORKSHOP", "EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER", "REWARD", "RUN_SUMMARY", "RUN_COMPLETE"]
-const UNSTABLE_BOUNDARIES := ["EFFECT_QUEUE", "REACTION_WINDOW", "PATTERN_RESOLUTION", "BOSS_TRANSITION"]
+const STABLE_BOUNDARIES := SuspendCheckpointPolicyScript.STABLE_BOUNDARIES
+const UNSTABLE_BOUNDARIES := SuspendCheckpointPolicyScript.UNSTABLE_BOUNDARIES
 
 func can_save(domain, boundary: String = "") -> Dictionary:
 	if domain == null or domain.state == null:
@@ -18,6 +19,8 @@ func can_save(domain, boundary: String = "") -> Dictionary:
 	var resolved := boundary if not boundary.is_empty() else _boundary_for(domain)
 	if not STABLE_BOUNDARIES.has(resolved):
 		return _reject("UNSUPPORTED_CHECKPOINT", {"boundary": resolved})
+	if not SuspendCheckpointPolicyScript.is_boundary_valid_for_phase(resolved, str(domain.state.phase)):
+		return _reject("CHECKPOINT_BOUNDARY_MISMATCH", {"boundary": resolved, "phase": str(domain.state.phase)})
 	return {"accepted": true, "boundary": resolved}
 
 func save(domain, boundary: String = "") -> Dictionary:
@@ -27,28 +30,19 @@ func save(domain, boundary: String = "") -> Dictionary:
 	var metadata := {"stable": true, "stable_boundary": check.boundary, "checkpoint_sequence": int(domain.state.reward_draft_sequence) + int(domain.state.tile_instance_sequence), "state_hash": domain.checkpoint().state_hash}
 	return {"accepted": true, "snapshot": SaveMapperScript.suspend_snapshot(domain, metadata), "checkpoint_metadata": metadata}
 
+func boundary_for(domain) -> String:
+	if domain == null or domain.state == null:
+		return ""
+	return _boundary_for(domain)
+
 func _boundary_for(domain) -> String:
-	match domain.state.phase:
-		RunPhaseScript.MAP_CHOICE:
-			return "MAP_NODE"
-		RunPhaseScript.BATTLE:
-			if domain.current_battle != null and domain.current_battle.combat_state != null:
-				if domain.current_battle.combat_state.is_queue_active():
-					return "EFFECT_QUEUE"
-			return "BATTLE_START"
-		RunPhaseScript.SHOP:
-			return "SHOP"
-		RunPhaseScript.WORKSHOP:
-			return "WORKSHOP"
-		RunPhaseScript.EVENT:
-			return "EVENT_CHOICE_BEFORE" if domain.state.event_state.active else "EVENT_CHOICE_AFTER"
-		RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD:
-			return "REWARD"
-		RunPhaseScript.RUN_SUMMARY:
-			return "RUN_SUMMARY"
-		RunPhaseScript.RUN_COMPLETE:
-			return "RUN_COMPLETE"
-	return ""
+	var battle_queue_active: bool = (
+		domain.current_battle != null
+		and domain.current_battle.combat_state != null
+		and domain.current_battle.combat_state.is_queue_active()
+	)
+	var event_active: bool = domain.state.event_state.active if domain.state.event_state != null else false
+	return SuspendCheckpointPolicyScript.boundary_for_phase(str(domain.state.phase), event_active, battle_queue_active)
 
 func _reject(code: String, details: Dictionary = {}) -> Dictionary:
 	return {"accepted": false, "code": code, "details": details}

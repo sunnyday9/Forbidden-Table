@@ -1,0 +1,21 @@
+Godot Engine v4.7.2.stable.official.ed1daf0bf - https://godotengine.org
+
+EVIDENCE PASS: onboarding, focus, and main-loop controller
+EVIDENCE PASS: Partial and Complete strategy loop
+EVIDENCE PASS: Complete Hand settlement and Recovery
+EVIDENCE PASS: Complete Hand Recovery permits Hybrid Partial Settlement
+EVIDENCE PASS: Characters, Contracts, Boss phases, and No-Core-Code content
+EVIDENCE PASS: bounded map choices and Boss reachability
+EVIDENCE PASS: rewards and Elite progression
+EVIDENCE PASS: Shop and Workshop Gold decisions
+EVIDENCE PASS: data-driven battle and Boss progression
+EVIDENCE PASS: three-choice Boss Rule Breaker reward, application, Suspend/Resume, and Replay
+EVIDENCE PASS: Elite Relic/Run Technique reward, Skip compensation, Suspend/Resume, and Replay
+EVIDENCE PASS: Suspend/Resume checkpoint evidence
+EVIDENCE PASS: run Replay no-divergence evidence
+STAGE4_LOCALIZATION_RUNTIME_REPORT content_ids=305 dynamic_words=171 source_locale=en supported_locales=en/zh_CN final=PASS
+STAGE4_LOCALIZATION_PSEUDO_REPORT viewport=960x540 expansion_ratio=0.30 representative_keys=UI_RUN_SCENE_0012,UI_RUN_CONTROLLER_0001 english_chars=186/175 pseudo_chars=301/268 critical_layout=CHECKED
+STAGE4_ONBOARDING_FLOW_REPORT script=res://tests/stage4_onboarding_flow_test.gd focused_command='./scripts/test.sh --stage4-onboarding-flow' full_command='./scripts/test.sh' build_version=stage3-alpha-playable-1 replay_game_version=game.phase2.v1 engine=4.7.2-stable (official) content_bundle=content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4 fixture=onboarding_combat(enemy_hp=1,pressure_limit=1000,core_damage=1,test_only);battle_input_fixture(enemy_max_hp=1000,enemy_hp=1000,pressure=0,pressure_limit=1000,starting_hand_relocated_to_discard=true,partial_hand_tiles=13,complete_hand_tiles=14,focus_resynced_to_fixture_actions=true,test_only);shop_workshop_fixture(gold_override=1000,test_only) seed=1491787741 keyboard_mapping=Enter/Esc/Tab/arrows controller_mapping=A/B/DPad/shoulders keyboard_accepts=186 controller_accepts=185 keyboard_cancel=3 controller_cancel=3 keyboard_focus_moves=1330 controller_focus_moves=1328 keyboard_action_inputs=96 controller_action_inputs=96 keyboard_run_outcomes=85 controller_run_outcomes=85 keyboard_battle_outcomes=draw:3,partial_settlement:1,technique:17,discard:1,end_turn:2,reserve:1,reserve_swap:1,complete_hand:1 controller_battle_outcomes=draw:3,partial_settlement:1,technique:17,discard:1,end_turn:2,reserve:1,reserve_swap:1,complete_hand:1 defect_ledger=none(severity=NA,owner=NA) physical_device=NOT_PERFORMED native_metrics=NOT_CLAIMED mechanical_flow=PASS human_comprehension_or_clarity=NOT_EVALUATED
+STAGE4_ACCESSIBILITY_REPORT engine=4.7.2-stable (official) build_version=stage3-alpha-playable-1 content_version=content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4 viewport=960x540 ui_scale_control=100/125/150 screen_phases=BATTLE,BOSS_REWARD,CHARACTER_SELECT,CONTRACT_SELECT,ELITE_REWARD,EVENT,MAP_CHOICE,REWARD_CHOICE,RUN_COMPLETE,RUN_SUMMARY,SHOP,WORKSHOP screen_states=battle_complete_hand_tutorial_on,battle_draw_end_turn_tutorial_on,battle_partial_settlement_tutorial_on,battle_technique_tutorial_off,battle_technique_tutorial_on,boss_reward,character_select,contract_select,elite_reward,event,map_choice_act_1,map_choice_act_2,reward_choice,run_complete,run_summary,shop,workshop_service_choices,workshop_target_choice,workshop_value_choice battle_actions=BOSS_REWARD,CHARACTER,COMPLETE_HAND,CONTRACT,DISCARD,DRAW,ELITE_REWARD,END_TURN,ENTER_EVENT,ENTER_SHOP,ENTER_WORKSHOP,EVENT_OPTION,MAP_NODE,PARTIAL_SETTLEMENT,RESERVE,RESERVE_SWAP,REWARD,RUN_SUMMARY,SHOP_EXIT,SHOP_OFFER,SHOP_REFRESH,TECHNIQUE,WORKSHOP_BACK,WORKSHOP_EXIT,WORKSHOP_SELECT_SERVICE,WORKSHOP_SELECT_TARGET,WORKSHOP_SERVICE modes=Normal/Fast/Instant(57 cue states) keyboard_accepts=186 controller_accepts=185 layout=post_frame_controls_and_scroll physical_device=NOT_PERFORMED participant_testing=NOT_PERFORMED conformance_claim=NONE final=PASS
+STAGE45_UI_REPORT modules=5 failures=0 physical_device=NOT_PERFORMED participant_testing=NOT_PERFORMED
+PASS: full domain, simulation, Run progression, presentation, and Intent Graph test suite

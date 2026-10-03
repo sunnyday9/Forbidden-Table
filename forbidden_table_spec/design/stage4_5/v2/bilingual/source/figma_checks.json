@@ -1,0 +1,579 @@
+{
+  "scope": "Figma design drawings only",
+  "pageId": "2043:2",
+  "frames": [
+    {
+      "id": "2044:2",
+      "name": "V2.2 · zh_CN · 01 · character",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:49",
+      "name": "V2.2 · zh_CN · 02 · contract",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:86",
+      "name": "V2.2 · zh_CN · 03 · map-act-1",
+      "w": 960,
+      "h": 540,
+      "textCount": 25,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:147",
+      "name": "V2.2 · zh_CN · 04 · map-act-2",
+      "w": 960,
+      "h": 540,
+      "textCount": 25,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:208",
+      "name": "V2.2 · zh_CN · 05 · battle-empty",
+      "w": 960,
+      "h": 540,
+      "textCount": 24,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:258",
+      "name": "V2.2 · zh_CN · 06 · battle-table",
+      "w": 960,
+      "h": 540,
+      "textCount": 24,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 13
+    },
+    {
+      "id": "2044:361",
+      "name": "V2.2 · zh_CN · 07 · pattern-settlement",
+      "w": 960,
+      "h": 540,
+      "textCount": 22,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 16
+    },
+    {
+      "id": "2044:472",
+      "name": "V2.2 · zh_CN · 08 · complete-hand",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 14
+    },
+    {
+      "id": "2044:558",
+      "name": "V2.2 · zh_CN · 09 · tile-detail",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 3
+    },
+    {
+      "id": "2044:603",
+      "name": "V2.2 · zh_CN · 10 · critical-feedback",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 14
+    },
+    {
+      "id": "2044:689",
+      "name": "V2.2 · zh_CN · 11 · event",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:720",
+      "name": "V2.2 · zh_CN · 12 · event-unavailable",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:749",
+      "name": "V2.2 · zh_CN · 13 · reward-normal",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 3
+    },
+    {
+      "id": "2044:802",
+      "name": "V2.2 · zh_CN · 14 · reward-elite",
+      "w": 960,
+      "h": 540,
+      "textCount": 22,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:858",
+      "name": "V2.2 · zh_CN · 15 · reward-boss",
+      "w": 960,
+      "h": 540,
+      "textCount": 22,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:914",
+      "name": "V2.2 · zh_CN · 16 · act-transition",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:941",
+      "name": "V2.2 · zh_CN · 17 · shop",
+      "w": 960,
+      "h": 540,
+      "textCount": 19,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:984",
+      "name": "V2.2 · zh_CN · 18 · shop-empty",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1012",
+      "name": "V2.2 · zh_CN · 19 · purchase-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1040",
+      "name": "V2.2 · zh_CN · 20 · workshop-services",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1075",
+      "name": "V2.2 · zh_CN · 21 · workshop-target",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 14
+    },
+    {
+      "id": "2044:1161",
+      "name": "V2.2 · zh_CN · 22 · workshop-value",
+      "w": 960,
+      "h": 540,
+      "textCount": 15,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 2
+    },
+    {
+      "id": "2044:1202",
+      "name": "V2.2 · zh_CN · 23 · workshop-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 2
+    },
+    {
+      "id": "2044:1239",
+      "name": "V2.2 · zh_CN · 24 · tutorial",
+      "w": 960,
+      "h": 540,
+      "textCount": 24,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 13
+    },
+    {
+      "id": "2044:1341",
+      "name": "V2.2 · zh_CN · 25 · help",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1370",
+      "name": "V2.2 · zh_CN · 26 · settings",
+      "w": 960,
+      "h": 540,
+      "textCount": 17,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1406",
+      "name": "V2.2 · zh_CN · 27 · summary-victory",
+      "w": 960,
+      "h": 540,
+      "textCount": 21,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1449",
+      "name": "V2.2 · zh_CN · 28 · summary-defeat",
+      "w": 960,
+      "h": 540,
+      "textCount": 21,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1492",
+      "name": "V2.2 · zh_CN · 29 · summary-legacy",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1523",
+      "name": "V2.2 · zh_CN · 30 · run-complete",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1551",
+      "name": "V2.2 · zh_CN · 31 · resume",
+      "w": 960,
+      "h": 540,
+      "textCount": 13,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1579",
+      "name": "V2.2 · zh_CN · 32 · save-error",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1609",
+      "name": "V2.2 · zh_CN · 33 · abandon-confirm",
+      "w": 960,
+      "h": 540,
+      "textCount": 12,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2044:1636",
+      "name": "V2.2 · zh_CN · 34 · action-error",
+      "w": 960,
+      "h": 540,
+      "textCount": 14,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 2
+    },
+    {
+      "id": "2044:1674",
+      "name": "V2.2 · zh_CN · 35 · state-specimens",
+      "w": 960,
+      "h": 540,
+      "textCount": 16,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 7
+    },
+    {
+      "id": "2044:1741",
+      "name": "V2.2 · zh_CN · 36 · pseudo-expansion",
+      "w": 960,
+      "h": 540,
+      "textCount": 12,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2045:535",
+      "name": "V2.2 · L1 · Language settings",
+      "w": 960,
+      "h": 540,
+      "textCount": 17,
+      "fonts": [
+        "Noto Sans / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans / SemiBold",
+        "Noto Sans SC / Medium",
+        "Noto Sans SC / Regular"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    },
+    {
+      "id": "2045:579",
+      "name": "V2.2 · L2 · Language settings",
+      "w": 960,
+      "h": 540,
+      "textCount": 17,
+      "fonts": [
+        "Noto Sans SC / Regular",
+        "Noto Serif SC / Regular",
+        "Noto Sans SC / Medium"
+      ],
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "tileCount": 0
+    }
+  ],
+  "failures": []
+}

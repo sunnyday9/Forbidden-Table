@@ -1,0 +1,485 @@
+design_key,en,zh_CN
+DESIGN_0001,FORBIDDEN TABLE  /  NEW RUN,禁忌牌桌  /  新旅程
+DESIGN_0002,Take your seat,请入座
+DESIGN_0003,Help / Settings,帮助 / 设置
+DESIGN_0004,NEW RUN  |  Step 1 of 2 · Character,新旅程  |  第 1 / 2 步 · 选择角色
+DESIGN_0005,Reserve,备牌
+DESIGN_0006,"Bamboo starting bias
+Reserve Sleeve
+Reserve Ledger","初始牌池偏向条子
+藏牌袖套
+备牌账册"
+DESIGN_0007,Inspect Reserve,查看藏牌师
+DESIGN_0008,Selected,已选择
+DESIGN_0009,Sequence,顺子
+DESIGN_0010,"Characters starting bias
+Open Hand
+Sequence Line","初始牌池偏向万子
+开放手牌
+顺子路线"
+DESIGN_0011,Inspect Sequence,查看顺子师
+DESIGN_0012,Available,可选择
+DESIGN_0013,Harbor reader,港湾读者
+DESIGN_0014,"Locked in this profile.
+Unlock: Act 2 Normal Ending.","当前档案尚未解锁。
+解锁条件：达成第二幕普通结局。"
+DESIGN_0015,Unavailable,不可用
+DESIGN_0016,Locked,未解锁
+DESIGN_0017,Back / Cancel,返回 / 取消
+DESIGN_0018,Tab / shoulders: focus · Enter / A: accept · Esc / B: back,Tab / 肩键：切换焦点 · Enter / A：确认 · Esc / B：返回
+DESIGN_0019,Choose Reserve,选择藏牌师
+DESIGN_0020,Sign your Contract,签订契约
+DESIGN_0021,NEW RUN  |  Step 2 of 2 · Contract,新旅程  |  第 2 / 2 步 · 选择契约
+DESIGN_0022,Contracts,契约
+DESIGN_0023,Pool Bias · Selected,牌池偏向 · 已选择
+DESIGN_0024,Pressure,压力
+DESIGN_0025,Refinement Debt,精炼债务
+DESIGN_0026,Open Ledger · Locked,开放账册 · 未解锁
+DESIGN_0027,4 more entries · scroll ↓,还有 4 项 · 向下滚动 ↓
+DESIGN_0028,Pool Bias,牌池偏向
+DESIGN_0029,Risk,风险
+DESIGN_0030,Higher pool composition cost; off-suit tile pool weight: 2,牌池构成代价更高；非偏向花色的牌池权重：2
+DESIGN_0031,Reward,回报
+DESIGN_0032,Starting tile bias favors Bamboo,初始牌池偏向条子
+DESIGN_0033,"Build bias: reduced flexibility; favors Bamboo 1 and Bamboo 2.
+Yaku signal: General Yaku support.","构筑倾向：灵活性较低，偏向一条与二条。
+役种倾向：支持通用役种。"
+DESIGN_0034,Choose Pool Bias,选择牌池偏向
+DESIGN_0035,FORBIDDEN TABLE  /  THE HAUNTED TABLE,禁忌牌桌  /  幽灯牌局
+DESIGN_0036,Act 1 · Choose your path,第一幕 · 选择路线
+DESIGN_0037,Act 1 of 2  |  Reserve · Pool Bias  |  Gold 24  |  Refinement 1,第 1 / 2 幕  |  藏牌师 · 牌池偏向  |  金币 24  |  精炼 1
+DESIGN_0038,Normal left,左侧普通战斗
+DESIGN_0039,Reachable from Intro,可从入口前往
+DESIGN_0040,Encounter identity: unrevealed. Only adjacent nodes can be entered.,遭遇身份尚未揭示。仅可进入与当前节点相邻的节点。
+DESIGN_0041,Your Run,本次旅程
+DESIGN_0042,"Reserve · Pool Bias
+Gold 24 · Refinement 1","藏牌师 · 牌池偏向
+金币 24 · 精炼 1"
+DESIGN_0043,Inspect Tile Pool,查看牌池
+DESIGN_0044,Topology is visible. Distant identities may remain unrevealed.,路线结构可见；远处遭遇的身份可能尚未揭示。
+DESIGN_0045,Enter selected node,进入所选节点
+DESIGN_0046,Act 2 · Choose your path,第二幕 · 选择路线
+DESIGN_0047,Act 2 of 2  |  Reserve · Pool Bias  |  Gold 24  |  Refinement 1,第 2 / 2 幕  |  藏牌师 · 牌池偏向  |  金币 24  |  精炼 1
+DESIGN_0048,Battle · Draw first,战斗 · 先摸一张牌
+DESIGN_0049,Pressure sentinel,压力哨兵
+DESIGN_0050,Enemy HP 8 / 8,敌人生命 8 / 8
+DESIGN_0051,INTENT · Advance Pressure,意图 · 推进压力
+DESIGN_0052,2 Pressure · resolves at End Turn,压力 +2 · 回合结束时生效
+DESIGN_0053,Pressure 2 / 10    TP 1    Stability 0    Draw Wall 28,压力 2 / 10    TP 1    稳定度 0    牌墙 28
+DESIGN_0054,Empty · capacity from state,暂无备牌 · 容量以当前状态为准
+DESIGN_0055,Discard / Exhaust,弃牌 / 耗尽区
+DESIGN_0056,Inspect known zone contents,查看已知区域中的牌
+DESIGN_0057,Hand · 0 tiles,手牌 · 0 张
+DESIGN_0058,Your Hand is empty. Draw a tile to begin.,手牌为空，先摸一张牌。
+DESIGN_0059,Your decision,你的行动
+DESIGN_0060,Draw tile,摸牌
+DESIGN_0061,Partial Settlement,部分结算
+DESIGN_0062,Complete Hand,完整和牌
+DESIGN_0063,Core Technique,核心技法
+DESIGN_0064,Complete Hand unavailable: no legal interpretation. Inspect for details.,完整和牌不可用：没有合法解析。查看详情了解原因。
+DESIGN_0065,End Turn,结束回合
+DESIGN_0066,Your turn at the table,轮到你了
+DESIGN_0067,Hand · 13 tiles,手牌 · 13 张
+DESIGN_0068,Hand is formal Yaku progress. Selected instances remain explicit.,手牌参与正式役种评估；所选牌的具体副本始终可辨识。
+DESIGN_0069,Choose a Pattern,选择牌型
+DESIGN_0070,Sequence · selected,顺子 · 已选择
+DESIGN_0071,"Consumes these 3 instances.
+Pair is not settleable.","消耗这 3 张具体的牌。
+对子不能独立结算。"
+DESIGN_0072,Triplet · East,刻子 · 东风
+DESIGN_0073,Score / combat output: shown after resolution when no existing preview supplies it.,分数与战斗效果：若现有系统不提供预览，则在结算后展示。
+DESIGN_0074,Settle Sequence,结算顺子
+DESIGN_0075,Complete Hand · Interpretation,完整和牌 · 选择解析
+DESIGN_0076,Standard · 4 Groups + Pair,标准和牌 · 4 组 + 1 对
+DESIGN_0077,"Sequence Bamboo 1–3 · Sequence Characters 4–6
+Sequence Dots 7–9 · Triplet East · Pair White","顺子：一至三条 · 顺子：四至六万
+顺子：七至九筒 · 刻子：东风 · 对子：白板"
+DESIGN_0078,Formal evaluation uses Hand. Reserve contributes only where an existing Rule Breaker permits it.,正式评估以手牌为准。仅在现有破规能力允许时，备牌才参与评估。
+DESIGN_0079,Alternative interpretations are listed when their consequences differ.,若其他解析会产生不同结果，则同时列出。
+DESIGN_0080,Commit this Hand?,确认结算这副手牌？
+DESIGN_0081,Standard interpretation selected. Review its Yaku and consumed tiles.,已选择标准和牌解析，请检查役种与将消耗的牌。
+DESIGN_0082,Recovery restrictions remain authoritative.,恢复限制仍以实际规则为准。
+DESIGN_0083,Resolved score/output is shown after the command; no invented preview values.,分数与战斗效果在执行后展示；不提供虚构的预估值。
+DESIGN_0084,Settle Complete Hand,结算完整和牌
+DESIGN_0085,Tile detail · Reserve / Discard / Swap,牌的详情 · 备牌 / 弃牌 / 换牌
+DESIGN_0086,Bamboo 2 · copy 2,二条 · 副本 2
+DESIGN_0087,"Base identity: Bamboo 2
+Modifier: Flexible Identity
+Interpretation: only within eligible Sequence evaluation","基础牌面：二条
+修饰：灵活牌面
+解析：仅在符合条件的顺子评估中生效"
+DESIGN_0088,Reserve and Discard use this exact instance.,存入备牌与弃牌均作用于这张具体的牌。
+DESIGN_0089,After this Draw,本次摸牌后
+DESIGN_0090,Store in Reserve,存入备牌
+DESIGN_0091,Discard selected tile,弃掉所选牌
+DESIGN_0092,Swap with Reserve tile,与备牌交换
+DESIGN_0093,Swap opens an explicit Reserve target selector. Every action has a non-drag path.,换牌会打开明确的备牌目标选择器。所有操作均可无需拖拽完成。
+DESIGN_0094,Confirm tile action,确认牌的操作
+DESIGN_0095,Battle · Ordered feedback,战斗 · 按序反馈
+DESIGN_0096,Complete Hand · consumed groups,完整和牌 · 已消耗的牌组
+DESIGN_0097,"This is the resolved group receipt, not the current Hand. Current phase comes from the accepted command result.",此处为已结算牌组的记录，并非当前手牌。当前阶段来自已接受的操作结果。
+DESIGN_0098,Complete Hand settled. → Boss enters phase 2. → Victory!,完整和牌已结算。→ 首领进入第二阶段。→ 胜利！
+DESIGN_0099,No damage value is predicted or invented. Inspect the accepted result for score and combat effects.,不虚构或预测伤害值。请查看已接受的结果，了解分数与战斗效果。
+DESIGN_0100,Resolved,已结算
+DESIGN_0101,"1. Complete Hand settled.
+2. Boss enters phase 2.
+3. Victory!","1. 完整和牌已结算。
+2. 首领进入第二阶段。
+3. 胜利！"
+DESIGN_0102,Same ordered text in Normal / Fast / Instant. Updated state is already authoritative.,标准 / 快速 / 瞬时模式保留相同的按序文字。实际状态已完成更新。
+DESIGN_0103,Inspect result,查看结果
+DESIGN_0104,View current phase,查看当前阶段
+DESIGN_0105,Event · Risk bargain,事件 · 风险交易
+DESIGN_0106,Risk bargain,风险交易
+DESIGN_0107,A bargain changes the stakes of every later battle.,这笔交易会改变之后每场战斗的代价与回报。
+DESIGN_0108,"Risk: +1 starting Pressure in later battles.
+Reward: +2 Gold per victory this Run.","风险：之后的战斗起始压力 +1。
+回报：本次旅程每次胜利获得的金币 +2。"
+DESIGN_0109,The choice affects this Run. Review the Risk and Reward before confirming.,选择将影响本次旅程。确认前请检查风险与回报。
+DESIGN_0110,Accept bargain,接受交易
+DESIGN_0111,Leave,离开
+DESIGN_0112,Selected option,所选选项
+DESIGN_0113,Accept: +1 starting Pressure in later battles; +2 Gold per victory this Run.,接受：之后的战斗起始压力 +1；本次旅程每次胜利获得的金币 +2。
+DESIGN_0114,Choose selected option,确认所选选项
+DESIGN_0115,Event · Conditional choice,事件 · 条件未满足
+DESIGN_0116,Tile surgery,牌面手术
+DESIGN_0117,Refinement Tokens: 0. Spending a Token is unavailable.,精炼代币：0。当前无法消耗代币。
+DESIGN_0118,"Inspect the unavailable choice for its requirements, or leave this Event.",查看不可用选项的要求，或离开此事件。
+DESIGN_0119,Spend Token · unavailable,消耗代币 · 不可用
+DESIGN_0120,Requires an available Refinement Token.,需要一枚可用的精炼代币。
+DESIGN_0121,Choose available option,确认可用选项
+DESIGN_0122,Choose your reward,选择奖励
+DESIGN_0123,East,东风
+DESIGN_0124,"Honor · East
+Base identity remains visible.","字牌 · 东风
+基础牌面始终可见。"
+DESIGN_0125,Inspect East,查看东风
+DESIGN_0126,Bamboo 2,二条
+DESIGN_0127,"Bamboo · rank 2
+Inspect any instance Modifiers.","条子 · 点数 2
+请检查此牌的具体修饰。"
+DESIGN_0128,Inspect Bamboo 2,查看二条
+DESIGN_0129,White,白板
+DESIGN_0130,"Honor · White dragon
+Inspect any instance Modifiers.","字牌 · 白板
+请检查此牌的具体修饰。"
+DESIGN_0131,Inspect White,查看白板
+DESIGN_0132,Take selected reward,领取所选奖励
+DESIGN_0133,Elite reward,精英奖励
+DESIGN_0134,Complete Hand Insurance,和牌保险
+DESIGN_0135,Relic · Gain Stability 2,遗物 · 获得 2 点稳定度
+DESIGN_0136,Inspect Complete Hand Insurance,查看和牌保险
+DESIGN_0137,Reserve Sleeve,藏牌袖套
+DESIGN_0138,Relic · Reserve capacity +1,遗物 · 备牌容量 +1
+DESIGN_0139,Inspect Reserve Sleeve,查看藏牌袖套
+DESIGN_0140,Settlement Seal,结算印章
+DESIGN_0141,Relic · Settlement capacity +1,遗物 · 结算容量 +1
+DESIGN_0142,Inspect Settlement Seal,查看结算印章
+DESIGN_0143,Boss reward · Rule Breaker,首领奖励 · 破规能力
+DESIGN_0144,Open Table,开放牌桌
+DESIGN_0145,Rule Breaker · Settlement capacity +1,破规能力 · 结算容量 +1
+DESIGN_0146,Inspect Open Table,查看开放牌桌
+DESIGN_0147,Draw Actions,额外摸牌
+DESIGN_0148,Rule Breaker · Draw capacity +1,破规能力 · 摸牌容量 +1
+DESIGN_0149,Inspect Draw Actions,查看额外摸牌
+DESIGN_0150,Reserve Witness,备牌见证
+DESIGN_0151,Rule Breaker · Reserve capacity +1,破规能力 · 备牌容量 +1
+DESIGN_0152,Inspect Reserve Witness,查看备牌见证
+DESIGN_0153,Act 1 complete · Act 2 reached,第一幕完成 · 已进入第二幕
+DESIGN_0154,The Run continues,旅程继续
+DESIGN_0155,"Act 1 Boss defeated
+Selected Rule Breaker acquired
+Act 2 map is now current","已击败第一幕首领
+已获得所选破规能力
+当前为第二幕地图"
+DESIGN_0156,"Character, Contract, Tile Pool, build and Run resources carry forward according to the accepted state.",角色、契约、牌池、构筑与旅程资源按已接受的实际状态继承。
+DESIGN_0157,This receipt overlays the already-resolved Act 2 map. Dismissal does not advance Domain state.,此记录覆盖在已完成更新的第二幕地图上。关闭记录不会推进游戏状态。
+DESIGN_0158,Reserve · Pool Bias,藏牌师 · 牌池偏向
+DESIGN_0159,"Relics / Techniques
+Rule Breakers
+Gold / Refinement","遗物 / 技法
+破规能力
+金币 / 精炼"
+DESIGN_0160,Dismiss receipt,关闭记录
+DESIGN_0161,Shop · Compare before you buy,商店 · 比较后再购买
+DESIGN_0162,Settlement Chart · 10 G,结算海图 · 10 金币
+DESIGN_0163,Reserve Sleeve · 12 G,藏牌袖套 · 12 金币
+DESIGN_0164,Bamboo 2 · 5 G,二条 · 5 金币
+DESIGN_0165,Settlement Seal · 15 G,结算印章 · 15 金币
+DESIGN_0166,Open Hand · 30 G,开放手牌 · 30 金币
+DESIGN_0167,White · 5 G,白板 · 5 金币
+DESIGN_0168,Gold 24 · named offers; inspect before purchase,金币 24 · 商品名称可见；购买前可查看详情
+DESIGN_0169,Refresh Shop,刷新商店
+DESIGN_0170,Settlement Chart,结算海图
+DESIGN_0171,"Price 10 Gold
+Gold after purchase: 14","价格：10 金币
+购买后金币：14"
+DESIGN_0172,"Relic · Settlement Chart
+Inspect its rule details before buying.","遗物 · 结算海图
+购买前请查看规则详情。"
+DESIGN_0173,Open Hand costs 30 Gold; 6 more required.,开放手牌需 30 金币；还差 6 金币。
+DESIGN_0174,Leave Shop,离开商店
+DESIGN_0175,Buy · 10 Gold,购买 · 10 金币
+DESIGN_0176,Shop · No available offers,商店 · 暂无可用商品
+DESIGN_0177,No offers available,暂无可用商品
+DESIGN_0178,Every current offer is unavailable or sold. Leave Shop to continue along the current route.,当前商品均不可用或已售出。离开商店后可沿当前路线继续。
+DESIGN_0179,Refresh unavailable,刷新不可用
+DESIGN_0180,Refresh availability and remaining count are read from existing Shop state.,能否刷新与剩余次数均以现有商店状态为准。
+DESIGN_0181,Gold 24,金币 24
+DESIGN_0182,No purchase is selected.,尚未选择商品。
+DESIGN_0183,Confirm purchase,确认购买
+DESIGN_0184,"Cost: 10 Gold
+Current Gold: 24
+Gold after purchase: 14","费用：10 金币
+当前金币：24
+购买后金币：14"
+DESIGN_0185,Purchase this existing offer?,购买这件现有商品？
+DESIGN_0186,Keep browsing,继续浏览
+DESIGN_0187,Owned build changes,构筑将发生变化
+DESIGN_0188,The item joins your owned build after purchase. Review its rule details before buying.,购买后，商品将加入你的构筑。购买前请查看规则详情。
+DESIGN_0189,Cancel,取消
+DESIGN_0190,Workshop · Choose a service,工坊 · 选择服务
+DESIGN_0191,Remove,移除
+DESIGN_0192,Transform,变换
+DESIGN_0193,Add Modifier,添加修饰
+DESIGN_0194,Replace Modifier,替换修饰
+DESIGN_0195,Duplicate,复制
+DESIGN_0196,Refinement service when available · scroll ↓,精炼服务在可用时出现 · 向下滚动 ↓
+DESIGN_0197,"1. Choose an exact tile
+2. Choose a legal result
+3. Review cost and confirm","1. 选择一张具体的牌
+2. 选择合法的结果
+3. 检查费用并确认"
+DESIGN_0198,Select a service to inspect its available targets and cost.,选择服务，查看可用目标与费用。
+DESIGN_0199,Leave Workshop,离开工坊
+DESIGN_0200,Choose Transform,选择变换
+DESIGN_0201,Workshop · Choose the tile,工坊 · 选择目标牌
+DESIGN_0202,Transform · Step 1,变换 · 第 1 步
+DESIGN_0203,"Selected: Bamboo 2 · copy 2
+All duplicate instances remain separately reachable.","已选择：二条 · 副本 2
+相同牌面的各个副本均可分别选择。"
+DESIGN_0204,Inspect selected tile,查看所选牌
+DESIGN_0205,"Long pools use multiple rows or a scrollable grid, with visible row count and focus.",较长的牌池采用多行或可滚动网格；行数与焦点始终可见。
+DESIGN_0206,"Base identity: Bamboo 2
+Modifiers: none
+Contamination: none","基础牌面：二条
+修饰：无
+污染：无"
+DESIGN_0207,Choosing a tile does not change the Tile Pool.,选择目标牌不会改变牌池。
+DESIGN_0208,Select target,选择目标
+DESIGN_0209,Workshop · Choose the result,工坊 · 选择结果
+DESIGN_0210,Transform · Step 2,变换 · 第 2 步
+DESIGN_0211,→,→
+DESIGN_0212,"Bamboo 1 · copy 1 → Bamboo 2
+Price: 10 Gold
+Gold 24 → 14","一条 · 副本 1 → 二条
+价格：10 金币
+金币 24 → 14"
+DESIGN_0213,Inspect the resulting tile and its Modifiers before confirming.,确认前请检查变换后的牌及其修饰。
+DESIGN_0214,Bamboo 3,三条
+DESIGN_0215,Characters 2,二万
+DESIGN_0216,These results are available for the selected tile. Review the cost before applying.,这些结果适用于所选牌。执行前请检查费用。
+DESIGN_0217,Review Transform,检查变换
+DESIGN_0218,Confirm Workshop change,确认工坊修改
+DESIGN_0219,Transform this TileInstance?,变换这张具体的牌？
+DESIGN_0220,"Bamboo 1 · copy 1 → Bamboo 2
+Pay 10 Gold · balance becomes 14","一条 · 副本 1 → 二条
+支付 10 金币 · 余额变为 14"
+DESIGN_0221,Keep choosing,继续选择
+DESIGN_0222,One permanent Run change,本次旅程中的永久修改
+DESIGN_0223,Confirm to apply this change. Cancel returns to the selected tile and result.,确认后执行此修改。取消将返回所选目标牌与结果。
+DESIGN_0224,Transform · 10 Gold,变换 · 10 金币
+DESIGN_0225,Battle · Tutorial enabled,战斗 · 教程已开启
+DESIGN_0226,Draw and settle,摸牌与结算
+DESIGN_0227,"Draw a tile, choose a legal Pattern, then settle it.",摸一张牌，选择合法牌型，然后结算。
+DESIGN_0228,Disable tutorial,关闭教程
+DESIGN_0229,Reset tutorial,重置教程
+DESIGN_0230,Reset unavailable: no progress yet. Help is always available.,尚无教程进度，无法重置。帮助始终可用。
+DESIGN_0231,Help · Pattern and input reference,帮助 · 牌型与操作
+DESIGN_0232,Patterns,牌型
+DESIGN_0233,"Sequence: same suit, three consecutive ranks.
+Triplet: three identical TileDefinitions.
+Quad: four identical TileDefinitions.
+Pair: structural; not independently settleable.","顺子：同一花色的三个连续点数。
+刻子：三张相同基础牌面。
+杠子：四张相同基础牌面。
+对子：结构牌组，不能独立结算。"
+DESIGN_0234,"Complete Hand: 4 Groups + Pair, or Seven Pairs. Quads can increase physical tile count.",完整和牌：4 组 + 1 对，或七对。杠子会增加实际牌张数。
+DESIGN_0235,Reserve is potential Yaku progress unless an existing Rule Breaker permits official participation.,备牌仅表示潜在役种进度，除非现有破规能力允许其正式参与评估。
+DESIGN_0236,Mouse / keyboard / controller,鼠标 / 键盘 / 手柄
+DESIGN_0237,"Click or Enter / A: select
+Tab / shoulders: focus
+Arrows / D-pad: navigate
+Esc / B: cancel/back","点击或 Enter / A：选择
+Tab / 肩键：切换焦点
+方向键 / 十字键：导航
+Esc / B：取消或返回"
+DESIGN_0238,Close Help,关闭帮助
+DESIGN_0239,Back,返回
+DESIGN_0240,Settings · Presentation,设置 · 显示与反馈
+DESIGN_0241,Presentation speed,反馈速度
+DESIGN_0242,Normal · selected,标准 · 已选择
+DESIGN_0243,Fast,快速
+DESIGN_0244,Instant,瞬时
+DESIGN_0245,"All modes preserve readable Complete Hand, Boss transition and victory feedback.",所有模式均保留可读的完整和牌、首领阶段变化与胜利反馈。
+DESIGN_0246,Tutorial,教程
+DESIGN_0247,Enable or disable guidance. Reset restarts the tutorial from its first step.,开启或关闭引导。重置后将从教程第一步重新开始。
+DESIGN_0248,Help remains available with the tutorial disabled.,关闭教程后仍可查看帮助。
+DESIGN_0249,Close Settings,关闭设置
+DESIGN_0250,Victory · Your Build Story,胜利 · 你的构筑纪事
+DESIGN_0251,Acts reached,已到达幕数
+DESIGN_0252,2 / 2,2 / 2
+DESIGN_0253,Seed,随机种子
+DESIGN_0254,57002,57002
+DESIGN_0255,Duration,用时
+DESIGN_0256,18m 24s,18 分 24 秒
+DESIGN_0257,"Core Yaku: none recorded
+Common Patterns: none recorded
+Complete Hands: 0 · maximum Mahjong Score: 0","核心役种：无记录
+常用牌型：无记录
+完整和牌：0 · 最高麻将分数：0"
+DESIGN_0258,"Relics: Reserve Sleeve, Settlement Seal
+Technique: Reserve Ledger
+Rule Breakers: Open Table, Draw Actions","遗物：藏牌袖套、结算印章
+技法：备牌账册
+破规能力：开放牌桌、额外摸牌"
+DESIGN_0259,Final Tile Pool and milestones · inspect / scroll ↓,最终牌池与里程碑 · 查看 / 向下滚动 ↓
+DESIGN_0260,Result and reason,结果与原因
+DESIGN_0261,Victory,胜利
+DESIGN_0262,Review your final build and milestones below.,查看最终构筑与下方里程碑。
+DESIGN_0263,Inspect final Tile Pool,查看最终牌池
+DESIGN_0264,Inspect build,查看构筑
+DESIGN_0265,Finish Run,结束旅程
+DESIGN_0266,Defeat · Pressure limit reached,失败 · 达到压力上限
+DESIGN_0267,Defeat: Pressure Limit,失败：压力上限
+DESIGN_0268,Run Summary · Older record,旅程总结 · 旧版记录
+DESIGN_0269,"Acts/Bosses: not tracked
+Duration: not tracked","幕数 / 首领：未记录此项
+用时：未记录此项"
+DESIGN_0270,Yaku / Patterns / Complete Hands / maximum Score: not tracked,役种 / 牌型 / 完整和牌 / 最高分：未记录此项
+DESIGN_0271,Saved result,已保存的结果
+DESIGN_0272,Run complete,旅程结束
+DESIGN_0273,The table is quiet,牌桌已归于寂静
+DESIGN_0274,Run recorded. The Act 2 Normal Ending unlocks Harbor reader and additional Contracts.,旅程已记录。达成第二幕普通结局可解锁港湾读者与更多契约。
+DESIGN_0275,Review the final Build Story before starting again.,再次出发前，可查看最终构筑纪事。
+DESIGN_0276,Inspect Build Story,查看构筑纪事
+DESIGN_0277,Ready when you are,随时可以再次入座
+DESIGN_0278,New Run returns to Character selection. No revive or new progression system is added.,新旅程返回角色选择；不增加复活或新的成长系统。
+DESIGN_0279,New Run,新旅程
+DESIGN_0280,Welcome back · Suspended Run,欢迎回来 · 暂停的旅程
+DESIGN_0281,SUSPEND SAVE  |  Compatible save,暂停存档  |  存档兼容
+DESIGN_0282,Resume your Run,继续旅程
+DESIGN_0283,"Act 1 of 2 · Workshop
+Reserve · Pool Bias","第 1 / 2 幕 · 工坊
+藏牌师 · 牌池偏向"
+DESIGN_0284,Resume continues the saved authoritative state. New Run requires a leave-save confirmation.,继续会恢复存档中的实际状态。开启新旅程前须确认放弃此暂停旅程。
+DESIGN_0285,Resume Run,继续旅程
+DESIGN_0286,Start again from Character selection. Confirm before leaving this saved Run.,从角色选择重新开始。放弃此暂停旅程前需要确认。
+DESIGN_0287,New Run…,新旅程…
+DESIGN_0288,Save recovery · Action required,存档恢复 · 需要处理
+DESIGN_0289,SAVE RECOVERY  |  Preserve current sources,存档恢复  |  保留当前来源文件
+DESIGN_0290,This Run could not be resumed,无法继续此旅程
+DESIGN_0291,The Suspend Save commit was interrupted. No older save was loaded. Recovery sources remain unchanged.,暂停存档的提交被中断。未加载旧存档；恢复来源文件保持不变。
+DESIGN_0292,Choose New Run only if you want to leave this save behind. Recovery location remains available in Details.,只有决定放弃此存档时，才选择新旅程。可在详情中查看恢复位置。
+DESIGN_0293,View recovery details,查看恢复详情
+DESIGN_0294,Preservation pending,尚未完成保全
+DESIGN_0295,Recovery could not preserve the source. New Run is unavailable until recovery is safe.,恢复过程无法保全来源文件。安全完成恢复前，无法开启新旅程。
+DESIGN_0296,New Run unavailable,新旅程不可用
+DESIGN_0297,Leave this Suspend Save?,放弃此暂停存档？
+DESIGN_0298,SUSPEND SAVE  |  Confirmation,暂停存档  |  确认
+DESIGN_0299,Start a New Run?,开启新旅程？
+DESIGN_0300,This leaves the current suspended Run behind. The existing save handling decides when a new snapshot replaces it.,这将放弃当前暂停旅程。新快照何时覆盖旧存档，仍由现有存档逻辑决定。
+DESIGN_0301,Return to Resume,返回继续旅程
+DESIGN_0302,Current Run,当前旅程
+DESIGN_0303,"Reserve · Pool Bias
+Act 1 of 2 · current suspended Run","藏牌师 · 牌池偏向
+第 1 / 2 幕 · 当前暂停旅程"
+DESIGN_0304,Start New Run,开始新旅程
+DESIGN_0305,Workshop · Change rejected,工坊 · 修改被拒绝
+DESIGN_0306,Transform was not applied,变换未执行
+DESIGN_0307,Insufficient Gold. Actual cost and available balance are shown from the rejected command context.,金币不足。实际费用与可用余额以被拒绝操作的上下文为准。
+DESIGN_0308,Tile Pool and currency are unchanged for this rejected action.,本次操作被拒绝，牌池与货币均未改变。
+DESIGN_0309,Choose another result,选择其他结果
+DESIGN_0310,"Try another choice, or return to the service list.",尝试其他选项，或返回服务列表。
+DESIGN_0311,Back to choices,返回选项
+DESIGN_0312,Return to choices,返回选项
+DESIGN_0313,Component states · Focus is independent,组件状态 · 焦点与选择独立
+DESIGN_0314,DESIGN COMPONENTS  |  All states are proposals,设计组件  |  所有状态均为提案
+DESIGN_0315,Default,默认
+DESIGN_0316,Primary,主要操作
+DESIGN_0317,Focused,有焦点
+DESIGN_0318,Selected + focused,已选择 + 有焦点
+DESIGN_0319,Unavailable · needs TP,不可用 · 需要 TP
+DESIGN_0320,Success: action accepted,成功：操作已接受
+DESIGN_0321,Error: action rejected,错误：操作被拒绝
+DESIGN_0322,"Empty: no eligible Pattern
+Context: exact tile identity and rule","空状态：无可用牌型
+详情：具体牌面与规则"
+DESIGN_0323,Review only,仅供评审
+DESIGN_0324,Recovery · Expanded text,恢复 · 文本扩展
+DESIGN_0325,DESIGN STRESS SPECIMEN  |  960×540 · +30% expansion,设计压力样例  |  960×540 · 文本扩展 +30%
+DESIGN_0326,[Ŕéçövérý éxþļåñåţîöñ +30%],【恢复说明 · 扩展文本】
+DESIGN_0327,[Ţhé Šüšþéñð Šåvé çömmîţ ŵåš îñţérrüþţéð (SUSPEND_COMMIT_INTERRUPTED). Ñö öļðér šåvé ŵåš ļöåðéð. Ŕéçövérý šöürçéš rémåîñ üñçhåñgéð åñð åré çöþîéð ţö ţhé réçövérý ļöçåţîöñ. Çhööšé Ñéŵ Ŕüñ öñļý îf ýöü ŵåñţ ţö ļéåvé ţhîš šåvé béhîñð. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~],【暂停存档的提交被中断（SUSPEND_COMMIT_INTERRUPTED）。未加载旧存档。恢复来源文件保持不变，并复制到恢复位置。只有决定放弃此存档时，才选择新旅程。恢复来源文件保持不变，并复制到恢复位置。只有决定放弃此存档时，才选择新旅程。】
+DESIGN_0328,"Actual longest cases: UI_RUN_SCENE_0012 (186 → 301 observed characters), UI_RUN_CONTROLLER_0001 (175 → 268). Preserve interpolation placeholders and recovery paths.",英文最长样例：UI_RUN_SCENE_0012 与 UI_RUN_CONTROLLER_0001。须保留插值占位符与恢复路径，并检查中文长文本。
+DESIGN_0329,View recovery location,查看恢复位置
+DESIGN_0330,Visible buttons wrap; message scrolls independently if expanded further.,按钮文字可换行；说明继续增长时可独立滚动。
+DESIGN_0331,Cancel / Return,取消 / 返回
+DESIGN_0332,"Intro
+Current","入口
+当前位置"
+DESIGN_0333,"Battle
+Left","战斗
+左侧"
+DESIGN_0334,"Battle
+Right","战斗
+右侧"
+DESIGN_0335,Shop,商店
+DESIGN_0336,Workshop,工坊
+DESIGN_0337,"Event
+Left","事件
+左侧"
+DESIGN_0338,"Event
+Right","事件
+右侧"
+DESIGN_0339,"Battle
+Mid","战斗
+中段"
+DESIGN_0340,Elite,精英
+DESIGN_0341,Boss,首领
+DESIGN_0342,Current · Reachable: left / right · Later nodes unavailable,当前位置 · 可达：左 / 右 · 后续节点暂不可用
+DESIGN_0343,RELIC,遗物
+DESIGN_0344,RULE BREAKER,破规能力
+DESIGN_0345,Relic,遗物
+DESIGN_0346,Rule Breaker,破规能力
+DESIGN_0347,South,南风
+DESIGN_0348,West,西风
+DESIGN_0349,North,北风
+DESIGN_0350,Red dragon,红中
+DESIGN_0351,Green dragon,发财
+DESIGN_0352,White dragon,白板
+DESIGN_0353,Language,语言
+DESIGN_0354,English · selected,English · 已选择
+DESIGN_0355,简体中文 · selected,简体中文 · 已选择
+DESIGN_0356,Language changes display text only. Your Run stays at the same decision.,语言仅改变显示文字。当前旅程停留在同一决策点。
+DESIGN_0357,"Keyboard / controller: choose a language, then confirm.",键盘 / 手柄：选择语言后确认。
+DESIGN_0358,Apply language,应用语言
+DESIGN_0359,Language settings,语言设置
+DESIGN_0360,Normal,标准
+DESIGN_0361,Tile arrives,摸牌入手
+DESIGN_0362,Hand → Boss phase → Victory,完整和牌 → 首领阶段 → 胜利
+DESIGN_0363,Reward reveal,奖励展示
+DESIGN_0364,Workshop before / after,工坊修改前 / 后
+DESIGN_0365,Complete Hand settled.,完整和牌已结算。
+DESIGN_0366,Boss enters phase 2.,首领进入第二阶段。
+DESIGN_0367,Victory!,胜利！
+DESIGN_0368,HAND SETTLED,完整和牌已结算
+DESIGN_0369,BOSS · PHASE 2,首领 · 第二阶段
+DESIGN_0370,VICTORY,胜利
+DESIGN_0371,Choose a motion study and Replay. All game values are illustrative.,选择动效样例并重播。游戏数值均为示例。
+DESIGN_0372,Stopped at readable static state.,已停止，保留可读的静态状态。
+DESIGN_0373,Expanded localized detail sheet specimen,本地化长文本详情样例
+DESIGN_0374,简体中文,简体中文
+DESIGN_0375,draw,摸牌
+DESIGN_0376,settlement,结算
+DESIGN_0377,reward,奖励
+DESIGN_0378,workshop,工坊

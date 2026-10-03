@@ -1,0 +1,297 @@
+{
+  "baselineScreens": 36,
+  "pngCount": 54,
+  "dimensions": [
+    {
+      "file": "mockups/01-character.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/02-contract.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/03-map-act-1.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/04-map-act-2.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/05-battle-empty.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/06-battle-table.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/07-pattern-settlement.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/08-complete-hand.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/09-tile-detail.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/10-critical-feedback.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/11-event.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/12-event-unavailable.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/13-reward-normal.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/14-reward-elite.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/15-reward-boss.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/16-act-transition.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/17-shop.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/18-shop-empty.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/19-purchase-confirm.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/20-workshop-services.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/21-workshop-target.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/22-workshop-value.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/23-workshop-confirm.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/24-tutorial.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/25-help.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/26-settings.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/27-summary-victory.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/28-summary-defeat.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/29-summary-legacy.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/30-run-complete.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/31-resume.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/32-save-error.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/33-abandon-confirm.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/34-action-error.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/35-state-specimens.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/36-pseudo-expansion.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/contact-1.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/contact-2.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/contact-3.png",
+      "width": 1216,
+      "height": 1176
+    },
+    {
+      "file": "mockups/figma/battle.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/character.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/index-01-12.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/index-13-24.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/index-25-36.png",
+      "width": 1410,
+      "height": 1147
+    },
+    {
+      "file": "mockups/figma/map-act-1.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/pattern.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/summary-victory.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/figma/workshop.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/overview.png",
+      "width": 1008,
+      "height": 1066
+    },
+    {
+      "file": "mockups/stress-expanded.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/stress-large-text.png",
+      "width": 960,
+      "height": 540
+    },
+    {
+      "file": "mockups/window-deck.png",
+      "width": 1280,
+      "height": 800
+    },
+    {
+      "file": "mockups/window-desktop.png",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "file": "mockups/window-wide.png",
+      "width": 1280,
+      "height": 720
+    }
+  ],
+  "missing": [],
+  "states": [
+    "confirmation",
+    "contextual-detail",
+    "disabled",
+    "empty",
+    "error",
+    "focused",
+    "selected"
+  ],
+  "checkedDate": "2026-10-01",
+  "scope": "Design drawings only; no Godot gate result",
+  "semanticChecks": {
+    "workshopSelectedTarget": "Bamboo 2 copy 2",
+    "incompleteBattleHandCount": 13,
+    "emptyBattleHandCount": 0,
+    "standardCompleteHandCount": 14
+  },
+  "browserPngCount": 45,
+  "nativeFigmaPngCount": 9,
+  "nativeFigmaFrames": 36
+}

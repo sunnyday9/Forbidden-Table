@@ -35,6 +35,7 @@ class FailOnceMetaProgressStore extends RefCounted:
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_default_and_all_unlocked_profiles(failures)
+	test_stage_three_completion_unlocks_added_contracts(failures)
 	test_only_act_two_normal_ending_unlocks_for_later_runs(failures)
 	test_profile_persists_and_migrates_without_overwriting_source(failures)
 	test_schema_migration_preserves_content_version(failures)
@@ -52,7 +53,8 @@ func test_default_and_all_unlocked_profiles(failures: Array[String]) -> void:
 	assert_true(not default_profile.is_unlocked("CONTRACT", AlphaScaleCatalogScript.CONTRACT_IDS[0]), "the fourth Contract is locked in a new profile", failures)
 	assert_true(default_profile.is_unlocked("RELIC", AlphaScaleCatalogScript.RELIC_IDS[0]), "the unlock path does not add meta locks to Act 2 Relics", failures)
 	var test_profile = MetaProgressStateScript.all_unlocked_test_profile()
-	assert_true(test_profile.unlocked_character_ids.size() == 3 and test_profile.unlocked_contract_ids.size() == 6, "the automated profile exposes the full Character and Contract roster", failures)
+	assert_true(not default_profile.is_unlocked("CONTRACT", "alpha.contract.long_current") and not default_profile.is_unlocked("CONTRACT", "alpha.contract.house_tithe"), "new Contracts remain locked in a new profile", failures)
+	assert_true(test_profile.unlocked_character_ids.size() == 3 and test_profile.unlocked_contract_ids.size() == 8, "the automated profile exposes the full Character and Contract roster", failures)
 	var test_store = MetaProgressStoreScript.new(_temporary_path("test-profile"))
 	var rejected := test_store.save_profile(test_profile)
 	assert_true(not rejected.accepted and rejected.code == "TEST_PROFILE_CANNOT_BE_PERSISTED", "the all-unlocked test profile cannot overwrite player progression", failures)
@@ -74,7 +76,7 @@ func test_only_act_two_normal_ending_unlocks_for_later_runs(failures: Array[Stri
 	var completed_result: Dictionary = coordinator.observe_run_state(completed_run)
 	assert_true(completed_result.get("changed", false) and completed_result.get("persisted", false), "an Act 2 Normal Ending unlocks the full additional selection roster and persists it", failures)
 	assert_true(completed_run.to_dictionary() == run_before, "recording meta progress does not mutate the completed Run", failures)
-	assert_true(coordinator.state.unlocked_character_ids.size() == 3 and coordinator.state.unlocked_contract_ids.size() == 6, "the milestone grants Character 3 and Contracts 4–6 together", failures)
+	assert_true(coordinator.state.unlocked_character_ids.size() == 3 and coordinator.state.unlocked_contract_ids.size() == 8, "the milestone grants Character 3 and the complete eight-Contract roster together", failures)
 	var repeated: Dictionary = coordinator.observe_run_state(completed_run)
 	assert_true(not repeated.get("changed", false) and coordinator.state.progress_count() == 1, "observing the same completed Run twice is idempotent", failures)
 	var resumed_coordinator = MetaProgressCoordinatorScript.new(MetaProgressStoreScript.new(path))
@@ -88,8 +90,20 @@ func test_only_act_two_normal_ending_unlocks_for_later_runs(failures: Array[Stri
 	)
 	assert_true(_action_count(controller.action_descriptors(), "CHARACTER") == 3, "later Run Character selection presents the unlocked roster", failures)
 	controller.confirm(str(controller.action_descriptors().filter(func(action): return action.get("kind") == "CHARACTER")[0].id))
-	assert_true(_action_count(controller.action_descriptors(), "CONTRACT") == 6, "later Run Contract selection presents the unlocked roster", failures)
+	assert_true(_action_count(controller.action_descriptors(), "CONTRACT") == 8, "later Run Contract selection presents the unlocked roster", failures)
 	_remove_temporary(path)
+
+func test_stage_three_completion_unlocks_added_contracts(failures: Array[String]) -> void:
+	var completed_profile = MetaProgressStateScript.new()
+	completed_profile.record_act_two_normal_ending("meta.pre-stage-four-clear")
+	var stage_three_data: Dictionary = completed_profile.to_dictionary()
+	for contract_id in ["alpha.contract.long_current", "alpha.contract.house_tithe"]:
+		stage_three_data["discovered_contract_ids"].erase(contract_id)
+		stage_three_data["unlocked_contract_ids"].erase(contract_id)
+	var migrated: Dictionary = MetaProgressStateScript.from_dictionary(stage_three_data)
+	assert_true(migrated.accepted, "a saved Stage 3 clear remains a valid progression profile after the roster expands", failures)
+	if migrated.accepted:
+		assert_true(migrated.state.discovered_contract_ids.size() == 8 and migrated.state.unlocked_contract_ids.size() == 8, "a prior full clear discovers and unlocks both added Contracts", failures)
 
 func test_profile_persists_and_migrates_without_overwriting_source(failures: Array[String]) -> void:
 	var path := _temporary_path("schema-migration")
@@ -185,7 +199,7 @@ func test_failed_unlock_persistence_can_be_retried(failures: Array[String]) -> v
 	assert_true(store.save_attempts == 2, "the pending unlock is saved on the second observation", failures)
 	assert_true(
 		store.persisted_state.get("unlocked_character_ids", []).size() == 3
-		and store.persisted_state.get("unlocked_contract_ids", []).size() == 6,
+		and store.persisted_state.get("unlocked_contract_ids", []).size() == 8,
 		"the retry persists the complete unlock roster",
 		failures
 	)

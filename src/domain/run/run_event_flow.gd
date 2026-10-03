@@ -278,6 +278,22 @@ func _validate_declarative_event_effect(effect: Dictionary) -> Dictionary:
 			return {"accepted": false, "status": "INVALID_MODIFIER_SCOPE", "message": "Run modifiers require a positive supported DurationSpec boundary."}
 		if not [StackPolicyScript.REPLACE, StackPolicyScript.REFRESH_DURATION, StackPolicyScript.ADD_STACKS, StackPolicyScript.ADD_DURATION, StackPolicyScript.INDEPENDENT_INSTANCES, StackPolicyScript.UNIQUE].has(stack_policy):
 			return {"accepted": false, "status": "INVALID_MODIFIER_STACK_POLICY", "message": "Run modifiers require a supported StackPolicy."}
+		var modifier_operation := ApplyRunModifierOperationScript.new(
+			modifier_id,
+			int(effect.get("value", 1)),
+			DurationSpecScript.new(scope, duration_amount),
+			stack_policy,
+			str(effect.get("source_id", state.contract_id)),
+			effect.get("parameters", {}) if effect.get("parameters", {}) is Dictionary else {},
+		)
+		var applicability_reason: String = modifier_operation.validate(EffectContextScript.new(state), {})
+		if not applicability_reason.is_empty():
+			return {
+				"accepted": false,
+				"status": applicability_reason,
+				"message": "The Event run modifier cannot be applied in the current Run state.",
+				"details": {"reason": applicability_reason, "modifier_id": modifier_id},
+			}
 		return {"accepted": true}
 	if kind == "MAP_REVEAL":
 		if not effect.get("node_ids", []) is Array:

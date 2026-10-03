@@ -10,6 +10,8 @@ const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
 const EnemyIntent = preload("res://src/domain/combat/enemy_intent.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const IntentGraph = preload("res://src/domain/combat/intent_graph.gd")
 const IntentTransition = preload("res://src/domain/combat/intent_transition.gd")
 const PublicStateCondition = preload("res://src/domain/combat/public_state_condition.gd")
@@ -30,11 +32,26 @@ const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_ene
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const UseTechniqueCommand = preload("res://src/domain/commands/use_technique_command.gd")
 const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
+const TileInstance = preload("res://src/domain/tiles/tile_instance.gd")
+const TileZone = preload("res://src/domain/tiles/tile_zone.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
+const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
+const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
+const RunBattleSnapshot = preload("res://src/domain/run/run_battle_snapshot.gd")
 const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
+const Localization = preload("res://src/presentation/localization/localization.gd")
 
 const LEFT := "base.map_node.intro"
+const STAGE_FOUR_RUN_TECHNIQUE_IDS := [
+	"alpha.technique.draw_capacity",
+	"alpha.technique.pressure_dividend",
+	"alpha.technique.harbor_strike",
+	"alpha.technique.tide_draw",
+	"alpha.technique.ledger_wind",
+	"alpha.technique.refinement_practice",
+	"alpha.technique.first_measure",
+]
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -42,7 +59,9 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
 	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
+	test_stage_four_enemy_encounters_resolve_through_catalog_path(failures)
 	test_owned_passive_technique_applies_once_on_battle_entry(failures)
+	test_stage_four_run_techniques_resolve_through_existing_commands_and_resume_replay(failures)
 	test_reaction_techniques_resolve_only_in_matching_windows(failures)
 	test_boss_phases_are_explicit_and_deterministic(failures)
 	test_factory_rejects_invalid_enemy_without_mutation(failures)
@@ -222,6 +241,78 @@ func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Arra
 		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
 		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
 
+func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var phase2_registration = Phase2Catalog.register_all(registry)
+	var act_two_registration = AlphaActTwoCatalog.register_all(registry)
+	var scale_registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(phase2_registration.is_valid() and act_two_registration.is_valid() and scale_registration.is_valid(), "the full catalogs register the Stage 4 encounter roster", failures)
+	if not phase2_registration.is_valid() or not act_two_registration.is_valid() or not scale_registration.is_valid():
+		return
+	var domain := RunDomain.new("run.stage4.enemy.encounters", 8410, registry)
+	domain.execute(ChooseCharacterCommand.new("stage4.enemy.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("stage4.enemy.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var new_normal_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS
+	var new_elite_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS
+	for encounter_id in new_normal_encounter_ids + new_elite_encounter_ids:
+		var encounter = registry.resolve(encounter_id)
+		var expected_kind := EncounterDefinition.ELITE if new_elite_encounter_ids.has(encounter_id) else EncounterDefinition.NORMAL
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == expected_kind, "%s resolves to its authored encounter kind" % encounter_id, failures)
+		if not encounter is EncounterDefinition:
+			continue
+		var battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, expected_kind)
+		assert_true(battle != null, "%s creates a BattleDomain through EncounterFactory" % encounter_id, failures)
+		if battle == null:
+			continue
+		assert_true(battle.encounter_id == encounter_id and battle.enemy_definition.content_id == encounter.enemy_ids[0], "%s resolves its authored EnemyDefinition into combat" % encounter_id, failures)
+		var starting_intent = battle.combat_state.current_intent
+		var pressure_before: int = battle.combat_state.pressure
+		var draw_capacity_before: int = battle.combat_state.draw_capacity
+		var fatigue_before: int = battle.combat_state.fatigue
+		var reward_tax_before: int = battle.combat_state.reward_tax
+		var draw_wall_before: int = battle.zones.size(TileZone.DRAW_WALL)
+		if starting_intent != null and starting_intent.action_type in [EnemyIntent.INTEGRITY, EnemyIntent.HUNT]:
+			battle.zones.add(TileInstance.new("stage4.reserve.%s" % encounter_id, "base.tile.characters.1"), TileZone.RESERVE)
+		var intent_result = battle.combat_resolver.resolve_enemy_intent(battle.combat_state)
+		assert_true(intent_result.is_resolved(), "%s resolves its starting authored enemy intent" % encounter_id, failures)
+		if starting_intent == null:
+			continue
+		match starting_intent.action_type:
+			EnemyIntent.PRESSURE:
+				assert_true(battle.combat_state.pressure > pressure_before, "%s applies its authored Pressure action" % encounter_id, failures)
+			EnemyIntent.WALL_TAX:
+				assert_true(battle.combat_state.draw_capacity < draw_capacity_before, "%s applies its authored Wall Tax action" % encounter_id, failures)
+			EnemyIntent.CONTAMINATION:
+				assert_true(battle.zones.size(TileZone.DRAW_WALL) > draw_wall_before, "%s adds authored contamination to the Draw Wall" % encounter_id, failures)
+				var contamination_applied = _event_of_type(intent_result.events, DomainEvent.CONTAMINATION_APPLIED)
+				assert_true(contamination_applied != null and contamination_applied.data.get("contamination_id", "") == "base.contamination.clutter", "%s applies the supported Clutter contamination" % encounter_id, failures)
+			EnemyIntent.AUDIT:
+				assert_true(battle.combat_state.fatigue > fatigue_before, "%s applies its authored Audit action" % encounter_id, failures)
+			EnemyIntent.REWARD_TAX:
+				assert_true(battle.combat_state.reward_tax > reward_tax_before, "%s applies its authored Reward Tax action" % encounter_id, failures)
+			EnemyIntent.INTEGRITY, EnemyIntent.HUNT:
+				assert_true(_event_of_type(intent_result.events, DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
+
+	var persisted_domain := RunDomain.new("run.stage4.enemy.resume", 8411, registry)
+	persisted_domain.execute(ChooseCharacterCommand.new("stage4.enemy.resume.character", Phase2Catalog.CHARACTER_IDS[0]))
+	persisted_domain.execute(ChooseContractCommand.new("stage4.enemy.resume.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var selected_encounter_id: String = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS[0]
+	var intro_node_id: String = persisted_domain.map_definition.start_node_id
+	persisted_domain.state.map_state.payload_ids[intro_node_id] = selected_encounter_id
+	var selected = persisted_domain.execute(SelectMapNodeCommand.new("stage4.enemy.resume.select", intro_node_id))
+	assert_true(selected.is_accepted() and persisted_domain.current_battle.encounter_id == selected_encounter_id, "a new Act 1 Normal is selectable through the RunDomain map path", failures)
+	if not selected.is_accepted():
+		return
+	var saved = SaveCoordinator.new().save(persisted_domain)
+	assert_true(saved.get("accepted", false), "a new-enemy battle saves through the existing Suspend path", failures)
+	if not saved.get("accepted", false):
+		return
+	var loaded: Dictionary = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), registry)
+	assert_true(loaded.get("accepted", false), "a new-enemy battle resumes through the existing persistence path", failures)
+	if loaded.get("accepted", false):
+		assert_true(loaded.domain.current_battle.encounter_id == selected_encounter_id, "Resume restores the exact selected Stage 4 encounter", failures)
+		assert_true(loaded.domain.current_battle.enemy_definition.content_id == AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS[0], "Resume restores its authored enemy definition", failures)
+
 func test_owned_passive_technique_applies_once_on_battle_entry(failures: Array[String]) -> void:
 	var registry := _registry()
 	var passive := TechniqueDefinition.new(
@@ -261,6 +352,90 @@ func test_owned_passive_technique_applies_once_on_battle_entry(failures: Array[S
 	if second_resume.get("accepted", false):
 		assert_true(second_resume.domain.current_battle.combat_state.reserve_capacity == 4, "repeated reconstruction never double-applies the passive", failures)
 
+func test_stage_four_run_techniques_resolve_through_existing_commands_and_resume_replay(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var phase2_registration = Phase2Catalog.register_all(registry)
+	var act_two_registration = AlphaActTwoCatalog.register_all(registry)
+	var scale_registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(phase2_registration.is_valid() and act_two_registration.is_valid() and scale_registration.is_valid(), "the full production catalogs register for Run Technique interaction coverage", failures)
+	if not phase2_registration.is_valid() or not act_two_registration.is_valid() or not scale_registration.is_valid():
+		return
+	for technique_id in STAGE_FOUR_RUN_TECHNIQUE_IDS:
+		var definition = registry.resolve(technique_id)
+		assert_true(definition is TechniqueDefinition and not definition.effects.is_empty(), "%s is registered as typed production Technique content" % technique_id, failures)
+	if STAGE_FOUR_RUN_TECHNIQUE_IDS.any(func(technique_id): return not registry.resolve(technique_id) is TechniqueDefinition):
+		return
+
+	var control := _stage_four_technique_domain("run.stage4.technique.control", 8321, registry, false)
+	var domain := _stage_four_technique_domain("run.stage4.technique.effects", 8321, registry, true)
+	var control_entry = control.execute(SelectMapNodeCommand.new("stage4.control.enter", control.map_definition.start_node_id))
+	var entry = domain.execute(SelectMapNodeCommand.new("stage4.techniques.enter", domain.map_definition.start_node_id))
+	assert_true(control_entry.is_accepted() and entry.is_accepted(), "the control and owned-Technique Runs enter the same authored Battle", failures)
+	if not entry.is_accepted() or not control_entry.is_accepted():
+		return
+	var battle = domain.current_battle
+	var control_battle = control.current_battle
+	var unowned_before: Dictionary = control.checkpoint()
+	var unowned_rng_before: Dictionary = control.rng_snapshot()
+	var unowned_result = control.execute(UseTechniqueCommand.new("stage4.technique.unowned", STAGE_FOUR_RUN_TECHNIQUE_IDS[0]))
+	assert_true(not unowned_result.is_accepted() and unowned_result.validation.code == "TECHNIQUE_NOT_OWNED", "a registered new Run Technique remains unavailable until owned", failures)
+	assert_true(control.checkpoint() == unowned_before and control.rng_snapshot() == unowned_rng_before, "rejecting an unowned new Technique preserves Run state and every RNG stream", failures)
+	assert_true(domain.state.gold == control.state.gold + 1, "Ledger Wind grants one Gold through the existing battle-entry passive path", failures)
+	assert_true(domain.state.refinement_tokens == control.state.refinement_tokens + 1, "Refinement Practice grants one Refinement Token through the existing battle-entry passive path", failures)
+	assert_true(battle.combat_state.tp == control_battle.combat_state.tp + 1, "First Measure grants one TP through the existing battle-entry passive path", failures)
+
+	battle.combat_state.tp = 20
+	domain.state.current_battle_snapshot = RunBattleSnapshot.new(battle.checkpoint())
+	domain.replay_record = ReplayRecord.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
+	domain.replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), "ONGOING")
+	var capacity_before: int = battle.combat_state.draw_capacity
+	var draw_capacity_result = domain.execute(UseTechniqueCommand.new("stage4.technique.draw_capacity", "alpha.technique.draw_capacity"))
+	assert_true(draw_capacity_result.is_accepted() and battle.combat_state.draw_capacity == capacity_before + 1, "Draw Capacity grants one existing Draw Action through UseTechniqueCommand", failures)
+
+	var pressure_before: int = battle.combat_state.pressure
+	var pressure_tp_before: int = battle.combat_state.tp
+	var pressure_result = domain.execute(UseTechniqueCommand.new("stage4.technique.pressure_dividend", "alpha.technique.pressure_dividend"))
+	assert_true(pressure_result.is_accepted() and battle.combat_state.pressure == pressure_before + 1, "Pressure Dividend applies its authored Pressure tradeoff", failures)
+	assert_true(pressure_result.is_accepted() and battle.combat_state.tp == pressure_tp_before + 1, "Pressure Dividend grants three TP after paying its two-TP activation cost", failures)
+
+	var enemy_hp_before: int = battle.combat_state.enemy_hp
+	var strike_result = domain.execute(UseTechniqueCommand.new("stage4.technique.harbor_strike", "alpha.technique.harbor_strike"))
+	assert_true(strike_result.is_accepted() and battle.combat_state.enemy_hp == enemy_hp_before - 4, "Harbor Strike deals four direct enemy damage", failures)
+
+	var hand_before: int = battle.zones.size(TileZone.HAND)
+	var stability_before: int = battle.combat_state.stability
+	var draw_result = domain.execute(UseTechniqueCommand.new("stage4.technique.tide_draw", "alpha.technique.tide_draw"))
+	assert_true(draw_result.is_accepted() and battle.zones.size(TileZone.HAND) == hand_before + 1, "Tide Draw adds one Tile to the Hand", failures)
+	assert_true(draw_result.is_accepted() and battle.combat_state.stability == stability_before + 1, "Tide Draw also restores one Stability", failures)
+
+	var save = SaveMapper.suspend_snapshot(domain)
+	var resumed: Dictionary = SaveMapper.load_into_domain(save.to_dictionary(), registry)
+	assert_true(resumed.get("accepted", false), "the updated Technique Run resumes through the existing Suspend pipeline", failures)
+	if resumed.get("accepted", false):
+		assert_true(resumed.domain.checkpoint() == domain.checkpoint(), "Suspend/Resume preserves every Technique effect and the Battle snapshot", failures)
+		assert_true(resumed.domain.rng_snapshot() == domain.rng_snapshot(), "Suspend/Resume preserves the post-Technique RNG state", failures)
+
+	var replay_factory := func(replay_seed: int, _replay_content_version: String):
+		return _stage_four_technique_domain("run.stage4.technique.effects", replay_seed, registry, true, true)
+	var replay_report = ReplayVerifier.verify(domain.replay_record, replay_factory, domain.state.content_version)
+	assert_true(replay_report.is_match(), "the seven new Technique effects and accepted commands replay deterministically (%s)" % replay_report.reason, failures)
+
+func _stage_four_technique_domain(run_id: String, seed: int, registry: ContentRegistry, own_stage_four_techniques: bool, enter_battle: bool = false) -> RunDomain:
+	var domain := RunDomain.new(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	if own_stage_four_techniques:
+		for technique_id in STAGE_FOUR_RUN_TECHNIQUE_IDS:
+			domain.state.build_ownership.run_technique_ids.append(technique_id)
+	if enter_battle:
+		var entry = domain.execute(SelectMapNodeCommand.new("%s.enter" % run_id, domain.map_definition.start_node_id))
+		if entry.is_accepted():
+			domain.current_battle.combat_state.tp = 20
+			domain.state.current_battle_snapshot = RunBattleSnapshot.new(domain.current_battle.checkpoint())
+			domain.replay_record = ReplayRecord.new(seed, domain.state.content_version, run_id)
+			domain.replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), "ONGOING")
+	return domain
+
 func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[String]) -> void:
 	var contamination_graph := IntentGraph.new("contamination", [
 		EnemyIntent.new("contamination", "Contamination", 1, EnemyIntent.CONTAMINATION, [IntentTransition.fixed("contamination.loop", "contamination")]),
@@ -289,7 +464,11 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	assert_true(clean_used != null and clean_used.data.get("technique_id", "") == "base.technique.clean_table", "Clean Table responds to the matching Contamination intent", failures)
 	assert_true(clean_used != null and clean_used.data.get("reaction_trigger_id", "") == TechniqueDefinition.REACTION_ENEMY_CONTAMINATION_ADDED and clean_used.data.get("reaction_trigger_label", "") == "enemy Contamination is added", "the factual TechniqueUsed event names the declared trigger clearly", failures)
 	var reaction_feedback: String = RunPresentationController.new(clean_resumed)._feedback_for_events(clean_turn.events)
-	assert_true(reaction_feedback == "Clean Table responded when enemy Contamination is added.", "player-facing feedback explains when the Reaction responded (%s)" % reaction_feedback, failures)
+	var expected_reaction_feedback := Localization.template("UI_RUN_CONTROLLER_0055") % [
+		Localization.content_text("base.technique.clean_table"),
+		Localization.text("CONTENT_TECHNIQUE_0005"),
+	]
+	assert_true(reaction_feedback == expected_reaction_feedback, "player-facing feedback explains the Reaction using localized labels (%s)" % reaction_feedback, failures)
 	assert_true(_has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_OPENED) and _has_event(clean_turn.events, DomainEvent.REACTION_WINDOW_CLOSED), "the matching Reaction resolves inside a bounded opened and closed window", failures)
 	assert_true(_has_event(clean_turn.events, DomainEvent.TILE_PURGED), "Clean Table purges the newly added Contamination", failures)
 	var reaction_sequence_indexes: Array[int] = []
@@ -341,7 +520,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 		var skipped = _event_of_type(insufficient_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED)
 		assert_true(insufficient_turn.is_accepted() and skipped != null and skipped.data.get("reason", "") == "INSUFFICIENT_TP", "a matching Reaction with insufficient TP reports why it could not fire", failures)
 		var skipped_feedback: String = RunPresentationController.new(insufficient_domain)._feedback_for_events(insufficient_turn.events)
-		assert_true(skipped_feedback.contains("enemy Contamination is added") and skipped_feedback.contains("INSUFFICIENT_TP"), "player-facing feedback explains an unaffordable Reaction", failures)
+		assert_true(skipped_feedback.contains("enemy Contamination is added") and skipped_feedback.contains("Insufficient TP"), "player-facing feedback explains an unaffordable Reaction with a readable localized reason", failures)
 		assert_true(not _has_event(insufficient_turn.events, DomainEvent.TECHNIQUE_USED) and not _has_event(insufficient_turn.events, DomainEvent.REACTION_WINDOW_OPENED), "insufficient TP does not spend cost or open a response window", failures)
 		assert_true(insufficient_domain.current_battle.combat_state.tp == 0 and not _has_event(insufficient_turn.events, DomainEvent.TILE_PURGED), "an unaffordable Reaction leaves its effect unapplied and TP unchanged", failures)
 	else:

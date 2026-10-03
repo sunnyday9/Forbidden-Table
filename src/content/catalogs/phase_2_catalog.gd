@@ -1,5 +1,6 @@
 class_name Phase2Catalog
 extends RefCounted
+const ContentTextCatalogScript = preload("res://src/content/text/content_text_catalog.gd")
 
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const ContractDefinitionScript = preload("res://src/content/definitions/contract_definition.gd")
@@ -278,21 +279,21 @@ static func _yaku_definitions() -> Array:
 	var result: Array = YakuCatalogScript.representative_definitions()
 	result.append(YakuDefinitionScript.new(
 		PRODUCTION_YAKU_IDS[0],
-		"Pair Foundation",
+		ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0001"),
 		YakuDefinitionScript.BOTH,
 		YakuDefinitionScript.STRUCTURAL,
 		YakuDefinitionScript.PATTERN_COUNT,
-		{"pattern_type": "Pair", "target": 1, "label": "pair", "local_pattern_types": ["Pair"]},
+		{"pattern_type": "Pair", "target": 1, "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0029"), "local_pattern_types": ["Pair"]},
 		{"source_id": PRODUCTION_YAKU_IDS[0], "amount": 5, "tags": ["LOCAL_YAKU", "PAIR"]},
 		{"source_id": PRODUCTION_YAKU_IDS[0], "amount": 10, "tags": ["HAND_YAKU", "PAIR"]},
 	))
 	result.append(YakuDefinitionScript.new(
 		PRODUCTION_YAKU_IDS[1],
-		"Bamboo Concentration",
+		ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0002"),
 		YakuDefinitionScript.BOTH,
 		YakuDefinitionScript.SUIT_HONOR,
 		YakuDefinitionScript.SUIT_CONCENTRATION,
-		{"suit": "bamboo", "target": 9, "label": "bamboo tile"},
+		{"suit": "bamboo", "target": 9, "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0003")},
 		{"source_id": PRODUCTION_YAKU_IDS[1], "amount": 9, "tags": ["LOCAL_YAKU", "SUIT"]},
 		{"source_id": PRODUCTION_YAKU_IDS[1], "amount": 16, "tags": ["HAND_YAKU", "SUIT"]},
 	))
@@ -379,28 +380,28 @@ static func _enemy_definitions() -> Array:
 	var result: Array = [
 		EnemyDefinitionScript.new(
 			NORMAL_ENEMY_IDS[0],
-			_loop_graph("pressure_sentinel", [["pressure", "Advance Pressure", 2, "PRESSURE"], ["recover", "Measure the Table", 1, "PRESSURE"]]),
+			_loop_graph("pressure_sentinel", [["pressure", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0004"), 2, "PRESSURE"], ["recover", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0005"), 1, "PRESSURE"]]),
 			EnemyDefinitionScript.NORMAL,
 			8,
 			{"pressure_limit": 10, "integrity_damage": 0},
 		),
 		EnemyDefinitionScript.new(
 			NORMAL_ENEMY_IDS[1],
-			_loop_graph("wall_taxer", [["tax", "Tax the Wall", 1, "WALL_TAX"], ["wait", "Count the Wall", 0, "PRESSURE"]]),
+			_loop_graph("wall_taxer", [["tax", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0006"), 1, "WALL_TAX"], ["wait", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0007"), 0, "PRESSURE"]]),
 			EnemyDefinitionScript.NORMAL,
 			7,
 			{"draw_tax": 1, "pressure_limit": 9},
 		),
 		EnemyDefinitionScript.new(
 			NORMAL_ENEMY_IDS[2],
-			_loop_graph("integrity_collector", [["collect", "Collect Integrity", 1, "INTEGRITY"], ["seal", "Seal the Table", 2, "INTEGRITY"]]),
+			_loop_graph("integrity_collector", [["collect", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0008"), 1, "INTEGRITY"], ["seal", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0009"), 2, "INTEGRITY"]]),
 			EnemyDefinitionScript.NORMAL,
 			9,
 			{"integrity_damage": 1, "pressure_limit": 10},
 		),
 		EnemyDefinitionScript.new(
 			NORMAL_ENEMY_IDS[3],
-			_loop_graph("contaminator", [["seed", "Seed Contamination", 1, "CONTAMINATION"], ["spread", "Spread Contamination", 2, "CONTAMINATION"]]),
+			_loop_graph("contaminator", [["seed", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0010"), 1, "CONTAMINATION"], ["spread", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0011"), 2, "CONTAMINATION"]]),
 			EnemyDefinitionScript.NORMAL,
 			8,
 			{"pressure_limit": 10},
@@ -416,7 +417,7 @@ static func _enemy_definitions() -> Array:
 		),
 		EnemyDefinitionScript.new(
 			BOSS_ID,
-			_loop_graph("table_breaker", [["tempo", "Break the Tempo", 2, "PRESSURE"], ["interfere", "Interfere with the Table", 2, "TABLE_INTERFERENCE"]]),
+			_loop_graph("table_breaker", [["tempo", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0012"), 2, "PRESSURE"], ["interfere", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0013"), 2, "TABLE_INTERFERENCE"]]),
 			EnemyDefinitionScript.BOSS,
 			30,
 			{"pressure_limit": 14, "boss": true},
@@ -447,7 +448,7 @@ static func _ledger_hunter_graph() -> IntentGraphScript:
 	var collect_id := "ledger_hunter.collect"
 	var watch := EnemyIntentScript.new(
 		watch_id,
-		"Audit the Run",
+		ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0014"),
 		1,
 		"AUDIT",
 		[
@@ -463,8 +464,8 @@ static func _ledger_hunter_graph() -> IntentGraphScript:
 			),
 		],
 	)
-	var hunt := EnemyIntentScript.new(hunt_id, "Hunt the Weak Line", 3, "HUNT", [IntentTransitionScript.fixed("ledger_hunter.hunt.next", watch_id)])
-	var collect := EnemyIntentScript.new(collect_id, "Collect the Ledger", 1, "REWARD_TAX", [IntentTransitionScript.fixed("ledger_hunter.collect.next", watch_id)])
+	var hunt := EnemyIntentScript.new(hunt_id, ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0015"), 3, "HUNT", [IntentTransitionScript.fixed("ledger_hunter.hunt.next", watch_id)])
+	var collect := EnemyIntentScript.new(collect_id, ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0016"), 1, "REWARD_TAX", [IntentTransitionScript.fixed("ledger_hunter.collect.next", watch_id)])
 	return IntentGraphScript.new(watch_id, [watch, hunt, collect])
 
 static func _boss_phases() -> Array:
@@ -475,7 +476,7 @@ static func _boss_phases() -> Array:
 			"max_hp": 30,
 			"pressure_limit": 14,
 			"pressure_relief": 1,
-			"intent_graph": _loop_graph("table_breaker.tempo", [["open", "Break the Tempo", 2, "PRESSURE"], ["echo", "Echo the Tempo", 1, "PRESSURE"]]),
+			"intent_graph": _loop_graph("table_breaker.tempo", [["open", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0017"), 2, "PRESSURE"], ["echo", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0018"), 1, "PRESSURE"]]),
 		},
 		{
 			"phase_id": "table_interference",
@@ -483,7 +484,7 @@ static func _boss_phases() -> Array:
 			"max_hp": 20,
 			"pressure_limit": 12,
 			"pressure_relief": 2,
-			"intent_graph": _loop_graph("table_breaker.interference", [["jam", "Jam the Table", 2, "TABLE_INTERFERENCE"], ["tax", "Tax the Draw", 1, "WALL_TAX"]]),
+			"intent_graph": _loop_graph("table_breaker.interference", [["jam", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0019"), 2, "TABLE_INTERFERENCE"], ["tax", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0020"), 1, "WALL_TAX"]]),
 		},
 		{
 			"phase_id": "rule_breaker",
@@ -491,7 +492,7 @@ static func _boss_phases() -> Array:
 			"max_hp": 10,
 			"pressure_limit": 10,
 			"pressure_relief": 3,
-			"intent_graph": _loop_graph("table_breaker.rule_breaker", [["rewrite", "Rewrite the Rule", 3, "RULE_BREAKER"], ["seal", "Seal the Rule", 2, "RULE_BREAKER"]]),
+			"intent_graph": _loop_graph("table_breaker.rule_breaker", [["rewrite", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0021"), 3, "RULE_BREAKER"], ["seal", ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0022"), 2, "RULE_BREAKER"]]),
 		},
 	]
 
@@ -515,28 +516,28 @@ static func _encounter_variants(base_id: String, enemy_id: String, kind: String)
 static func _event_definitions() -> Array:
 	return [
 		EventDefinitionScript.new(EVENT_IDS[0], [
-			{"choice_id": "spend_token", "label": "Spend a Refinement Token", "effects": [typed_effect("event.tile_surgery.spend", "ModifyRefinementTokens", -1)]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "spend_token", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0023"), "effects": [typed_effect("event.tile_surgery.spend", "ModifyRefinementTokens", -1)]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0030"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[1], [
-			{"choice_id": "accept", "label": "Accept: +1 starting Pressure in later battles; +2 Gold per victory this Run", "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "accept", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0024"), "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0031"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[2], [
-			{"choice_id": "exchange", "label": "Exchange Gold", "effects": [typed_effect("event.gold_exchange.exchange", "ModifyRunCurrency", -3)]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "exchange", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0025"), "effects": [typed_effect("event.gold_exchange.exchange", "ModifyRunCurrency", -3)]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0032"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[3], [
-			{"choice_id": "reveal", "label": "Reveal the Route", "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.shop", "base.map_node.workshop", "base.map_node.elite"]}]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "reveal", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0026"), "effects": [{"kind": "MAP_REVEAL", "node_ids": ["base.map_node.shop", "base.map_node.workshop", "base.map_node.elite"]}]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0033"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": "Carry: +1 Settlement Capacity in every later battle this Run", "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0027"), "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0034"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[5], [
-			{"choice_id": "remember", "label": "Remember the Rule", "effects": [typed_effect("event.rule_memory.remember", "GainTP", 1)]},
-			{"choice_id": "leave", "label": "Leave", "is_skip": true, "effects": []},
+			{"choice_id": "remember", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0028"), "effects": [typed_effect("event.rule_memory.remember", "GainTP", 1)]},
+			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0035"), "is_skip": true, "effects": []},
 		]),
 	]
 

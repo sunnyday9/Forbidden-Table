@@ -116,6 +116,11 @@ static func from_dictionary(data: Dictionary) -> Dictionary:
 		return {"accepted": false, "code": "INVALID_META_PROGRESS"}
 	if int(progress.get("act_two_normal_ending_count", profile.act_two_normal_ending_run_ids.size())) != profile.act_two_normal_ending_run_ids.size():
 		return {"accepted": false, "code": "META_PROGRESS_COUNT_MISMATCH"}
+	if profile.progress_count() > 0:
+		for identifier in AlphaScaleCatalogScript.STAGE_3_CONTRACT_IDS:
+			if not profile.discovered_contract_ids.has(identifier) or not profile.unlocked_contract_ids.has(identifier):
+				return {"accepted": false, "code": "META_MILESTONE_UNLOCK_MISSING", "content_id": identifier}
+		profile._discover_and_unlock(profile.discovered_contract_ids, profile.unlocked_contract_ids, _string_ids(AlphaScaleCatalogScript.CONTRACT_IDS))
 	if profile.progress_count() > 0 and (profile.unlocked_character_ids.size() != known_characters.size() or profile.unlocked_contract_ids.size() != known_contracts.size()):
 		return {"accepted": false, "code": "META_MILESTONE_UNLOCK_MISSING"}
 	if profile.progress_count() == 0 and (profile.unlocked_character_ids.size() > Phase2CatalogScript.CHARACTER_IDS.size() or profile.unlocked_contract_ids.size() > Phase2CatalogScript.CONTRACT_IDS.size()):

@@ -8,6 +8,7 @@ const RunScene = preload("res://scenes/run/run_scene.tscn")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const ContentRegistryScript = preload("res://src/content/registry/content_registry.gd")
+const ContentDefinitionScript = preload("res://src/content/definitions/content_definition.gd")
 const EncounterDefinitionScript = preload("res://src/content/definitions/encounter_definition.gd")
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
@@ -29,11 +30,18 @@ const ContentVersionMigrationScript = preload("res://src/infrastructure/persiste
 const JsonIntegerCodecScript = preload("res://src/infrastructure/serialization/json_integer_codec.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const MetaProgressStateScript = preload("res://src/domain/run/meta_progress_state.gd")
 const Phase2V1SuspendSnapshotFixtureScript = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
+const SelectMapNodeCommandScript = preload("res://src/domain/commands/select_map_node_command.gd")
+const EnterShopCommandScript = preload("res://src/domain/commands/enter_shop_command.gd")
+const ExitShopCommandScript = preload("res://src/domain/commands/exit_shop_command.gd")
+const EnterWorkshopCommandScript = preload("res://src/domain/commands/enter_workshop_command.gd")
+const ExitWorkshopCommandScript = preload("res://src/domain/commands/exit_workshop_command.gd")
+const ShopWorkshopTestScript = preload("res://tests/shop_workshop_test.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -41,6 +49,8 @@ func run() -> Array[String]:
 	test_contract_choices_explain_alpha_tradeoffs(failures)
 	test_scene_dispatches_allowlisted_content_migrations_for_full_registry(failures)
 	test_scene_rejects_active_changed_event_migration_and_preserves_source(failures)
+	test_controller_autosave_reloads_resulting_battle_phase(failures)
+	test_controller_autosaves_reload_shop_and_workshop_exits(failures)
 	test_run_scene_persists_and_resumes_suspend_save(failures)
 	test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures)
 	test_interrupted_suspend_sources_are_not_rolled_back(failures)
@@ -112,6 +122,8 @@ func test_contract_choices_explain_alpha_tradeoffs(failures: Array[String]) -> v
 		"alpha.contract.quiet_current": "Quiet Current",
 		"alpha.contract.open_ledger": "Open Ledger",
 		"alpha.contract.brittle_compass": "Brittle Compass",
+		"alpha.contract.long_current": "Long Current",
+		"alpha.contract.house_tithe": "House Tithe",
 	}
 	for contract_id in expected_names:
 		var matching_actions: Array = contract_actions.filter(func(action): return action.get("id", "") == "contract:%s" % contract_id)
@@ -154,7 +166,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 		current_scene.free()
 		return
 	var full_registry = registry_result.registry
-	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V4, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
+	assert_true(full_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V13, "RunScene uses the complete current Phase 2 + Act Two + Alpha Scale content identity", failures)
 	var current_domain = _migration_source_domain(full_registry, "run.scene.current-identity", 761, true, failures)
 	var current_snapshot = SaveMapperScript.suspend_snapshot(current_domain)
 	var current_bytes: String = current_snapshot.serialize()
@@ -178,9 +190,19 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 	var legacy_versions: Array[String] = [
 		ContentVersionMigrationScript.PHASE2_V1,
 		ContentVersionMigrationScript.PHASE2_V2,
+		ContentVersionMigrationScript.ACT_TWO_BUNDLE_V4,
 		ContentVersionMigrationScript.ACT_TWO_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V3,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V4,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V5,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V6,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V7,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V8,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V9,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V10,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V11,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V12,
 	]
 	for index in range(legacy_versions.size()):
 		var legacy_version: String = legacy_versions[index]
@@ -193,7 +215,7 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 			scene.free()
 			continue
 		var scene_registry = full_result.registry
-		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V4, "%s migration targets the complete player registry" % legacy_version, failures)
+		assert_true(scene_registry.content_version() == ContentVersionMigrationScript.ACT_TWO_SCALE_V13, "%s migration targets the complete player registry" % legacy_version, failures)
 		var source_data: Dictionary
 		var source_bytes := ""
 		if legacy_version == ContentVersionMigrationScript.PHASE2_V1:
@@ -210,10 +232,20 @@ func test_scene_dispatches_allowlisted_content_migrations_for_full_registry(fail
 				scene.free()
 				continue
 			source_data = fixture_parse.data
+		elif legacy_version == ContentVersionMigrationScript.ACT_TWO_BUNDLE_V4:
+			var no_scale_registry = ContentRegistryScript.new()
+			Phase2CatalogScript.register_all(no_scale_registry)
+			AlphaActTwoCatalogScript.register_all(no_scale_registry)
+			var no_scale_domain = _migration_source_domain(no_scale_registry, "run.scene.legacy.%d" % index, 770 + index, false, failures)
+			source_data = SaveMapperScript.suspend_snapshot(no_scale_domain).to_dictionary()
+			_remap_issue_86_event_payloads_to_legacy_ids(source_data)
+			_set_snapshot_content_identity(source_data, legacy_version)
+			source_bytes = SuspendSnapshotScript.from_dictionary(source_data).serialize()
 		else:
-			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3]
+			var alpha_source := legacy_version in [ContentVersionMigrationScript.ACT_TWO_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V2, ContentVersionMigrationScript.ACT_TWO_SCALE_V3, ContentVersionMigrationScript.ACT_TWO_SCALE_V4, ContentVersionMigrationScript.ACT_TWO_SCALE_V5, ContentVersionMigrationScript.ACT_TWO_SCALE_V6, ContentVersionMigrationScript.ACT_TWO_SCALE_V7, ContentVersionMigrationScript.ACT_TWO_SCALE_V8, ContentVersionMigrationScript.ACT_TWO_SCALE_V9, ContentVersionMigrationScript.ACT_TWO_SCALE_V10, ContentVersionMigrationScript.ACT_TWO_SCALE_V11, ContentVersionMigrationScript.ACT_TWO_SCALE_V12]
 			var source_domain = _migration_source_domain(scene_registry, "run.scene.legacy.%d" % index, 770 + index, alpha_source, failures)
 			source_data = SaveMapperScript.suspend_snapshot(source_domain).to_dictionary()
+			_remap_issue_86_event_payloads_to_legacy_ids(source_data)
 			_set_snapshot_content_identity(source_data, legacy_version)
 			source_bytes = SuspendSnapshotScript.from_dictionary(source_data).serialize()
 		var expected_state: Dictionary = source_data.authoritative_state.duplicate(true)
@@ -272,6 +304,14 @@ func test_scene_rejects_active_changed_event_migration_and_preserves_source(fail
 	var legacy_full_versions: Array[String] = [
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V2,
 		ContentVersionMigrationScript.ACT_TWO_SCALE_V3,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V4,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V5,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V6,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V7,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V8,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V9,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V10,
+		ContentVersionMigrationScript.ACT_TWO_SCALE_V11,
 	]
 	for index in range(legacy_full_versions.size()):
 		var legacy_version: String = legacy_full_versions[index]
@@ -312,7 +352,12 @@ func test_scene_rejects_active_changed_event_migration_and_preserves_source(fail
 		if FileAccess.file_exists(preserved_path):
 			assert_true(FileAccess.get_file_as_string(preserved_path) == source_bytes, "%s preserved Event source is byte-for-byte identical" % legacy_version, failures)
 		var status = scene.find_child("SuspendStatus", true, false)
-		assert_true(status is Label and str(status.text).contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "%s player sees the specific semantic migration rejection" % legacy_version, failures)
+		var details_button := scene.find_child("SuspendDetailsButton", true, false) as Button
+		if details_button != null:
+			details_button.pressed.emit()
+		var details := scene.find_child("SuspendDetailsValue", true, false) as Label
+		assert_true(status is Label and str(status.text).contains("original save is unchanged"), "%s recovery guidance states source preservation" % legacy_version, failures)
+		assert_true(details_button != null and details != null and details.visible and details.text.contains("UNSUPPORTED_ACTIVE_EVENT_MODIFIER_MIGRATION"), "%s player can inspect the specific semantic migration rejection in Details" % legacy_version, failures)
 		scene.free()
 		for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", preserved_path, profile_path]:
 			_clear_test_file(path)
@@ -391,6 +436,76 @@ func test_run_scene_persists_and_resumes_suspend_save(failures: Array[String]) -
 	for suffix in [".tmp", ".bak", ".rejected"]:
 		_clear_test_file(suspend_path + suffix)
 
+func test_controller_autosave_reloads_resulting_battle_phase(failures: Array[String]) -> void:
+	var suspend_path := "user://run_controller_battle_entry_%d.json" % Time.get_ticks_usec()
+	var registry = ContentRegistryScript.new()
+	for report in [
+		Phase2CatalogScript.register_all(registry),
+		AlphaActTwoCatalogScript.register_all(registry),
+		AlphaScaleCatalogScript.register_all(registry),
+	]:
+		assert_true(report.is_valid(), "the autosave fixture's content registration is valid", failures)
+	assert_true(registry.validate().is_valid(), "the autosave fixture registry validates before Run start", failures)
+	var store = SuspendSaveStoreScript.new(suspend_path)
+	store.clear()
+	var domain = RunDomainScript.new_alpha_run("run.controller.battle-entry", 481516, registry)
+	var controller = RunPresentationControllerScript.new(domain, null, null, store)
+	var character_result = controller.submit(ChooseCharacterCommandScript.new("run.controller.character", "base.character.sequence"))
+	var contract_result = controller.submit(ChooseContractCommandScript.new("run.controller.contract", "base.contract.pressure"))
+	assert_true(character_result.accepted and contract_result.accepted, "the real controller reaches Map Choice before entering Battle", failures)
+	var select_result = controller.submit(SelectMapNodeCommandScript.new("run.controller.select-map-node", domain.map_definition.start_node_id))
+	assert_true(select_result.accepted and domain.state.phase == RunPhaseScript.BATTLE, "the real controller accepts SelectMapNode into the resulting Battle phase", failures)
+	var saved_source: Dictionary = store.read_source()
+	assert_true(saved_source.get("accepted", false) and saved_source.get("exists", false), "the real controller has already written the map-entry autosave", failures)
+	if saved_source.get("accepted", false) and saved_source.get("exists", false):
+		var loaded: Dictionary = SaveMapperScript.load_into_domain(str(saved_source.get("contents", "")), registry)
+		assert_true(loaded.get("accepted", false), "the immediate map-entry autosave reloads (%s: %s)" % [loaded.get("code", ""), loaded.get("errors", [])], failures)
+		if loaded.get("accepted", false):
+			assert_true(loaded.domain.state.phase == RunPhaseScript.BATTLE, "the immediate autosave resumes in the resulting Battle phase", failures)
+			assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_START", "the immediate autosave records the resulting Battle boundary", failures)
+			assert_true(loaded.domain.checkpoint() == domain.checkpoint(), "the immediate autosave preserves the exact authoritative Battle state", failures)
+			assert_true(loaded.domain.verify_replay().status == "MATCH", "the immediate autosave preserves accepted-command replay", failures)
+	store.clear()
+	_clear_test_file(suspend_path)
+
+func test_controller_autosaves_reload_shop_and_workshop_exits(failures: Array[String]) -> void:
+	var registry = ShopWorkshopTestScript.new()._registry()
+	registry.register(ContentDefinitionScript.new("base.special.copy_license"))
+	registry.register(ContentDefinitionScript.new("base.special.refinement_token"))
+	var transitions: Array[Dictionary] = [
+		{"kind": "Shop", "branch": "base.map_node.normal.left", "node": "base.map_node.shop", "enter": EnterShopCommandScript, "exit": ExitShopCommandScript},
+		{"kind": "Workshop", "branch": "base.map_node.normal.right", "node": "base.map_node.workshop", "enter": EnterWorkshopCommandScript, "exit": ExitWorkshopCommandScript},
+	]
+	for transition in transitions:
+		var kind: String = str(transition.get("kind", ""))
+		var run_id := "run.controller.%s-exit" % kind.to_lower()
+		var domain = RunDomainScript.new(run_id, 481517 if kind == "Shop" else 481518, registry)
+		var character = domain.execute(ChooseCharacterCommandScript.new("%s.character" % run_id, "base.character.sequence"))
+		var contract = domain.execute(ChooseContractCommandScript.new("%s.contract" % run_id, "base.contract.pressure"))
+		var intro = domain.execute(SelectMapNodeCommandScript.new("%s.intro" % run_id, "base.map_node.intro"))
+		var branch = domain.execute(SelectMapNodeCommandScript.new("%s.branch" % run_id, str(transition.get("branch", ""))))
+		var target = domain.execute(SelectMapNodeCommandScript.new("%s.target" % run_id, str(transition.get("node", ""))))
+		assert_true(character.accepted and contract.accepted and intro.accepted and branch.accepted and target.accepted, "%s autosave fixture reaches its authored node through accepted Run Commands" % kind, failures)
+		assert_true(domain.state.phase == RunPhaseScript.MAP_CHOICE, "%s autosave fixture remains in Map Choice before entry" % kind, failures)
+		var suspend_path := "user://run_controller_%s_exit_%d.json" % [kind.to_lower(), Time.get_ticks_usec()]
+		var store = SuspendSaveStoreScript.new(suspend_path)
+		store.clear()
+		var controller = RunPresentationControllerScript.new(domain, null, null, store)
+		var entered = controller.submit(transition.get("enter").new("%s.enter" % run_id))
+		assert_true(entered.accepted, "the real controller enters %s" % kind, failures)
+		var exited = controller.submit(transition.get("exit").new("%s.exit" % run_id))
+		assert_true(exited.accepted and domain.state.phase == RunPhaseScript.MAP_CHOICE, "the real controller exits %s to Map Choice" % kind, failures)
+		var saved_source: Dictionary = store.read_source()
+		assert_true(saved_source.get("accepted", false) and saved_source.get("exists", false), "the real controller writes the immediate %s-exit autosave" % kind, failures)
+		if saved_source.get("accepted", false) and saved_source.get("exists", false):
+			var loaded: Dictionary = SaveMapperScript.load_into_domain(str(saved_source.get("contents", "")), registry)
+			assert_true(loaded.get("accepted", false), "the immediate %s-exit autosave reloads (%s: %s)" % [kind, loaded.get("code", ""), loaded.get("errors", [])], failures)
+			if loaded.get("accepted", false):
+				assert_true(loaded.domain.state.phase == RunPhaseScript.MAP_CHOICE, "the immediate %s-exit autosave resumes in Map Choice" % kind, failures)
+				assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "MAP_NODE", "the immediate %s-exit autosave records the Map Node boundary" % kind, failures)
+		store.clear()
+		_clear_test_file(suspend_path)
+
 func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Array[String]) -> void:
 	var suspend_path := "user://run_scene_rejected_suspend_%d.json" % Time.get_ticks_usec()
 	var profile_path := "user://run_scene_rejected_suspend_profile_%d.json" % Time.get_ticks_usec()
@@ -419,6 +534,8 @@ func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Arr
 	assert_true(new_run_button is Button, "the player can explicitly choose a new Run after preservation", failures)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
+		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
+		scene._confirm_pending_new_run()
 	assert_true(scene.controller != null, "the explicit recovery choice starts a fresh Run", failures)
 	assert_true(not FileAccess.file_exists(suspend_path), "the old active slot is cleared only after the explicit New Run choice", failures)
 	assert_true(FileAccess.file_exists(preserved_path) and FileAccess.get_file_as_string(preserved_path) == source_bytes, "starting over keeps the rejected source available for recovery", failures)
@@ -460,6 +577,8 @@ func test_interrupted_suspend_sources_are_not_rolled_back(failures: Array[String
 	var new_run_button = scene.find_child("NewRunFromSuspendButton", true, false)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
+		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
+		scene._confirm_pending_new_run()
 	assert_true(scene.controller != null, "explicit New Run recovers from an interrupted slot", failures)
 	assert_true(not FileAccess.file_exists(suspend_path) and not FileAccess.file_exists(suspend_path + ".tmp") and not FileAccess.file_exists(suspend_path + ".bak"), "only the explicit New Run action retires interrupted sources", failures)
 	assert_true(FileAccess.get_file_as_string(rejected_main) == main_bytes and FileAccess.get_file_as_string(rejected_main + ".1") == temporary_bytes and FileAccess.get_file_as_string(rejected_main + ".2") == backup_bytes, "explicit recovery keeps every original source copied byte for byte", failures)
@@ -527,6 +646,8 @@ func test_terminal_new_run_retires_old_suspend_slot(failures: Array[String]) -> 
 		assert_true(written.get("accepted", false), "terminal checkpoint occupies the single save slot before New Run", failures)
 	scene._render()
 	scene._on_new_run_pressed()
+	assert_true(scene.controller.domain.state.run_id == old_run_id and FileAccess.file_exists(suspend_path), "opening terminal New Run confirmation preserves the current Run and slot", failures)
+	scene._confirm_pending_new_run()
 	assert_true(scene.controller != null and scene.controller.domain.state.run_id != old_run_id, "explicit terminal New Run starts a different Run", failures)
 	assert_true(not FileAccess.file_exists(suspend_path), "terminal New Run clears the prior Run slot before starting", failures)
 	if scene.controller != null:
@@ -885,6 +1006,27 @@ func _set_snapshot_content_identity(snapshot: Dictionary, content_version: Strin
 	var metadata: Dictionary = snapshot.get("checkpoint_metadata", {}).duplicate(true)
 	metadata["state_hash"] = _run_state_hash(state)
 	snapshot["checkpoint_metadata"] = metadata
+
+func _remap_issue_86_event_payloads_to_legacy_ids(snapshot: Dictionary) -> void:
+	var state: Dictionary = snapshot.get("authoritative_state", {}).duplicate(true)
+	var map_state: Dictionary = state.get("map_state", {}).duplicate(true)
+	var payload_ids: Dictionary = map_state.get("payload_ids", {}).duplicate(true)
+	var old_act_one_ids := [
+		"base.event.tile_surgery", "base.event.risk_bargain", "base.event.gold_exchange",
+		"base.event.map_reveal", "base.event.contract_clause", "base.event.rule_memory",
+	]
+	for event_index in AlphaScaleCatalogScript.ACT_ONE_EVENT_IDS.size():
+		for node_id in payload_ids.keys():
+			if str(payload_ids[node_id]) == AlphaScaleCatalogScript.ACT_ONE_EVENT_IDS[event_index]:
+				payload_ids[node_id] = old_act_one_ids[event_index]
+	for event_index in AlphaActTwoCatalogScript.ACT_TWO_ADDITIONAL_EVENT_IDS.size():
+		for node_id in payload_ids.keys():
+			if str(payload_ids[node_id]) == AlphaActTwoCatalogScript.ACT_TWO_ADDITIONAL_EVENT_IDS[event_index]:
+				payload_ids[node_id] = AlphaActTwoCatalogScript.ACT_TWO_EVENT_IDS[event_index]
+	map_state["payload_ids"] = payload_ids
+	state["map_state"] = map_state
+	snapshot["authoritative_state"] = state
+	snapshot["run_state"] = state.duplicate(true)
 
 func _run_state_hash(state: Dictionary) -> String:
 	var deterministic_state: Dictionary = state.duplicate(true)

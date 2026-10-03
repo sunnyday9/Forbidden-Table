@@ -1,0 +1,15 @@
+{
+  "scope": "Targeted Playwright inspection of the browser review after motion refinements",
+  "instant": {
+    "ambient": false,
+    "hoverTransform": "none",
+    "transitionDuration": "0s"
+  },
+  "screenInterrupt": {
+    "from": "Settlement playback",
+    "to": "Character selection",
+    "waitMilliseconds": 1200,
+    "caption": "Choose a motion study and Replay. All game values are illustrative."
+  },
+  "approval": "pending"
+}

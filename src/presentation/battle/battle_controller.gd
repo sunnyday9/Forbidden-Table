@@ -1,5 +1,6 @@
 class_name BattleController
 extends RefCounted
+const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 signal presentation_changed
 
@@ -72,7 +73,7 @@ func _init(initial_run_seed: int = 13, initial_content_version: String = "conten
 		_rng_streams,
 	)
 	presentation.sync(_snapshot())
-	presentation.status = "Draw to find a Pattern."
+	presentation.status = LocalizationCatalogScript.text("UI_BATTLE_CONTROLLER_0001")
 	replay_record = ReplayRecordScript.new(run_seed, content_version)
 	replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), combat_state.terminal_outcome)
 

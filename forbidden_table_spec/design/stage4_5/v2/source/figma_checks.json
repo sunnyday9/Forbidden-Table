@@ -1,0 +1,677 @@
+{
+  "measurements": [
+    {
+      "id": "2022:2",
+      "name": "V2 \u00b7 01 \u00b7 character \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:49",
+      "name": "V2 \u00b7 02 \u00b7 contract \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:86",
+      "name": "V2 \u00b7 03 \u00b7 map-act-1 \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:147",
+      "name": "V2 \u00b7 04 \u00b7 map-act-2 \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:208",
+      "name": "V2 \u00b7 05 \u00b7 battle-empty \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:259",
+      "name": "V2 \u00b7 06 \u00b7 battle-table \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:363",
+      "name": "V2 \u00b7 07 \u00b7 pattern-settlement \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2022:475",
+      "name": "V2 \u00b7 08 \u00b7 complete-hand \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:179",
+      "name": "V2 \u00b7 09 \u00b7 tile-detail \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:224",
+      "name": "V2 \u00b7 10 \u00b7 critical-feedback \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:310",
+      "name": "V2 \u00b7 11 \u00b7 event \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:341",
+      "name": "V2 \u00b7 12 \u00b7 event-unavailable \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:370",
+      "name": "V2 \u00b7 13 \u00b7 reward-normal \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:423",
+      "name": "V2 \u00b7 14 \u00b7 reward-elite \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:479",
+      "name": "V2 \u00b7 15 \u00b7 reward-boss \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:535",
+      "name": "V2 \u00b7 16 \u00b7 act-transition \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:562",
+      "name": "V2 \u00b7 17 \u00b7 shop \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:605",
+      "name": "V2 \u00b7 18 \u00b7 shop-empty \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:633",
+      "name": "V2 \u00b7 19 \u00b7 purchase-confirm \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:661",
+      "name": "V2 \u00b7 20 \u00b7 workshop-services \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:696",
+      "name": "V2 \u00b7 21 \u00b7 workshop-target \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:782",
+      "name": "V2 \u00b7 22 \u00b7 workshop-value \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:823",
+      "name": "V2 \u00b7 23 \u00b7 workshop-confirm \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:860",
+      "name": "V2 \u00b7 24 \u00b7 tutorial \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:962",
+      "name": "V2 \u00b7 25 \u00b7 help \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:991",
+      "name": "V2 \u00b7 26 \u00b7 settings \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:1027",
+      "name": "V2 \u00b7 27 \u00b7 summary-victory \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:1070",
+      "name": "V2 \u00b7 28 \u00b7 summary-defeat \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:1113",
+      "name": "V2 \u00b7 29 \u00b7 summary-legacy \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2024:1144",
+      "name": "V2 \u00b7 30 \u00b7 run-complete \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:468",
+      "name": "V2 \u00b7 31 \u00b7 resume \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:496",
+      "name": "V2 \u00b7 32 \u00b7 save-error \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:526",
+      "name": "V2 \u00b7 33 \u00b7 abandon-confirm \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:553",
+      "name": "V2 \u00b7 34 \u00b7 action-error \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:591",
+      "name": "V2 \u00b7 35 \u00b7 state-specimens \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    },
+    {
+      "id": "2025:658",
+      "name": "V2 \u00b7 36 \u00b7 pseudo-expansion \u00b7 Proposed",
+      "w": 960,
+      "h": 540,
+      "footerBottom": 512,
+      "buttonOverflow": [],
+      "minButtonHeight": 44,
+      "headerOverflow": []
+    }
+  ],
+  "sheets": [
+    {
+      "id": "2028:579",
+      "name": "V2 review index \u00b7 1\u201312",
+      "w": 1410,
+      "h": 1146.5999755859375
+    },
+    {
+      "id": "2028:1332",
+      "name": "V2 review index \u00b7 13\u201324",
+      "w": 1410,
+      "h": 1146.5999755859375
+    },
+    {
+      "id": "2028:1930",
+      "name": "V2 review index \u00b7 25\u201336",
+      "w": 1410,
+      "h": 1146.5999755859375
+    }
+  ],
+  "date": "2026-10-01",
+  "scope": "Editable Figma mockup geometry only; no Godot verification",
+  "motion": {
+    "rootId": "2027:532",
+    "tileId": "2027:574",
+    "wrapperId": "2031:1109",
+    "timelines": [
+      {
+        "id": "2027:532",
+        "duration": 2
+      }
+    ],
+    "tracks": {
+      "TRANSLATION_X": {
+        "id": "KeyframeTrackId:2031:1110",
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 0
+        },
+        "keyframes": [
+          {
+            "id": "2031:1111",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": 90
+            },
+            "timelinePosition": 0
+          },
+          {
+            "id": "2031:1112",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": 0
+            },
+            "timelinePosition": 0.6
+          }
+        ]
+      },
+      "TRANSLATION_Y": {
+        "id": "KeyframeTrackId:2031:1113",
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 0
+        },
+        "keyframes": [
+          {
+            "id": "2031:1114",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": -96
+            },
+            "timelinePosition": 0
+          },
+          {
+            "id": "2031:1115",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": 0
+            },
+            "timelinePosition": 0.6
+          }
+        ]
+      },
+      "ROTATION": {
+        "id": "KeyframeTrackId:2031:1116",
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 0
+        },
+        "keyframes": [
+          {
+            "id": "2031:1117",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": -7.999999938029066
+            },
+            "timelinePosition": 0
+          },
+          {
+            "id": "2031:1118",
+            "easing": {
+              "type": "EASE_OUT",
+              "easingFunctionCubicBezier": {
+                "x1": 0,
+                "y1": 0,
+                "x2": 0.58,
+                "y2": 1
+              }
+            },
+            "value": {
+              "type": "FLOAT",
+              "value": 0
+            },
+            "timelinePosition": 0.6
+          }
+        ]
+      }
+    },
+    "animations": {
+      "TRANSLATION_X": {
+        "tracks": [
+          {
+            "id": "KeyframeTrackId:2031:1110",
+            "keyframes": [
+              {
+                "id": "2031:1111",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": 90
+                },
+                "timelinePosition": 0
+              },
+              {
+                "id": "2031:1112",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": 0
+                },
+                "timelinePosition": 0.6
+              }
+            ],
+            "keyframeOperation": "SET"
+          }
+        ],
+        "timelineDuration": 2,
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 552
+        }
+      },
+      "TRANSLATION_Y": {
+        "tracks": [
+          {
+            "id": "KeyframeTrackId:2031:1113",
+            "keyframes": [
+              {
+                "id": "2031:1114",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": -96
+                },
+                "timelinePosition": 0
+              },
+              {
+                "id": "2031:1115",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": 0
+                },
+                "timelinePosition": 0.6
+              }
+            ],
+            "keyframeOperation": "SET"
+          }
+        ],
+        "timelineDuration": 2,
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 0
+        }
+      },
+      "ROTATION": {
+        "tracks": [
+          {
+            "id": "KeyframeTrackId:2031:1116",
+            "keyframes": [
+              {
+                "id": "2031:1117",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": -7.999999938029066
+                },
+                "timelinePosition": 0
+              },
+              {
+                "id": "2031:1118",
+                "easing": {
+                  "type": "EASE_OUT",
+                  "easingFunctionCubicBezier": {
+                    "x1": 0,
+                    "y1": 0,
+                    "x2": 0.58,
+                    "y2": 1
+                  }
+                },
+                "value": {
+                  "type": "FLOAT",
+                  "value": 0
+                },
+                "timelinePosition": 0.6
+              }
+            ],
+            "keyframeOperation": "SET"
+          }
+        ],
+        "timelineDuration": 2,
+        "baseValue": {
+          "type": "FLOAT",
+          "value": 0
+        }
+      }
+    }
+  }
+}

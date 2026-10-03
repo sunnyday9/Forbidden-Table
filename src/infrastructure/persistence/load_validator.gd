@@ -3,6 +3,7 @@ extends RefCounted
 
 const DomainRngStreamsScript = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
+const SuspendCheckpointPolicyScript = preload("res://src/domain/run/suspend_checkpoint_policy.gd")
 const MiniActMapCatalogScript = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const ShopOfferScript = preload("res://src/domain/run/shop_offer.gd")
 const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
@@ -270,6 +271,7 @@ func _validate_map(map_state: Dictionary, act_index: int, errors: Array) -> void
 func _validate_shop(shop: Dictionary, content_registry, errors: Array) -> void:
 	if bool(shop.get("active", false)) and bool(shop.get("completed", false)):
 		errors.append({"code": "INVALID_SHOP_PURCHASE_STATE"})
+	_validate_completed_node_ids(shop, "INVALID_SHOP_PURCHASE_STATE", errors)
 
 	var offer_ids: Dictionary = {}
 	var offers = shop.get("offers", [])
@@ -293,6 +295,7 @@ func _validate_shop(shop: Dictionary, content_registry, errors: Array) -> void:
 		errors.append({"code": "INVALID_SHOP_PURCHASE_STATE"})
 
 func _validate_workshop(workshop: Dictionary, errors: Array) -> void:
+	_validate_completed_node_ids(workshop, "INVALID_WORKSHOP_PURCHASE_STATE", errors)
 	var used = workshop.get("used_service_ids", [])
 	var available = workshop.get("available_service_ids", [])
 	if not used is Array or not available is Array:
@@ -303,6 +306,7 @@ func _validate_workshop(workshop: Dictionary, errors: Array) -> void:
 			errors.append({"code": "INVALID_WORKSHOP_PURCHASE_STATE"})
 
 func _validate_event(event: Dictionary, content_registry, errors: Array) -> void:
+	_validate_completed_node_ids(event, "INVALID_EVENT_STATE", errors)
 	var event_id := str(event.get("event_id", ""))
 	if not event_id.is_empty():
 		if content_registry == null:
@@ -322,26 +326,28 @@ func _validate_event(event: Dictionary, content_registry, errors: Array) -> void
 		if not legal:
 			errors.append({"code": "INVALID_EVENT_CHOICE"})
 
+func _validate_completed_node_ids(owner: Dictionary, error_code: String, errors: Array) -> void:
+	if not owner.has("completed_node_ids"):
+		return
+	var completed_node_ids = owner["completed_node_ids"]
+	if not completed_node_ids is Array:
+		errors.append({"code": error_code, "field": "completed_node_ids"})
+		return
+	for node_id in completed_node_ids:
+		if typeof(node_id) != TYPE_STRING:
+			errors.append({"code": error_code, "field": "completed_node_ids"})
+			return
+
 func _validate_checkpoint(metadata, state, errors: Array) -> void:
 	if not metadata is Dictionary or not bool(metadata.get("stable", false)):
 		errors.append({"code": "UNSTABLE_CHECKPOINT"})
 	if not metadata is Dictionary:
 		return
 	var boundary := str(metadata.get("stable_boundary", ""))
-	if boundary in ["EFFECT_QUEUE", "REACTION_WINDOW", "PATTERN_RESOLUTION", "BOSS_TRANSITION"]:
+	if boundary in SuspendCheckpointPolicyScript.UNSTABLE_BOUNDARIES:
 		errors.append({"code": "UNSTABLE_CHECKPOINT"})
 	var phase := str(state.get("phase", ""))
-	var valid_boundary := false
-	match boundary:
-		"MAP_NODE": valid_boundary = phase == RunPhaseScript.MAP_CHOICE
-		"BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE": valid_boundary = phase == RunPhaseScript.BATTLE
-		"SHOP": valid_boundary = phase == RunPhaseScript.SHOP
-		"WORKSHOP": valid_boundary = phase == RunPhaseScript.WORKSHOP
-		"EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER": valid_boundary = phase == RunPhaseScript.EVENT
-		"REWARD": valid_boundary = phase in [RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD]
-		"RUN_SUMMARY": valid_boundary = phase == RunPhaseScript.RUN_SUMMARY
-		"RUN_COMPLETE": valid_boundary = phase == RunPhaseScript.RUN_COMPLETE
-	if not valid_boundary:
+	if not SuspendCheckpointPolicyScript.is_boundary_valid_for_phase(boundary, phase):
 		errors.append({"code": "CHECKPOINT_BOUNDARY_MISMATCH", "boundary": boundary, "phase": phase})
 	var battle_snapshot = state.get("current_battle_snapshot", {})
 	var has_battle_snapshot: bool = battle_snapshot is Dictionary and not battle_snapshot.is_empty()

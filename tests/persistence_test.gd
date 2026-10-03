@@ -28,9 +28,13 @@ const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalo
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const SuspendSnapshot = preload("res://src/infrastructure/persistence/suspend_snapshot.gd")
 const MetaProgressSnapshot = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
+const MetaProgressStore = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const RunRecord = preload("res://src/infrastructure/persistence/run_record.gd")
+const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const MigrationPipeline = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
+const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
+const SuspendCheckpointPolicy = preload("res://src/domain/run/suspend_checkpoint_policy.gd")
 const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicy = preload("res://src/domain/effects/stack_policy.gd")
@@ -48,6 +52,7 @@ const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/p
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures)
 	test_suspend_snapshot_has_explicit_v1_envelope_and_round_trips(failures)
 	test_run_record_and_meta_progress_are_distinct_records(failures)
 	test_load_reconstructs_without_mutating_a_live_domain(failures)
@@ -56,17 +61,91 @@ func run() -> Array[String]:
 	test_validator_rejects_identity_boundary_and_missing_registry(failures)
 	test_v2_suspend_snapshot_is_rejected_by_current_bundle(failures)
 	test_v2_act_two_suspend_migration_preserves_bundle_identity(failures)
+	test_issue_85_content_identities_migrate_without_changing_bundle_scope(failures)
 	test_invalid_snapshot_is_rejected_atomically(failures)
 	test_migrations_are_sequential(failures)
 	test_restored_domains_rebind_service_and_summary_flows(failures)
 	test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures)
+	test_phase2_v1_migrates_to_both_act_two_catalog_identities(failures)
 	test_phase2_v1_migration_rejects_active_event_semantic_changes(failures)
 	test_v2_migration_rejects_unverifiable_active_effect_state(failures)
 	test_phase2_v1_serialized_checkpoint_preserves_int64_wire_values(failures)
 	test_archived_v1_wire_checkpoint_migrates_from_a_genuine_stable_save(failures)
 	test_phase2_v1_pending_boss_reward_migrates_deterministically(failures)
 	test_save_coordinator_accepts_stable_and_rejects_unstable_boundaries(failures)
+	test_checkpoint_policy_writer_loader_phase_matrix_and_transitions(failures)
 	return failures
+
+func test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures: Array[String]) -> void:
+	var manifest_path := "res://tests/fixtures/stage4_beta_compatibility_manifest.json"
+	var manifest_file := FileAccess.open(manifest_path, FileAccess.READ)
+	assert_true(manifest_file != null, "the Stage 4 Beta compatibility manifest is available", failures)
+	if manifest_file == null:
+		return
+	var manifest_text := manifest_file.get_as_text()
+	manifest_file.close()
+	var parsed = JSON.parse_string(manifest_text)
+	assert_true(parsed is Dictionary, "the Stage 4 Beta compatibility manifest parses as JSON", failures)
+	if not parsed is Dictionary:
+		return
+	var manifest: Dictionary = parsed
+	var candidate: Dictionary = manifest.get("candidate", {})
+	var candidate_schemas: Dictionary = candidate.get("record_schemas", {})
+	assert_true(int(candidate_schemas.get("suspend_snapshot", -1)) == SuspendSnapshot.SCHEMA_VERSION, "the manifest records the current SuspendSnapshot schema", failures)
+	assert_true(int(candidate_schemas.get("meta_progress", -1)) == MetaProgressStore.CURRENT_SCHEMA_VERSION, "the manifest records the current MetaProgress schema", failures)
+	assert_true(int(candidate_schemas.get("replay_record", -1)) == ReplayRecord.SCHEMA_VERSION, "the manifest records the current ReplayRecord schema", failures)
+
+	var content_targets: Dictionary = candidate.get("content_targets", {})
+	var default_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(default_registry)
+	AlphaActTwoCatalog.register_all(default_registry)
+	AlphaScaleCatalog.register_all(default_registry)
+	assert_true(default_registry.content_version() == str(content_targets.get("default_run_scene", "")), "the full candidate identity matches the default RunScene content registry", failures)
+	var act_two_registry := ContentRegistry.new()
+	Phase2Catalog.register_all(act_two_registry)
+	AlphaActTwoCatalog.register_all(act_two_registry)
+	assert_true(act_two_registry.content_version() == str(content_targets.get("act_two_without_scale", "")), "the no-Scale candidate identity matches the Act Two registry", failures)
+	assert_true(ContentVersionMigration.ACT_TWO_SCALE_V13 == str(content_targets.get("default_run_scene", "")), "the default candidate identity matches its explicit migration target", failures)
+	assert_true(ContentVersionMigration.ACT_TWO_V5 == str(content_targets.get("act_two_without_scale", "")), "the no-Scale candidate identity matches its explicit migration target", failures)
+
+	var supported_formats: Array = manifest.get("supported_source_formats", [])
+	assert_true(supported_formats.size() == 1, "the manifest claims only the mandated Phase 2 v1 source format", failures)
+	for source_format in supported_formats:
+		if not source_format is Dictionary:
+			assert_true(false, "each supported source format is a dictionary", failures)
+			continue
+		var source: Dictionary = source_format
+		assert_true(source.get("record", "") == "SuspendSnapshot" and int(source.get("schema_version", -1)) == 1, "the supported source fixture format is Phase 2 SuspendSnapshot schema 1", failures)
+		assert_true(source.get("game_version", "") == "game.phase2.v1" and source.get("content_version", "") == "content.slice.v1", "the supported source fixture keeps the Phase 2 v1 envelope", failures)
+		for fixture_value in source.get("fixtures", []):
+			if not fixture_value is Dictionary:
+				assert_true(false, "each frozen fixture entry is a dictionary", failures)
+				continue
+			var fixture: Dictionary = fixture_value
+			var fixture_path := "res://%s" % str(fixture.get("path", ""))
+			var fixture_file := FileAccess.open(fixture_path, FileAccess.READ)
+			assert_true(fixture_file != null, "%s remains available as an immutable source fixture" % fixture_path, failures)
+			if fixture_file == null:
+				continue
+			var fixture_bytes := fixture_file.get_buffer(fixture_file.get_length())
+			fixture_file.close()
+			var fixture_text := fixture_bytes.get_string_from_utf8()
+			var actual_hash := _sha256(_canonical_lf_bytes(fixture_text))
+			assert_true(actual_hash == str(fixture.get("sha256_lf_canonical", "")), "%s matches its pinned canonical-LF Phase 2 v1 fixture hash" % fixture_path, failures)
+			var canonical_lf_text := _canonical_lf_bytes(fixture_text).get_string_from_utf8()
+			var simulated_windows_text := canonical_lf_text.replace("\n", "\r\n")
+			assert_true(_sha256(_canonical_lf_bytes(simulated_windows_text)) == actual_hash, "%s has the same fixture hash after simulated Windows CRLF checkout conversion" % fixture_path, failures)
+
+func _canonical_lf_bytes(fixture_text: String) -> PackedByteArray:
+	return fixture_text.replace("\r\n", "\n").to_utf8_buffer()
+
+func _sha256(source_bytes: PackedByteArray) -> String:
+	var hash_context := HashingContext.new()
+	if hash_context.start(HashingContext.HASH_SHA256) != OK:
+		return ""
+	if hash_context.update(source_bytes) != OK:
+		return ""
+	return hash_context.finish().hex_encode()
 
 func test_suspend_snapshot_has_explicit_v1_envelope_and_round_trips(failures: Array[String]) -> void:
 	var domain := _domain("persist.roundtrip", 1201)
@@ -300,12 +379,79 @@ func test_v2_act_two_suspend_migration_preserves_bundle_identity(failures: Array
 		source.authoritative_state.content_version = old_version
 		source.run_state.content_version = old_version
 		source.checkpoint_metadata.state_hash = _run_state_hash(source.authoritative_state)
+		if include_scale:
+			var no_scale_registry := ContentRegistry.new()
+			Phase2Catalog.register_all(no_scale_registry)
+			AlphaActTwoCatalog.register_all(no_scale_registry)
+			var scaled_source_before: Dictionary = source.duplicate(true)
+			var scale_downgrade = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, no_scale_registry)
+			assert_true(not scale_downgrade.accepted and scale_downgrade.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "a Scale v2 source cannot silently migrate into the Act Two-only registry", failures)
+			assert_true(source == scaled_source_before, "a rejected Scale-to-Act-Two-only migration preserves its source snapshot", failures)
 		var migrated = SaveMapper.load_phase2_v2_suspend_snapshot_into_domain(source, registry)
 		var bundle_label := "Act Two+Scale" if include_scale else "Act Two"
 		assert_true(migrated.accepted, "explicit v2 migration accepts an unchanged %s snapshot (%s: %s)" % [bundle_label, migrated.get("code", ""), migrated.get("errors", [])], failures)
 		if migrated.accepted:
 			assert_true(migrated.snapshot.content_version == registry.content_version(), "%s migration uses the exact active bundle combination" % bundle_label, failures)
 			assert_true(migrated.domain.verify_replay().is_match(), "the migrated %s replay starts at a reproducible checkpoint" % bundle_label, failures)
+
+func test_issue_85_content_identities_migrate_without_changing_bundle_scope(failures: Array[String]) -> void:
+	for include_scale in [false, true]:
+		var registry := ContentRegistry.new()
+		Phase2Catalog.register_all(registry)
+		AlphaActTwoCatalog.register_all(registry)
+		if include_scale:
+			AlphaScaleCatalog.register_all(registry)
+		var run_id := "persist.issue-85-current%s" % ("-scale" if include_scale else "-act-two")
+		var domain: RunDomain = RunDomain.new_alpha_run(run_id, 1280 if include_scale else 1281, registry) if include_scale else RunDomain.new(run_id, 1281, registry)
+		assert_true(domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence")).accepted, "%s legacy checkpoint selects its Character" % run_id, failures)
+		assert_true(domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure")).accepted, "%s legacy checkpoint selects its Contract" % run_id, failures)
+		var source: Dictionary = SaveMapper.suspend_snapshot(domain).to_dictionary()
+		var source_state: Dictionary = source.authoritative_state.duplicate(true)
+		var map_state: Dictionary = source_state.get("map_state", {}).duplicate(true)
+		var payload_ids: Dictionary = map_state.get("payload_ids", {}).duplicate(true)
+		var old_act_one_ids := [
+			"base.event.tile_surgery", "base.event.risk_bargain", "base.event.gold_exchange",
+			"base.event.map_reveal", "base.event.contract_clause", "base.event.rule_memory",
+		]
+		for event_index in AlphaScaleCatalog.ACT_ONE_EVENT_IDS.size():
+			for node_id in payload_ids.keys():
+				if str(payload_ids[node_id]) == AlphaScaleCatalog.ACT_ONE_EVENT_IDS[event_index]:
+					payload_ids[node_id] = old_act_one_ids[event_index]
+		for event_index in AlphaActTwoCatalog.ACT_TWO_ADDITIONAL_EVENT_IDS.size():
+			for node_id in payload_ids.keys():
+				if str(payload_ids[node_id]) == AlphaActTwoCatalog.ACT_TWO_ADDITIONAL_EVENT_IDS[event_index]:
+					payload_ids[node_id] = AlphaActTwoCatalog.ACT_TWO_EVENT_IDS[event_index]
+		map_state["payload_ids"] = payload_ids
+		source_state["map_state"] = map_state
+		var prior_rule_memory := ActiveEffectInstance.new(
+			"event.act_two.rule_memory",
+			DurationSpec.new(DurationSpec.RUN, 1),
+			StackPolicy.new(StackPolicy.UNIQUE),
+			"event.act_two.rule_memory",
+			1,
+			-1,
+			-1,
+			"run.modifier.event.act_two.rule_memory",
+			0,
+			{"modifier_id": "event.act_two.rule_memory"},
+		)
+		source_state["active_effects"] = [prior_rule_memory.to_dictionary()]
+		var legacy_identity := "content.bundle.v1.alpha.act_two@v4+alpha.scale@v11+phase2@v4" if include_scale else "content.bundle.v1.alpha.act_two@v4+phase2@v4"
+		source["content_version"] = legacy_identity
+		source_state["content_version"] = legacy_identity
+		source["authoritative_state"] = source_state
+		source["run_state"] = source_state.duplicate(true)
+		var metadata: Dictionary = source.checkpoint_metadata.duplicate(true)
+		metadata["state_hash"] = _run_state_hash(source_state)
+		source["checkpoint_metadata"] = metadata
+		var migrated = SaveMapper.load_full_v12_suspend_snapshot_into_domain(source, registry) if include_scale else SaveMapper.load_act_two_v4_suspend_snapshot_into_domain(source, registry)
+		var scope := "Act Two + Scale" if include_scale else "Act Two only"
+		assert_true(migrated.accepted, "the #85 %s identity migrates from a stable save (%s: %s)" % [scope, migrated.get("code", ""), migrated.get("errors", [])], failures)
+		if migrated.accepted:
+			assert_true(migrated.snapshot.content_version == registry.content_version(), "the #85 %s save adopts the exact current identity" % scope, failures)
+			assert_true(migrated.snapshot.content_version.contains("alpha.scale") == include_scale, "the #85 %s save keeps its original bundle scope" % scope, failures)
+			assert_true(migrated.domain.rng_snapshot() == source.rng_state, "the #85 %s migration preserves all RNG streams" % scope, failures)
+			assert_true(migrated.domain.state.active_modifier("event.act_two.rule_memory") != null, "the #85 %s migration preserves an existing Rule Memory modifier" % scope, failures)
 
 func test_v2_migration_rejects_unverifiable_active_effect_state(failures: Array[String]) -> void:
 	var domain := RunDomain.new("persist.old-v2-malformed-effects", 1221, _phase2_registry())
@@ -468,6 +614,21 @@ func test_phase2_v1_suspend_fixture_requires_explicit_content_migration(failures
 	assert_true(not invalid_hash_result.accepted and invalid_hash_result.code == "SOURCE_STATE_HASH_MISMATCH", "content migration rejects a fixture whose source state hash is invalid", failures)
 	assert_true(invalid_hash == invalid_hash_copy, "rejected hash migration leaves its supplied snapshot untouched", failures)
 
+func test_phase2_v1_migrates_to_both_act_two_catalog_identities(failures: Array[String]) -> void:
+	for include_scale in [false, true]:
+		var registry := ContentRegistry.new()
+		Phase2Catalog.register_all(registry)
+		AlphaActTwoCatalog.register_all(registry)
+		if include_scale:
+			AlphaScaleCatalog.register_all(registry)
+		var source: Dictionary = Phase2V1SuspendSnapshotFixture.suspend_snapshot()
+		var migration = SaveMapper.load_phase2_v1_suspend_snapshot_into_domain(source, registry)
+		var registry_label := "Act Two + Phase 2 + Alpha Scale" if include_scale else "Act Two + Phase 2"
+		assert_true(migration.accepted, "Phase 2 v1 migrates into the %s registry (%s)" % [registry_label, migration.get("code", "")], failures)
+		if migration.accepted:
+			assert_true(migration.snapshot.content_version == registry.content_version(), "%s migration uses the exact registered content identity" % registry_label, failures)
+			assert_true(migration.domain.state.content_version == registry.content_version(), "%s RunState and registry identities agree after migration" % registry_label, failures)
+
 func test_phase2_v1_migration_rejects_active_event_semantic_changes(failures: Array[String]) -> void:
 	var source: Dictionary = Phase2V1SuspendSnapshotFixture.suspend_snapshot()
 	var changed_state: Dictionary = source.authoritative_state.duplicate(true)
@@ -625,15 +786,80 @@ func test_save_coordinator_accepts_stable_and_rejects_unstable_boundaries(failur
 	var domain := _domain("persist.coordinator", 1205)
 	domain.execute(ChooseCharacterCommand.new("persist.coordinator.character", "base.character.sequence"))
 	domain.execute(ChooseContractCommand.new("persist.coordinator.contract", "base.contract.pressure"))
-	var stable = SaveCoordinator.new().save(domain)
+	var coordinator := SaveCoordinator.new()
+	var stable = coordinator.save(domain)
 	assert_true(stable.accepted, "Map node is a stable save checkpoint", failures)
-	for boundary in SaveCoordinator.STABLE_BOUNDARIES:
-		assert_true(SaveCoordinator.new().can_save(domain, boundary).accepted, "%s is an allowed stable checkpoint" % boundary, failures)
+	assert_true(coordinator.can_save(domain, "MAP_NODE").accepted, "MAP_NODE remains a valid checkpoint in Map Choice", failures)
+	var invalid_map_boundary = coordinator.can_save(domain, "BATTLE_ACTION")
+	assert_true(not invalid_map_boundary.accepted and invalid_map_boundary.get("code", "") == "CHECKPOINT_BOUNDARY_MISMATCH", "the writer rejects a Battle label for a Map Choice state", failures)
+	var map_node_id: String = domain.map_definition.start_node_id
+	var battle_entry = domain.execute(SelectMapNodeCommand.new("persist.coordinator.select-map-node", map_node_id))
+	assert_true(battle_entry.accepted and domain.state.phase == RunPhase.BATTLE, "the writer fixture enters a real Battle through SelectMapNode", failures)
+	assert_true(coordinator.can_save(domain, "DRAW_ACTION").accepted, "Battle action checkpoints remain valid in the resulting Battle phase", failures)
+	var invalid_battle_boundary = coordinator.can_save(domain, "MAP_NODE")
+	assert_true(not invalid_battle_boundary.accepted and invalid_battle_boundary.get("code", "") == "CHECKPOINT_BOUNDARY_MISMATCH", "the writer rejects MAP_NODE after Battle begins", failures)
 	domain.state.phase = "UNSTABLE_EFFECT_QUEUE"
 	var unstable = SaveCoordinator.new().save(domain)
 	assert_true(not unstable.accepted, "unstable resolution boundaries are rejected", failures)
 	for boundary in ["EFFECT_QUEUE", "REACTION_WINDOW", "PATTERN_RESOLUTION", "BOSS_TRANSITION"]:
-		assert_true(not SaveCoordinator.new().can_save(domain, boundary).accepted, "%s is not a save boundary" % boundary, failures)
+		assert_true(not coordinator.can_save(domain, boundary).accepted, "%s is not a save boundary" % boundary, failures)
+
+func test_checkpoint_policy_writer_loader_phase_matrix_and_transitions(failures: Array[String]) -> void:
+	var expected_boundaries_by_phase: Dictionary = {
+		RunPhase.MAP_CHOICE: ["MAP_NODE"],
+		RunPhase.BATTLE: ["BATTLE_START", "TURN_START", "DRAW_ACTION", "BATTLE_ACTION", "SETTLEMENT_COMPLETE", "ENEMY_INTENT_COMPLETE"],
+		RunPhase.SHOP: ["SHOP"],
+		RunPhase.WORKSHOP: ["WORKSHOP"],
+		RunPhase.EVENT: ["EVENT_CHOICE_BEFORE", "EVENT_CHOICE_AFTER"],
+		RunPhase.REWARD_CHOICE: ["REWARD"],
+		RunPhase.ELITE_REWARD: ["REWARD"],
+		RunPhase.BOSS_REWARD: ["REWARD"],
+		RunPhase.RUN_SUMMARY: ["RUN_SUMMARY"],
+		RunPhase.RUN_COMPLETE: ["RUN_COMPLETE"],
+	}
+	var domain := _domain("persist.checkpoint.policy", 1206)
+	domain.execute(ChooseCharacterCommand.new("persist.checkpoint.policy.character", "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("persist.checkpoint.policy.contract", "base.contract.pressure"))
+	var coordinator := SaveCoordinator.new()
+	var validator := LoadValidator.new()
+	for phase in RunPhase.all():
+		domain.state.phase = phase
+		var expected: Array = expected_boundaries_by_phase.get(phase, [])
+		for boundary in SaveCoordinator.STABLE_BOUNDARIES:
+			var should_accept: bool = expected.has(boundary)
+			var writer_result: Dictionary = coordinator.can_save(domain, boundary)
+			assert_true(writer_result.get("accepted", false) == should_accept, "writer phase matrix %s/%s agrees with the checkpoint contract" % [phase, boundary], failures)
+			var battle_snapshot: Dictionary = {"fixture": true} if phase == RunPhase.BATTLE else {}
+			var checkpoint_errors: Array = []
+			validator._validate_checkpoint(
+				{"stable": true, "stable_boundary": boundary},
+				{"phase": phase, "current_battle_snapshot": battle_snapshot},
+				checkpoint_errors,
+			)
+			var loader_rejects_mismatch: bool = checkpoint_errors.any(func(error): return str(error.get("code", "")) == "CHECKPOINT_BOUNDARY_MISMATCH")
+			assert_true(loader_rejects_mismatch == not should_accept, "loader phase matrix %s/%s agrees with the checkpoint contract" % [phase, boundary], failures)
+
+	var transitions: Array[Dictionary] = [
+		{"phase": RunPhase.BATTLE, "requested": "MAP_NODE", "inferred": "BATTLE_START", "expected": "BATTLE_START", "context": "map entry"},
+		{"phase": RunPhase.REWARD_CHOICE, "requested": "ENEMY_INTENT_COMPLETE", "inferred": "REWARD", "expected": "REWARD", "context": "Battle victory"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "ENEMY_INTENT_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "terminal Battle defeat"},
+		{"phase": RunPhase.REWARD_CHOICE, "requested": "SETTLEMENT_COMPLETE", "inferred": "REWARD", "expected": "REWARD", "context": "settlement into Reward"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "SETTLEMENT_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "terminal settlement into Summary"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "REWARD", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Reward exit"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "REWARD", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "Reward completion into Summary"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "EVENT_CHOICE_AFTER", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Event exit"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "SHOP", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Shop exit"},
+		{"phase": RunPhase.MAP_CHOICE, "requested": "WORKSHOP", "inferred": "MAP_NODE", "expected": "MAP_NODE", "context": "Workshop exit"},
+		{"phase": RunPhase.RUN_SUMMARY, "requested": "RUN_COMPLETE", "inferred": "RUN_SUMMARY", "expected": "RUN_SUMMARY", "context": "summary remains open"},
+		{"phase": RunPhase.RUN_COMPLETE, "requested": "RUN_COMPLETE", "inferred": "RUN_COMPLETE", "expected": "RUN_COMPLETE", "context": "acknowledged summary"},
+	]
+	for transition in transitions:
+		var resolved: String = SuspendCheckpointPolicy.resolve_result_boundary(
+			str(transition.get("requested", "")),
+			str(transition.get("phase", "")),
+			str(transition.get("inferred", "")),
+		)
+		assert_true(resolved == str(transition.get("expected", "")), "%s resolves to a checkpoint valid for its resulting phase" % transition.get("context", "transition"), failures)
 
 func test_phase2_v1_pending_boss_reward_migrates_deterministically(failures: Array[String]) -> void:
 	var source: Dictionary = Phase2V1BossRewardSuspendSnapshotFixture.suspend_snapshot()

@@ -9,6 +9,7 @@ const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_cat
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
+const Phase2V1SuspendSnapshotFixture = preload("res://tests/fixtures/phase2_v1_suspend_snapshot.gd")
 const Effect = preload("res://src/domain/effects/effect.gd")
 const EnemyDefinition = preload("res://src/content/definitions/enemy_definition.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
@@ -35,11 +36,14 @@ func run() -> Array[String]:
 	test_boss_reward_rule_breakers_are_registered_and_typed(failures)
 	test_act_two_boss_rule_breakers_are_separate_stable_typed_content(failures)
 	test_act_two_encounters_events_and_map_payloads_are_typed(failures)
+	test_stage_four_enemy_rosters_use_existing_act_payloads(failures)
 	test_content_version_identifies_registered_catalog_bundles(failures)
 	test_catalogued_build_techniques_declare_battle_timings(failures)
 	test_failed_catalog_registration_does_not_change_bundle_identity(failures)
 	test_yaku_compatibility_and_new_typed_hooks(failures)
 	test_pools_have_stable_deterministic_membership(failures)
+	test_scale_relic_act_groups_and_pool_membership(failures)
+	test_stage_four_modifiers_are_typed_shared_workshop_content(failures)
 	test_no_core_code_content_can_be_added_and_validated(failures)
 	return failures
 
@@ -251,12 +255,15 @@ func test_content_version_identifies_registered_catalog_bundles(failures: Array[
 	assert_true(phase2_version == "content.slice.v4", "Phase 2 Technique reaction semantics use a new explicit content identity", failures)
 	assert_true(phase2_version != "content.slice.v3", "old Phase 2 v3 content cannot share the updated gameplay identity", failures)
 	assert_true(act_two_version != phase2_version, "the Act 2 bundle has a distinct content identity", failures)
-	assert_true(act_two_version.contains("alpha.act_two@v3") and act_two_version.contains("phase2@v4"), "Act 2 and shared Phase 2 Technique semantics both carry their updated versions", failures)
+	assert_true(act_two_version.contains("alpha.act_two@v5") and act_two_version.contains("phase2@v4"), "Act 2 production Events and shared Phase 2 Technique semantics both carry their updated versions", failures)
 	assert_true(act_two_version == repeated_act_two_version, "the same Phase 2 and Act 2 bundle combination has a deterministic identity", failures)
 	assert_true(scale_version != act_two_version and scale_version != phase2_version, "the Scale bundle has a distinct content identity", failures)
 	assert_true(scale_version == repeated_scale_version, "the same Scale bundle combination has a deterministic identity", failures)
-	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot({}, act_two_registry)
-	assert_true(not alpha_migration_target.get("accepted", false) and alpha_migration_target.get("code", "") == "UNSUPPORTED_CONTENT_MIGRATION_TARGET", "the Phase 2 v1 migration cannot relabel the Act Two bundle as Phase 2 v2", failures)
+	assert_true(scale_version.contains("alpha.scale@v12"), "the Scale bundle identity advances for the Act 1 production Events", failures)
+	var alpha_migration_target: Dictionary = ContentVersionMigration.migrate_phase2_v1_suspend_snapshot(Phase2V1SuspendSnapshotFixture.suspend_snapshot(), act_two_registry)
+	assert_true(alpha_migration_target.get("accepted", false), "the Phase 2 v1 migration explicitly accepts the current Act Two-only identity", failures)
+	if alpha_migration_target.get("accepted", false):
+		assert_true(alpha_migration_target.data.content_version == act_two_registry.content_version(), "the Phase 2 v1 migration stamps the exact Act Two-only identity", failures)
 
 func test_catalogued_build_techniques_declare_battle_timings(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
@@ -361,14 +368,82 @@ func test_act_two_encounters_events_and_map_payloads_are_typed(failures: Array[S
 				mapped_event_ids[event_id] = true
 	var sorted_mapped_enemies: Array = mapped_enemy_ids.keys()
 	sorted_mapped_enemies.sort()
-	var expected_enemies := expected_normal_enemy_ids + ["alpha.enemy.act_two.elite.ledger_mimic", "alpha.boss.act_two.final_index"]
+	var expected_enemies := expected_normal_enemy_ids + [
+		"alpha.enemy.act_two.elite.ledger_mimic",
+		"alpha.boss.act_two.final_index",
+		AlphaActTwoCatalog.ACT_TWO_ALTERNATE_BOSS_ENEMY_ID,
+	]
 	expected_enemies.sort()
 	assert_true(sorted_mapped_enemies == expected_enemies, "the Act 2 Map reaches exactly its four Normal enemies, Elite, and Boss", failures)
-	var sorted_mapped_events: Array = mapped_event_ids.keys()
-	sorted_mapped_events.sort()
-	expected_event_ids.sort()
-	assert_true(sorted_mapped_events == expected_event_ids, "the Act 2 Event nodes expose all six existing Event families", failures)
+	for event_id in expected_event_ids:
+		assert_true(mapped_event_ids.has(event_id), "%s remains reachable from the Act 2 Event nodes" % event_id, failures)
 	assert_true(registry.validate().is_valid(), "all Act 2 map payload references pass typed registry validation", failures)
+
+func test_stage_four_enemy_rosters_use_existing_act_payloads(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var act_one_map = MiniActMapCatalog.definition_for_act(1, registry)
+	var act_two_map = MiniActMapCatalog.definition_for_act(2, registry)
+	for encounter_id in AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS:
+		assert_true(_map_has_payload(act_one_map, encounter_id), "%s is selectable from the Act 1 map payloads" % encounter_id, failures)
+		assert_true(not _map_has_payload(act_two_map, encounter_id), "%s is excluded from the Act 2 map payloads" % encounter_id, failures)
+	for encounter_id in AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS:
+		assert_true(_map_has_payload(act_two_map, encounter_id), "%s is selectable from the Act 2 map payloads" % encounter_id, failures)
+		assert_true(not _map_has_payload(act_one_map, encounter_id), "%s is excluded from the Act 1 map payloads" % encounter_id, failures)
+	var act_two_only_encounters := _encounter_variant_ids(AlphaActTwoCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS)
+	act_two_only_encounters.append_array(_encounter_variant_ids([
+		AlphaActTwoCatalog.ACT_TWO_ELITE_ENCOUNTER_ID,
+		AlphaActTwoCatalog.ACT_TWO_BOSS_ENCOUNTER_ID,
+	]))
+	act_two_only_encounters.append_array(AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS)
+	act_two_only_encounters.append_array(AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS)
+	for encounter_id in act_two_only_encounters:
+		assert_true(not _map_has_payload(act_one_map, encounter_id), "Act 1 cannot select the Act 2-only encounter %s" % encounter_id, failures)
+	var existing_normal_ids: Array = Phase2Catalog.NORMAL_ENEMY_IDS + AlphaActTwoCatalog.ACT_TWO_NORMAL_ENEMY_IDS
+	var new_normal_ids: Array = AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS + AlphaScaleCatalog.ACT_TWO_NORMAL_ENEMY_IDS
+	for enemy_id in existing_normal_ids + new_normal_ids:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition and enemy.role == EnemyDefinition.NORMAL, "%s remains a registered Normal enemy" % enemy_id, failures)
+	var existing_elite_ids: Array = [Phase2Catalog.ELITE_ENEMY_ID, AlphaActTwoCatalog.ACT_TWO_ELITE_ENEMY_ID]
+	var new_elite_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENEMY_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENEMY_IDS
+	for enemy_id in existing_elite_ids + new_elite_ids:
+		var enemy = registry.resolve(enemy_id)
+		assert_true(enemy is EnemyDefinition and enemy.role == EnemyDefinition.ELITE, "%s remains a registered Elite" % enemy_id, failures)
+	for index in AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_ONE_NORMAL_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.NORMAL and encounter.enemy_ids == [AlphaScaleCatalog.ACT_ONE_NORMAL_ENEMY_IDS[index]], "%s resolves to its intended Act 1 Normal" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_TWO_NORMAL_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.NORMAL and encounter.enemy_ids == [AlphaScaleCatalog.ACT_TWO_NORMAL_ENEMY_IDS[index]], "%s resolves to its intended Act 2 Normal" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.ELITE and encounter.enemy_ids == [AlphaScaleCatalog.ACT_ONE_ELITE_ENEMY_IDS[index]], "%s resolves to its intended Act 1 Elite" % encounter_id, failures)
+	for index in AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS.size():
+		var encounter_id: String = AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS[index]
+		var encounter = registry.resolve(encounter_id)
+		assert_true(encounter is EncounterDefinition and encounter.encounter_kind == EncounterDefinition.ELITE and encounter.enemy_ids == [AlphaScaleCatalog.ACT_TWO_ELITE_ENEMY_IDS[index]], "%s resolves to its intended Act 2 Elite" % encounter_id, failures)
+	assert_true(registry.validate().is_valid(), "new encounter references and existing Act content remain valid", failures)
+
+func _map_has_payload(map_definition, target_payload_id: String) -> bool:
+	for node_id in map_definition.node_ids:
+		var node = map_definition.node_definition(node_id)
+		if node.payload_options.has(target_payload_id):
+			return true
+	return false
+
+
+func _encounter_variant_ids(base_ids: Array) -> Array:
+	var variants: Array = []
+	for value in base_ids:
+		variants.append(str(value))
+		variants.append("%s.a" % value)
+		variants.append("%s.b" % value)
+	return variants
 
 func test_failed_catalog_registration_does_not_change_bundle_identity(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
@@ -409,6 +484,89 @@ func test_pools_have_stable_deterministic_membership(failures: Array[String]) ->
 		assert_true(pool.entry_ids() == first_membership[pool_id], "%s has stable ordered membership" % pool_id, failures)
 		for content_id in pool.entry_ids():
 			assert_true(registry.resolve(content_id) != null, "%s only contains registered content IDs" % pool_id, failures)
+
+func test_scale_relic_act_groups_and_pool_membership(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(registration.is_valid() and registry.validate().is_valid(), "the expanded Scale catalog remains valid typed content", failures)
+	assert_true(AlphaScaleCatalog.ACT_ONE_RELIC_IDS.size() == 7, "Scale adds seven Relics eligible from Act 1", failures)
+	assert_true(AlphaScaleCatalog.NEW_ACT_TWO_RELIC_IDS.size() == 7, "Scale adds seven Relics introduced in Act 2", failures)
+	assert_true(AlphaScaleCatalog.RELIC_IDS.size() == 25, "the Act 2 introduction group contains its original eighteen plus seven additions", failures)
+	for relic_id in AlphaScaleCatalog.NEW_ACT_TWO_RELIC_IDS:
+		assert_true(AlphaScaleCatalog.RELIC_IDS.has(relic_id), "%s is listed in the Act 2 introduction group" % relic_id, failures)
+	var production_relic_ids: Array = Phase2Catalog.RELIC_IDS + AlphaScaleCatalog.ACT_ONE_RELIC_IDS + AlphaScaleCatalog.RELIC_IDS
+	var unique_relic_ids: Dictionary = {}
+	var act_one_count := 0
+	var act_two_count := 0
+	for relic_id in production_relic_ids:
+		assert_true(not unique_relic_ids.has(relic_id), "%s appears only once in the production roster" % relic_id, failures)
+		unique_relic_ids[relic_id] = true
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition, "%s resolves in the full production catalog" % relic_id, failures)
+		if relic is RelicDefinition:
+			act_one_count += int(relic.available_from_act == 1)
+			act_two_count += int(relic.available_from_act == 2)
+	assert_true(unique_relic_ids.size() == 50, "the production Relic roster contains exactly fifty unique IDs", failures)
+	assert_true(act_one_count == 25 and act_two_count == 25, "the production Relic roster splits exactly 25 Act 1 eligible and 25 Act 2 introduced", failures)
+	for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition and relic.available_from_act == 1 and not relic.active, "%s is a Normal Relic available from Act 1" % relic_id, failures)
+		if relic is RelicDefinition:
+			_assert_all_typed_effects(relic.effects, relic_id, failures)
+	for relic_id in AlphaScaleCatalog.RELIC_IDS:
+		var relic = registry.resolve(relic_id)
+		assert_true(relic is RelicDefinition and relic.available_from_act == 2 and not relic.active, "%s is a Normal Relic introduced in Act 2" % relic_id, failures)
+		if relic is RelicDefinition:
+			_assert_all_typed_effects(relic.effects, relic_id, failures)
+	var membership: Dictionary = AlphaScaleCatalog.pool_membership()
+	for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+		assert_true(membership[AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID].has(relic_id), "%s joins the Act 1 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_BUILD_POOL_ID].has(relic_id), "%s remains available in the Act 2 build pool" % relic_id, failures)
+	for relic_id in AlphaScaleCatalog.RELIC_IDS:
+		assert_true(not membership[AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID].has(relic_id), "%s is excluded from the Act 1 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_BUILD_POOL_ID].has(relic_id), "%s joins the Act 2 build pool" % relic_id, failures)
+		assert_true(membership[AlphaScaleCatalog.ACT_TWO_SHOP_POOL_ID].has(relic_id), "%s joins the Act 2 Shop pool" % relic_id, failures)
+
+func test_stage_four_modifiers_are_typed_shared_workshop_content(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	var registration = AlphaScaleCatalog.register_all(registry)
+	assert_true(registration.is_valid() and registry.validate().is_valid(), "Scale modifiers register as valid typed content", failures)
+	var expected_operations := {
+		"alpha.modifier.wide_channel": ["ModifyDrawCapacity"],
+		"alpha.modifier.sharp_current": ["DealDamage"],
+		"alpha.modifier.trade_mark": ["ModifyRunCurrency", "GainStability"],
+		"alpha.modifier.refinement_trace": ["ModifyRunCurrency", "GainTP"],
+	}
+	var membership: Dictionary = AlphaScaleCatalog.pool_membership()
+	var workshop_pool = registry.resolve(AlphaScaleCatalog.WORKSHOP_POOL_ID)
+	for modifier_id in expected_operations:
+		assert_true(AlphaScaleCatalog.MODIFIER_IDS.has(modifier_id), "%s is in the Scale production Modifier roster" % modifier_id, failures)
+		var modifier = registry.resolve(modifier_id)
+		assert_true(modifier is TileModifierDefinition and modifier.validate().is_valid(), "%s has valid Tile Modifier metadata" % modifier_id, failures)
+		if not modifier is TileModifierDefinition:
+			continue
+		assert_true(not modifier.modifier_kind.is_empty() and modifier.max_per_tile == 1, "%s declares a kind and the existing one-per-tile limit" % modifier_id, failures)
+		var expected_modifier_operations: Array = expected_operations[modifier_id]
+		assert_true(modifier.effects.size() == expected_modifier_operations.size(), "%s configures its distinct existing operation set" % modifier_id, failures)
+		if modifier.effects.size() != expected_modifier_operations.size():
+			continue
+		for effect_index in expected_modifier_operations.size():
+			var effect = modifier.effects[effect_index]
+			assert_true(effect.operations.size() == 1, "%s keeps each operation in its own typed Effect" % modifier_id, failures)
+			if effect.operations.size() != 1:
+				continue
+			var operation = effect.operations[0]
+			assert_true(operation.operation_id == expected_modifier_operations[effect_index], "%s uses its authored existing operation" % modifier_id, failures)
+			if modifier_id == "alpha.modifier.trade_mark" and effect_index == 0:
+				assert_true(operation.currency == "GOLD", "%s grants the existing Gold currency" % modifier_id, failures)
+			elif modifier_id == "alpha.modifier.refinement_trace" and effect_index == 0:
+				assert_true(operation.currency == "REFINEMENT_TOKENS", "%s grants the existing Refinement Token currency" % modifier_id, failures)
+		assert_true(membership[AlphaScaleCatalog.WORKSHOP_POOL_ID].has(modifier_id), "%s is available in the shared Workshop pool membership" % modifier_id, failures)
+		assert_true(workshop_pool is RewardPoolDefinition and workshop_pool.entry_ids().has(modifier_id), "%s is published through the registered shared Workshop pool" % modifier_id, failures)
 
 func test_no_core_code_content_can_be_added_and_validated(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

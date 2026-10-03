@@ -1,0 +1,37 @@
+{
+  "scope": "Native Figma export played in Chromium; cosmetic study only",
+  "frames": [
+    {
+      "name": "native-start",
+      "time": 0,
+      "duration": 2.1,
+      "w": 960,
+      "h": 540,
+      "regionHash": 0
+    },
+    {
+      "name": "native-mid",
+      "time": 0.208003,
+      "duration": 2.1,
+      "w": 960,
+      "h": 540,
+      "regionHash": 1873078062
+    },
+    {
+      "name": "native-settled",
+      "time": 0.663781,
+      "duration": 2.1,
+      "w": 960,
+      "h": 540,
+      "regionHash": 1781277584
+    },
+    {
+      "name": "native-held",
+      "time": 1.267618,
+      "duration": 2.1,
+      "w": 960,
+      "h": 540,
+      "regionHash": 2106911276
+    }
+  ]
+}

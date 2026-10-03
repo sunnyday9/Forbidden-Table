@@ -1,0 +1,662 @@
+{
+  "captures": [
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "character_select.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 2332014,
+      "state": "character_select",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "d6e5f6b3ff252a3110f20b3f76ee76bd286603dd140ce3c2bb0c63bf67fcf128"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "character_selected.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 2332014,
+      "state": "character_selected",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "b8c6787282713409e160be9cdcb85e1fb09fb69d45f67221380e66927f1fb6e8"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "contract_select.png",
+      "phase": "CONTRACT_SELECT",
+      "seed": 2332014,
+      "state": "contract_select",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "2087cbc6b74aa1ad41adec9c856a86f35ba3db6d6ace2e92695511f7ac1c67bf"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "map_choice_act_1.png",
+      "phase": "MAP_CHOICE",
+      "seed": 2332014,
+      "state": "map_choice_act_1",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "e4bed957403bcb9f3d732ceea3cb54bc2934a3cf55a7f40459fbae19ab20aa08"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_tutorial_on.png",
+      "phase": "BATTLE",
+      "seed": 2332014,
+      "state": "battle_tutorial_on",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "ad690446312a4fec819ed403a5373bb68a4fb748edf7c7d82bcb519850458a09"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "language_settings.png",
+      "phase": "BATTLE",
+      "seed": 2332014,
+      "state": "language_settings",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "3d602906114d15cf824d36d90406541e578acaf6fbb732000df1681e19755b1b"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "tutorial_help.png",
+      "phase": "BATTLE",
+      "seed": 2332014,
+      "state": "tutorial_help",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "b8246a38945e0ebe79db585628acd855ba9ec40bbff078282f7da4636e599e71"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_tutorial_disabled.png",
+      "phase": "BATTLE",
+      "seed": 2332014,
+      "state": "battle_tutorial_disabled",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "cb7fd44058be8ff81c6f2129989de208d2eb1866c0826878b910c52b77fbd111"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_tutorial_reset.png",
+      "phase": "BATTLE",
+      "seed": 2332014,
+      "state": "battle_tutorial_reset",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "ad690446312a4fec819ed403a5373bb68a4fb748edf7c7d82bcb519850458a09"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "reward_choice.png",
+      "phase": "REWARD_CHOICE",
+      "seed": 2332014,
+      "state": "reward_choice",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "d841f42f90955d63163ed268e4b0b029a3ef9cc1abe5b53038929e90835fb5c9"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "map_choice_act_2.png",
+      "phase": "MAP_CHOICE",
+      "seed": 2332014,
+      "state": "map_choice_act_2",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "c2965c4601461c5a4eeb57e4e61c4ab4ba6fd3ffe42a99888a356e2c7eec04c5"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "run_summary.png",
+      "phase": "RUN_SUMMARY",
+      "seed": 2332014,
+      "state": "run_summary",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "b3f019cf67d53cc93aeb911018c67bda88607f5bae85f33ad9f9320fe8b5a1c4"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "run_complete.png",
+      "phase": "RUN_COMPLETE",
+      "seed": 2332014,
+      "state": "run_complete",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "c900cc54d6be4a3b9f88dc2b430d1d7f231b31c8753351c29f215270c0c390de"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "event_choice.png",
+      "phase": "EVENT",
+      "seed": 7407333,
+      "state": "event_choice",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "3b1c35d4ab9f4d3ceb90afe55802ab306deb9d18f14ce9a597f217c09a39fa17"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "elite_reward.png",
+      "phase": "ELITE_REWARD",
+      "seed": 7407333,
+      "state": "elite_reward",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "c5e58cb8ba5dd9517bb11230b2376e836176b18f0cf3d2c739d7a85704831176"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "boss_reward.png",
+      "phase": "BOSS_REWARD",
+      "seed": 7407333,
+      "state": "boss_reward",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "279d8257c5e63a0481c09c0d4a54fce4d879275e141e7b05276c994742a0afbd"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "shop_unaffordable.png",
+      "phase": "SHOP",
+      "seed": 9971756,
+      "state": "shop_unaffordable",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "58193030f4193e45471f5bdc7644c4973c97980a3e961c6ab9dfbdbdf40e5137"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "shop.png",
+      "phase": "SHOP",
+      "seed": 9971756,
+      "state": "shop",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "7ecbe3879102a6e44262fa0e1a048eb3989b5123b3e1189db267904159539804"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "shop_confirmation.png",
+      "phase": "SHOP",
+      "seed": 9971756,
+      "state": "shop_confirmation",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "e131bb53949cf81846b2b27c4771c3ba566709eb64eb8261b9eea6660f9321b7"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "workshop_service_choices.png",
+      "phase": "WORKSHOP",
+      "seed": 9971756,
+      "state": "workshop_service_choices",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "51187b48303a5e4fd285527b4c07d51c8f6dab150a359429dfc7f0d452c46930"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "workshop_target_choice.png",
+      "phase": "WORKSHOP",
+      "seed": 9971756,
+      "state": "workshop_target_choice",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "cbdd0532f9b5f52fe0bfcd2d45360fa4ee6b31d2a09ec27f7e367f1dad1dae41"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "workshop_value_choice.png",
+      "phase": "WORKSHOP",
+      "seed": 9971756,
+      "state": "workshop_value_choice",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "474fbff7b2d1eccba700fb1e28aea075f6ae47846daee642c8c6be5e321701c8"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "workshop_confirmation.png",
+      "phase": "WORKSHOP",
+      "seed": 9971756,
+      "state": "workshop_confirmation",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "230b473dc21381ac11d9fa65462d8736c891c8b130f5faca925f9620401b6042"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_drawn_hand.png",
+      "phase": "BATTLE",
+      "seed": 12156321,
+      "state": "battle_drawn_hand",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "aeba7d28859ca3b8b009b9911afa2c6eb164d0859b553e1af3da4b6425974731"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_pattern_selected.png",
+      "phase": "BATTLE",
+      "seed": 12156321,
+      "state": "battle_pattern_selected",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "e72f7f84b1ee5c4ba0ec0af63b9f2b32f3f99879b0eb860b9eaa6d1c53e84ee0"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_tile_detail.png",
+      "phase": "BATTLE",
+      "seed": 12156321,
+      "state": "battle_tile_detail",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "c5e8f17e04abf6d045ae283d3db1554c7aecf4d647c36742e32bdbf196228f5c"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_complete_hand_selected.png",
+      "phase": "BATTLE",
+      "seed": 12156321,
+      "state": "battle_complete_hand_selected",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "522b2a7b2dc34d245c445d2ee2dd524204b03cc6bfe7d0d87ac4ab4ab1774222"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "battle_recovery.png",
+      "phase": "BATTLE",
+      "seed": 12156321,
+      "state": "battle_recovery",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "a10ecbdd9ed5052a4f393afc87d2a9636bc737d05adf1eb5a99696b7f822a111"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "run_summary_defeat.png",
+      "phase": "RUN_SUMMARY",
+      "seed": 12156321,
+      "state": "run_summary_defeat",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "f5bbccc65f1524767165108be18b034ef5c4b5ef0b32a2496a5b89d35c995830"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "none",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "suspend_resume_choice.png",
+      "phase": "STARTUP_RECOVERY",
+      "seed": -1,
+      "state": "suspend_resume_choice",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "f7e7ea3361f211b6c91a26f8b42a923795572733b395abf7774f89d2297d92fa"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "none",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "new_run_confirmation.png",
+      "phase": "STARTUP_RECOVERY",
+      "seed": -1,
+      "state": "new_run_confirmation",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "b4dfd8996e9aaa200139cc1e67a20a9cf4a441da12f7fd8d78561fb8c17bf61a"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "resumed_map.png",
+      "phase": "MAP_CHOICE",
+      "seed": 14665945,
+      "state": "resumed_map",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "fe0d8d530e7e52a34431b86acb9bd544ff67e58a4e5ba49d453c2f5263a085cc"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "none",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "save_recovery_error.png",
+      "phase": "STARTUP_RECOVERY",
+      "seed": -1,
+      "state": "save_recovery_error",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "5933fbca17beed1e04bad6c319b6bc8d14bd9b7f7b550a1457b3319cc387127f"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "none",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "save_recovery_details.png",
+      "phase": "STARTUP_RECOVERY",
+      "seed": -1,
+      "state": "save_recovery_details",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "8fcf7cd9ac71a7beb0bc1a57b61dc1528d80c715a5bbd0225e336a98399bc402"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "profile_recovery.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 16485777,
+      "state": "profile_recovery",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "40bf60130e82e2817fe1d588b5addba09a7b9aa5f5f796192e28915c828c5b1f"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "profile_recovery_details.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 16485777,
+      "state": "profile_recovery_details",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "1ac009733f4897da6d0a24ecad17f411be86edbae1978ef160c717de5266cc62"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "profile_reset_result.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 16485777,
+      "state": "profile_reset_result",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "663afaea848cc39151eca97d92574c131266bbd43978663d0f3e25d54d8bedef"
+    },
+    {
+      "build_version": "stage3-alpha-playable-1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "fixture": "Stage4OnboardingContentRegistry; deterministic Hand/HP/pressure/Intent and invalid-save/profile fixtures for interaction/end/recovery states",
+      "layout_failures": 0,
+      "locale": "zh_CN",
+      "path": "profile_manual_recovery.png",
+      "phase": "CHARACTER_SELECT",
+      "seed": 17566328,
+      "state": "profile_manual_recovery",
+      "ui_scale": 1.5,
+      "viewport": [
+        1280,
+        720
+      ],
+      "sha256": "2877917d435902ad717a9cd29a8813525813f813b00b471400ac98cd175056fe"
+    }
+  ],
+  "engine": "4.7.2-stable (official)",
+  "flow_failures": [],
+  "layout_failures": [],
+  "os": "Linux",
+  "participant_testing": "NOT_PERFORMED",
+  "physical_device": "NOT_PERFORMED",
+  "video_adapter": "llvmpipe (LLVM 20.1.2, 256 bits)",
+  "retained_capture_states": [
+    "language_settings",
+    "map_choice_act_2",
+    "battle_complete_hand_selected"
+  ]
+}

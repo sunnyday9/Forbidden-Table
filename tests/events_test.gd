@@ -16,6 +16,7 @@ const EventDefinition = preload("res://src/content/definitions/event_definition.
 const EventState = preload("res://src/domain/run/event_state.gd")
 const EnterEventCommand = preload("res://src/domain/commands/enter_event_command.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
 const MiniActMapCatalog = preload("res://src/content/catalogs/mini_act_map_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
@@ -25,6 +26,7 @@ const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
+const PublicActRouteFixture = preload("res://tests/fixtures/public_act_route_fixture.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
@@ -39,9 +41,13 @@ func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_event_entry_choice_resolution_and_exit_are_explicit(failures)
 	test_invalid_event_choice_is_atomic_and_uses_stable_ids(failures)
+	test_rule_memory_unique_choices_are_rejected_before_execution_across_acts(failures)
+	test_duplicate_replace_and_refresh_event_modifiers_remain_eligible(failures)
 	test_event_alternatives_are_deterministic_and_stream_isolated(failures)
 	test_run_scoped_contract_modifier_cleans_up_without_leaking(failures)
 	test_phase_2_event_identity_contracts_are_explicit(failures)
+	test_existing_event_payloads_remain_act_eligible(failures)
+	test_new_production_events_are_act_eligible_and_replayable(failures)
 	test_act_two_event_families_are_deterministic_typed_and_resumable(failures)
 	test_act_two_event_entry_uses_restored_map_definition(failures)
 	test_event_modifier_save_fixtures_include_completed_intro(failures)
@@ -103,6 +109,134 @@ func test_invalid_event_choice_is_atomic_and_uses_stable_ids(failures: Array[Str
 	assert_true(domain.checkpoint() == before, "a rejected Event option leaves RunState unchanged", failures)
 	assert_true(domain.rng_snapshot() == rng_before, "a rejected Event option leaves every RNG stream unchanged", failures)
 	assert_true(not ChooseEventOptionCommand.new("event.ids", "accept_bargain").to_dictionary().has("option_index"), "Event Commands never serialize a UI option index", failures)
+
+func test_rule_memory_unique_choices_are_rejected_before_execution_across_acts(failures: Array[String]) -> void:
+	var act_two_cases: Array[Dictionary] = [
+		{"event_id": "alpha.event.act_two.rule_memory", "choice_id": "study_yaku", "seed": 0},
+		{"event_id": "alpha.event.act_two.rule_memory.cross_reference", "choice_id": "cross_reference", "seed": 18},
+	]
+	for case_index in act_two_cases.size():
+		var event_case: Dictionary = act_two_cases[case_index]
+		var setup: Dictionary = PublicActRouteFixture.two_act_rule_memory_domain(
+			"event.rule_memory.unique.%d" % case_index,
+			int(event_case["seed"]),
+			str(event_case["event_id"]),
+			failures,
+		)
+		assert_true(bool(setup.get("accepted", false)), "controlled public-command fixture traverses the authored two-Act Rule Memory route", failures)
+		if not bool(setup.get("accepted", false)):
+			continue
+		var domain: RunDomain = setup["domain"]
+		var expected_act_one_path := [
+			"base.map_node.intro",
+			"base.map_node.normal.right",
+			"base.map_node.event.right",
+			"base.map_node.normal.mid",
+			"base.map_node.elite",
+			"base.map_node.boss",
+		]
+		var expected_act_two_path := [
+			"base.map_node.act_two.intro",
+			"base.map_node.act_two.normal.right",
+			"base.map_node.act_two.event.right",
+		]
+		assert_true(setup.get("act_one_path", []) == expected_act_one_path, "actual Act 1 ordered_path visits Intro, right Normal, Rule Memory, mid Normal, Elite, and Boss", failures)
+		assert_true(str(setup.get("act_one_boss_reward_command_type", "")) == "ChooseReward" and bool(setup.get("act_one_boss_transition_emitted", false)), "the Act 1 Boss reward's public ChooseRewardCommand naturally emits the Act transition", failures)
+		assert_true(setup.get("act_two_path", []) == expected_act_two_path, "actual Act 2 ordered_path reaches Rule Memory through its Intro, right Normal, and Event route", failures)
+		assert_true(domain.state.act_index == 2 and domain.state.active_modifier("event.act_two.rule_memory") != null, "the Act 1 unique Rule Memory modifier carries across the public Boss reward boundary", failures)
+		assert_true(domain.state.event_state.event_id == str(event_case["event_id"]), "EnterEventCommand enters the selected authored Act 2 Rule Memory Event", failures)
+		assert_true(domain.state.event_state.legal_choice_ids().has(str(event_case["choice_id"])), "Act 2 Event exposes its authored Rule Memory choice", failures)
+		if not domain.state.event_state.active:
+			continue
+
+		var event_id := str(event_case["event_id"])
+		var choice_id := str(event_case["choice_id"])
+		var entry_id: String = domain.state.event_state.entry_id
+		var preview_before := domain.checkpoint()
+		var preview_rng_before := domain.rng_snapshot()
+		var preview_replay_count: int = domain.replay_record.commands.size()
+		var choice_validation = domain.validate_choose_event_option(event_id, entry_id, choice_id)
+		assert_true(not choice_validation.is_valid(), "%s is unavailable in preview after Act 1 installed the same UNIQUE modifier" % choice_id, failures)
+		assert_true(choice_validation.code == "EFFECT_ALREADY_ACTIVE", "%s preview reports the LifecycleResolver UNIQUE conflict" % choice_id, failures)
+		assert_true(domain.checkpoint() == preview_before, "%s preview leaves authoritative Event and Run state unchanged" % choice_id, failures)
+		assert_true(domain.rng_snapshot() == preview_rng_before, "%s preview does not advance any RNG stream" % choice_id, failures)
+		assert_true(domain.replay_record.commands.size() == preview_replay_count, "%s preview does not append an accepted Replay command" % choice_id, failures)
+
+		var execute_before := domain.checkpoint()
+		var execute_rng_before := domain.rng_snapshot()
+		var execute_replay_count: int = domain.replay_record.commands.size()
+		var rejected = domain.execute(ChooseEventOptionCommand.new(
+			"rule-memory.act2.%d.%s" % [case_index, choice_id],
+			choice_id,
+			event_id,
+			entry_id,
+		))
+		assert_true(not rejected.accepted and rejected.validation.code == "EFFECT_ALREADY_ACTIVE", "%s execution rejects the same lifecycle conflict reported by preview" % choice_id, failures)
+		assert_true(rejected.events.is_empty(), "%s rejection emits no authoritative events" % choice_id, failures)
+		assert_true(domain.checkpoint() == execute_before and domain.state.event_state.active, "%s rejection is atomic and leaves the Event available" % choice_id, failures)
+		assert_true(domain.rng_snapshot() == execute_rng_before, "%s rejection leaves every RNG stream unchanged" % choice_id, failures)
+		assert_true(domain.replay_record.commands.size() == execute_replay_count, "%s rejection does not append an accepted Replay command" % choice_id, failures)
+
+		var leave_validation = domain.validate_choose_event_option(event_id, entry_id, "leave")
+		var leave = domain.execute(ChooseEventOptionCommand.new(
+			"rule-memory.act2.%d.leave" % case_index,
+			"leave",
+			event_id,
+			entry_id,
+		))
+		assert_true(leave_validation.is_valid() and leave.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "Leave remains available after the unavailable Rule Memory choice", failures)
+
+func test_duplicate_replace_and_refresh_event_modifiers_remain_eligible(failures: Array[String]) -> void:
+	var policies: Array[Dictionary] = [
+		{"stack_policy": StackPolicy.REPLACE, "choice_id": "carry_clause"},
+		{"stack_policy": StackPolicy.REFRESH_DURATION, "choice_id": "refresh_clause"},
+	]
+	for case_index in policies.size():
+		var policy_case: Dictionary = policies[case_index]
+		var event_id := "alpha.event.act_two.contract_clause"
+		var registry := _production_event_registry()
+		var domain := _production_event_domain("event.modifier-policy.%d" % case_index, 3350 + case_index, 2, registry)
+		var definition: EventDefinition = registry.resolve(event_id)
+		if policy_case["stack_policy"] == StackPolicy.REFRESH_DURATION:
+			definition.choices.append({
+				"choice_id": "refresh_clause",
+				"label": "Refresh the clause",
+				"effects": [{
+					"kind": "RUN_MODIFIER",
+					"modifier_id": "event.act_two.contract_clause",
+					"value": 1,
+					"scope": DurationSpec.ACT,
+					"duration_amount": 1,
+					"stack_policy": StackPolicy.REFRESH_DURATION,
+					"source_id": "fixture.event.act_two.contract_clause",
+					"parameters": {},
+				}],
+			})
+		var existing_modifier_effect := Effect.new("fixture.existing.event.act_two.contract_clause", null, [], [], [
+			ApplyRunModifierOperation.new(
+				"event.act_two.contract_clause",
+				1,
+				DurationSpec.new(DurationSpec.ACT, 1),
+				StackPolicy.REPLACE,
+				"fixture.existing.event.act_two.contract_clause",
+			),
+		])
+		var install_result = existing_modifier_effect.resolve(null, domain.state, 0)
+		assert_true(install_result.is_resolved() and domain.state.active_modifier("event.act_two.contract_clause") != null, "%s fixture begins with the same Act modifier already active" % str(policy_case["stack_policy"]), failures)
+		var event_entry = _prepare_act_two_event(domain, event_id, "modifier-policy.%d" % case_index)
+		assert_true(event_entry.accepted, "%s Event enters with the existing modifier active" % str(policy_case["stack_policy"]), failures)
+		if not event_entry.accepted:
+			continue
+		var choice_id := str(policy_case["choice_id"])
+		var validation = domain.validate_choose_event_option(event_id, domain.state.event_state.entry_id, choice_id)
+		assert_true(validation.is_valid(), "duplicate %s effects remain eligible during Event preview" % str(policy_case["stack_policy"]), failures)
+		var choice = domain.execute(ChooseEventOptionCommand.new(
+			"modifier-policy.%d.choose" % case_index,
+			choice_id,
+			event_id,
+			domain.state.event_state.entry_id,
+		))
+		assert_true(choice.accepted and domain.state.active_modifier("event.act_two.contract_clause") != null, "duplicate %s effects remain resolvable" % str(policy_case["stack_policy"]), failures)
 
 func test_event_alternatives_are_deterministic_and_stream_isolated(failures: Array[String]) -> void:
 	var first := _event_domain("event.deterministic", 3303)
@@ -173,6 +307,295 @@ func test_phase_2_event_identity_contracts_are_explicit(failures: Array[String])
 		assert_true(bool(contract.get("systemic_trade", false)), "each Event content contract declares a systemic trade", failures)
 		assert_true(not str(contract.get("required_behavior", "")).is_empty(), "each Event content contract declares its required systemic behavior", failures)
 
+func test_new_production_events_are_act_eligible_and_replayable(failures: Array[String]) -> void:
+	var cases: Array[Dictionary] = [
+		{
+			"event_id": "alpha.event.act_one.tile_surgery",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.left",
+			"branch_node_id": "base.map_node.normal.left",
+			"choice_id": "trade_gold",
+			"effect_kind": "CURRENCY",
+			"gold_delta": -2,
+			"token_delta": 1,
+		},
+		{
+			"event_id": "alpha.event.act_one.risk_bargain",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.left",
+			"branch_node_id": "base.map_node.normal.left",
+			"choice_id": "take_advance",
+			"effect_kind": "GOLD_CHANGES",
+			"token_delta": -1,
+			"allowed_gold_deltas": [6, -2],
+		},
+		{
+			"event_id": "alpha.event.act_one.gold_exchange",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.left",
+			"branch_node_id": "base.map_node.normal.left",
+			"choice_id": "exchange",
+			"effect_kind": "CURRENCY",
+			"gold_delta": -3,
+			"token_delta": 1,
+		},
+		{
+			"event_id": "alpha.event.act_one.map_reveal",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.right",
+			"branch_node_id": "base.map_node.normal.right",
+			"choice_id": "reveal_route",
+			"effect_kind": "MAP_REVEAL",
+			"revealed_node_id": "base.map_node.boss",
+		},
+		{
+			"event_id": "alpha.event.act_one.contract_clause",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.right",
+			"branch_node_id": "base.map_node.normal.right",
+			"choice_id": "carry_clause",
+			"effect_kind": "RUN_MODIFIER",
+			"modifier_id": "event.contract_clause.apply",
+			"modifier_scope": "RUN",
+		},
+		{
+			"event_id": "alpha.event.act_one.rule_memory",
+			"act_index": 1,
+			"event_node_id": "base.map_node.event.right",
+			"branch_node_id": "base.map_node.normal.right",
+			"choice_id": "remember_rule",
+			"effect_kind": "RUN_MODIFIER_AND_TOKEN",
+			"modifier_id": "event.act_two.rule_memory",
+			"modifier_scope": "RUN",
+			"token_delta": 1,
+		},
+		{
+			"event_id": "alpha.event.act_two.tile_surgery.sealed_entry",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.left",
+			"branch_node_id": "base.map_node.act_two.normal.left",
+			"choice_id": "repair_with_token",
+			"effect_kind": "CURRENCY",
+			"gold_delta": 3,
+			"token_delta": -1,
+		},
+		{
+			"event_id": "alpha.event.act_two.risk_bargain.shadow_account",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.left",
+			"branch_node_id": "base.map_node.act_two.normal.left",
+			"choice_id": "stake_hidden_account",
+			"effect_kind": "GOLD_CHANGES",
+			"allowed_gold_deltas": [3, -5],
+		},
+		{
+			"event_id": "alpha.event.act_two.gold_exchange.long_margin",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.left",
+			"branch_node_id": "base.map_node.act_two.normal.left",
+			"choice_id": "trade_margin",
+			"effect_kind": "CURRENCY",
+			"gold_delta": -6,
+			"token_delta": 2,
+		},
+		{
+			"event_id": "alpha.event.act_two.map_reveal.final_annotation",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.right",
+			"branch_node_id": "base.map_node.act_two.normal.right",
+			"choice_id": "reveal_route",
+			"effect_kind": "MAP_REVEAL",
+			"revealed_node_id": "base.map_node.act_two.boss",
+		},
+		{
+			"event_id": "alpha.event.act_two.contract_clause.amended_clause",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.right",
+			"branch_node_id": "base.map_node.act_two.normal.right",
+			"choice_id": "carry_clause",
+			"effect_kind": "RUN_MODIFIER",
+			"modifier_id": "event.act_two.contract_clause",
+			"modifier_scope": "ACT",
+		},
+		{
+			"event_id": "alpha.event.act_two.rule_memory.cross_reference",
+			"act_index": 2,
+			"event_node_id": "base.map_node.act_two.event.right",
+			"branch_node_id": "base.map_node.act_two.normal.right",
+			"choice_id": "cross_reference",
+			"effect_kind": "RUN_MODIFIER_AND_TOKEN",
+			"modifier_id": "event.act_two.rule_memory",
+			"modifier_scope": "RUN",
+			"token_delta": 1,
+		},
+	]
+	_assert_new_production_event_cases(cases, failures)
+
+func test_existing_event_payloads_remain_act_eligible(failures: Array[String]) -> void:
+	var registry := _production_event_registry()
+	var event_cases: Array[Dictionary] = [
+		{"event_id": "base.event.tile_surgery", "act_index": 1, "event_node_id": "base.map_node.event.left"},
+		{"event_id": "base.event.risk_bargain", "act_index": 1, "event_node_id": "base.map_node.event.left"},
+		{"event_id": "base.event.gold_exchange", "act_index": 1, "event_node_id": "base.map_node.event.left"},
+		{"event_id": "base.event.map_reveal", "act_index": 1, "event_node_id": "base.map_node.event.right"},
+		{"event_id": "base.event.contract_clause", "act_index": 1, "event_node_id": "base.map_node.event.right"},
+		{"event_id": "base.event.rule_memory", "act_index": 1, "event_node_id": "base.map_node.event.right"},
+		{"event_id": "alpha.event.act_two.tile_surgery", "act_index": 2, "event_node_id": "base.map_node.act_two.event.left"},
+		{"event_id": "alpha.event.act_two.risk_bargain", "act_index": 2, "event_node_id": "base.map_node.act_two.event.left"},
+		{"event_id": "alpha.event.act_two.gold_exchange", "act_index": 2, "event_node_id": "base.map_node.act_two.event.left"},
+		{"event_id": "alpha.event.act_two.map_reveal", "act_index": 2, "event_node_id": "base.map_node.act_two.event.right"},
+		{"event_id": "alpha.event.act_two.contract_clause", "act_index": 2, "event_node_id": "base.map_node.act_two.event.right"},
+		{"event_id": "alpha.event.act_two.rule_memory", "act_index": 2, "event_node_id": "base.map_node.act_two.event.right"},
+	]
+	for event_case in event_cases:
+		var event_id := str(event_case["event_id"])
+		var act_index := int(event_case["act_index"])
+		var event_node_id := str(event_case["event_node_id"])
+		var map_definition = MiniActMapCatalog.definition_for_act(act_index, registry)
+		var event_node = map_definition.node_definition(event_node_id)
+		assert_true(event_node != null and event_node.payload_options.has(event_id), "%s remains eligible on its authored Act %d map" % [event_id, act_index], failures)
+		assert_true(registry.resolve(event_id) is EventDefinition, "%s remains a registered EventDefinition" % event_id, failures)
+
+func _assert_new_production_event_cases(cases: Array[Dictionary], failures: Array[String]) -> void:
+	for event_index in cases.size():
+		var event_case: Dictionary = cases[event_index]
+		var act_index := int(event_case["act_index"])
+		var event_id := str(event_case["event_id"])
+		var event_node_id := str(event_case["event_node_id"])
+		var branch_node_id := str(event_case["branch_node_id"])
+		var registry := _production_event_registry()
+		var domain := _production_event_domain("event.production.%d" % event_index, 7560 + event_index, act_index, registry)
+		var event_node = domain.map_definition.node_definition(event_node_id)
+		assert_true(event_node != null and event_node.payload_options.has(event_id), "%s is eligible at its authored Act %d Event node" % [event_id, act_index], failures)
+		var other_map = MiniActMapCatalog.definition_for_act(3 - act_index, registry)
+		var other_event_node_id := "base.map_node.event.left" if act_index == 2 else "base.map_node.act_two.event.left"
+		var other_event_node = other_map.node_definition(other_event_node_id)
+		assert_true(other_event_node != null and not other_event_node.payload_options.has(event_id), "%s is not eligible in the other Act" % event_id, failures)
+		var definition = registry.resolve(event_id)
+		assert_true(definition is EventDefinition, "%s is a registered production EventDefinition" % event_id, failures)
+		if event_node == null or not event_node.payload_options.has(event_id) or not definition is EventDefinition:
+			continue
+		assert_true(
+			definition.legal_choice_ids().has(str(event_case["choice_id"])) and definition.legal_choice_ids().has("leave"),
+			"%s declares its stable primary choice and explicit Leave choice" % event_id,
+			failures,
+		)
+		var choices_before: int = domain.state.refinement_tokens
+		var gold_before: int = domain.state.gold
+		domain.state.map_state.select_node(branch_node_id, domain.map_definition)
+		domain.state.map_state.payload_ids[event_node_id] = event_id
+		domain.state.map_state.select_node(event_node_id, domain.map_definition)
+		domain.state.phase = RunPhase.MAP_CHOICE
+		var entry = domain.execute(EnterEventCommand.new("event.production.%d.enter" % event_index))
+		assert_true(entry.accepted and domain.state.event_state.event_id == event_id, "%s enters through its authored map payload" % event_id, failures)
+		if not entry.accepted:
+			continue
+		var saved = SaveCoordinator.new().save(domain)
+		assert_true(saved.accepted, "%s saves at the pending Event choice boundary" % event_id, failures)
+		if not saved.accepted:
+			continue
+		var resumed = SaveMapper.load_into_domain(saved.snapshot.to_dictionary(), registry)
+		assert_true(resumed.accepted, "%s restores the pending Event choice" % event_id, failures)
+		if not resumed.accepted:
+			continue
+		var resumed_domain: RunDomain = resumed.domain
+		assert_true(resumed_domain.state.event_state.event_id == event_id, "%s keeps its stable identity after restore" % event_id, failures)
+		var replay_start: Dictionary = resumed_domain.checkpoint()
+		var replay_record := ReplayRecord.new(resumed_domain.state.seed, resumed_domain.state.content_version, resumed_domain.state.run_id)
+		resumed_domain.replay_record = replay_record
+		resumed_domain.replay_record.record_initial_checkpoint(replay_start, resumed_domain.rng_snapshot(), "ONGOING")
+		var choice = resumed_domain.execute(ChooseEventOptionCommand.new(
+			"event.production.%d.choose" % event_index,
+			str(event_case["choice_id"]),
+			event_id,
+			resumed_domain.state.event_state.entry_id,
+		))
+		assert_true(choice.accepted, "%s accepts its typed choice after restore (status=%s message=%s data=%s)" % [event_id, choice.status, choice.message, JSON.stringify(choice.data)], failures)
+		if choice.accepted:
+			match str(event_case["effect_kind"]):
+				"CURRENCY":
+					assert_true(resumed_domain.state.gold == gold_before + int(event_case["gold_delta"]), "%s applies its authored Gold effect" % event_id, failures)
+					assert_true(resumed_domain.state.refinement_tokens == choices_before + int(event_case["token_delta"]), "%s applies its authored Refinement Token effect" % event_id, failures)
+				"GOLD_CHANGES":
+					var gold_delta: int = resumed_domain.state.gold - gold_before
+					assert_true(event_case.get("allowed_gold_deltas", []).has(gold_delta), "%s resolves one of its deterministic wager outcomes" % event_id, failures)
+					_assert_production_event_wager_outcomes(event_case, event_index, registry, failures)
+					if event_case.has("token_delta"):
+						assert_true(resumed_domain.state.refinement_tokens == choices_before + int(event_case["token_delta"]), "%s applies its authored Refinement Token stake" % event_id, failures)
+				"MAP_REVEAL":
+					assert_true(resumed_domain.state.map_state.knowledge_state.get(str(event_case["revealed_node_id"]), "") == "EXACT", "%s reveals its authored route node" % event_id, failures)
+				"RUN_MODIFIER":
+					var clause_modifier = resumed_domain.state.active_modifier(str(event_case["modifier_id"]))
+					assert_true(clause_modifier != null, "%s applies its authored modifier" % event_id, failures)
+					if clause_modifier != null and event_case.has("modifier_scope"):
+						assert_true(clause_modifier.duration_scope == str(event_case["modifier_scope"]) and clause_modifier.remaining == 1, "%s keeps its authored modifier scope" % event_id, failures)
+				"RUN_MODIFIER_AND_TOKEN":
+					var memory_modifier = resumed_domain.state.active_modifier(str(event_case["modifier_id"]))
+					assert_true(memory_modifier != null, "%s applies its authored modifier" % event_id, failures)
+					if memory_modifier != null and event_case.has("modifier_scope"):
+						assert_true(memory_modifier.duration_scope == str(event_case["modifier_scope"]) and memory_modifier.remaining == 1, "%s keeps its authored modifier scope" % event_id, failures)
+					assert_true(resumed_domain.state.refinement_tokens == choices_before + int(event_case["token_delta"]), "%s applies its authored Refinement Token effect" % event_id, failures)
+		var saved_state: Dictionary = saved.snapshot.to_dictionary()
+		var replay_factory: Callable = func(_seed: int, _content_version: String):
+			var replay_loaded = SaveMapper.load_into_domain(saved_state, registry)
+			return replay_loaded.domain if replay_loaded.accepted else null
+		var replay_report = ReplayVerifier.verify(replay_record, replay_factory, resumed_domain.state.content_version)
+		assert_true(replay_report.is_match(), "%s accepted Event choice replays from the restored checkpoint" % event_id, failures)
+		var skip_domain := _production_event_domain("event.production.%d.skip" % event_index, 7660 + event_index, act_index, registry)
+		skip_domain.state.map_state.select_node(branch_node_id, skip_domain.map_definition)
+		skip_domain.state.map_state.payload_ids[event_node_id] = event_id
+		skip_domain.state.map_state.select_node(event_node_id, skip_domain.map_definition)
+		skip_domain.state.phase = RunPhase.MAP_CHOICE
+		var skip_entry = skip_domain.execute(EnterEventCommand.new("event.production.%d.skip.enter" % event_index))
+		assert_true(skip_entry.accepted, "%s also opens for its explicit Leave choice" % event_id, failures)
+		if not skip_entry.accepted:
+			continue
+		var skip_gold_before: int = skip_domain.state.gold
+		var skip_tokens_before: int = skip_domain.state.refinement_tokens
+		var skip_effects_before: Dictionary = skip_domain.state.active_effects.duplicate(true)
+		var skipped = skip_domain.execute(ChooseEventOptionCommand.new(
+			"event.production.%d.skip.choose" % event_index,
+			"leave",
+			event_id,
+			skip_domain.state.event_state.entry_id,
+		))
+		assert_true(skipped.accepted, "%s accepts its explicit Leave choice" % event_id, failures)
+		assert_true(skip_domain.state.gold == skip_gold_before and skip_domain.state.refinement_tokens == skip_tokens_before and skip_domain.state.active_effects == skip_effects_before, "%s Leave choice has no gameplay effect" % event_id, failures)
+
+func _assert_production_event_wager_outcomes(event_case: Dictionary, event_index: int, registry: ContentRegistry, failures: Array[String]) -> void:
+	var act_index := int(event_case["act_index"])
+	var event_id := str(event_case["event_id"])
+	var branch_node_id := str(event_case["branch_node_id"])
+	var event_node_id := str(event_case["event_node_id"])
+	var choice_id := str(event_case["choice_id"])
+	var expected_deltas: Array = event_case.get("allowed_gold_deltas", [])
+	var exercised_deltas: Dictionary = {}
+	for seed in range(1, 33):
+		if exercised_deltas.size() == expected_deltas.size():
+			break
+		var domain := _production_event_domain("event.production.wager.%d.%d" % [event_index, seed], seed, act_index, registry)
+		domain.state.map_state.select_node(branch_node_id, domain.map_definition)
+		domain.state.map_state.payload_ids[event_node_id] = event_id
+		domain.state.map_state.select_node(event_node_id, domain.map_definition)
+		domain.state.phase = RunPhase.MAP_CHOICE
+		var entry = domain.execute(EnterEventCommand.new("event.production.wager.%d.%d.enter" % [event_index, seed]))
+		if not entry.accepted:
+			continue
+		var gold_before: int = domain.state.gold
+		var choice = domain.execute(ChooseEventOptionCommand.new(
+			"event.production.wager.%d.%d.choose" % [event_index, seed],
+			choice_id,
+			event_id,
+			domain.state.event_state.entry_id,
+		))
+		if not choice.accepted:
+			continue
+		var gold_delta: int = domain.state.gold - gold_before
+		if expected_deltas.has(gold_delta):
+			exercised_deltas[gold_delta] = true
+	for expected_delta in expected_deltas:
+		assert_true(exercised_deltas.has(expected_delta), "%s exercises authored wager outcome %+d Gold" % [event_id, int(expected_delta)], failures)
+
 func test_act_two_event_families_are_deterministic_typed_and_resumable(failures: Array[String]) -> void:
 	var expected_event_ids := [
 		"alpha.event.act_two.tile_surgery",
@@ -190,10 +613,8 @@ func test_act_two_event_families_are_deterministic_typed_and_resumable(failures:
 		var node = first_map_domain.map_definition.node_definition(node_id)
 		for payload_id in node.payload_options:
 			mapped_event_ids[payload_id] = true
-	var sorted_mapped_event_ids: Array = mapped_event_ids.keys()
-	sorted_mapped_event_ids.sort()
-	expected_event_ids.sort()
-	assert_true(sorted_mapped_event_ids == expected_event_ids, "both Act 2 Event nodes expose all six family identities as deterministic payload alternatives", failures)
+	for event_id in expected_event_ids:
+		assert_true(mapped_event_ids.has(event_id), "%s remains an Act 2 Event payload alternative" % event_id, failures)
 
 	for event_index in expected_event_ids.size():
 		var event_id: String = expected_event_ids[event_index]
@@ -513,6 +934,27 @@ func _event_effect_registry(include_act_two: bool) -> ContentRegistry:
 	if include_act_two:
 		AlphaActTwoCatalog.register_all(registry)
 	return registry
+
+func _production_event_registry() -> ContentRegistry:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	return registry
+
+func _production_event_domain(run_id: String, seed: int, act_index: int, registry: ContentRegistry) -> RunDomain:
+	var domain: RunDomain = RunDomain.new(run_id, seed, registry) if act_index == 1 else RunDomain.new_alpha_run(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, Phase2Catalog.CONTRACT_IDS[0]))
+	domain.state.gold = 10
+	domain.state.refinement_tokens = 3
+	domain.state.act_index = act_index
+	if act_index == 2:
+		domain.map_definition = MiniActMapCatalog.definition_for_act(2, registry)
+		domain.state.map_state.initialize(domain.map_definition, domain.rng_streams.map)
+	domain.state.phase = RunPhase.MAP_CHOICE
+	_mark_intro_complete_for_later_event_fixture(domain)
+	return domain
 
 func _prepared_event_modifier_domain(run_id: String, seed: int, registry, event_id: String, act_two: bool) -> RunDomain:
 	var domain: RunDomain = RunDomain.new_alpha_run(run_id, seed, registry) if act_two else RunDomain.new(run_id, seed, registry)

@@ -1,0 +1,11 @@
+{
+  "source": "localization/en.csv",
+  "source_sha256": "e608af94986fbb7a534cb258d504a0aac6fcc0d0463dfbcc994afce88c714473",
+  "runtime_keys": 962,
+  "design_strings": 378,
+  "chinese_screens": 36,
+  "language_specimens": 2,
+  "lexical_matches": 79,
+  "runtime_translation_complete": false,
+  "runtime_modified": false
+}

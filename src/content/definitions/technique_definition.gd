@@ -1,5 +1,6 @@
 class_name TechniqueDefinition
 extends "res://src/content/definitions/content_definition.gd"
+const ContentTextCatalogScript = preload("res://src/content/text/content_text_catalog.gd")
 
 const ACTIVE := "ACTIVE"
 const PASSIVE := "PASSIVE"
@@ -39,21 +40,21 @@ func expected_id_families() -> Array[String]:
 func validate():
 	var report = super.validate()
 	if not VALID_KINDS.has(technique_kind):
-		report.add_issue(_issue("invalid_technique_kind", "TechniqueDefinition must declare a supported kind."))
+		report.add_issue(_issue("invalid_technique_kind", ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0001")))
 	if tp_cost < 0:
-		report.add_issue(_issue("invalid_technique_cost", "TechniqueDefinition TP cost cannot be negative."))
+		report.add_issue(_issue("invalid_technique_cost", ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0002")))
 	if technique_kind == REACTION and not VALID_REACTION_TRIGGERS.has(reaction_trigger_id):
-		report.add_issue(_issue("invalid_reaction_trigger", "Reaction Techniques must declare a supported trigger."))
+		report.add_issue(_issue("invalid_reaction_trigger", ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0003")))
 	elif technique_kind != REACTION and not reaction_trigger_id.is_empty():
-		report.add_issue(_issue("unexpected_reaction_trigger", "Only Reaction Techniques may declare a reaction trigger."))
+		report.add_issue(_issue("unexpected_reaction_trigger", ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0004")))
 	_validate_typed_effects(report, effects, "effects")
 	return report
 
 static func reaction_trigger_label(trigger_id: String) -> String:
 	match trigger_id:
 		REACTION_ENEMY_CONTAMINATION_ADDED:
-			return "enemy Contamination is added"
+			return ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0005")
 		REACTION_ENEMY_STABILITY_LOST:
-			return "enemy Table Interference reduces Stability"
+			return ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0006")
 		_:
-			return "an unknown trigger"
+			return ContentTextCatalogScript.canonical_text("CONTENT_TECHNIQUE_0007")

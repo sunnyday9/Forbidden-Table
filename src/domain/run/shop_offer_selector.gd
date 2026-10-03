@@ -57,9 +57,10 @@ func _candidate_index(candidates: Array, required_kind: String, shop_rng) -> int
 
 func _candidates(run_state, content_registry, excluded_content_ids: Dictionary, economy) -> Array:
 	var candidates: Array = []
+	var current_act := maxi(1, int(run_state.act_index))
 	for definition in content_registry.enumerate():
 		if definition is RelicDefinitionScript:
-			if run_state.build_ownership.owned_relic_ids.has(definition.content_id) or excluded_content_ids.has(definition.content_id):
+			if definition.available_from_act > current_act or run_state.build_ownership.owned_relic_ids.has(definition.content_id) or excluded_content_ids.has(definition.content_id):
 				continue
 			candidates.append({
 				"kind": ShopOfferScript.RELIC,

@@ -5,14 +5,22 @@ const CharacterDefinition = preload("res://src/content/definitions/character_def
 const ContentDefinition = preload("res://src/content/definitions/content_definition.gd")
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const ContractDefinition = preload("res://src/content/definitions/contract_definition.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
+const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
+const RunEconomy = preload("res://src/domain/run/run_economy.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
+const RunState = preload("res://src/domain/run/run_state.gd")
 const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
 const RunScene = preload("res://scenes/run/run_scene.tscn")
 const RunStartingPoolContentFixture = preload("res://tests/fixtures/run_starting_pool_content_fixture.gd")
 const RunTileInstanceRecord = preload("res://src/domain/run/run_tile_instance_record.gd")
+const Localization = preload("res://src/presentation/localization/localization.gd")
 const ShopOffer = preload("res://src/domain/run/shop_offer.gd")
+const ShopOfferSelector = preload("res://src/domain/run/shop_offer_selector.gd")
 const ShopState = preload("res://src/domain/run/shop_state.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 const TileDefinition = preload("res://src/content/definitions/tile_definition.gd")
@@ -42,11 +50,13 @@ func run() -> Array[String]:
 	test_shop_refresh_replaces_only_unpurchased_slots(failures)
 	test_workshop_services_preserve_tile_identity_and_ownership(failures)
 	test_workshop_add_and_replace_modifier_services_are_available(failures)
+	test_stage_four_modifiers_are_offered_and_workshop_rejections_are_atomic(failures)
 	test_workshop_presentation_actions_include_legal_inputs(failures)
 	test_workshop_selection_resets_when_exiting(failures)
 	test_workshop_copy_limits_and_service_availability(failures)
 	test_rejected_shop_and_workshop_actions_are_atomic(failures)
 	test_service_commands_serialize_stable_ids(failures)
+	test_shop_relics_respect_act_availability(failures)
 	return failures
 
 func test_shop_entry_is_deterministic_and_checkpointable(failures: Array[String]) -> void:
@@ -215,6 +225,76 @@ func test_workshop_add_and_replace_modifier_services_are_available(failures: Arr
 	assert_true(replace.accepted, "Workshop Replace Modifier accepts an existing modifier slot", failures)
 	assert_true(replace_domain.state.build_ownership.persistent_tile_modifier_state[replace_target_id] == ["base.modifier.recycling"], "Replace Modifier updates only the selected TileInstance modifier state", failures)
 
+func test_stage_four_modifiers_are_offered_and_workshop_rejections_are_atomic(failures: Array[String]) -> void:
+	var modifier_ids := [
+		"alpha.modifier.wide_channel",
+		"alpha.modifier.sharp_current",
+		"alpha.modifier.trade_mark",
+		"alpha.modifier.refinement_trace",
+	]
+	var domain := _alpha_workshop_domain("workshop.stage-four-modifiers", 1220)
+	domain.state.gold = 100
+	var controller := RunPresentationController.new(domain)
+	var add_service := _find_workshop_service_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER)
+	assert_true(not add_service.is_empty(), "the production Workshop exposes Add Modifier", failures)
+	if add_service.is_empty():
+		return
+	controller.confirm(str(add_service.get("id", "")))
+	var tile_id: String = domain.state.tile_pool.tile_instances[0].instance_id
+	var target_action := _find_workshop_target_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id)
+	assert_true(not target_action.is_empty(), "the production Workshop lets Add Modifier target a persistent TileInstance", failures)
+	if target_action.is_empty():
+		return
+	controller.confirm(str(target_action.get("id", "")))
+	for modifier_id in modifier_ids:
+		var action := _find_workshop_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id, "", modifier_id)
+		assert_true(not action.is_empty(), "%s is a selectable production Workshop Modifier" % modifier_id, failures)
+		if not action.is_empty():
+			assert_true(int(action.get("details", {}).get("price", -1)) == domain.economy.workshop_modifier_price, "%s uses the existing Workshop Modifier price" % modifier_id, failures)
+	var selected_id: String = modifier_ids[0]
+	var selected_action := _find_workshop_action(controller.action_descriptors(), UseWorkshopServiceCommand.ADD_MODIFIER, tile_id, "", selected_id)
+	if selected_action.is_empty():
+		return
+	var applied = controller.confirm(str(selected_action.get("id", "")))
+	assert_true(applied.accepted, "a newly offered production Modifier applies through the existing Workshop command", failures)
+	assert_true(domain.state.build_ownership.persistent_tile_modifier_state.get(tile_id, []) == [selected_id], "Workshop persists the selected Modifier on the exact TileInstance", failures)
+	assert_true(domain.state.gold == 100 - domain.economy.workshop_modifier_price, "Workshop consumes the established Modifier price", failures)
+
+	var rejected_domain := _alpha_workshop_domain("workshop.stage-four-modifier.rejected", 1221)
+	rejected_domain.state.gold = rejected_domain.economy.workshop_modifier_price - 1
+	var rejected_tile_id: String = rejected_domain.state.tile_pool.tile_instances[0].instance_id
+	var before_rejection: Dictionary = rejected_domain.checkpoint()
+	var rejected = rejected_domain.execute(UseWorkshopServiceCommand.new(
+		"workshop.stage-four-modifier.rejected.add",
+		UseWorkshopServiceCommand.ADD_MODIFIER,
+		rejected_tile_id,
+		"",
+		modifier_ids[1],
+	))
+	assert_true(not rejected.accepted and rejected.validation.code == "INSUFFICIENT_GOLD", "an unaffordable new Modifier is rejected by existing Workshop validation", failures)
+	assert_true(rejected_domain.checkpoint() == before_rejection, "a rejected new Modifier purchase leaves the checkpoint unchanged", failures)
+
+	var replacement_domain := _alpha_workshop_domain("workshop.stage-four-modifier.replacement", 1222)
+	replacement_domain.state.gold = 100
+	var replacement_tile_id: String = replacement_domain.state.tile_pool.tile_instances[0].instance_id
+	replacement_domain.state.build_ownership.persistent_tile_modifier_state[replacement_tile_id] = ["base.modifier.flexible_identity"]
+	var replacement_validation = replacement_domain.validate_use_workshop_service(
+		UseWorkshopServiceCommand.REPLACE_MODIFIER,
+		replacement_tile_id,
+		"",
+		modifier_ids[3],
+	)
+	assert_true(replacement_validation.is_valid() and int(replacement_validation.details.get("price", -1)) == replacement_domain.economy.workshop_modifier_price, "Replace Modifier validates a new production ID with the shared Workshop price", failures)
+	var replacement = replacement_domain.execute(UseWorkshopServiceCommand.new(
+		"workshop.stage-four-modifier.replacement.replace",
+		UseWorkshopServiceCommand.REPLACE_MODIFIER,
+		replacement_tile_id,
+		"",
+		modifier_ids[3],
+	))
+	assert_true(replacement.accepted, "a new production Modifier uses the existing Replace service", failures)
+	assert_true(replacement_domain.state.build_ownership.persistent_tile_modifier_state[replacement_tile_id] == [modifier_ids[3]], "replacement preserves one stable Modifier ID on its original TileInstance", failures)
+
 func test_workshop_presentation_actions_include_legal_inputs(failures: Array[String]) -> void:
 	var transform_domain := _workshop_domain("workshop.presentation.transform", 1212, 14)
 	transform_domain.state.gold = 100
@@ -260,8 +340,12 @@ func test_workshop_presentation_actions_include_legal_inputs(failures: Array[Str
 	assert_true(repeated_transform_action.get("id", "") == transform_action.get("id", ""), "Workshop action IDs remain stable across descriptor refreshes", failures)
 	var transform_label: String = scene._action_label(transform_action)
 	var transform_tooltip: String = scene._action_tooltip(transform_action)
+	var transform_current_tile_id: String = _tile_by_id(transform_domain, transform_target_id).definition_id
+	var transform_current_tile_label: String = Localization.content_text(transform_current_tile_id)
+	var transform_destination_label: String = Localization.content_text("base.tile.bamboo.1")
 	assert_true(transform_label.contains("Bamboo 1") and transform_label.contains("10 Gold"), "Transform button names its destination TileDefinition and price", failures)
-	assert_true(transform_tooltip.contains(transform_target_id) and transform_tooltip.contains("base.tile.bamboo.1"), "Transform details identify the selected TileInstance and destination", failures)
+	assert_true(transform_tooltip.contains(transform_current_tile_label) and transform_tooltip.contains(transform_destination_label), "Transform tooltip shows localized current and destination tiles", failures)
+	assert_true(transform_target_id not in transform_tooltip and "base.tile.bamboo.1" not in transform_tooltip, "Transform tooltip hides internal TileInstance and content IDs", failures)
 	var transform_result = transform_controller.confirm(str(transform_action.get("id", "")))
 	assert_true(transform_result.accepted, "the selected Transform action submits a valid Domain command", failures)
 	assert_true(_tile_by_id(transform_domain, transform_target_id).definition_id == "base.tile.bamboo.1", "Transform submission changes the exact selected TileInstance", failures)
@@ -521,6 +605,30 @@ func test_service_commands_serialize_stable_ids(failures: Array[String]) -> void
 	assert_true(use.to_dictionary()["service_id"] == UseWorkshopServiceCommand.TRANSFORM, "Workshop command serializes the stable service ID", failures)
 	assert_true(use.to_dictionary()["instance_id"] == "run.tile.7" and use.to_dictionary()["value_id"] == "base.tile.bamboo.1", "Workshop command serializes stable Tile and content IDs", failures)
 
+func test_shop_relics_respect_act_availability(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var selector := ShopOfferSelector.new()
+	var economy := RunEconomy.new()
+	var slots: Array[int] = []
+	for index in 100:
+		slots.append(index)
+	for act_index in [1, 2]:
+		var state := RunState.new("shop.act.%d" % act_index, 1290 + act_index, registry.content_version())
+		state.act_index = act_index
+		var streams := DomainRngStreams.new(1290 + act_index)
+		var offers: Array = selector.create_offers(state, registry, streams.shop, "shop.act.%d" % act_index, 0, slots, {}, economy)
+		var offered_ids: Dictionary = {}
+		for offer in offers:
+			if offer.kind == ShopOffer.RELIC:
+				offered_ids[offer.content_id] = true
+		for relic_id in AlphaScaleCatalog.ACT_ONE_RELIC_IDS:
+			assert_true(offered_ids.has(relic_id), "%s is included by the Act %d Shop selector" % [relic_id, act_index], failures)
+		for relic_id in AlphaScaleCatalog.RELIC_IDS:
+			assert_true(offered_ids.has(relic_id) == (act_index == 2), "%s appears only after its Act 2 introduction" % relic_id, failures)
+
 func _shop_domain(run_id: String, seed: int) -> RunDomain:
 	var domain := RunDomain.new(run_id, seed, _registry())
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
@@ -545,6 +653,18 @@ func _workshop_domain(run_id: String, seed: int, tile_count: int) -> RunDomain:
 			"RUN",
 			"RUN",
 		))
+	return domain
+
+func _alpha_workshop_domain(run_id: String, seed: int) -> RunDomain:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var domain: RunDomain = RunDomain.new_alpha_run(run_id, seed, registry)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, "base.character.sequence"))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, "base.contract.pressure"))
+	domain.state.phase = RunPhase.WORKSHOP
+	domain.state.workshop_state.begin(WORKSHOP, "%s.entry" % run_id)
 	return domain
 
 func _registry() -> ContentRegistry:

@@ -51,6 +51,36 @@ static func load_phase2_v2_suspend_snapshot_into_domain(serialized, content_regi
 static func load_full_v3_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
 	return _load_into_domain(serialized, content_registry, "FULL_V3")
 
+static func load_full_v4_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V4")
+
+static func load_full_v5_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V5")
+
+static func load_full_v6_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V6")
+
+static func load_full_v7_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V7")
+
+static func load_full_v8_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V8")
+
+static func load_full_v9_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V9")
+
+static func load_full_v10_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V10")
+
+static func load_full_v11_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V11")
+
+static func load_full_v12_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "FULL_V12")
+
+static func load_act_two_v4_suspend_snapshot_into_domain(serialized, content_registry, _target_domain = null) -> Dictionary:
+	return _load_into_domain(serialized, content_registry, "ACT_TWO_V4")
+
 static func _load_into_domain(serialized, content_registry, requested_content_migration: String) -> Dictionary:
 	var parsed: Dictionary
 	if serialized is String:
@@ -76,6 +106,26 @@ static func _load_into_domain(serialized, content_registry, requested_content_mi
 			content_migration = ContentVersionMigrationScript.migrate_phase2_v2_suspend_snapshot(data, content_registry)
 		elif requested_content_migration == "FULL_V3":
 			content_migration = ContentVersionMigrationScript.migrate_full_v3_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V4":
+			content_migration = ContentVersionMigrationScript.migrate_full_v4_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V5":
+			content_migration = ContentVersionMigrationScript.migrate_full_v5_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V6":
+			content_migration = ContentVersionMigrationScript.migrate_full_v6_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V7":
+			content_migration = ContentVersionMigrationScript.migrate_full_v7_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V8":
+			content_migration = ContentVersionMigrationScript.migrate_full_v8_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V9":
+			content_migration = ContentVersionMigrationScript.migrate_full_v9_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V10":
+			content_migration = ContentVersionMigrationScript.migrate_full_v10_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V11":
+			content_migration = ContentVersionMigrationScript.migrate_full_v11_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "FULL_V12":
+			content_migration = ContentVersionMigrationScript.migrate_full_v12_suspend_snapshot(data, content_registry)
+		elif requested_content_migration == "ACT_TWO_V4":
+			content_migration = ContentVersionMigrationScript.migrate_act_two_v4_suspend_snapshot(data, content_registry)
 		else:
 			return _reject("UNSUPPORTED_CONTENT_MIGRATION")
 		if not content_migration.accepted:
@@ -89,7 +139,7 @@ static func _load_into_domain(serialized, content_registry, requested_content_mi
 	var state = _state_from_dictionary(data.get("authoritative_state", data.get("run_state", {})), data)
 	var domain := RunDomainScript.new(str(data.run_id), int(data.run_seed), content_registry, str(data.content_version))
 	domain.rebind_state(state)
-	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index)
+	domain.map_definition = MiniActMapCatalogScript.definition_for_act(state.act_index, content_registry)
 	if domain.map_definition == null:
 		return _reject("INVALID_ACT_INDEX")
 	if state.phase == RunPhaseScript.BATTLE:
@@ -187,9 +237,12 @@ static func _tile_pool_from_dictionary(data: Dictionary):
 
 static func _shop_from_dictionary(data: Dictionary):
 	var result := ShopStateScript.new()
-	for field in ["active", "completed", "node_id", "entry_id", "base_refresh_allowance", "refreshes_remaining", "refresh_count", "entry_sequence", "shop_rng_state", "completed_node_ids"]:
+	for field in ["active", "completed", "node_id", "entry_id", "base_refresh_allowance", "refreshes_remaining", "refresh_count", "entry_sequence", "shop_rng_state"]:
 		if data.has(field):
 			result.set(field, data[field].duplicate(true) if data[field] is Array or data[field] is Dictionary else data[field])
+	var completed_node_ids: Variant = data.get("completed_node_ids", [])
+	if completed_node_ids is Array:
+		result.completed_node_ids = _string_array(completed_node_ids)
 	for value in data.get("offers", []):
 		var offer := ShopOfferScript.new(str(value.get("offer_id", "")), int(value.get("slot_index", 0)), str(value.get("kind", "")), str(value.get("content_id", "")), int(value.get("price", 0)), value.get("metadata", {}))
 		offer.status = str(value.get("status", ShopOfferScript.AVAILABLE))
@@ -207,8 +260,11 @@ static func _workshop_from_dictionary(data: Dictionary):
 
 static func _event_from_dictionary(data: Dictionary):
 	var result := EventStateScript.new()
-	for field in ["active", "completed", "node_id", "entry_id", "event_id", "choices", "selected_choice_id", "resolved_alternative_id", "entry_sequence", "event_rng_state", "completed_node_ids"]:
+	for field in ["active", "completed", "node_id", "entry_id", "event_id", "choices", "selected_choice_id", "resolved_alternative_id", "entry_sequence", "event_rng_state"]:
 		if data.has(field): result.set(field, data[field].duplicate(true) if data[field] is Array or data[field] is Dictionary else data[field])
+	var completed_node_ids: Variant = data.get("completed_node_ids", [])
+	if completed_node_ids is Array:
+		result.completed_node_ids = _string_array(completed_node_ids)
 	return result
 
 static func _build_from_dictionary(data: Dictionary):

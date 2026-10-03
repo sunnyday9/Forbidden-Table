@@ -1492,6 +1492,10 @@ Focus:
 - performance
 - presentation/audio
 
+### Stage 4.5 — UI/UX Design and Implementation
+
+After the Stage 4 Beta gate passes, establish and implement a cohesive production UI/UX across the full player-facing Run. Reviewable screen designs and the visual system require maintainer approval before implementation. Preserve the visual priority `Readability > state clarity > tile recognition > animation feedback > decoration`, the keyboard/mouse/controller flows, and the Domain/presentation boundary. Do not change gameplay rules or add a major system in this stage. See [Stage 4.5 UI/UX Design and Implementation](STAGE_4_5_UI_UX_SPEC.md) and its [issue map](https://github.com/sunnyday9/Forbidden-Table/issues/98).
+
 ### Stage 5 — 1.0 Release Candidate
 
 No new systems by default.

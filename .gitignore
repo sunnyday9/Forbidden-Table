@@ -1,3 +1,6 @@
 .godot/
 .cache/
 *.uid
+
+# Godot generates locale resources from the checked-in CSV catalogs.
+localization/*.translation

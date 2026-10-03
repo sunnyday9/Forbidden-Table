@@ -8,18 +8,33 @@ const ContentRegistry = preload("res://src/content/registry/content_registry.gd"
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
 const DeterministicSerializer = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
+const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
+const RewardPoolDefinition = preload("res://src/content/definitions/reward_pool_definition.gd")
+const RewardDraftSelector = preload("res://src/domain/run/reward_draft_selector.gd")
 const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunPhase = preload("res://src/domain/run/run_phase.gd")
 const RunPresentationController = preload("res://src/presentation/run/run_presentation_controller.gd")
+const RunState = preload("res://src/domain/run/run_state.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const TechniqueDefinition = preload("res://src/content/definitions/technique_definition.gd")
 
 const ELITE_NODE_ID := "base.map_node.elite"
+
+class FixedRewardRolls extends RefCounted:
+	var rolls: Array[int]
+
+	func _init(initial_rolls: Array[int]) -> void:
+		rolls = initial_rolls.duplicate()
+
+	func next_int(minimum: int, maximum: int) -> int:
+		var roll: int = int(rolls.pop_front()) if not rolls.is_empty() else minimum
+		return clampi(roll, minimum, maximum)
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
@@ -29,6 +44,9 @@ func run() -> Array[String]:
 	test_stale_and_foreign_reward_ids_are_atomic(failures)
 	test_pending_draft_survives_suspend_resume(failures)
 	test_reward_selection_replays_from_the_elite_boundary(failures)
+	test_relic_eligibility_in_elite_reward_selection(failures)
+	test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures)
+	test_stage_four_elites_use_existing_reward_path(failures)
 	return failures
 
 func test_elite_victory_presents_three_distinct_acquisitions_plus_skip(failures: Array[String]) -> void:
@@ -200,6 +218,101 @@ func test_reward_selection_replays_from_the_elite_boundary(failures: Array[Strin
 	var report = ReplayVerifier.verify(domain.replay_record, replay_factory, domain.state.content_version)
 	assert_true(report.status == "MATCH", "Replay verifies Elite-boundary hashes, events, RNG, and outcome: %s %s" % [report.status, report.reason], failures)
 
+func test_relic_eligibility_in_elite_reward_selection(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var act_one_relic_id: String = AlphaScaleCatalog.ACT_ONE_RELIC_IDS[0]
+	var act_two_relic_id: String = AlphaScaleCatalog.NEW_ACT_TWO_RELIC_IDS[0]
+	var focused_pool_id := "alpha.reward_pool.relic_act_eligibility"
+	registry.register(RewardPoolDefinition.new(focused_pool_id, [
+		{"content_id": act_one_relic_id, "weight": 1},
+		{"content_id": act_two_relic_id, "weight": 1},
+		{"content_id": "alpha.technique.river_step", "weight": 1},
+		{"content_id": "base.technique.draw_surge", "weight": 1},
+	]))
+	var selector := RewardDraftSelector.new()
+	var act_one_state := RunState.new("elite.relic.act-one", 5381, registry.content_version())
+	var act_one_draft = selector.create_elite_build_draft(act_one_state, registry, null, "act-one-elite", 0, focused_pool_id)
+	assert_true(act_one_draft != null, "Act 1 Elite selection creates a draft from eligible content", failures)
+	if act_one_draft != null:
+		var act_one_relic_options: Array = act_one_draft.options.filter(func(option): return option.kind == "RELIC")
+		assert_true(act_one_relic_options.size() == 1 and act_one_relic_options[0].content_id == act_one_relic_id, "Act 1 Elite selection excludes an Act 2 introduced Relic", failures)
+
+	var act_two_state := RunState.new("elite.relic.act-two", 5382, registry.content_version())
+	act_two_state.act_index = 2
+	var act_two_draft = selector.create_elite_build_draft(act_two_state, registry, null, "act-two-elite", 0, focused_pool_id)
+	assert_true(act_two_draft != null, "Act 2 Elite selection creates a draft", failures)
+	if act_two_draft != null:
+		var act_two_relic_options: Array = act_two_draft.options.filter(func(option): return option.kind == "RELIC")
+		var offered_relic_ids: Array[String] = []
+		for option in act_two_relic_options:
+			offered_relic_ids.append(str(option.content_id))
+		assert_true(offered_relic_ids.has(act_one_relic_id) and offered_relic_ids.has(act_two_relic_id), "Act 2 Elite selection can offer both introduction groups", failures)
+
+	var act_one_run := _elite_reward_domain("elite.relic.act-one-flow", 5383, 1, true)
+	var act_two_run := _elite_reward_domain("elite.relic.act-two-flow", 5384, 2, true)
+	for option in act_one_run.state.reward_draft.options:
+		if option.kind == "RELIC":
+			var relic = act_one_run.content_registry.resolve(option.content_id)
+			assert_true(relic.available_from_act == 1, "the Act 1 Run reward flow uses its eligible build pool", failures)
+	for option in act_two_run.state.reward_draft.options:
+		if option.kind == "RELIC":
+			var relic = act_two_run.content_registry.resolve(option.content_id)
+			assert_true(relic.available_from_act <= 2, "the Act 2 Run reward flow accepts both available Relic groups", failures)
+
+func test_new_scale_run_technique_uses_existing_elite_acquisition_path(failures: Array[String]) -> void:
+	var domain := _elite_reward_domain("elite.reward.stage4.technique", 5385, 1, true)
+	var existing_draft = domain.state.reward_draft
+	var technique_id := "alpha.technique.draw_capacity"
+	var selectable_draft = domain.reward_draft_selector.create_elite_build_draft(
+		domain.state,
+		domain.content_registry,
+		FixedRewardRolls.new([1, 2, 1]),
+		existing_draft.encounter_id,
+		domain.state.reward_draft_sequence - 1,
+		AlphaScaleCatalog.ACT_ONE_BUILD_POOL_ID,
+	)
+	assert_true(selectable_draft != null, "the existing Elite selector creates a draft with a controlled valid reward roll", failures)
+	if selectable_draft == null:
+		return
+	domain.state.reward_draft = selectable_draft
+	var technique_option = null
+	for option in selectable_draft.options:
+		if option.kind == "RUN_TECHNIQUE" and option.content_id == technique_id:
+			technique_option = option
+	assert_true(technique_option != null, "the new production Technique is selectable from the existing Act 1 Elite reward pool", failures)
+	if technique_option == null:
+		return
+	_reset_replay_at_current_state(domain)
+	var controller := RunPresentationController.new(domain)
+	var result = controller.confirm("reward:%s" % technique_option.option_id)
+	assert_true(result.accepted and result.replayable, "the existing typed reward command accepts the new Technique choice", failures)
+	assert_true(domain.state.build_ownership.run_technique_ids.has(technique_id), "the selected Technique joins Run ownership through the existing acquisition flow", failures)
+
+func test_stage_four_elites_use_existing_reward_path(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+	var elite_encounter_ids: Array = AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS + AlphaScaleCatalog.ACT_TWO_ELITE_ENCOUNTER_IDS
+	for index in elite_encounter_ids.size():
+		var encounter_id: String = elite_encounter_ids[index]
+		var act_index := 1 if index < AlphaScaleCatalog.ACT_ONE_ELITE_ENCOUNTER_IDS.size() else 2
+		var domain := _elite_battle_domain("elite.reward.stage4.%d" % index, 5390 + index, true, encounter_id)
+		domain.state.act_index = act_index
+		assert_true(domain.current_battle != null and domain.current_battle.encounter_id == encounter_id, "%s resolves through the existing Elite battle path" % encounter_id, failures)
+		if domain.current_battle == null:
+			continue
+		domain.current_battle.combat_state.enemy_hp = 1
+		var victory = domain.current_battle.combat_resolver.resolve_player_action(domain.current_battle.combat_state, 2)
+		domain.apply_battle_outcome()
+		var draft = domain.state.reward_draft
+		assert_true(victory.terminal_outcome == "VICTORY", "%s victory is resolved by the existing combat resolver" % encounter_id, failures)
+		assert_true(domain.state.phase == RunPhase.ELITE_REWARD and draft != null, "%s victory enters the existing Elite reward phase" % encounter_id, failures)
+		assert_true(draft != null and draft.encounter_kind == EncounterDefinition.ELITE and draft.options.size() == 4, "%s creates the standard three acquisitions plus Skip" % encounter_id, failures)
+
 func _find_option(draft, kind: String):
 	if draft == null:
 		return null
@@ -231,8 +344,9 @@ func _reset_replay_at_current_state(domain: RunDomain) -> void:
 	domain.replay_record = ReplayRecord.new(domain.state.seed, domain.state.content_version, domain.state.run_id)
 	domain.replay_record.record_initial_checkpoint(domain.checkpoint(), domain.rng_snapshot(), domain.state.terminal_summary.outcome)
 
-func _elite_reward_domain(run_id: String, seed: int) -> RunDomain:
-	var domain := _elite_battle_domain(run_id, seed)
+func _elite_reward_domain(run_id: String, seed: int, act_index: int = 1, include_scale: bool = false) -> RunDomain:
+	var domain := _elite_battle_domain(run_id, seed, include_scale)
+	domain.state.act_index = act_index
 	var battle = domain.current_battle
 	if battle == null:
 		return domain
@@ -241,9 +355,12 @@ func _elite_reward_domain(run_id: String, seed: int) -> RunDomain:
 	domain.apply_battle_outcome()
 	return domain
 
-func _elite_battle_domain(run_id: String, seed: int) -> RunDomain:
+func _elite_battle_domain(run_id: String, seed: int, include_scale: bool = false, requested_encounter_id: String = "") -> RunDomain:
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
+	if include_scale:
+		AlphaActTwoCatalog.register_all(registry)
+		AlphaScaleCatalog.register_all(registry)
 	var domain := RunDomain.new(run_id, seed, registry)
 	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, Phase2Catalog.CHARACTER_IDS[0]))
 	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, Phase2Catalog.CONTRACT_IDS[0]))
@@ -266,7 +383,7 @@ func _elite_battle_domain(run_id: String, seed: int) -> RunDomain:
 		"edge.mid.elite",
 	]
 	domain.state.map_state.path_edge_ids = elite_path_edges
-	var encounter_id := str(domain.state.map_state.payload_ids.get(ELITE_NODE_ID, "base.encounter.elite"))
+	var encounter_id := requested_encounter_id if not requested_encounter_id.is_empty() else str(domain.state.map_state.payload_ids.get(ELITE_NODE_ID, "base.encounter.elite"))
 	domain.current_battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, EncounterDefinition.ELITE)
 	domain.state.phase = RunPhase.BATTLE
 	return domain

@@ -74,7 +74,7 @@ func _init(
 	if resolved_content_version.is_empty() and content_registry.has_method("content_version"):
 		resolved_content_version = content_registry.content_version()
 	rng_streams = domain_rng_streams if domain_rng_streams != null else DomainRngStreamsScript.new(initial_seed)
-	map_definition = MiniActMapCatalogScript.definition()
+	map_definition = MiniActMapCatalogScript.definition_for_act(1, content_registry)
 	encounter_factory = EncounterFactoryScript.new(content_registry)
 	reward_draft_selector = RewardDraftSelectorScript.new()
 	economy = RunEconomyScript.new()
@@ -638,7 +638,7 @@ func _transition_to_act_two(previous_phase: String) -> Array:
 	var events: Array = _clear_act_boundary_effects()
 	state.act_index = 2
 	_record_run_milestone("act_2_reached")
-	map_definition = MiniActMapCatalogScript.act_two_definition()
+	map_definition = MiniActMapCatalogScript.definition_for_act(2, content_registry)
 	state.map_state.initialize(map_definition, rng_streams.map)
 	state.current_battle_snapshot = null
 	current_battle = null

@@ -1,0 +1,180 @@
+{
+  "scope": "Browser design viewer only; no Domain or Godot execution",
+  "results": [
+    {
+      "mode": "Normal",
+      "kind": "draw",
+      "animations": [
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u6478\u724c\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 13
+    },
+    {
+      "mode": "Normal",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "tiles": 14
+    },
+    {
+      "mode": "Normal",
+      "kind": "reward",
+      "animations": [
+        {
+          "duration": 420,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 420,
+          "delay": 90,
+          "playState": "running"
+        },
+        {
+          "duration": 420,
+          "delay": 180,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5956\u52b1\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 3
+    },
+    {
+      "mode": "Normal",
+      "kind": "workshop",
+      "animations": [
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 600,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5de5\u574a\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 2
+    },
+    {
+      "mode": "Fast",
+      "kind": "draw",
+      "animations": [
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u6478\u724c\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 13
+    },
+    {
+      "mode": "Fast",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "tiles": 14
+    },
+    {
+      "mode": "Fast",
+      "kind": "reward",
+      "animations": [
+        {
+          "duration": 168,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 168,
+          "delay": 36,
+          "playState": "running"
+        },
+        {
+          "duration": 168,
+          "delay": 72,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5956\u52b1\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 3
+    },
+    {
+      "mode": "Fast",
+      "kind": "workshop",
+      "animations": [
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        },
+        {
+          "duration": 240,
+          "delay": 0,
+          "playState": "running"
+        }
+      ],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5de5\u574a\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 2
+    },
+    {
+      "mode": "Instant",
+      "kind": "draw",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u6478\u724c\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 13
+    },
+    {
+      "mode": "Instant",
+      "kind": "settlement",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "tiles": 14
+    },
+    {
+      "mode": "Instant",
+      "kind": "reward",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5956\u52b1\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 3
+    },
+    {
+      "mode": "Instant",
+      "kind": "workshop",
+      "animations": [],
+      "receipt": "\u5b8c\u6574\u548c\u724c\u5df2\u7ed3\u7b97\u3002\u2192 \u9996\u9886\u8fdb\u5165\u7b2c\u4e8c\u9636\u6bb5\u3002\u2192 \u80dc\u5229\uff01",
+      "caption": "\u53ef\u8bfb\u7684\u6700\u7ec8\u72b6\u6001\uff1a\u5de5\u574a\u52a8\u6548\u6837\u4f8b\u3002\u672a\u6267\u884c\u6e38\u620f\u64cd\u4f5c\u3002",
+      "tiles": 2
+    }
+  ],
+  "reduced": {
+    "durations": [],
+    "ambient": "false"
+  },
+  "escape": {
+    "animationCount": 0,
+    "stampCount": 0
+  },
+  "interrupt": {
+    "active": "character",
+    "stampCount": 0,
+    "caption": "\u9009\u62e9\u52a8\u6548\u6837\u4f8b\u5e76\u91cd\u64ad\u3002\u6e38\u620f\u6570\u503c\u5747\u4e3a\u793a\u4f8b\u3002"
+  }
+}

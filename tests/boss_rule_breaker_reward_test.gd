@@ -7,6 +7,7 @@ const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_com
 const ContentRegistry = preload("res://src/content/registry/content_registry.gd")
 const EncounterDefinition = preload("res://src/content/definitions/encounter_definition.gd")
 const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
+const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
 const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
@@ -23,6 +24,7 @@ func run() -> Array[String]:
 	test_pending_choices_survive_suspend_resume(failures)
 	test_reward_selection_replays_from_the_boss_boundary(failures)
 	test_act_two_boss_offers_three_choices_after_each_act_one_choice(failures)
+	test_stage_four_act_one_pool_has_three_distinct_eligible_choices(failures)
 	test_each_act_two_choice_applies_and_rejected_duplicates_do_not_mutate(failures)
 	test_act_two_reward_survives_suspend_resume_and_replay(failures)
 	return failures
@@ -121,13 +123,31 @@ func test_reward_selection_replays_from_the_boss_boundary(failures: Array[String
 	assert_true(report.is_match(), "Boss choice and terminal Run Summary replay without divergence (%s)" % report.reason, failures)
 
 func test_act_two_boss_offers_three_choices_after_each_act_one_choice(failures: Array[String]) -> void:
-	var expected_act_two_ids: Array = AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
+	var expected_act_one_ids: Array = AlphaScaleCatalog.ACT_ONE_BOSS_RULE_BREAKER_IDS.duplicate()
+	var expected_act_two_ids: Array = AlphaScaleCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.duplicate()
+	expected_act_one_ids.sort()
 	expected_act_two_ids.sort()
-	var first_draft_dictionary: Dictionary = {}
-	for index in Phase2Catalog.BOSS_RULE_BREAKER_IDS.size():
-		var act_one_id: String = Phase2Catalog.BOSS_RULE_BREAKER_IDS[index]
-		var domain := _act_two_boss_reward_domain("boss.reward.act2.%d" % index, 4910, act_one_id)
+	var all_ids: Dictionary = {}
+	for content_id in expected_act_one_ids + expected_act_two_ids:
+		all_ids[content_id] = true
+	assert_true(expected_act_one_ids.size() == 5 and expected_act_two_ids.size() == 5, "the accepted Scale pools define five Rule Breakers for each Main Act", failures)
+	assert_true(all_ids.size() == 10, "the ten Scale Rule Breakers have unique stable IDs", failures)
+	var scale_registry_domain := _alpha_domain("boss.reward.scale.pool.registry", 4909)
+	var act_one_pool = scale_registry_domain.content_registry.resolve(AlphaScaleCatalog.ACT_ONE_BOSS_RULE_BREAKER_POOL_ID)
+	var act_two_pool = scale_registry_domain.content_registry.resolve(AlphaScaleCatalog.ACT_TWO_BOSS_RULE_BREAKER_POOL_ID)
+	assert_true(act_one_pool != null and act_one_pool.entry_ids() == expected_act_one_ids, "the Scale Act 1 pool contains exactly its five eligible Rule Breakers", failures)
+	assert_true(act_two_pool != null and act_two_pool.entry_ids() == expected_act_two_ids, "the Scale Act 2 pool contains exactly its five eligible Rule Breakers", failures)
+	for index in expected_act_one_ids.size():
+		var act_one_id: String = str(expected_act_one_ids[index])
+		var seed := 4910
+		var domain := _act_two_boss_reward_domain("boss.reward.act2.%d.%d" % [index, seed], seed, act_one_id)
+		var attempts := 0
+		while domain.state.act_index != 2 and attempts < 20:
+			seed += 1
+			attempts += 1
+			domain = _act_two_boss_reward_domain("boss.reward.act2.%d.%d" % [index, seed], seed, act_one_id)
 		var draft = domain.state.reward_draft
+		assert_true(domain.state.act_index == 2, "%s can be selected from an Act 1 Boss draft" % act_one_id, failures)
 		assert_true(domain.state.act_count == 2 and domain.state.act_index == 2, "the Act 1 Boss reward advances the same Run into Act 2", failures)
 		assert_true(domain.state.phase == RunPhase.BOSS_REWARD, "the Act 2 Boss victory enters the real Boss reward phase", failures)
 		assert_true(draft != null and draft.options.size() == 3, "an Act 1 acquisition still leaves exactly three Act 2 Boss choices", failures)
@@ -142,32 +162,70 @@ func test_act_two_boss_offers_three_choices_after_each_act_one_choice(failures: 
 			option_ids[option.option_id] = true
 			assert_true(option.kind == "RULE_BREAKER", "every Act 2 Boss option is a Rule Breaker", failures)
 			assert_true(option.content_id in expected_act_two_ids, "Act 2 only offers definitions from its dedicated eligibility pool", failures)
+			assert_true(not expected_act_one_ids.has(option.content_id), "Act 2 never leaks an Act 1 Rule Breaker into its reward choices", failures)
 			assert_true(not domain.state.build_ownership.acquired_rule_breaker_ids.has(option.content_id), "Act 2 does not offer an already acquired Rule Breaker", failures)
 		offered_ids.sort()
-		assert_true(offered_ids == expected_act_two_ids, "the Act 2 pool presents its exact three unique eligible definitions", failures)
-		if index == 0:
-			first_draft_dictionary = draft.to_dictionary()
-		else:
-			assert_true(draft.to_dictionary() == first_draft_dictionary, "Act 2 choice generation is deterministic after any Act 1 choice", failures)
+		assert_true(offered_ids.size() == 3 and option_ids.size() == 3, "the Act 2 Boss presents three distinct choices from its five eligible definitions", failures)
+		var repeated := _act_two_boss_reward_domain("boss.reward.act2.repeat.%d.%d" % [index, seed], seed, act_one_id)
+		assert_true(repeated.state.act_index == 2 and repeated.state.reward_draft.to_dictionary() == draft.to_dictionary(), "Act 2 choices are deterministic after the same Act 1 choice", failures)
+
+func test_stage_four_act_one_pool_has_three_distinct_eligible_choices(failures: Array[String]) -> void:
+	var first := _alpha_act_one_boss_reward_domain("boss.reward.act1.scale.first", 4918)
+	var second := _alpha_act_one_boss_reward_domain("boss.reward.act1.scale.second", 4918)
+	var first_draft = first.state.reward_draft
+	var second_draft = second.state.reward_draft
+	assert_true(first.state.act_index == 1 and first.state.phase == RunPhase.BOSS_REWARD, "the Scale Act 1 Boss reaches the existing reward phase", failures)
+	assert_true(first_draft != null and first_draft.options.size() == 3, "the Scale Act 1 Boss retains its three-choice reward", failures)
+	if first_draft == null or second_draft == null or first_draft.options.size() != 3:
+		return
+	assert_true(first_draft.to_dictionary() == second_draft.to_dictionary(), "the Scale Act 1 choices are deterministic for the same seed", failures)
+	var act_one_ids: Dictionary = {}
+	for content_id in AlphaScaleCatalog.ACT_ONE_BOSS_RULE_BREAKER_IDS:
+		act_one_ids[content_id] = true
+	var option_ids: Dictionary = {}
+	var content_ids: Dictionary = {}
+	for option in first_draft.options:
+		assert_true(option.kind == "RULE_BREAKER", "every Scale Act 1 Boss option is a Rule Breaker", failures)
+		assert_true(act_one_ids.has(option.content_id), "Act 1 only offers definitions from its dedicated eligibility pool", failures)
+		assert_true(not AlphaScaleCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS.has(option.content_id), "Act 1 never leaks an Act 2 Rule Breaker into its reward choices", failures)
+		assert_true(not option_ids.has(option.option_id), "Scale Act 1 option IDs are unique", failures)
+		assert_true(not content_ids.has(option.content_id), "Scale Act 1 does not offer duplicate Rule Breakers", failures)
+		option_ids[option.option_id] = true
+		content_ids[option.content_id] = true
+	assert_true(option_ids.size() == 3 and content_ids.size() == 3, "Scale Act 1 choices contain three unique option and content IDs", failures)
 
 func test_each_act_two_choice_applies_and_rejected_duplicates_do_not_mutate(failures: Array[String]) -> void:
-	var act_one_id: String = Phase2Catalog.BOSS_RULE_BREAKER_IDS[0]
+	var act_one_id: String = AlphaScaleCatalog.ACT_ONE_BOSS_RULE_BREAKER_IDS[0]
 	var seed := 4920
-	for act_two_id in AlphaActTwoCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS:
-		var domain := _act_two_boss_reward_domain("boss.reward.act2.apply.%d" % seed, seed, act_one_id)
-		var draft = domain.state.reward_draft
-		var selected_option = _option_for_content_id(draft, act_two_id)
+	for act_two_id in AlphaScaleCatalog.ACT_TWO_BOSS_RULE_BREAKER_IDS:
+		var domain = null
+		var draft = null
+		var selected_option = null
+		var selected_seed := seed
+		for attempt in 100:
+			selected_seed = seed + attempt
+			var candidate_domain = _act_two_boss_reward_domain("boss.reward.act2.apply.%d" % selected_seed, selected_seed, act_one_id)
+			if candidate_domain.state.act_index != 2:
+				continue
+			var candidate_draft = candidate_domain.state.reward_draft
+			var candidate_option = _option_for_content_id(candidate_draft, act_two_id)
+			if candidate_option == null:
+				continue
+			domain = candidate_domain
+			draft = candidate_draft
+			selected_option = candidate_option
+			break
 		assert_true(selected_option != null, "%s is a selectable Act 2 Boss option" % act_two_id, failures)
 		if selected_option != null:
-			var selected = domain.execute(ChooseRewardCommand.new("boss.reward.act2.select.%d" % seed, selected_option.option_id, draft.draft_id))
+			var selected = domain.execute(ChooseRewardCommand.new("boss.reward.act2.select.%d" % selected_seed, selected_option.option_id, draft.draft_id))
 			assert_true(selected.accepted, "%s can be applied through ChooseRewardCommand" % act_two_id, failures)
 			assert_true(domain.state.build_ownership.acquired_rule_breaker_ids == [act_one_id, act_two_id], "%s applies and records only its own stable content ID" % act_two_id, failures)
 			var selected_definition = domain.content_registry.resolve(act_two_id)
 			assert_true(selected.data.get("content_id", "") == act_two_id and selected.data.get("rule_key", "") == selected_definition.rule_key, "%s selection records the exact Act 2 definition and rule key" % act_two_id, failures)
 			assert_true(domain.state.terminal_summary.summary_data.get("rule_breaker_id", "") == act_two_id, "the Act 2 ending identifies its selected Rule Breaker", failures)
-		seed += 1
+		seed = selected_seed + 1
 
-	var invalid_domain := _act_two_boss_reward_domain("boss.reward.act2.invalid", 4930, act_one_id)
+	var invalid_domain := _act_two_boss_reward_domain("boss.reward.act2.invalid", 4930, "")
 	var invalid_draft = invalid_domain.state.reward_draft
 	if invalid_draft == null:
 		assert_true(false, "invalid-choice fixture has an Act 2 reward draft", failures)
@@ -181,7 +239,7 @@ func test_each_act_two_choice_applies_and_rejected_duplicates_do_not_mutate(fail
 	assert_true(invalid_domain.rng_snapshot() == rng_before_invalid, "an invalid Act 2 choice leaves RNG unchanged", failures)
 	assert_true(invalid_domain.replay_record.commands.size() == replay_count_before_invalid, "an invalid Act 2 choice is excluded from replay", failures)
 
-	var duplicate_domain := _act_two_boss_reward_domain("boss.reward.act2.duplicate", 4931, act_one_id)
+	var duplicate_domain := _act_two_boss_reward_domain("boss.reward.act2.duplicate", 4931, "")
 	var duplicate_draft = duplicate_domain.state.reward_draft
 	if duplicate_draft == null:
 		assert_true(false, "duplicate-choice fixture has an Act 2 reward draft", failures)
@@ -198,7 +256,7 @@ func test_each_act_two_choice_applies_and_rejected_duplicates_do_not_mutate(fail
 	assert_true(duplicate_domain.replay_record.commands.size() == replay_count_before_duplicate, "a duplicate Act 2 choice is excluded from replay", failures)
 
 func test_act_two_reward_survives_suspend_resume_and_replay(failures: Array[String]) -> void:
-	var source := _act_two_boss_reward_domain("boss.reward.act2.save", 4940, Phase2Catalog.BOSS_RULE_BREAKER_IDS[1])
+	var source := _act_two_boss_reward_domain("boss.reward.act2.save", 4940, "")
 	if source.state.reward_draft == null:
 		assert_true(false, "save/replay fixture has an Act 2 reward draft", failures)
 		return
@@ -221,7 +279,7 @@ func test_act_two_reward_survives_suspend_resume_and_replay(failures: Array[Stri
 	assert_true(source.checkpoint().state_hash == loaded.domain.checkpoint().state_hash, "resumed Act 2 selection produces the identical authoritative state", failures)
 	assert_true(source.rng_snapshot() == loaded.domain.rng_snapshot(), "resumed Act 2 selection preserves identical RNG state", failures)
 	var replay_factory: Callable = func(seed: int, _content_version: String):
-		var replay_domain := _act_two_boss_reward_domain("boss.reward.act2.save", seed, Phase2Catalog.BOSS_RULE_BREAKER_IDS[1])
+		var replay_domain := _act_two_boss_reward_domain("boss.reward.act2.save", seed, "")
 		_reset_replay_at_current_state(replay_domain)
 		return replay_domain
 	var replay_report = ReplayVerifier.verify(source.replay_record, replay_factory, source.state.content_version)
@@ -249,11 +307,20 @@ func _act_two_boss_reward_domain(run_id: String, seed: int, act_one_rule_breaker
 	_resolve_boss_victory(domain, "base.encounter.boss")
 	var act_one_draft = domain.state.reward_draft
 	var act_one_option = _option_for_content_id(act_one_draft, act_one_rule_breaker_id)
+	if act_one_rule_breaker_id.is_empty() and act_one_draft != null and not act_one_draft.options.is_empty():
+		act_one_option = act_one_draft.options[0]
 	if act_one_option == null:
 		return domain
 	domain.execute(ChooseRewardCommand.new("%s.act_one.reward" % run_id, act_one_option.option_id, act_one_draft.draft_id))
 	if domain.state.act_index != 2:
 		return domain
+	_resolve_boss_victory(domain, "base.encounter.boss")
+	return domain
+
+func _alpha_act_one_boss_reward_domain(run_id: String, seed: int) -> RunDomain:
+	var domain := _alpha_domain(run_id, seed)
+	domain.execute(ChooseCharacterCommand.new("%s.character" % run_id, Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("%s.contract" % run_id, Phase2Catalog.CONTRACT_IDS[0]))
 	_resolve_boss_victory(domain, "base.encounter.boss")
 	return domain
 
@@ -272,6 +339,7 @@ func _alpha_domain(run_id: String, seed: int) -> RunDomain:
 	var registry := ContentRegistry.new()
 	Phase2Catalog.register_all(registry)
 	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
 	return RunDomain.new_alpha_run(run_id, seed, registry)
 
 func _option_for_content_id(draft, content_id: String):
