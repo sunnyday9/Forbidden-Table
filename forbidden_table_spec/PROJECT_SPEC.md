@@ -1498,9 +1498,11 @@ After the Stage 4 Beta gate passes, establish and implement a cohesive productio
 
 ### Stage 5 — 1.0 Release Candidate
 
-No new systems by default.
+Stage 5 targets a public Windows PC 1.0 release through GitHub, beginning with a private, owner-only Release Candidate and a separate public-release go/no-go. Scope, compatibility, onboarding exception, platform matrix, and release gates are defined in [Stage 5 Release Spec](STAGE_5_RELEASE_SPEC.md).
 
-Only bug/balance/UX/performance/compatibility/content-data fixes unless a missing element would invalidate a core design pillar.
+No new systems by default. The optional, isolated Guided Sample is the approved onboarding exception; it does not create or change campaign Runs, rewards, or meta-progression. The normal two-Act Run remains unchanged.
+
+Only bug/balance/UX/performance/compatibility/content-data and release-readiness work is in scope unless a missing element would invalidate a core design pillar.
 
 ---
 

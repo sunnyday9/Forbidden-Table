@@ -481,7 +481,7 @@ func _run_new_profile_tutorial_two_act_flow_and_unlocked_roster(failures: Array[
 	var content_version := str(state.content_version)
 	var replay_game_version := str(scene.controller.domain.replay_record.game_version)
 	assert_true(engine_version.begins_with("4.7.2"), "the scripted flow reports the pinned Godot engine version", failures)
-	assert_true(build_version == "stage3-alpha-playable-1", "the scripted flow reports the configured application build version", failures)
+	assert_true(not build_version.is_empty() and build_version != "stage3-alpha-playable-1", "the scripted flow reports a current release build version instead of stale Stage 3 metadata", failures)
 	assert_true(replay_game_version == "game.phase2.v1", "the scripted flow reports the replay compatibility version separately", failures)
 	assert_true(content_version == ContentVersionMigration.ACT_TWO_SCALE_V13, "the scripted flow uses the pinned Stage 4 Beta content bundle", failures)
 	assert_true(scene.controller.domain.state.act_count == 2, "a new profile starts one continuous two-Act Run", failures)

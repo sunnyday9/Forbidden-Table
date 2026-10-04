@@ -2,7 +2,16 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-godot_version="4.7.2"
+godot_version_file="$project_root/scripts/GODOT_VERSION"
+if [[ ! -r "$godot_version_file" ]]; then
+  echo "ERROR: pinned Godot version file is missing: $godot_version_file" >&2
+  exit 2
+fi
+IFS= read -r godot_version < "$godot_version_file"
+if [[ ! "$godot_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "ERROR: invalid pinned Godot version in $godot_version_file: $godot_version" >&2
+  exit 2
+fi
 godot_binary="${GODOT_BIN:-}"
 download_timeout_seconds=120
 test_timeout_seconds=600
