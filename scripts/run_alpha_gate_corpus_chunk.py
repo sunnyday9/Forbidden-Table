@@ -57,9 +57,9 @@ def write_status(path: str, payload: dict[str, Any]) -> str:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 4 or argv[2] != "--":
+    if len(argv) < 4:
         print(
-            "usage: run_alpha_gate_corpus_chunk.py TIMEOUT_SECONDS ABSOLUTE_OUTPUT -- COMMAND [ARG ...]",
+            "usage: run_alpha_gate_corpus_chunk.py TIMEOUT_SECONDS ABSOLUTE_OUTPUT [--timeout-executable PATH] -- COMMAND [ARG ...]",
             file=sys.stderr,
         )
         return 2
@@ -69,7 +69,24 @@ def main(argv: list[str]) -> int:
         print("TIMEOUT_SECONDS must be a positive integer", file=sys.stderr)
         return 2
     output_path = os.path.abspath(argv[1])
-    command_argv = argv[3:]
+    timeout_path = shutil.which("timeout")
+    if argv[2] == "--timeout-executable":
+        if len(argv) < 6 or argv[4] != "--":
+            print(
+                "usage: run_alpha_gate_corpus_chunk.py TIMEOUT_SECONDS ABSOLUTE_OUTPUT [--timeout-executable PATH] -- COMMAND [ARG ...]",
+                file=sys.stderr,
+            )
+            return 2
+        timeout_path = argv[3]
+        command_argv = argv[5:]
+    elif argv[2] == "--":
+        command_argv = argv[3:]
+    else:
+        print(
+            "usage: run_alpha_gate_corpus_chunk.py TIMEOUT_SECONDS ABSOLUTE_OUTPUT [--timeout-executable PATH] -- COMMAND [ARG ...]",
+            file=sys.stderr,
+        )
+        return 2
     if timeout_seconds < 1 or not command_argv:
         print("A positive timeout and a command are required", file=sys.stderr)
         return 2
@@ -83,7 +100,6 @@ def main(argv: list[str]) -> int:
         print(f"Refusing to overwrite process status {status_path}", file=sys.stderr)
         return 2
 
-    timeout_path = shutil.which("timeout")
     timeout_version = ""
     timeout_implementation = "NOT_FOUND"
     process_exit_code = 127
@@ -95,7 +111,10 @@ def main(argv: list[str]) -> int:
         str(timeout_seconds),
         *command_argv,
     ]
-    if timeout_path:
+    if timeout_path and (not os.path.isabs(timeout_path) or not os.path.isfile(timeout_path)):
+        timeout_implementation = "INVALID_TIMEOUT_PATH"
+        error = "the timeout executable path must name an existing absolute file"
+    elif timeout_path:
         version_result = subprocess.run([timeout_path, "--version"], check=False, capture_output=True, text=True)
         timeout_version = (version_result.stdout or version_result.stderr).splitlines()[0] if (version_result.stdout or version_result.stderr) else ""
         if version_result.returncode != 0 or "GNU coreutils" not in timeout_version:

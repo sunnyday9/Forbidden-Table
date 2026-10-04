@@ -16,6 +16,8 @@ var feedback := ""
 var presentation_mode := NORMAL
 var authoritative_snapshot: Dictionary = {}
 var last_domain_event_types: Array = []
+var battle_event_revision := 0
+var battle_events: Array = []
 
 func set_focus_actions(action_ids: Array, preferred_id: String = "") -> void:
 	var previous_id := focused_action_id()
@@ -67,4 +69,6 @@ func to_dictionary() -> Dictionary:
 		"presentation_mode": presentation_mode,
 		"authoritative_snapshot": authoritative_snapshot.duplicate(true),
 		"last_domain_event_types": last_domain_event_types.duplicate(),
+		"battle_event_revision": battle_event_revision,
+		"battle_events": battle_events.duplicate(true),
 	}

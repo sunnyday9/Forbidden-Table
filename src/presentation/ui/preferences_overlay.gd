@@ -15,6 +15,12 @@ const LOCALE_TEXT_KEYS := {
 	"en": "UI_PREFS_LOCALE_en",
 	"zh_CN": "UI_PREFS_LOCALE_zh_CN",
 }
+const CARD_MAX_WIDTH := 960.0
+const CARD_HORIZONTAL_MARGIN := 16.0
+const CARD_VERTICAL_MARGIN := 12.0
+const TWO_COLUMN_MIN_CONTENT_WIDTH := 680.0
+const MAX_PAGE_BODY_HEIGHT := 220.0
+const MIN_PAGE_BODY_HEIGHT := 96.0
 
 var _preferences: Dictionary = {}
 var _initial_preferences: Dictionary = {}
@@ -24,15 +30,17 @@ var _pending_tutorial_enabled := true
 var _tutorial_reset_pending := false
 var _current_page := "settings"
 var _built := false
+var _viewport_fit_pending := false
 var _prefs: Variant
 
 var _backdrop: ColorRect
+var _viewport_scroll: ScrollContainer
 var _card: PanelContainer
 var _outer_margin: MarginContainer
 var _stack: VBoxContainer
 var _header: HBoxContainer
-var _tab_row: HBoxContainer
-var _footer: HBoxContainer
+var _tab_row: HFlowContainer
+var _footer: HFlowContainer
 var _brand: Label
 var _title: Label
 var _settings_tab: Button
@@ -61,6 +69,9 @@ func _ready() -> void:
 	_prefs = get_tree().root.get_node_or_null("PresentationPrefs")
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	visible = false
+	var viewport := get_viewport()
+	if viewport != null and not viewport.size_changed.is_connected(_on_viewport_size_changed):
+		viewport.size_changed.connect(_on_viewport_size_changed)
 	_build_ui()
 
 
@@ -185,14 +196,23 @@ func _build_ui() -> void:
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_backdrop)
 
+	_viewport_scroll = ScrollContainer.new()
+	_viewport_scroll.name = "ViewportScroll"
+	_viewport_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_viewport_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_viewport_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_viewport_scroll.follow_focus = true
+	add_child(_viewport_scroll)
 	var center := CenterContainer.new()
 	center.name = "Center"
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_viewport_scroll.add_child(center)
 
 	_card = PanelContainer.new()
 	_card.name = "PreferencesCard"
-	_card.custom_minimum_size = Vector2(720, 0)
+	_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	center.add_child(_card)
 	ForbiddenTheme.style_panel(_card, "lacquer")
 
@@ -228,16 +248,19 @@ func _build_ui() -> void:
 	close_button.name = "CloseButton"
 	_header.add_child(close_button)
 
-	_tab_row = HBoxContainer.new()
-	_tab_row.add_theme_constant_override("separation", 8)
+	_tab_row = HFlowContainer.new()
+	_tab_row.add_theme_constant_override("h_separation", 8)
+	_tab_row.add_theme_constant_override("v_separation", 6)
 	_stack.add_child(_tab_row)
 	_settings_tab = _make_button("UI_PREFS_TAB_SETTINGS", _on_settings_tab_pressed)
 	_settings_tab.name = "SettingsTabButton"
-	_settings_tab.custom_minimum_size = Vector2(130, 44)
+	_settings_tab.custom_minimum_size = Vector2(0, 44)
+	_settings_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_row.add_child(_settings_tab)
 	_help_tab = _make_button("UI_PREFS_TAB_HELP", _on_help_tab_pressed)
 	_help_tab.name = "HelpTabButton"
-	_help_tab.custom_minimum_size = Vector2(130, 44)
+	_help_tab.custom_minimum_size = Vector2(0, 44)
+	_help_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tab_row.add_child(_help_tab)
 
 	_settings_scroll = _make_page_scroll("SettingsPage")
@@ -255,16 +278,19 @@ func _build_ui() -> void:
 	_status_label.visible = false
 	_stack.add_child(_status_label)
 
-	_footer = HBoxContainer.new()
-	_footer.add_theme_constant_override("separation", 10)
+	_footer = HFlowContainer.new()
+	_footer.add_theme_constant_override("h_separation", 10)
+	_footer.add_theme_constant_override("v_separation", 8)
 	_stack.add_child(_footer)
 	_cancel_button = _make_button("UI_PREFS_CANCEL", _on_cancel_pressed)
 	_cancel_button.name = "CancelButton"
-	_cancel_button.custom_minimum_size = Vector2(150, 44)
+	_cancel_button.custom_minimum_size = Vector2(0, 44)
+	_cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_footer.add_child(_cancel_button)
 	_apply_button = _make_button("UI_PREFS_APPLY_LANGUAGE", _on_apply_pressed, true)
 	_apply_button.name = "ApplyButton"
-	_apply_button.custom_minimum_size = Vector2(190, 44)
+	_apply_button.custom_minimum_size = Vector2(0, 44)
+	_apply_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_footer.add_child(_apply_button)
 	_fit_to_viewport()
 	_refresh()
@@ -280,8 +306,9 @@ func _build_settings_page() -> Control:
 	feedback_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_child(feedback_panel)
 	var feedback_stack := feedback_panel.get_child(0).get_child(0) as VBoxContainer
-	var mode_row := VBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 6)
+	var mode_row := HFlowContainer.new()
+	mode_row.add_theme_constant_override("h_separation", 6)
+	mode_row.add_theme_constant_override("v_separation", 6)
 	feedback_stack.add_child(mode_row)
 	for mode in ["NORMAL", "FAST", "INSTANT"]:
 		var mode_button := Button.new()
@@ -303,14 +330,15 @@ func _build_settings_page() -> Control:
 	feedback_stack.add_child(_ambient_glow_button)
 	var scale_label := _make_label("UI_PREFS_UI_SCALE", false)
 	feedback_stack.add_child(scale_label)
-	var scale_buttons_row := HBoxContainer.new()
-	scale_buttons_row.add_theme_constant_override("separation", 6)
+	var scale_buttons_row := HFlowContainer.new()
+	scale_buttons_row.add_theme_constant_override("h_separation", 6)
+	scale_buttons_row.add_theme_constant_override("v_separation", 6)
 	feedback_stack.add_child(scale_buttons_row)
 	for scale_value in [1.0, 1.25, 1.5]:
 		var scale_button := Button.new()
 		scale_button.name = "Scale_%d" % int(round(scale_value * 100.0))
 		scale_button.toggle_mode = true
-		scale_button.custom_minimum_size = Vector2(76, 44)
+		scale_button.custom_minimum_size = Vector2(72, 44)
 		scale_button.pressed.connect(_on_scale_pressed.bind(scale_value))
 		_scale_buttons[scale_value] = scale_button
 		scale_buttons_row.add_child(scale_button)
@@ -328,7 +356,6 @@ func _build_settings_page() -> Control:
 		_language_buttons[locale_id] = language_button
 		language_stack.add_child(language_button)
 	language_stack.add_child(_make_label("UI_PREFS_LANGUAGE_HINT", true))
-	language_stack.add_child(_make_label("UI_PREFS_LANGUAGE_INPUT_HINT", true))
 	return columns
 
 
@@ -400,16 +427,28 @@ func _make_page_scroll(node_name: String) -> ScrollContainer:
 
 
 func _fit_to_viewport() -> void:
+	if (
+		not _built
+		or not is_instance_valid(_card)
+		or not is_instance_valid(_settings_scroll)
+		or not is_instance_valid(_help_scroll)
+	):
+		return
 	var viewport_size := get_viewport_rect().size
-	_card.custom_minimum_size.x = minf(720.0, maxf(320.0, viewport_size.x - 32.0))
-	# Stack the settings panels when their translated controls cannot fit the
-	# intended card width; the existing vertical scroll keeps every option reachable.
+	var scrollbar_width := _viewport_scroll.get_v_scroll_bar().get_combined_minimum_size().x if _viewport_scroll != null else 0.0
+	var card_width := maxf(0.0, minf(CARD_MAX_WIDTH, viewport_size.x - CARD_HORIZONTAL_MARGIN * 2.0 - scrollbar_width))
+	_card.custom_minimum_size.x = card_width
+	var side_margin := 12 if card_width < 720.0 else 18
+	_outer_margin.add_theme_constant_override("margin_left", side_margin)
+	_outer_margin.add_theme_constant_override("margin_right", side_margin)
+	var panel_style := _card.get_theme_stylebox("panel")
+	# Use the actual available inner width so the two-column layout only appears
+	# when both settings panels have room; smaller cards keep one readable column.
 	var settings_grid := _settings_page as GridContainer
 	if settings_grid != null:
-		var panel_width := 16.0
-		for child in settings_grid.get_children():
-			panel_width += (child as Control).get_combined_minimum_size().x
-		settings_grid.columns = 1 if panel_width > _card.custom_minimum_size.x - 72.0 else 2
+		var panel_insets := panel_style.get_minimum_size().x if panel_style != null else 0.0
+		var inner_width := maxf(0.0, card_width - panel_insets - side_margin * 2.0)
+		settings_grid.columns = 2 if inner_width >= TWO_COLUMN_MIN_CONTENT_WIDTH else 1
 	var visible_children := 0
 	for child in _stack.get_children():
 		if (child as Control).visible:
@@ -420,15 +459,31 @@ func _fit_to_viewport() -> void:
 	if _status_label.visible:
 		chrome_height += _status_label.get_combined_minimum_size().y
 	chrome_height += _stack.get_theme_constant("separation") * maxf(0.0, float(visible_children - 1))
-	var panel_style := _card.get_theme_stylebox("panel")
-	var frame_height := panel_style.get_minimum_size().y
+	var frame_height := panel_style.get_minimum_size().y if panel_style != null else 0.0
 	frame_height += _outer_margin.get_theme_constant("margin_top") + _outer_margin.get_theme_constant("margin_bottom")
-	var vertical_safety_margin := 24.0
-	var available_body_height := viewport_size.y - vertical_safety_margin - chrome_height - frame_height
+	var available_body_height := viewport_size.y - CARD_VERTICAL_MARGIN * 2.0 - chrome_height - frame_height
 	var ui_scale := float(_prefs.ui_scale) if _prefs != null else 1.0
-	var body_height := maxf(0.0, minf(220.0 * ui_scale, available_body_height))
+	var body_height := maxf(MIN_PAGE_BODY_HEIGHT * ui_scale, minf(MAX_PAGE_BODY_HEIGHT * ui_scale, maxf(0.0, available_body_height)))
 	_settings_scroll.custom_minimum_size.y = body_height
 	_help_scroll.custom_minimum_size.y = body_height
+
+
+func _schedule_viewport_fit() -> void:
+	if not _built or _viewport_fit_pending:
+		return
+	_viewport_fit_pending = true
+	call_deferred("_fit_to_viewport_after_layout")
+
+
+func _fit_to_viewport_after_layout() -> void:
+	_viewport_fit_pending = false
+	if not _built or not is_inside_tree():
+		return
+	_fit_to_viewport()
+
+
+func _on_viewport_size_changed() -> void:
+	_schedule_viewport_fit()
 
 
 func _section_panel(heading_key: String) -> PanelContainer:
@@ -527,7 +582,7 @@ func _refresh() -> void:
 	_tutorial_enabled_button.disabled = _tutorial_progress == null
 	_tutorial_reset_button_visibility()
 	_apply_button.text = Localization.text("UI_PREFS_APPLY_LANGUAGE" if str(_preferences.get("locale", "en")) != active_locale else "UI_PREFS_APPLY_SETTINGS")
-	call_deferred("_fit_to_viewport")
+	_schedule_viewport_fit()
 	call_deferred("_reveal_focused_control_after_layout")
 
 
@@ -565,9 +620,17 @@ func _reveal_focused_control_after_layout_after_frame() -> void:
 	if focused == null or not is_ancestor_of(focused):
 		return
 	var scroll := _page_scroll_containing(focused)
-	if scroll == null or focused == scroll:
-		return
-	scroll.ensure_control_visible(focused)
+	var scale := float(_prefs.ui_scale) if _prefs != null else 1.0
+	var ring_margin := maxf(3.0, ceilf(3.0 * scale))
+	if scroll != null and focused != scroll:
+		scroll.ensure_control_visible(focused)
+		_keep_focus_ring_visible(scroll, focused, ring_margin)
+	if _viewport_scroll != null:
+		_viewport_scroll.ensure_control_visible(focused)
+		_keep_focus_ring_visible(_viewport_scroll, focused, ring_margin)
+
+
+func _keep_focus_ring_visible(scroll: ScrollContainer, focused: Control, ring_margin: float) -> void:
 	var usable_rect := scroll.get_global_rect()
 	var horizontal_bar := scroll.get_h_scroll_bar()
 	if horizontal_bar.is_visible_in_tree():
@@ -578,8 +641,6 @@ func _reveal_focused_control_after_layout_after_frame() -> void:
 			var bottom_edge := usable_rect.end.y
 			usable_rect.position.y = horizontal_rect.end.y
 			usable_rect.size.y = maxf(0.0, bottom_edge - usable_rect.position.y)
-	var scale := float(_prefs.ui_scale) if _prefs != null else 1.0
-	var ring_margin := maxf(3.0, ceilf(3.0 * scale))
 	var focused_rect := focused.get_global_rect()
 	if focused_rect.size.y + ring_margin * 2.0 > usable_rect.size.y:
 		return
@@ -651,7 +712,7 @@ func _on_tutorial_reset_pressed() -> void:
 	_tutorial_enabled_button.text = Localization.text("UI_PREFS_TUTORIAL_ENABLED")
 	_status_label.text = Localization.text("UI_PREFS_TUTORIAL_RESET_PENDING")
 	_status_label.visible = true
-	call_deferred("_fit_to_viewport")
+	_schedule_viewport_fit()
 
 
 func _on_apply_pressed() -> void:
@@ -673,14 +734,14 @@ func _on_apply_pressed() -> void:
 	if not str(_prefs.last_persistence_error).is_empty():
 		_status_label.text = Localization.format("UI_PREFS_PERSISTENCE_ERROR", [_prefs.last_persistence_error])
 		_status_label.visible = true
-		call_deferred("_fit_to_viewport")
+		_schedule_viewport_fit()
 		return
 	close()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and _built and is_instance_valid(_settings_scroll) and is_instance_valid(_help_scroll):
-		_fit_to_viewport()
+		_schedule_viewport_fit()
 		call_deferred("_reveal_focused_control_after_layout")
 
 

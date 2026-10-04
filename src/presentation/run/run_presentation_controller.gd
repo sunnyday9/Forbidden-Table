@@ -39,6 +39,8 @@ const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
+const YakuDefinitionScript = preload("res://src/content/definitions/yaku_definition.gd")
+const YakuEvaluatorScript = preload("res://src/domain/mahjong/yaku/yaku_evaluator.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
 const ACTION_PREFIX_CHARACTER := "character:"
@@ -243,6 +245,100 @@ func snapshot() -> Dictionary:
 func action_descriptors() -> Array:
 	return _action_descriptors().duplicate(true)
 
+
+func battle_tile_copy_label(instance_id: String) -> String:
+	if instance_id.strip_edges().is_empty() or domain == null:
+		return LocalizationCatalogScript.text("WORD_NONE")
+	var definition_id := ""
+	if domain.state.tile_pool != null:
+		for tile in domain.state.tile_pool.tile_instances:
+			if tile != null and str(tile.instance_id) == instance_id:
+				definition_id = str(tile.definition_id)
+				break
+	if domain.current_battle != null and domain.current_battle.zones != null:
+		for zone in TileZoneScript.all():
+			for tile in domain.current_battle.zones.contents(zone):
+				if tile == null:
+					continue
+				if definition_id.is_empty() and str(tile.instance_id) == instance_id:
+					definition_id = str(tile.definition_id)
+	if definition_id.is_empty():
+		return LocalizationCatalogScript.text("WORD_NONE")
+	var matching_instances: Array[String] = []
+	var seen_instance_ids: Dictionary = {}
+	if domain.state.tile_pool != null:
+		for tile in domain.state.tile_pool.tile_instances:
+			if tile != null and str(tile.definition_id) == definition_id:
+				var pool_instance_id := str(tile.instance_id)
+				if not seen_instance_ids.has(pool_instance_id):
+					matching_instances.append(pool_instance_id)
+					seen_instance_ids[pool_instance_id] = true
+	if domain.current_battle != null and domain.current_battle.zones != null:
+		for zone in TileZoneScript.all():
+			for tile in domain.current_battle.zones.contents(zone):
+				if tile == null or str(tile.definition_id) != definition_id:
+					continue
+				var battle_instance_id := str(tile.instance_id)
+				if not seen_instance_ids.has(battle_instance_id):
+					matching_instances.append(battle_instance_id)
+					seen_instance_ids[battle_instance_id] = true
+	var tile_name := LocalizationCatalogScript.content_text(definition_id)
+	if matching_instances.size() < 2:
+		return tile_name
+	var copy_index := matching_instances.find(instance_id) + 1
+	return LocalizationCatalogScript.format("UI_BATTLE_VIEW_0026", [tile_name, copy_index])
+
+
+func battle_yaku_progress_descriptors() -> Array:
+	var battle = domain.current_battle if domain != null and domain.state.phase == RunPhaseScript.BATTLE else null
+	if battle == null or battle.zones == null or domain.content_registry == null:
+		return []
+	var yaku_evaluator = YakuEvaluatorScript.new(domain.content_registry)
+	var yaku_state := {
+		"hand": battle.zones.contents(TileZoneScript.HAND),
+		"reserve": battle.zones.contents(TileZoneScript.RESERVE),
+	}
+	var descriptors: Array[Dictionary] = []
+	for progress in yaku_evaluator.evaluate_all(yaku_state):
+		var definition = domain.content_registry.resolve(str(progress.yaku_id))
+		if not definition is YakuDefinitionScript:
+			continue
+		var reserve_potential: Dictionary = progress.reserve_potential.duplicate(true) if progress.reserve_potential is Dictionary else {}
+		descriptors.append({
+			"id": str(progress.yaku_id),
+			"scope": str(definition.scope),
+			"stage": str(progress.stage),
+			"normalized_score": float(progress.normalized_score) if progress.normalized_score != null else 0.0,
+			"display_tokens": progress.display_tokens,
+			"reserve_potential": reserve_potential,
+		})
+	return descriptors
+
+
+func technique_inspection_descriptors() -> Array:
+	var battle = domain.current_battle if domain != null and domain.state.phase == RunPhaseScript.BATTLE else null
+	if battle == null or battle.context == null or battle.context.content_registry == null:
+		return []
+	var descriptors: Array[Dictionary] = []
+	for technique_id in _owned_technique_ids(battle):
+		var definition = battle.context.content_registry.resolve(technique_id)
+		if definition == null or definition.get_script() != TechniqueDefinitionScript:
+			continue
+		var validation = battle.validate_use_technique(technique_id)
+		var available: bool = validation != null and validation.is_valid()
+		descriptors.append({
+			"id": technique_id,
+			"source": "CORE" if definition.technique_kind == TechniqueDefinitionScript.CORE else "RUN",
+			"kind": str(definition.technique_kind),
+			"tp_cost": int(definition.tp_cost),
+			"available": available,
+			"reason_code": "" if available else str(validation.code) if validation != null else "TECHNIQUE_UNAVAILABLE",
+			"current_tp": int(battle.combat_state.tp) if battle.combat_state != null else 0,
+			"reaction_trigger_label": TechniqueDefinitionScript.reaction_trigger_label(definition.reaction_trigger_id) if definition.technique_kind == TechniqueDefinitionScript.REACTION else "",
+		})
+	return descriptors
+
+
 func _refresh(events: Array) -> void:
 	var previous_focus: String = state.focused_action_id()
 	var next_phase := str(domain.state.phase)
@@ -253,9 +349,14 @@ func _refresh(events: Array) -> void:
 	state.screen = "run.%s" % state.phase.to_lower()
 	state.authoritative_snapshot = domain.checkpoint().duplicate(true)
 	state.last_domain_event_types = []
+	var domain_event_batch: Array = []
 	for event in events:
 		if event != null:
 			state.last_domain_event_types.append(str(event.event_type))
+			domain_event_batch.append(event.to_dictionary())
+	if not domain_event_batch.is_empty():
+		state.battle_event_revision += 1
+		state.battle_events = domain_event_batch.duplicate(true)
 	state.set_focus_actions(_action_ids(), previous_focus)
 	if not events.is_empty():
 		_localized_feedback_key = ""
@@ -498,31 +599,29 @@ func _battle_actions() -> Array:
 						"hand_tile_id": str(hand_tile.definition_id),
 						"reserve_tile_id": str(reserve_tile.definition_id),
 					},
-				})
+			})
 	actions.append_array(_battle_technique_actions(domain.current_battle))
 	if domain.current_battle.can_complete_hand():
-		for interpretation in domain.current_battle.complete_hand_interpretations():
-			actions.append({"id": "battle.complete:" + str(interpretation.interpretation_id), "kind": "COMPLETE_HAND", "target_id": str(interpretation.interpretation_id), "details": interpretation.to_dictionary()})
+		var interpretations: Array = domain.current_battle.complete_hand_interpretations()
+		var interpretation_counts: Dictionary = {}
+		for interpretation in interpretations:
+			var counted_hand_type := str(interpretation.hand_type)
+			interpretation_counts[counted_hand_type] = int(interpretation_counts.get(counted_hand_type, 0)) + 1
+		var interpretation_indices: Dictionary = {}
+		for interpretation in interpretations:
+			var indexed_hand_type := str(interpretation.hand_type)
+			interpretation_indices[indexed_hand_type] = int(interpretation_indices.get(indexed_hand_type, 0)) + 1
+			var details: Dictionary = interpretation.to_dictionary()
+			details["interpretation_index"] = int(interpretation_indices[indexed_hand_type])
+			details["interpretation_count"] = int(interpretation_counts[indexed_hand_type])
+			actions.append({"id": "battle.complete:" + str(interpretation.interpretation_id), "kind": "COMPLETE_HAND", "target_id": str(interpretation.interpretation_id), "details": details})
 	return actions
 
 func _battle_technique_actions(battle) -> Array:
 	var actions: Array = []
 	if battle == null or battle.context == null or battle.context.content_registry == null:
 		return actions
-	var build_state: Dictionary = battle.context.build_state if battle.context.build_state is Dictionary else {}
-	var owned_technique_ids: Variant = build_state.get("run_technique_ids", [])
-	if not owned_technique_ids is Array:
-		return actions
-	var sorted_ids: Array[String] = []
-	for technique_id in owned_technique_ids:
-		var id := str(technique_id)
-		if not id.is_empty() and not sorted_ids.has(id):
-			sorted_ids.append(id)
-	var core_technique_id := str(build_state.get("character_core_technique_id", ""))
-	if not core_technique_id.is_empty() and not sorted_ids.has(core_technique_id):
-		sorted_ids.append(core_technique_id)
-	sorted_ids.sort()
-	for technique_id in sorted_ids:
+	for technique_id in _owned_technique_ids(battle):
 		var definition = battle.context.content_registry.resolve(technique_id)
 		if definition == null or definition.get_script() != TechniqueDefinitionScript:
 			continue
@@ -546,6 +645,24 @@ func _battle_technique_actions(battle) -> Array:
 			},
 		})
 	return actions
+
+
+func _owned_technique_ids(battle) -> Array[String]:
+	var build_state: Dictionary = battle.context.build_state if battle.context.build_state is Dictionary else {}
+	var owned_technique_ids: Variant = build_state.get("run_technique_ids", [])
+	if not owned_technique_ids is Array:
+		return []
+	var sorted_ids: Array[String] = []
+	for technique_id in owned_technique_ids:
+		var id := str(technique_id)
+		if not id.is_empty() and not sorted_ids.has(id):
+			sorted_ids.append(id)
+	var core_technique_id := str(build_state.get("character_core_technique_id", ""))
+	if not core_technique_id.is_empty() and not sorted_ids.has(core_technique_id):
+		sorted_ids.append(core_technique_id)
+	sorted_ids.sort()
+	return sorted_ids
+
 
 func _reward_actions() -> Array:
 	var actions: Array = []

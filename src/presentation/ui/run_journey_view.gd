@@ -17,6 +17,7 @@ const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_t
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 
 const PORTRAIT_TEXTURE_PATH := "res://assets/ui/art/character-triptych.png"
+const COMPACT_LAYOUT_BREAKPOINT := 840.0
 const CHARACTER_PORTRAITS := {
 	"base.character.reserve": 0,
 	"base.character.sequence": 1,
@@ -68,6 +69,9 @@ var _last_phase := ""
 var _last_reward_ids: Array[String] = []
 var _content_scroll: ScrollContainer
 var _content_root: VBoxContainer
+var _responsive_layouts: Array[BoxContainer] = []
+var _responsive_grids: Array[Dictionary] = []
+var _is_compact_layout := false
 var _details_value: Label
 var _modal_card: PanelContainer
 var _confirmation_scrim: ColorRect
@@ -86,6 +90,7 @@ func _init() -> void:
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	resized.connect(_on_layout_resized)
 	_build_shell()
 
 
@@ -104,6 +109,8 @@ func set_presentation_preferences(locale: String = "en", ui_scale: float = 1.0, 
 	_presentation_mode = presentation_mode.to_upper()
 	_reduced_motion = reduced_motion
 	theme = ForbiddenThemeScript.create_theme(_locale, _ui_scale)
+	_update_responsive_layouts()
+	_position_confirmation_card()
 	if _motion_feedback != null:
 		_motion_feedback.configure(_presentation_mode, _reduced_motion)
 
@@ -270,8 +277,7 @@ func _build_confirmation_card() -> void:
 	_modal_card.name = "RunChoiceConfirmation"
 	_modal_card.visible = false
 	_modal_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	_modal_card.position = Vector2(-225.0, -112.0)
-	_modal_card.custom_minimum_size = Vector2(450.0, 224.0)
+	_modal_card.custom_minimum_size = Vector2(450.0, 0.0)
 	_modal_card.z_index = 10
 	_modal_card.mouse_filter = Control.MOUSE_FILTER_STOP
 	ForbiddenThemeScript.style_panel(_modal_card, "paper", true)
@@ -288,6 +294,7 @@ func _build_confirmation_card() -> void:
 	_modal_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_modal_copy.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(_modal_copy)
+	_position_confirmation_card()
 
 
 func _clear_content() -> void:
@@ -300,6 +307,8 @@ func _clear_content() -> void:
 
 func _build_phase_content() -> void:
 	_clear_content()
+	_responsive_layouts.clear()
+	_responsive_grids.clear()
 	if _controller == null or _state == null:
 		return
 	var phase := str(_state.phase)
@@ -321,6 +330,8 @@ func _build_phase_content() -> void:
 		_:
 			_build_action_browser(_actions, LocalizationCatalogScript.text("UI_RUN_SCENE_0045"), false)
 	_apply_theme_to_content()
+	_update_responsive_layouts()
+	call_deferred("_update_responsive_layouts")
 
 
 func _build_character_choices() -> void:
@@ -329,20 +340,25 @@ func _build_character_choices() -> void:
 		if definition != null and definition.get_script() == CharacterDefinitionScript:
 			roster.append(definition)
 	roster.sort_custom(func(left, right): return str(left.content_id) < str(right.content_id))
+	var cards_center := CenterContainer.new()
+	cards_center.name = "CharacterCardsCenter"
+	cards_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cards_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_content_root.add_child(cards_center)
 	var grid := GridContainer.new()
 	grid.name = "CharacterCards"
-	grid.columns = 3
-	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 8)
-	_content_root.add_child(grid)
+	_register_responsive_grid(grid, 224.0, 3, 1.0, 480.0)
+	cards_center.add_child(grid)
 	for definition in roster:
 		var action_id := "character:%s" % str(definition.content_id)
 		var action: Dictionary = _actions_by_id.get(action_id, {})
 		var is_available := not action.is_empty()
 		var card := PanelContainer.new()
 		card.name = "CharacterCard_%s" % str(definition.content_id).get_slice(".", str(definition.content_id).get_slice_count(".") - 1).to_pascal_case()
-		card.custom_minimum_size = Vector2(250.0, 320.0 * _ui_scale)
+		card.custom_minimum_size = Vector2(0.0, 320.0 * _ui_scale)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		ForbiddenThemeScript.style_panel(card, "lacquer", action_id == selected_action_id)
 		grid.add_child(card)
@@ -373,6 +389,7 @@ func _build_character_choices() -> void:
 		var choose := Button.new()
 		choose.name = "InspectCharacterButton"
 		choose.text = _action_label_text(action) if is_available else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0022")
+		choose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		choose.disabled = not is_available
 		choose.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		if is_available:
@@ -423,11 +440,7 @@ func _character_lock_reason() -> String:
 
 
 func _build_map() -> void:
-	var layout := HBoxContainer.new()
-	layout.name = "RunMapDecision"
-	layout.add_theme_constant_override("separation", 16)
-	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var layout := _new_responsive_layout("RunMapDecision", 16)
 	_content_root.add_child(layout)
 	var map := RunMapViewScript.new()
 	map.name = "RunMapView"
@@ -441,7 +454,6 @@ func _build_map() -> void:
 	ForbiddenThemeScript.style_panel(map, "table")
 	layout.add_child(map)
 	var detail_panel := _new_detail_panel("MapNodeDetails")
-	detail_panel.custom_minimum_size.x = 300.0
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
@@ -493,15 +505,12 @@ func _tile_pool_names() -> String:
 
 func _build_event() -> void:
 	var event_state = _state.event_state
-	var layout := HBoxContainer.new()
-	layout.name = "EventDecision"
-	layout.add_theme_constant_override("separation", 16)
+	var layout := _new_responsive_layout("EventDecision", 16)
 	_content_root.add_child(layout)
 	var choice_panel := _choice_list_panel("EventChoices", _actions, false)
 	choice_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	layout.add_child(choice_panel)
 	var detail_panel := _new_detail_panel("EventDetails")
-	detail_panel.custom_minimum_size.x = 300.0
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
@@ -544,9 +553,7 @@ func _event_detail_for_action(action: Dictionary) -> String:
 
 
 func _build_shop() -> void:
-	var layout := HBoxContainer.new()
-	layout.name = "ShopDecision"
-	layout.add_theme_constant_override("separation", 16)
+	var layout := _new_responsive_layout("ShopDecision", 16)
 	_content_root.add_child(layout)
 	var offers := _new_surface("ShopOffersPanel", "raised")
 	offers.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -557,10 +564,10 @@ func _build_shop() -> void:
 	offers.add_child(offer_stack)
 	var offer_grid := GridContainer.new()
 	offer_grid.name = "ShopOfferGrid"
-	offer_grid.columns = 2
 	offer_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	offer_grid.add_theme_constant_override("h_separation", 8)
 	offer_grid.add_theme_constant_override("v_separation", 8)
+	_register_responsive_grid(offer_grid, 250.0, 2, 0.62)
 	offer_stack.add_child(offer_grid)
 	for action in _actions:
 		if str(action.get("kind", "")) == "SHOP_OFFER":
@@ -597,7 +604,6 @@ func _build_shop() -> void:
 		if str(action.get("kind", "")) in ["SHOP_REFRESH", "SHOP_EXIT"]:
 			_add_choice_button(offer_stack, action)
 	var detail_panel := _new_detail_panel("ShopOfferDetails")
-	detail_panel.custom_minimum_size.x = 300.0
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
@@ -630,9 +636,7 @@ func _shop_offer_status_text(action: Dictionary) -> String:
 
 
 func _build_workshop() -> void:
-	var layout := HBoxContainer.new()
-	layout.name = "WorkshopDecision"
-	layout.add_theme_constant_override("separation", 16)
+	var layout := _new_responsive_layout("WorkshopDecision", 16)
 	_content_root.add_child(layout)
 	var action_panel := _new_surface("WorkshopActionsPanel", "raised")
 	action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -652,7 +656,6 @@ func _build_workshop() -> void:
 		if str(action.get("kind", "")) in ["WORKSHOP_BACK", "WORKSHOP_EXIT"]:
 			_add_choice_button(action_stack, action)
 	var detail_panel := _new_detail_panel("WorkshopDetails")
-	detail_panel.custom_minimum_size.x = 300.0
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
@@ -702,9 +705,7 @@ func _workshop_before_after(action: Dictionary) -> String:
 
 
 func _build_action_browser(actions: Array, title: String, include_back: bool, as_reward: bool = false) -> void:
-	var layout := HBoxContainer.new()
-	layout.name = "DecisionBrowser"
-	layout.add_theme_constant_override("separation", 16)
+	var layout := _new_responsive_layout("DecisionBrowser", 16)
 	_content_root.add_child(layout)
 	var card_grid := GridContainer.new() if as_reward else null
 	var actions_panel := _new_surface("DecisionChoicesPanel", "raised")
@@ -716,9 +717,10 @@ func _build_action_browser(actions: Array, title: String, include_back: bool, as
 	actions_panel.add_child(choice_stack)
 	if as_reward:
 		card_grid.name = "RewardChoices"
-		card_grid.columns = 3
 		card_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card_grid.add_theme_constant_override("h_separation", 8)
+		card_grid.add_theme_constant_override("v_separation", 8)
+		_register_responsive_grid(card_grid, 224.0, 3, 0.58)
 		choice_stack.add_child(card_grid)
 	for action in actions:
 		var kind := str(action.get("kind", ""))
@@ -734,7 +736,6 @@ func _build_action_browser(actions: Array, title: String, include_back: bool, as
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		choice_stack.add_child(empty)
 	var detail_panel := _new_detail_panel("DecisionDetails")
-	detail_panel.custom_minimum_size.x = 300.0
 	detail_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
@@ -804,6 +805,94 @@ func _new_detail_panel(panel_name: String) -> PanelContainer:
 	return panel
 
 
+func _new_responsive_layout(layout_name: String, separation: int) -> BoxContainer:
+	var layout := BoxContainer.new()
+	layout.name = layout_name
+	layout.vertical = _is_compact_width(size.x)
+	layout.add_theme_constant_override("separation", separation)
+	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_responsive_layouts.append(layout)
+	return layout
+
+
+func _register_responsive_grid(grid: GridContainer, minimum_cell_width: float, maximum_columns: int, fallback_width_fraction: float = 1.0, maximum_cell_width: float = 0.0) -> void:
+	var entry := {
+		"grid": grid,
+		"minimum_cell_width": minimum_cell_width,
+		"maximum_columns": maximum_columns,
+		"fallback_width_fraction": fallback_width_fraction,
+		"maximum_cell_width": maximum_cell_width,
+	}
+	_responsive_grids.append(entry)
+	grid.resized.connect(_update_responsive_grid.bind(grid))
+	_update_responsive_grid(grid)
+
+
+func _is_compact_width(width: float) -> bool:
+	return width > 0.0 and width < COMPACT_LAYOUT_BREAKPOINT * _ui_scale
+
+
+func _on_layout_resized() -> void:
+	_update_responsive_layouts()
+	call_deferred("_update_responsive_layouts")
+	_position_confirmation_card()
+
+
+func _update_responsive_layouts() -> void:
+	_is_compact_layout = _is_compact_width(size.x)
+	for layout in _responsive_layouts:
+		if is_instance_valid(layout):
+			layout.vertical = _is_compact_layout
+	for entry in _responsive_grids:
+		var grid := entry.get("grid") as GridContainer
+		if grid != null and is_instance_valid(grid):
+			_update_responsive_grid(grid)
+
+
+func _update_responsive_grid(grid: GridContainer) -> void:
+	if grid == null or not is_instance_valid(grid):
+		return
+	for entry in _responsive_grids:
+		if entry.get("grid") != grid:
+			continue
+		var available_width := grid.size.x
+		var centering_parent := grid.get_parent() as CenterContainer
+		if centering_parent != null and centering_parent.size.x > 0.0:
+			available_width = centering_parent.size.x
+		if available_width <= 0.0:
+			var fallback_fraction := 1.0 if _is_compact_width(size.x) else float(entry.get("fallback_width_fraction", 1.0))
+			available_width = size.x * fallback_fraction
+		var gap := float(grid.get_theme_constant("h_separation")) if grid.has_theme_constant("h_separation") else 8.0
+		var cell_width := maxf(1.0, float(entry.get("minimum_cell_width", 220.0)) * _ui_scale)
+		var columns := clampi(floori((available_width + gap) / (cell_width + gap)), 1, int(entry.get("maximum_columns", 1)))
+		grid.columns = columns
+		var maximum_cell_width := float(entry.get("maximum_cell_width", 0.0)) * _ui_scale
+		var fitted_cell_width := minf(maximum_cell_width, maxf(1.0, (available_width - gap * float(columns - 1)) / float(columns))) if maximum_cell_width > 0.0 else 0.0
+		grid.custom_minimum_size.x = fitted_cell_width * float(columns) + gap * float(columns - 1) if fitted_cell_width > 0.0 else 0.0
+		for child in grid.get_children():
+			if child is Control:
+				(child as Control).custom_minimum_size.x = fitted_cell_width
+		grid.queue_sort()
+		return
+
+
+func _position_confirmation_card() -> void:
+	if _modal_card == null:
+		return
+	var available_width := size.x - 32.0 if size.x > 0.0 else 450.0 * _ui_scale
+	var card_width := maxf(1.0, minf(450.0 * _ui_scale, available_width))
+	_modal_card.custom_minimum_size.x = card_width
+	_modal_card.position.x = -card_width * 0.5
+	call_deferred("_center_confirmation_card")
+
+
+func _center_confirmation_card() -> void:
+	if _modal_card == null or not is_instance_valid(_modal_card):
+		return
+	_modal_card.position.y = -_modal_card.size.y * 0.5
+
+
 func _new_surface(panel_name: String, surface: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.name = panel_name
@@ -825,6 +914,7 @@ func _add_choice_button(parent: Control, action: Dictionary, presentation: Strin
 	else:
 		button = Button.new()
 		button.text = _action_label_text(action)
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size.y = (76.0 if presentation == "reward" else 52.0) * _ui_scale
 	button.name = "RunAction_%s" % action_id.replace(":", "_").replace(".", "_")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -978,6 +1068,7 @@ func _open_confirmation(action: Dictionary) -> void:
 	if not is_confirmation_open:
 		return
 	_refresh_confirmation_copy(action)
+	_position_confirmation_card()
 	_confirmation_scrim.visible = true
 	_modal_card.visible = true
 	confirmation_changed.emit(true)

@@ -6,6 +6,15 @@ const MODULE_SUITES := [
 	"res://tests/stage45_run_ui_test.gd",
 	"res://tests/stage45_battle_ui_test.gd",
 	"res://tests/stage45_mouse_motion_test.gd",
+	"res://tests/battle_event_transport_test.gd",
+	"res://tests/enemy_arena_test.gd",
+	"res://tests/battle_cue_projection_test.gd",
+	"res://tests/battle_feedback_layer_test.gd",
+	"res://tests/battle_feedback_integration_test.gd",
+	"res://tests/battle_tile_selection_test.gd",
+	"res://tests/tile_table_interaction_test.gd",
+	"res://tests/tile_table_layout_test.gd",
+	"res://tests/run_window_layout_test.gd",
 ]
 
 func run() -> Array[String]:

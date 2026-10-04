@@ -15,6 +15,7 @@ var tile_instance_id: String = ""
 var tile_annotations: Array = []
 var tile_copy_label: String = ""
 var selected: bool = false
+var selection_lift: bool = false
 var face_rect: TextureRect
 var selected_outline: Panel
 var focus_outline: Panel
@@ -140,6 +141,10 @@ func _ensure_visual_children() -> void:
 
 
 func _refresh_visual_state() -> void:
+	if face_rect != null and selection_lift:
+		var lift := 6.0 if selected else 0.0
+		face_rect.offset_top = TILE_INSET + 6.0 - lift
+		face_rect.offset_bottom = (-21.0 if status_badge.visible else -TILE_INSET) - lift
 	if selected_outline != null:
 		selected_outline.visible = selected
 	if focus_outline != null:

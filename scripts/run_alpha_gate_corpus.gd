@@ -6,6 +6,7 @@ const AlphaAttemptComparatorScript = preload("res://src/infrastructure/simulatio
 const ResumeVerifierScript = preload("res://src/infrastructure/simulation/simulation_corpus_resume_verifier.gd")
 const SimulationGateRunnerScript = preload("res://src/infrastructure/simulation/simulation_gate_runner.gd")
 const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructure/simulation/alpha_simulation_starting_pool_fixture.gd")
+const GnuTimeoutLocatorScript = preload("res://src/infrastructure/simulation/gnu_timeout_locator.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
 const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot_dto.gd")
@@ -525,7 +526,7 @@ func _execution_metadata(options: Dictionary, cumulative_case_count: int, repeat
 		"process_timeout_kill_after_seconds": PROCESS_TIMEOUT_KILL_AFTER_SECONDS,
 		"process_timeout_enforced": bool(options.process_timeout_enforced),
 		"timeout_executable_path": _resolved_timeout_executable_path(),
-		"process_timeout_wrapper": "python3 scripts/run_alpha_gate_corpus_chunk.py; it runs GNU coreutils timeout --signal=TERM --kill-after=%ds" % PROCESS_TIMEOUT_KILL_AFTER_SECONDS,
+		"process_timeout_wrapper": "python3 scripts/run_alpha_gate_corpus_chunk.py --timeout-executable <resolved GNU Coreutils path>; it runs --signal=TERM --kill-after=%ds" % PROCESS_TIMEOUT_KILL_AFTER_SECONDS,
 		"command": _recorded_timeout_command(options),
 		"command_argv": _recorded_timeout_command_argv(options),
 		"chunk_limit": int(options.max_cases),
@@ -554,12 +555,7 @@ func _recorded_timeout_command(options: Dictionary) -> String:
 	return " ".join(parts)
 
 func _resolved_timeout_executable_path() -> String:
-	var output: Array[String] = []
-	var exit_code := OS.execute("which", ["timeout"], output, true)
-	if exit_code != 0 or output.is_empty():
-		return ""
-	var path := str(output[0]).strip_edges()
-	return path if path.is_absolute_path() else ""
+	return GnuTimeoutLocatorScript.resolve_path()
 
 func _recorded_timeout_command_argv(options: Dictionary) -> Array[String]:
 	var project_path := ProjectSettings.globalize_path("res://")

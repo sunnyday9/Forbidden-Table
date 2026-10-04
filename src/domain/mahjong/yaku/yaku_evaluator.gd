@@ -38,6 +38,7 @@ func get_progress(yaku_id: String, state = {}) -> YakuProgressResultScript:
 			"missing_conditions": potential.missing_conditions,
 			"blockers": potential.blockers,
 			"display_tokens": potential.display_tokens,
+			"normalized_score": potential.normalized_score,
 		}
 	return YakuProgressResultScript.new(
 		definition.content_id,
