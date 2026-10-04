@@ -154,8 +154,21 @@ func test_actual_boss_cue_path_is_immediate_and_ordered_in_all_modes(failures: A
 			"%s actual Domain results preserve Complete Hand → Boss phase → BattleWon order" % str(mode),
 			failures,
 		)
-		var scene_source := FileAccess.get_file_as_string("res://scenes/run/run_scene.gd")
-		assert_true(scene_source.contains("_set_wrapped_label_text(_feedback_value, str(controller.snapshot().get(\"feedback\", \"\")))"), "%s RunScene renders presentation feedback as visible text" % str(mode), failures)
+		var flow = load("res://tests/stage4_onboarding_flow_test.gd").new()
+		var profile_path := "user://boss_feedback_profile_%s.json" % str(mode).to_lower()
+		var suspend_path := "user://boss_feedback_suspend_%s.json" % str(mode).to_lower()
+		var tree := Engine.get_main_loop() as SceneTree
+		var previous_size := tree.root.size
+		var scene = flow._new_test_scene(profile_path, suspend_path)
+		tree.root.add_child(scene)
+		scene.controller = controller
+		scene._apply_presentation_preferences({"locale": "en", "ui_scale": 1.0, "presentation_mode": str(mode), "reduced_motion": false, "ambient_glow": false}, false)
+		var feedback_label := scene.find_child("RunFeedback", true, false) as Label
+		assert_true(feedback_label != null and feedback_label.visible and feedback_label.text == victory_feedback, "%s RunScene renders the actual Boss victory feedback as visible text" % str(mode), failures)
+		scene.free()
+		flow._clear_test_file(profile_path)
+		flow._clear_test_file(suspend_path)
+		tree.root.size = previous_size
 
 func _prepare_complete_hand(battle, failures: Array[String]) -> void:
 	for tile in battle.zones.contents(TileZone.HAND).duplicate():

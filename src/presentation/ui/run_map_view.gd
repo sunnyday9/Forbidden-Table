@@ -8,7 +8,11 @@ const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 const NODE_HEIGHT := 68.0
-const MIN_MAP_SIZE := Vector2(560.0, 300.0)
+const MIN_MAP_HEIGHT := 300.0
+const MIN_WIDE_NODE_WIDTH := 118.0
+const MIN_COMPACT_NODE_WIDTH := 144.0
+const NODE_GAP := 12.0
+const LAYER_GAP := 18.0
 
 var _definition
 var _map_state
@@ -31,8 +35,9 @@ func _init() -> void:
 
 
 func _ready() -> void:
-	custom_minimum_size = MIN_MAP_SIZE
-	resized.connect(_layout_nodes)
+	custom_minimum_size = Vector2(0.0, _minimum_map_height())
+	resized.connect(_on_resized)
+	call_deferred("_layout_nodes", true)
 
 
 func configure(action_label: Callable, pretty_id: Callable, pretty_words: Callable) -> void:
@@ -44,8 +49,9 @@ func configure(action_label: Callable, pretty_id: Callable, pretty_words: Callab
 func set_presentation_preferences(locale: String, ui_scale: float) -> void:
 	_locale = "zh_CN" if locale.to_lower().begins_with("zh") else "en"
 	_ui_scale = clampf(ui_scale, 1.0, 1.5)
-	custom_minimum_size = Vector2(MIN_MAP_SIZE.x, maxf(MIN_MAP_SIZE.y, NODE_HEIGHT * _ui_scale * 3.0 + 32.0))
+	custom_minimum_size = Vector2(0.0, _minimum_map_height())
 	theme = ForbiddenThemeScript.create_theme(_locale, _ui_scale)
+	_layout_nodes()
 
 
 func render(map_definition, map_state, actions: Array, selected_action_id: String = "", focused_action_id: String = "") -> void:
@@ -63,7 +69,7 @@ func render(map_definition, map_state, actions: Array, selected_action_id: Strin
 		return
 	for node_id in _definition.node_ids:
 		_add_map_node(str(node_id))
-	_layout_nodes()
+	_layout_nodes(true)
 	queue_redraw()
 
 
@@ -159,21 +165,48 @@ func _node_status_for_tooltip(node_id: String, action: Dictionary) -> String:
 	return LocalizationCatalogScript.text("UI_RUN_JOURNEY_0031")
 
 
-func _layout_nodes() -> void:
-	if _definition == null or _map_state == null:
+func _on_resized() -> void:
+	_layout_nodes()
+
+
+func _minimum_map_height() -> float:
+	return maxf(MIN_MAP_HEIGHT, NODE_HEIGHT * _ui_scale * 3.0 + 32.0)
+
+
+func _layout_nodes(restore_focus: bool = false) -> void:
+	if _definition == null or _map_state == null or size.x <= 1.0:
 		return
 	var layers: Dictionary = _node_layers()
 	if layers.is_empty():
 		return
-	var max_depth := 0
-	for depth in layers:
-		max_depth = maxi(max_depth, int(depth))
+	var depths: Array = layers.keys()
+	depths.sort()
+	var max_depth := maxi(0, int(depths.back()))
 	var inner_width := maxf(1.0, size.x - 24.0)
 	var column_step := inner_width / float(max_depth + 1)
-	var button_width := maxf(60.0, column_step - 8.0)
+	var wide_button_width := column_step - NODE_GAP
+	_node_centers.clear()
+	var preferred_height := MIN_MAP_HEIGHT
+	if wide_button_width < MIN_WIDE_NODE_WIDTH * _ui_scale:
+		preferred_height = _layout_compact_nodes(layers, depths, Rect2(Vector2(12.0, 8.0), Vector2(inner_width, 0.0)))
+	else:
+		preferred_height = _layout_wide_nodes(layers, depths, Rect2(Vector2(12.0, 8.0), Vector2(inner_width, 0.0)), max_depth)
+	if not is_equal_approx(custom_minimum_size.y, preferred_height):
+		custom_minimum_size.y = preferred_height
+	queue_redraw()
+	if restore_focus and not _focused_action_id.is_empty():
+		var focused := choice_button(_focused_action_id)
+		if focused != null and focused.is_visible_in_tree():
+			focused.grab_focus()
+
+
+func _layout_wide_nodes(layers: Dictionary, depths: Array, inner: Rect2, max_depth: int) -> float:
+	var inner_width := inner.size.x
+	var column_step := inner_width / float(max_depth + 1)
+	var button_width := column_step - NODE_GAP
 	var node_heights: Dictionary = {}
 	var required_height := 16.0
-	for depth in layers:
+	for depth in depths:
 		var node_ids: Array = layers[depth]
 		var row_height := NODE_HEIGHT * _ui_scale
 		for node_id_value in node_ids:
@@ -185,14 +218,12 @@ func _layout_nodes() -> void:
 			node_heights[node_id] = node_height
 			row_height = maxf(row_height, node_height)
 		required_height = maxf(required_height, row_height * float(node_ids.size()) + 16.0)
-	var preferred_height := maxf(MIN_MAP_SIZE.y, required_height)
-	if not is_equal_approx(custom_minimum_size.y, preferred_height):
-		custom_minimum_size.y = preferred_height
-	var inner := Rect2(Vector2(12.0, 8.0), Vector2(inner_width, maxf(size.y, preferred_height) - 16.0))
-	for depth in layers:
+	var preferred_height := maxf(_minimum_map_height(), required_height)
+	var inner_height := maxf(size.y, preferred_height) - 16.0
+	for depth in depths:
 		var node_ids: Array = layers[depth]
 		node_ids.sort()
-		var row_step := inner.size.y / float(maxi(1, node_ids.size()))
+		var row_step := inner_height / float(maxi(1, node_ids.size()))
 		for index in node_ids.size():
 			var node_id := str(node_ids[index])
 			var button := _node_controls.get(node_id) as Button
@@ -207,11 +238,46 @@ func _layout_nodes() -> void:
 				inner.position.y + row_step * (float(index) + 0.5) - button_size.y * 0.5,
 			)
 			_node_centers[node_id] = button.position + button_size * 0.5
-	queue_redraw()
-	if not _focused_action_id.is_empty():
-		var focused := choice_button(_focused_action_id)
-		if focused != null and focused.is_visible_in_tree():
-			focused.grab_focus()
+	return preferred_height
+
+
+func _layout_compact_nodes(layers: Dictionary, depths: Array, inner: Rect2) -> float:
+	var gap := NODE_GAP * _ui_scale
+	var two_column_width := (inner.size.x - gap) * 0.5
+	var columns := 2 if two_column_width >= MIN_COMPACT_NODE_WIDTH * _ui_scale else 1
+	var button_width := two_column_width if columns == 2 else inner.size.x
+	var node_heights: Dictionary = {}
+	var cursor_y := inner.position.y
+	for depth in depths:
+		var node_ids: Array = layers[depth]
+		node_ids.sort()
+		for row_start in range(0, node_ids.size(), columns):
+			var row_count := mini(columns, node_ids.size() - row_start)
+			var row_height := NODE_HEIGHT * _ui_scale
+			for column in row_count:
+				var node_id := str(node_ids[row_start + column])
+				var button := _node_controls.get(node_id) as Button
+				if button == null:
+					continue
+				var node_height := _required_node_height(button, button_width)
+				node_heights[node_id] = node_height
+				row_height = maxf(row_height, node_height)
+			for column in row_count:
+				var node_id := str(node_ids[row_start + column])
+				var button := _node_controls.get(node_id) as Button
+				if button == null:
+					continue
+				var button_height := float(node_heights.get(node_id, NODE_HEIGHT * _ui_scale))
+				var x := inner.position.x + float(column) * (button_width + gap)
+				if row_count == 1 and columns == 2:
+					x += (button_width + gap) * 0.5
+				button.custom_minimum_size.y = button_height
+				button.size = Vector2(button_width, button_height)
+				button.position = Vector2(x, cursor_y + (row_height - button_height) * 0.5)
+				_node_centers[node_id] = button.position + button.size * 0.5
+			cursor_y += row_height + gap
+		cursor_y += LAYER_GAP * _ui_scale
+	return maxf(_minimum_map_height(), cursor_y + 8.0)
 
 
 func _required_node_height(button: Button, button_width: float) -> float:

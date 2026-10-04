@@ -24,6 +24,9 @@ func run() -> Array[String]:
 		_check(scene.controller.domain.replay_record.commands.size() == before + 1, "Mouse commit of %s dispatches exactly once" % kind, failures)
 	_check(str(scene.controller.domain.state.phase) == "BATTLE", "Mouse choices reach the authoritative Battle", failures)
 	if str(scene.controller.domain.state.phase) == "BATTLE":
+		var battle_scroll := scene.find_child("BattleViewportScroll", true, false) as ScrollContainer
+		_check(battle_scroll != null and battle_scroll.is_visible_in_tree() and battle_scroll.follow_focus, "Battle viewport follows focus across the table and action rail", failures)
+		_check(battle_scroll != null and battle_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Battle viewport disables horizontal scrolling", failures)
 		var draw: Button = flow.find_action_button(scene, "battle.draw")
 		var hand_before: int = scene.controller.domain.current_battle.zones.size("Hand")
 		var command_before: int = scene.controller.domain.replay_record.commands.size()
@@ -43,6 +46,25 @@ func run() -> Array[String]:
 		scene._apply_presentation_preferences({"locale": "en", "ui_scale": 1.0, "presentation_mode": "INSTANT", "reduced_motion": true, "ambient_glow": false}, true)
 		_check(scene.controller.domain.checkpoint() == checkpoint and scene.controller.domain.replay_record.commands.size() == commands, "Motion cancellation never changes authority or submits a command", failures)
 		_check(feedback.get("_active_tween") == null, "Instant cancels active cosmetic playback", failures)
+		var discard_action: Dictionary = {}
+		for action in scene.controller.action_descriptors():
+			if str(action.get("kind", "")) == "DISCARD":
+				discard_action = action
+				break
+		var tile_id := str(discard_action.get("target_id", ""))
+		var physical_tile: Button = scene._battle_view.tile_button(tile_id) if not tile_id.is_empty() else null
+		_check(physical_tile != null and physical_tile.is_visible_in_tree() and physical_tile.focus_mode != Control.FOCUS_NONE and not physical_tile.accessibility_name.strip_edges().is_empty(), "Mouse can reach an accessible physical hand tile for a legal context action after Draw", failures)
+		if physical_tile != null and not discard_action.is_empty():
+			var context_commands_before: int = scene.controller.domain.replay_record.commands.size()
+			await _click(physical_tile, tree)
+			_check(scene._battle_view.selected_tile_ids().has(tile_id), "Mouse selects the physical tile named by a live Discard descriptor", failures)
+			_check(scene.controller.domain.replay_record.commands.size() == context_commands_before, "Physical tile selection is presentation only", failures)
+			var contextual_button: Button = flow.find_action_button(scene, str(discard_action.get("id", "")))
+			var context_enabled := bool(discard_action.get("enabled", true)) and not bool(discard_action.get("disabled", false))
+			_check(contextual_button != null and contextual_button.is_visible_in_tree() and contextual_button.disabled == (not context_enabled) and not contextual_button.text.strip_edges().is_empty(), "Physical tile selection exposes its current authoritative Discard action", failures)
+			await _click(physical_tile, tree)
+			_check(not scene._battle_view.selected_tile_ids().has(tile_id), "Mouse can clear a physical hand tile selection", failures)
+			_check(scene.controller.domain.replay_record.commands.size() == context_commands_before, "Clearing tile selection submits no command", failures)
 	await _click(scene.find_child("SettingsButton", true, false) as Button, tree)
 	_check(scene._preferences_overlay.visible, "Mouse opens the settings modal", failures)
 	var cancel := scene._preferences_overlay.find_child("OverlayCancelButton", true, false) as Button

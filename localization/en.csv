@@ -547,6 +547,7 @@ WORD_INITIAL_PRESSURE_PER_BATTLE,Initial pressure per battle
 WORD_INSUFFICIENT_TP,Insufficient TP
 WORD_LONG_CURRENT,Long current
 WORD_LONG_MARGIN,Long margin
+WORD_LOCAL,Local
 WORD_MAP,Map
 WORD_MAP_CHOICE,Map choice
 WORD_MAP_NODE,Map node
@@ -565,6 +566,7 @@ WORD_PASSIVE,Passive
 WORD_PATH,Path
 WORD_PATTERN,Pattern
 WORD_POOL_BIAS,Pool bias
+WORD_POTENTIAL,Potential
 WORD_PREFERRED_TILE_IDS,Preferred tile ids
 WORD_PRESSURE,Pressure
 WORD_PRESSURE_PER_BATTLE,Pressure per battle
@@ -592,6 +594,7 @@ WORD_RITUAL_SALVE,Ritual salve
 WORD_ROUTE_COST,Route cost
 WORD_ROUTE_DEPENDENT,Route-dependent
 WORD_RULE_MEMORY,Rule memory
+WORD_RUN,Run
 WORD_RUN_COMPLETE,Run complete
 WORD_RUN_MODIFIER,Run modifier
 WORD_RUN_SUMMARY,Run summary
@@ -1110,6 +1113,16 @@ UI_BATTLE_VIEW_0053,Stability loss · up to %d
 UI_BATTLE_VIEW_0054,TP loss · up to %d
 UI_BATTLE_VIEW_0055,Fatigue added · %d
 UI_BATTLE_VIEW_0056,Reward tax · %d
+UI_BATTLE_VIEW_0057,Needs an open Settlement Window
+UI_BATTLE_VIEW_0058,Auto on: %s
+UI_BATTLE_VIEW_0059,Resolves automatically
+UI_BATTLE_VIEW_0060,Costs %d TP · %d available
+UI_BATTLE_VIEW_0061,Used this turn
+UI_BATTLE_VIEW_0062,Effect timing does not match
+UI_BATTLE_VIEW_0063,Unavailable in this Battle
+UI_BATTLE_VIEW_0064,%s · %s
+UI_BATTLE_VIEW_0065,Unavailable Techniques
+UI_BATTLE_VIEW_0066,%s · %s %s
 UI_PREFS_HELP_TILE_MARKS,"On compact tiles, the bottom mark shows current Integrity as a number, contamination with !, and one or more modifiers with +. Focus or select a tile to inspect its full details; inspection text scales with your UI size."
 UI_RUN_RECOVERY_DETAILS_SHOW,Show technical details
 UI_RUN_RECOVERY_DETAILS_HIDE,Hide technical details
@@ -1131,3 +1144,46 @@ UI_PROFILE_RECOVERY_DETAILS_BODY,"Profile: %s
 Recovery copy: %s
 Codes: %s"
 UI_PROFILE_MANUAL_RECOVERY_STEPS,"Reset requires a verified recovery copy. Keep the original profile. Resolve file access or storage errors, then restart to retry preservation. To begin with a fresh profile instead, first make a manual backup of the profile listed above, move the original file aside, and restart."
+BATTLE_CUE_DRAW,Drew %s
+BATTLE_CUE_DISCARD,Discarded %s
+BATTLE_CUE_ATTACK,%s hit for −%d enemy HP
+BATTLE_CUE_RELIEF,Pressure relieved: −%d
+BATTLE_CUE_PRESSURE,%s: +%d pressure
+BATTLE_CUE_STABILITY,Stability: %s
+BATTLE_CUE_SETTLE,Pattern settled
+BATTLE_CUE_COMPLETE,Complete Hand
+BATTLE_CUE_PHASE,Enemy phase %d
+BATTLE_CUE_VICTORY,Enemy defeated
+BATTLE_CUE_MOVE,Tile moved
+BATTLE_CUE_INTENT_EFFECT,%s: %s
+BATTLE_CUE_INTENT_ZERO,%s: no pressure added
+BATTLE_CUE_PRESSURE_GENERIC,Pressure: +%d
+BATTLE_CUE_EFFECT_WALL_TAX,Draw capacity reduced: %d
+BATTLE_CUE_EFFECT_INTEGRITY,Reserve Integrity lost: %d
+BATTLE_CUE_EFFECT_HUNT,Reserve Integrity lost: %d
+BATTLE_CUE_EFFECT_CONTAMINATION,Clutter tiles added: %d
+BATTLE_CUE_EFFECT_TABLE_INTERFERENCE,Stability lost: %d
+BATTLE_CUE_EFFECT_RULE_BREAKER,TP drained: %d
+BATTLE_CUE_EFFECT_AUDIT,Fatigue gained: %d
+BATTLE_CUE_EFFECT_REWARD_TAX,Reward tax added: %d
+UI_ENEMY_ARENA_0001,Resolves on End Turn
+UI_ENEMY_ARENA_0002,Pressure · %d / %d
+UI_ENEMY_ARENA_0003,Stability · %d
+UI_ENEMY_ARENA_0004,Draw Wall · %d
+BATTLE_CUE_SOURCE_PLAYER,Player attack
+BATTLE_CUE_DRAW_GROUP,Drew %d tiles
+BATTLE_CUE_ATTACK_GROUP,%d damage across %d hits
+BATTLE_CUE_BURST_HEADER,%d battle events
+BATTLE_CUE_BURST_EFFECTS,Enemy effects: %d
+UI_BATTLE_TABLE_SELECT,Select one or more tiles to see their available actions.
+UI_BATTLE_TABLE_SELECTED,%s tiles selected
+UI_BATTLE_TABLE_NO_MATCH,No legal action for this selection. Change the tiles or use a turn action.
+UI_BATTLE_TABLE_ALL,Select Hand
+UI_BATTLE_TABLE_CLEAR,Clear selection
+UI_BATTLE_TABLE_WALL,%s tiles in the Wall
+UI_RUN_SCENE_0150,%s · %s/%s
+UI_RUN_SCENE_0151,Pattern · %s
+UI_RUN_SCENE_0152,Tiles · %s
+UI_RUN_SCENE_0153,%s · %s
+UI_RUN_SCENE_0154,Pair · %s
+UI_RUN_SCENE_0155,Yaku · %s · %s

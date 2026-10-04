@@ -420,6 +420,8 @@ func _test_modal_focus_and_help_scrolling(failures: Array[String]) -> void:
 		{"label": "Chinese 960x540", "size": Vector2i(960, 540), "locale": "zh_CN"},
 		{"label": "English 1920x1080", "size": Vector2i(1920, 1080), "locale": "en"},
 		{"label": "Chinese 1920x1080", "size": Vector2i(1920, 1080), "locale": "zh_CN"},
+		{"label": "English 360x240 after resize", "size": Vector2i(960, 540), "resize_to": Vector2i(360, 240), "locale": "en"},
+		{"label": "Chinese 360x240 after resize", "size": Vector2i(960, 540), "resize_to": Vector2i(360, 240), "locale": "zh_CN"},
 	]
 	for scenario in scenarios:
 		tree.root.size = scenario.size
@@ -435,6 +437,9 @@ func _test_modal_focus_and_help_scrolling(failures: Array[String]) -> void:
 		host.add_child(overlay)
 		overlay.open(_prefs.snapshot(), origin, TutorialProgressScript.new())
 		await _wait_for_ui_layout(tree)
+		if scenario.has("resize_to"):
+			tree.root.size = scenario.resize_to
+			await _wait_for_ui_layout(tree)
 		var label := str(scenario.label)
 		var settings_scroll: ScrollContainer = overlay._settings_scroll
 		assert_true(settings_scroll.size.y > 0.0 and settings_scroll.get_v_scroll_bar().max_value > settings_scroll.get_v_scroll_bar().page, "%s Settings has scrollable content" % label, failures)
@@ -491,6 +496,9 @@ func _assert_modal_focus_and_scroll(overlay: PreferencesOverlay, scroll: ScrollC
 	var focusables: Array[Control] = overlay._visible_focusables()
 	var scroll_was_focusable := false
 	var scroll_input_moved := false
+	var check_footer_reachability := state.contains("360x240")
+	var apply_reached_in_view := false
+	var cancel_reached_in_view := false
 	var vertical_bar := scroll.get_v_scroll_bar()
 	var horizontal_bar := scroll.get_h_scroll_bar()
 	assert_true(not focusables.has(vertical_bar) and not focusables.has(horizontal_bar), "%s keeps internal scrollbars out of modal tab order" % state, failures)
@@ -499,6 +507,15 @@ func _assert_modal_focus_and_scroll(overlay: PreferencesOverlay, scroll: ScrollC
 		var focused := tree.root.get_viewport().gui_get_focus_owner() as Control
 		assert_true(focused != null and overlay.is_ancestor_of(focused), "%s keyboard focus stays trapped inside the modal" % state, failures)
 		assert_true(focused != vertical_bar and focused != horizontal_bar, "%s keyboard traversal skips internal scrollbars" % state, failures)
+		if check_footer_reachability and focused != null and ["ApplyButton", "CancelButton"].has(focused.name):
+			var focus_ring_margin := ceilf(3.0 * float(_prefs.ui_scale))
+			var window_rect := Rect2(Vector2.ZERO, tree.root.size)
+			var footer_action_visible := window_rect.encloses(focused.get_global_rect().grow(focus_ring_margin))
+			assert_true(footer_action_visible, "%s brings %s and its focus ring fully into view" % [state, focused.name], failures)
+			if focused.name == "ApplyButton":
+				apply_reached_in_view = footer_action_visible
+			else:
+				cancel_reached_in_view = footer_action_visible
 		if focused == scroll:
 			scroll_was_focusable = true
 			var focus_outline := scroll.get_parent().find_child("ScrollFocusOutline", true, false) as Panel
@@ -516,6 +533,9 @@ func _assert_modal_focus_and_scroll(overlay: PreferencesOverlay, scroll: ScrollC
 			assert_true(_scroll_content_view_rect(scroll).encloses(focus_with_ring), "%s keeps the complete focused control and focus ring in its usable scroll viewport" % state, failures)
 	assert_true(scroll_was_focusable, "%s exposes its reading viewport in the modal focus order" % state, failures)
 	assert_true(scroll_input_moved, "%s provides an operable keyboard path for reading its long content" % state, failures)
+	if check_footer_reachability:
+		assert_true(apply_reached_in_view, "%s reaches Apply while keeping it in view" % state, failures)
+		assert_true(cancel_reached_in_view, "%s reaches Cancel while keeping it in view" % state, failures)
 
 
 func _send_overlay_action(overlay: PreferencesOverlay, action: String, tree: SceneTree) -> void:

@@ -57,6 +57,33 @@ func run() -> Array[String]:
 		"repeated focus arguments do not dispatch a suite more than once",
 		failures
 	)
+	var focused_success_cases: Array[Dictionary] = [
+		{"flag": "--boss-rule-breaker-reward", "label": "PASS: Boss Rule Breaker reward tests"},
+		{"flag": "--alpha-simulation-coverage", "label": "PASS: Alpha simulation coverage tests"},
+	]
+	for focused_case in focused_success_cases:
+		var flag := str(focused_case.get("flag", ""))
+		var expected_label := str(focused_case.get("label", ""))
+		var runner_arguments := PackedStringArray([
+			"--headless",
+			"--path", ProjectSettings.globalize_path("res://"),
+			"--script", "res://tests/run_tests.gd",
+			"--",
+			flag,
+		])
+		var runner_output: Array[String] = []
+		var runner_exit_code := OS.execute(OS.get_executable_path(), runner_arguments, runner_output, true)
+		var runner_output_text := "\n".join(runner_output)
+		assert_true(
+			runner_exit_code == 0,
+			"focused %s runner exits successfully (%s)" % [flag, runner_output_text],
+			failures
+		)
+		assert_true(
+			runner_output_text.contains(expected_label) and not runner_output_text.contains("PASS: full domain, simulation, Run progression, presentation, and Intent Graph test suite"),
+			"focused %s runner prints its suite-specific PASS label (%s)" % [flag, runner_output_text],
+			failures
+		)
 	return failures
 
 func assert_true(condition: bool, message: String, failures: Array[String]) -> void:

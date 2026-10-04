@@ -312,6 +312,8 @@ func _run_tests() -> void:
 			print("PASS: map navigation tests")
 		elif battle_integration_only:
 			print("PASS: battle integration tests")
+		elif boss_rule_breaker_reward_only:
+			print("PASS: Boss Rule Breaker reward tests")
 		elif elite_reward_only:
 			print("PASS: Elite reward tests")
 		elif reward_economy_only:
@@ -354,6 +356,8 @@ func _run_tests() -> void:
 			print("PASS: Stage 2 exit review evidence")
 		elif alpha_simulation_only:
 			print("PASS: deterministic Alpha simulation harness tests")
+		elif alpha_simulation_coverage_only:
+			print("PASS: Alpha simulation coverage tests")
 		elif alpha_fixed_benchmark_only:
 			print("PASS: fixed Alpha complete-Run benchmark tests")
 		elif alpha_gate_corpus_resume_only:

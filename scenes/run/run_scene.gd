@@ -21,6 +21,7 @@ const TableBackdropScript = preload("res://src/presentation/ui/table_backdrop.gd
 const RunJourneyViewScript = preload("res://src/presentation/ui/run_journey_view.gd")
 const RunSummaryViewScript = preload("res://src/presentation/ui/run_summary_view.gd")
 const PreferencesOverlayScript = preload("res://src/presentation/ui/preferences_overlay.gd")
+const YakuProgressTextScript = preload("res://src/presentation/ui/yaku_progress_text.gd")
 const BattleViewPath := "res://src/presentation/ui/battle_view.gd"
 
 var controller
@@ -43,6 +44,10 @@ var _tutorial_toggle_button: Button
 var _tutorial_reset_button: Button
 var _overview_scroll: ScrollContainer
 var _feedback_value: Label
+var _feedback_scroll: ScrollContainer
+var _feedback_viewport: Control
+var _footer_actions: HFlowContainer
+var _run_action_rail: BoxContainer
 var _profile_status: Label
 var _profile_recovery_scroll: ScrollContainer
 var _profile_recovery_content: VBoxContainer
@@ -76,16 +81,23 @@ var _summary_value: Label
 var _summary_acknowledge_button: Button
 var _table_backdrop
 var _page: VBoxContainer
+var _run_root_scroll: ScrollContainer
+var _run_body_margin: MarginContainer
+var _run_footer_margin: MarginContainer
 var _journey_host: Control
 var _journey_view
 var _summary_view
 var _battle_view
 var _run_status_panel: PanelContainer
+var _run_header: HFlowContainer
+var _game_title: Label
 var _settings_button: Button
 var _commit_selected_button: Button
 var _back_button: Button
 var _preferences_overlay: Control
 var _confirmation_overlay: Control
+var _confirmation_card: PanelContainer
+var _confirmation_actions: BoxContainer
 var _confirmation_message: Label
 var _confirm_new_run_button: Button
 var _cancel_new_run_button: Button
@@ -587,6 +599,7 @@ func _refresh_suspend_presentation() -> void:
 		# Technical details remain scrollable without displacing the action rail.
 		var viewport_height := get_viewport_rect().size.y if is_inside_tree() else 540.0
 		_suspend_details_scroll.custom_minimum_size.y = minf(72.0 * scale, viewport_height * 0.13) if _suspend_details_scroll.visible else 0.0
+	_update_run_stage_minimum()
 
 
 func _on_suspend_details_pressed() -> void:
@@ -703,23 +716,46 @@ func _build_interface() -> void:
 	add_child(_table_backdrop)
 	_table_backdrop.call("configure", str(initial_preferences.get("presentation_mode", "NORMAL")), bool(initial_preferences.get("reduced_motion", false)), bool(initial_preferences.get("ambient_glow", true)))
 
+	var root_layout := VBoxContainer.new()
+	root_layout.name = "RunWindowChrome"
+	root_layout.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root_layout.add_theme_constant_override("separation", 0)
+	add_child(root_layout)
+	_run_root_scroll = ScrollContainer.new()
+	_run_root_scroll.name = "RunRootScroll"
+	_run_root_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_run_root_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_run_root_scroll.follow_focus = true
+	_run_root_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_run_root_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_run_root_scroll.resized.connect(_update_run_stage_minimum)
+	root_layout.add_child(_run_root_scroll)
+
 	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	margin.add_theme_constant_override("margin_left", 18)
 	margin.add_theme_constant_override("margin_top", 8)
 	margin.add_theme_constant_override("margin_right", 18)
 	margin.add_theme_constant_override("margin_bottom", 8)
-	add_child(margin)
+	_run_body_margin = margin
+	_run_root_scroll.add_child(margin)
 
 	_page = VBoxContainer.new()
 	_page.name = "RunJourneyPage"
+	_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_page.add_theme_constant_override("separation", 5)
+	_page.resized.connect(_update_run_content_widths)
 	margin.add_child(_page)
 
-	var header := HBoxContainer.new()
+	var header := HFlowContainer.new()
 	header.name = "RunHeader"
-	header.add_theme_constant_override("separation", 10)
-	header.custom_minimum_size.y = 38.0 * initial_scale
+	header.add_theme_constant_override("h_separation", 10)
+	header.add_theme_constant_override("v_separation", 5)
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.resized.connect(_update_run_stage_minimum)
+	header.resized.connect(_update_header_label_minimum_widths)
+	_run_header = header
 	_page.add_child(header)
 	var title := Label.new()
 	title.name = "GameTitle"
@@ -727,14 +763,14 @@ func _build_interface() -> void:
 	ForbiddenThemeScript.title(title, initial_locale)
 	title.add_theme_font_size_override("font_size", roundi(25.0 * initial_scale))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.custom_minimum_size.y = 38.0 * initial_scale
+	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_game_title = title
 	header.add_child(title)
 	_phase_value = Label.new()
 	_phase_value.name = "RunPhaseLabel"
 	_phase_value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_phase_value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_phase_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_phase_value.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_phase_value.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
 	header.add_child(_phase_value)
 	_settings_button = Button.new()
@@ -749,6 +785,7 @@ func _build_interface() -> void:
 	_new_run_button.disabled = true
 	_new_run_button.visible = false
 	_new_run_button.pressed.connect(_on_new_run_pressed)
+	ForbiddenThemeScript.style_button(_new_run_button)
 	header.add_child(_new_run_button)
 
 	_profile_recovery_scroll = ScrollContainer.new()
@@ -758,6 +795,7 @@ func _build_interface() -> void:
 	_profile_recovery_scroll.follow_focus = true
 	_profile_recovery_scroll.focus_mode = Control.FOCUS_ALL
 	_profile_recovery_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_profile_recovery_scroll.resized.connect(_update_run_stage_minimum)
 	_page.add_child(_profile_recovery_scroll)
 	_profile_recovery_content = VBoxContainer.new()
 	_profile_recovery_content.name = "ProfileRecoveryContent"
@@ -805,6 +843,7 @@ func _build_interface() -> void:
 	_suspend_choice_panel.name = "SuspendChoicePanel"
 	_suspend_choice_panel.visible = false
 	_suspend_choice_panel.add_theme_constant_override("separation", 8)
+	_suspend_choice_panel.resized.connect(_update_run_stage_minimum)
 	_page.add_child(_suspend_choice_panel)
 	_suspend_status_scroll = ScrollContainer.new()
 	_suspend_status_scroll.name = "SuspendMessageScroll"
@@ -857,6 +896,7 @@ func _build_interface() -> void:
 	_run_status_panel = PanelContainer.new()
 	_run_status_panel.name = "RunStatusRail"
 	_run_status_panel.custom_minimum_size.y = 54.0 * initial_scale
+	_run_status_panel.resized.connect(_update_run_stage_minimum)
 	ForbiddenThemeScript.style_panel(_run_status_panel, "raised")
 	_page.add_child(_run_status_panel)
 	_overview_scroll = ScrollContainer.new()
@@ -926,33 +966,164 @@ func _build_interface() -> void:
 	_feedback_value.name = "RunFeedback"
 	_configure_wrapped_label(_feedback_value)
 	_feedback_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var footer := HBoxContainer.new()
+	_run_footer_margin = MarginContainer.new()
+	_run_footer_margin.name = "RunFooterMargin"
+	_run_footer_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_run_footer_margin.add_theme_constant_override("margin_left", 18)
+	_run_footer_margin.add_theme_constant_override("margin_top", 2)
+	_run_footer_margin.add_theme_constant_override("margin_right", 18)
+	_run_footer_margin.add_theme_constant_override("margin_bottom", 8)
+	root_layout.add_child(_run_footer_margin)
+	var footer := BoxContainer.new()
 	footer.name = "RunActionRail"
-	footer.add_theme_constant_override("separation", 10)
-	_page.add_child(footer)
-	footer.add_child(_feedback_value)
+	footer.vertical = size.x < 720.0
+	footer.add_theme_constant_override("separation", 5)
+	footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_run_action_rail = footer
+	_run_footer_margin.add_child(footer)
+	_feedback_viewport = Control.new()
+	_feedback_viewport.name = "RunFeedbackViewport"
+	_feedback_viewport.custom_minimum_size.y = 44.0
+	_feedback_viewport.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_feedback_viewport.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	footer.add_child(_feedback_viewport)
+	_feedback_scroll = ScrollContainer.new()
+	_feedback_scroll.name = "RunFeedbackScroll"
+	_feedback_scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_feedback_scroll.custom_minimum_size.y = 44.0
+	_feedback_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_feedback_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_feedback_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_feedback_scroll.add_child(_feedback_value)
+	_feedback_viewport.add_child(_feedback_scroll)
+	var footer_actions := HFlowContainer.new()
+	footer_actions.name = "RunActionButtons"
+	footer_actions.alignment = FlowContainer.ALIGNMENT_END
+	footer_actions.add_theme_constant_override("h_separation", 10)
+	footer_actions.add_theme_constant_override("v_separation", 5)
+	footer_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL if footer.vertical else Control.SIZE_SHRINK_END
+	_footer_actions = footer_actions
+	footer.add_child(footer_actions)
 	_back_button = Button.new()
 	_back_button.name = "BackButton"
 	_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
-	_back_button.custom_minimum_size = Vector2(140.0, 44.0)
+	_back_button.custom_minimum_size = Vector2(0.0, 44.0)
 	_back_button.pressed.connect(_on_back_pressed)
 	ForbiddenThemeScript.style_button(_back_button)
-	footer.add_child(_back_button)
+	footer_actions.add_child(_back_button)
 	_commit_selected_button = Button.new()
 	_commit_selected_button.name = "CommitSelectedButton"
 	_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0037")
-	_commit_selected_button.custom_minimum_size = Vector2(220.0, 44.0)
+	_commit_selected_button.custom_minimum_size = Vector2(0.0, 44.0)
 	_commit_selected_button.pressed.connect(_on_commit_selected_pressed)
 	ForbiddenThemeScript.style_button(_commit_selected_button, true)
-	footer.add_child(_commit_selected_button)
+	footer_actions.add_child(_commit_selected_button)
 	_summary_acknowledge_button = _commit_selected_button
-
 	_build_new_run_confirmation()
 	_preferences_overlay = PreferencesOverlayScript.new()
 	_preferences_overlay.name = "PreferencesOverlay"
 	_preferences_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_preferences_overlay.connect("preferences_applied", Callable(self, "_on_preferences_applied"))
 	add_child(_preferences_overlay)
+	resized.connect(_update_run_footer_layout)
+	_update_run_footer_layout()
+	_update_run_content_widths()
+	_update_run_stage_minimum()
+	_update_header_label_minimum_widths()
+
+
+func _update_run_footer_layout() -> void:
+	if _run_action_rail == null or _feedback_viewport == null or _feedback_scroll == null or _footer_actions == null:
+		return
+	_update_window_margins()
+	var action_width := _footer_actions_natural_width()
+	var horizontal_minimum := maxf(720.0, action_width + 180.0)
+	var stack_footer := size.x < horizontal_minimum
+	_run_action_rail.vertical = stack_footer
+	_footer_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL if stack_footer else Control.SIZE_SHRINK_END
+	_footer_actions.custom_minimum_size.x = 0.0 if stack_footer else action_width
+	_feedback_viewport.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_feedback_scroll.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_update_run_stage_minimum()
+
+
+func _update_window_margins() -> void:
+	var side_inset := roundi(clampf(size.x * 0.035, 8.0, 18.0))
+	if _run_body_margin != null:
+		_run_body_margin.add_theme_constant_override("margin_left", side_inset)
+		_run_body_margin.add_theme_constant_override("margin_right", side_inset)
+		_run_body_margin.add_theme_constant_override("margin_top", 4 if size.y < 640.0 else 8)
+		_run_body_margin.add_theme_constant_override("margin_bottom", 4 if size.y < 640.0 else 8)
+	if _run_footer_margin != null:
+		_run_footer_margin.add_theme_constant_override("margin_left", side_inset)
+		_run_footer_margin.add_theme_constant_override("margin_right", side_inset)
+		_run_footer_margin.add_theme_constant_override("margin_bottom", 4 if size.y < 640.0 else 8)
+
+
+func _update_run_content_widths() -> void:
+	if _page == null:
+		return
+	for content in [_run_status_panel, _profile_recovery_scroll, _suspend_choice_panel, _run_columns, _summary_panel]:
+		var control := content as Control
+		if control == null:
+			continue
+		control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		control.custom_minimum_size.x = 0.0
+
+
+func _footer_actions_natural_width() -> float:
+	if _footer_actions == null:
+		return 0.0
+	var width := 0.0
+	var visible_count := 0
+	for child in _footer_actions.get_children():
+		var control := child as Control
+		if control == null or not control.visible:
+			continue
+		width += control.get_combined_minimum_size().x
+		visible_count += 1
+	if visible_count > 1:
+		width += float(_footer_actions.get_theme_constant("h_separation")) * float(visible_count - 1)
+	return width
+
+
+func _update_header_label_minimum_widths() -> void:
+	if _run_header == null or _game_title == null or _phase_value == null:
+		return
+	var available_width := maxf(0.0, _run_header.size.x)
+	_game_title.custom_minimum_size.x = minf(_natural_label_width(_game_title), available_width)
+	_phase_value.custom_minimum_size.x = minf(_natural_label_width(_phase_value), available_width)
+
+
+func _natural_label_width(label: Label) -> float:
+	var font := label.get_theme_font("font")
+	var font_size := label.get_theme_font_size("font_size")
+	return font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x + 4.0
+
+
+func _update_run_stage_minimum() -> void:
+	if _run_root_scroll == null or _run_body_margin == null or _page == null or _run_columns == null:
+		return
+	var fixed_height := 0.0
+	var visible_child_count := 0
+	for child in _page.get_children():
+		if child == _run_columns or not child.visible:
+			continue
+		var control := child as Control
+		if control == null:
+			continue
+		fixed_height += control.get_combined_minimum_size().y
+		visible_child_count += 1
+	var page_spacing := _page.get_theme_constant("separation") * visible_child_count
+	var body_insets := _run_body_margin.get_theme_constant("margin_top") + _run_body_margin.get_theme_constant("margin_bottom")
+	var available_scroll_height := _run_root_scroll.size.y
+	if _run_footer_margin != null:
+		var pinned_footer_height := _run_footer_margin.get_combined_minimum_size().y
+		available_scroll_height = minf(available_scroll_height, size.y - pinned_footer_height)
+	var stage_budget := available_scroll_height - body_insets - fixed_height - page_spacing
+	var stage_minimum := clampf(stage_budget, 128.0, 500.0)
+	if not is_equal_approx(_run_columns.custom_minimum_size.y, stage_minimum):
+		_run_columns.custom_minimum_size.y = stage_minimum
 
 
 func _build_new_run_confirmation() -> void:
@@ -974,9 +1145,12 @@ func _build_new_run_confirmation() -> void:
 	_confirmation_overlay.add_child(center)
 	var card := PanelContainer.new()
 	card.name = "NewRunConfirmationCard"
-	card.custom_minimum_size = Vector2(540.0, 220.0)
+	card.custom_minimum_size = Vector2(0.0, 220.0)
+	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ForbiddenThemeScript.style_panel(card, "paper", true)
 	center.add_child(card)
+	_confirmation_card = card
+	_confirmation_overlay.resized.connect(_update_confirmation_card_width)
 	var layout := VBoxContainer.new()
 	layout.add_theme_constant_override("separation", 12)
 	card.add_child(layout)
@@ -992,25 +1166,43 @@ func _build_new_run_confirmation() -> void:
 	_confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_confirmation_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(_confirmation_message)
-	var buttons := HBoxContainer.new()
+	var buttons := BoxContainer.new()
+	buttons.name = "ConfirmationActions"
+	buttons.vertical = false
+	buttons.alignment = BoxContainer.ALIGNMENT_END
 	buttons.add_theme_constant_override("separation", 10)
+	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_confirmation_actions = buttons
 	layout.add_child(buttons)
 	_cancel_new_run_button = Button.new()
 	_cancel_new_run_button.name = "CancelNewRunButton"
 	_cancel_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0036")
-	_cancel_new_run_button.custom_minimum_size = Vector2(200.0, 44.0)
-	_cancel_new_run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cancel_new_run_button.custom_minimum_size = Vector2(0.0, 44.0)
 	_cancel_new_run_button.pressed.connect(_close_new_run_confirmation.bind(true))
 	ForbiddenThemeScript.style_button(_cancel_new_run_button)
 	buttons.add_child(_cancel_new_run_button)
 	_confirm_new_run_button = Button.new()
 	_confirm_new_run_button.name = "ConfirmNewRunButton"
 	_confirm_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0019")
-	_confirm_new_run_button.custom_minimum_size = Vector2(200.0, 44.0)
-	_confirm_new_run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_confirm_new_run_button.custom_minimum_size = Vector2(0.0, 44.0)
 	_confirm_new_run_button.pressed.connect(_confirm_pending_new_run)
 	ForbiddenThemeScript.style_button(_confirm_new_run_button, true)
 	buttons.add_child(_confirm_new_run_button)
+	_update_confirmation_card_width()
+
+
+func _update_confirmation_card_width() -> void:
+	if _confirmation_card == null or _confirmation_overlay == null:
+		return
+	var available_width := maxf(0.0, _confirmation_overlay.size.x - 24.0)
+	_confirmation_card.custom_minimum_size.x = minf(540.0, available_width)
+	if _confirmation_actions != null:
+		var stack_actions := _confirmation_overlay.size.x < 520.0
+		_confirmation_actions.vertical = stack_actions
+		for child in _confirmation_actions.get_children():
+			var button := child as Control
+			if button != null:
+				button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if stack_actions else Control.SIZE_SHRINK_END
 
 
 func _connect_presentation_preferences() -> void:
@@ -1049,6 +1241,7 @@ func _refresh_tutorial_presentation() -> void:
 		else:
 			_run_status_panel.visible = true
 			_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
+	_update_run_stage_minimum()
 
 
 func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_descriptors: bool) -> void:
@@ -1138,6 +1331,7 @@ func _refresh_profile_recovery_presentation() -> void:
 		var viewport_height := get_viewport_rect().size.y if is_inside_tree() else 540.0
 		var recovery_budget := minf(190.0, viewport_height * 0.35)
 		_profile_recovery_scroll.custom_minimum_size.y = minf(_profile_recovery_content.get_combined_minimum_size().y, recovery_budget) if _profile_recovery_scroll.visible else 0.0
+	_update_run_stage_minimum()
 
 
 func _on_profile_details_pressed() -> void:
@@ -1203,6 +1397,7 @@ func _render() -> void:
 		_last_rendered_phase = ""
 		if _phase_value != null:
 			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0054")
+		_update_header_label_minimum_widths()
 		_refresh_profile_recovery_presentation()
 		if _reset_profile_button != null:
 			_reset_profile_button.visible = meta_progress_coordinator.recovery_required
@@ -1228,6 +1423,7 @@ func _render() -> void:
 		if _feedback_value != null:
 			_set_wrapped_label_text(_feedback_value, _startup_error)
 		_refresh_action_rail()
+		_update_run_stage_minimum()
 		return
 	_suspend_choice_panel.visible = false
 	_run_status_panel.visible = true
@@ -1258,7 +1454,6 @@ func _render() -> void:
 		_run_status_panel.visible = true
 		_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
 		_overview_scroll.custom_minimum_size.y = 42.0 * float(_applied_preferences.get("ui_scale", 1.0))
-	_set_wrapped_label_text(_feedback_value, str(controller.snapshot().get("feedback", "")))
 	_refresh_profile_recovery_presentation()
 	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
 	_reset_profile_button.disabled = _profile_reset_unavailable()
@@ -1272,6 +1467,8 @@ func _render() -> void:
 	_new_run_button.visible = phase == RunPhaseScript.RUN_COMPLETE
 	_render_actions()
 	_refresh_action_rail()
+	_update_run_stage_minimum()
+	_update_header_label_minimum_widths()
 	if viewport != null and not _preferences_overlay.visible and not _confirmation_overlay.visible:
 		if _journey_view.is_confirmation_open:
 			_grab_focus_if_available(_commit_selected_button if prior_confirmation_open and prior_commit_focus else _back_button)
@@ -1344,6 +1541,7 @@ func _focus_initial_journey_choice() -> void:
 func _render_actions() -> void:
 	if controller == null:
 		return
+	var feedback := str(controller.snapshot().get("feedback", ""))
 	var descriptors: Array = controller.action_descriptors()
 	var phase := str(controller.domain.state.phase)
 	var effective_mode := str(controller.snapshot().get("presentation_mode", _applied_preferences.get("presentation_mode", "NORMAL")))
@@ -1353,6 +1551,7 @@ func _render_actions() -> void:
 		if str(_battle_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_battle_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_battle_view.get("_presentation_mode")) != effective_mode or bool(_battle_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)) or bool(_battle_view.get("_ambient_glow")) != bool(_applied_preferences.get("ambient_glow", true)):
 			_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
 		_battle_view.render()
+		_set_wrapped_label_text(_feedback_value, feedback)
 		_back_button.visible = false
 		_commit_selected_button.visible = false
 		return
@@ -1371,9 +1570,13 @@ func _render_actions() -> void:
 	if phase in [RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD, RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE] and _battle_view != null and _battle_view.has_method("persistent_receipt_text"):
 		var receipt := str(_battle_view.call("persistent_receipt_text"))
 		if not receipt.is_empty():
-			var feedback := str(controller.snapshot().get("feedback", ""))
-			var combined_feedback := receipt if feedback.is_empty() else "%s\n%s" % [feedback, receipt]
-			_set_wrapped_label_text(_feedback_value, combined_feedback)
+			var action_receipt := str(_battle_view.last_action_text())
+			if not action_receipt.is_empty():
+				receipt += "\n" + action_receipt
+			feedback = receipt if feedback.is_empty() else "%s\n%s" % [feedback, receipt]
+	# Publish the complete receipt once; intermediate plain feedback would reset
+	# a reader's scroll position on an otherwise unchanged focus refresh.
+	_set_wrapped_label_text(_feedback_value, feedback)
 
 
 func _ensure_battle_view() -> bool:
@@ -1400,6 +1603,7 @@ func _ensure_battle_view() -> bool:
 	_battle_view.focus_requested.connect(_on_battle_focus_requested)
 	_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), str(_applied_preferences.get("presentation_mode", "NORMAL")), bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
 	_journey_host.add_child(_battle_view)
+	_battle_view.set_feedback_host(self)
 	return true
 
 
@@ -1457,6 +1661,7 @@ func _refresh_action_rail() -> void:
 	_commit_selected_button.visible = not in_battle
 	if _feedback_value != null:
 		_feedback_value.visible = not _feedback_value.text.is_empty()
+	_update_run_footer_layout()
 
 
 func _on_journey_selection_changed(action_id: String) -> void:
@@ -1697,11 +1902,24 @@ func _action_label(action: Dictionary) -> String:
 			var suffix := LocalizationCatalogScript.template("UI_RUN_SCENE_0082") % target_label if not target_label.is_empty() else ""
 			var timing_label := LocalizationCatalogScript.text("UI_RUN_SCENE_0083") if technique_kind == "REACTION" else _pretty_words(technique_kind)
 			return LocalizationCatalogScript.template("UI_RUN_SCENE_0084") % [timing_label, _pretty_id(target), suffix, cost]
-		"PARTIAL_SETTLEMENT": return LocalizationCatalogScript.template("UI_RUN_SCENE_0085") % [
-			_pretty_words(str(details.get("pattern_type", "pattern"))),
-			_join_strings(details.get("labels", [])),
-		]
-		"COMPLETE_HAND": return LocalizationCatalogScript.template("UI_RUN_SCENE_0086") % _pretty_words(str(details.get("hand_type", "hand")))
+		"PARTIAL_SETTLEMENT":
+			var tile_labels := _battle_tile_instance_labels(details.get("instance_ids", []))
+			if tile_labels.is_empty():
+				tile_labels = _string_array(details.get("labels", []))
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0085") % [
+				LocalizationCatalogScript.word_text(str(details.get("pattern_type", "PATTERN"))),
+				_join_strings(tile_labels),
+			]
+		"COMPLETE_HAND":
+			var hand_type := LocalizationCatalogScript.word_text(str(details.get("hand_type", "HAND")).to_upper().replace(" ", "_"))
+			var interpretation_count := int(details.get("interpretation_count", 1))
+			if interpretation_count > 1:
+				hand_type = LocalizationCatalogScript.format("UI_RUN_SCENE_0150", [
+					hand_type,
+					int(details.get("interpretation_index", 1)),
+					interpretation_count,
+				])
+			return LocalizationCatalogScript.template("UI_RUN_SCENE_0086") % hand_type
 		"RESERVE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0087") % _pretty_tile_id(str(details.get("tile_id", target)))
 		"DISCARD": return LocalizationCatalogScript.template("UI_RUN_SCENE_0088") % _pretty_tile_id(str(details.get("tile_id", target)))
 		"RESERVE_SWAP": return LocalizationCatalogScript.template("UI_RUN_SCENE_0089") % [
@@ -1757,9 +1975,99 @@ func _action_details_text(action: Dictionary) -> String:
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	if kind == "CONTRACT":
 		return _contract_action_details_text(details, str(action.get("target_id", "")))
+	if kind == "PARTIAL_SETTLEMENT":
+		return _partial_settlement_inspection_text(action, details)
+	if kind == "COMPLETE_HAND":
+		return _complete_hand_inspection_text(action, details)
 	if kind == "WORKSHOP_SERVICE":
 		return _action_label(action)
 	return _action_label(action)
+
+
+func _partial_settlement_inspection_text(action: Dictionary, details: Dictionary) -> String:
+	var lines: Array[String] = [_action_label(action)]
+	var pattern_label := LocalizationCatalogScript.word_text(str(details.get("pattern_type", "PATTERN")))
+	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0151") % pattern_label)
+	var tile_labels := _battle_tile_instance_labels(details.get("instance_ids", []))
+	if not tile_labels.is_empty():
+		lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0152") % _join_strings(tile_labels))
+	return "\n".join(lines)
+
+
+func _complete_hand_inspection_text(action: Dictionary, details: Dictionary) -> String:
+	var lines: Array[String] = [_action_label(action)]
+	var groups: Variant = details.get("groups", [])
+	if groups is Array:
+		for group in groups:
+			if not group is Dictionary:
+				continue
+			var pattern_label := LocalizationCatalogScript.word_text(str(group.get("pattern_type", "PATTERN")))
+			var tile_labels := _battle_tile_instance_labels(group.get("instance_ids", []))
+			if not tile_labels.is_empty():
+				lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0153") % [pattern_label, _join_strings(tile_labels)])
+	var pair_labels := _battle_tile_instance_labels(details.get("pair_instance_ids", []))
+	if not pair_labels.is_empty():
+		lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0154") % _join_strings(pair_labels))
+	lines.append_array(_complete_hand_yaku_lines())
+	return "\n".join(lines)
+
+
+func _complete_hand_yaku_lines() -> Array[String]:
+	var lines: Array[String] = []
+	if controller == null or not controller.has_method("battle_yaku_progress_descriptors"):
+		return lines
+	for descriptor in controller.battle_yaku_progress_descriptors():
+		if not descriptor is Dictionary or str(descriptor.get("scope", "")) == "LOCAL_SETTLEMENT":
+			continue
+		var score := float(descriptor.get("normalized_score", 0.0))
+		if score <= 0.0 and str(descriptor.get("stage", "")) != "COMPLETE":
+			continue
+		var progress_text := YakuProgressTextScript.format(
+			descriptor.get("display_tokens", []),
+			str(descriptor.get("stage", "")),
+		)
+		var yaku_name := LocalizationCatalogScript.content_text(str(descriptor.get("id", "")))
+		lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0155") % [yaku_name, progress_text])
+		if lines.size() >= 3:
+			break
+	return lines
+
+
+func _battle_tile_instance_labels(raw_instance_ids: Variant) -> Array[String]:
+	var labels: Array[String] = []
+	if not raw_instance_ids is Array:
+		return labels
+	for raw_instance_id in raw_instance_ids:
+		var instance_id := str(raw_instance_id)
+		var label := ""
+		if controller != null and controller.has_method("battle_tile_copy_label"):
+			label = str(controller.call("battle_tile_copy_label", instance_id))
+		if label.is_empty() or label == LocalizationCatalogScript.text("WORD_NONE"):
+			label = _battle_tile_definition_name(instance_id)
+		if not label.is_empty():
+			labels.append(label)
+	return labels
+
+
+func _battle_tile_definition_name(instance_id: String) -> String:
+	if controller == null or controller.get("domain") == null:
+		return ""
+	var battle = controller.domain.current_battle
+	if battle == null or battle.zones == null:
+		return ""
+	for zone in TileZoneScript.all():
+		for tile in battle.zones.contents(zone):
+			if str(tile.instance_id) == instance_id:
+				return LocalizationCatalogScript.content_text(str(tile.definition_id))
+	return ""
+
+
+func _string_array(raw_values: Variant) -> Array[String]:
+	var values: Array[String] = []
+	if raw_values is Array:
+		for raw_value in raw_values:
+			values.append(str(raw_value))
+	return values
 
 func _help_text(phase: String) -> String:
 	var phase_help := ""
@@ -1875,7 +2183,12 @@ func _configure_wrapped_label(label: Label) -> void:
 	label.resized.connect(_defer_wrapped_label_height_update.bind(label))
 
 func _set_wrapped_label_text(label: Label, value: String) -> void:
+	var changed := label.text != value
 	label.text = value
+	if label == _feedback_value and _feedback_scroll != null:
+		_feedback_scroll.visible = not value.is_empty()
+		if changed:
+			_feedback_scroll.scroll_vertical = 0
 	_update_wrapped_label_height(label)
 	_defer_wrapped_label_height_update(label)
 

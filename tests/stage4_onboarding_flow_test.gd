@@ -657,6 +657,7 @@ func win_active_battle(scene, failures: Array[String]) -> bool:
 	return victory
 
 func press_battle_action(scene, action_id: String, failures: Array[String]) -> void:
+	_select_action_tiles(scene, action_id, failures)
 	var button: Button = find_action_button(scene, action_id)
 	assert_true(button != null and button.visible and not button.disabled, "Battle action %s is visibly enabled" % action_id, failures)
 	if button == null or button.disabled:
@@ -680,6 +681,36 @@ func press_battle_action(scene, action_id: String, failures: Array[String]) -> v
 		coverage[action_kind] = int(coverage.get(action_kind, 0)) + 1
 	if phase == RunPhase.BATTLE:
 		assert_help_prompt_visible(scene, phase, failures)
+
+func _select_action_tiles(scene, action_id: String, failures: Array[String]) -> void:
+	if find_action_button(scene, action_id) != null:
+		return
+	var target_ids: Array = []
+	for action in scene.controller.action_descriptors():
+		if str(action.get("id", "")) != action_id:
+			continue
+		var details: Dictionary = action.get("details", {})
+		match str(action.get("kind", "")):
+			"RESERVE", "DISCARD": target_ids = [str(action.target_id)]
+			"RESERVE_SWAP": target_ids = [str(action.hand_instance_id), str(action.reserve_instance_id)]
+			"PARTIAL_SETTLEMENT": target_ids = details.get("instance_ids", [])
+			"COMPLETE_HAND":
+				for group in details.get("groups", []):
+					target_ids.append_array(group.get("instance_ids", []))
+				target_ids.append_array(details.get("pair_instance_ids", []))
+				if target_ids.is_empty():
+					target_ids = details.get("tile_instance_ids", [])
+		break
+	if target_ids.is_empty():
+		return
+	var clear_button := scene.find_child("ClearTilesButton", true, false) as Button
+	if clear_button != null and not clear_button.disabled:
+		_activate_button(scene, clear_button, "clear prior tile selection", failures)
+	for instance_id in target_ids:
+		var tile: Button = scene._battle_view.tile_button(str(instance_id))
+		assert_true(tile != null, "physical tile %s is selectable for %s" % [instance_id, action_id], failures)
+		if tile != null:
+			_activate_button(scene, tile, "select a physical tile for %s" % action_id, failures)
 
 func press_action(scene, action_id: String, expected_phase: String, failures: Array[String]) -> void:
 	var actions: Array = scene.controller.action_descriptors()

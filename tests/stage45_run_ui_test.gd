@@ -11,6 +11,7 @@ const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_c
 const ChooseContractCommandScript = preload("res://src/domain/commands/choose_contract_command.gd")
 const OnboardingFlowTest = preload("res://tests/stage4_onboarding_flow_test.gd")
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
+const RunSummaryViewScript = preload("res://src/presentation/ui/run_summary_view.gd")
 
 class RejectingSuspendStore extends RefCounted:
 	var writes := 0
@@ -39,7 +40,38 @@ func run() -> Array[String]:
 	await test_suspend_recovery_locale_and_disclosure(failures)
 	await test_profile_recovery_locale_and_disclosure(failures)
 	await test_unpreserved_profile_recovery(failures)
+	await test_ultrawide_content_width_caps(failures)
 	return failures
+
+
+func test_ultrawide_content_width_caps(failures: Array[String]) -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	var original_window_size := tree.root.size
+	tree.root.size = Vector2i(1920, 1080)
+	var scene = await _new_input_scene("wide_content_caps", tree)
+	for _frame in range(4):
+		await tree.process_frame
+	var cards: Array = scene._journey_view.find_children("CharacterCard_*", "PanelContainer", true, false)
+	assert_true(cards.size() == 3, "ultrawide Character selection keeps all three authored cards", failures)
+	for card in cards:
+		assert_true((card as Control).size.x <= 520.0, "ultrawide Character card stays within the readable-width cap (%.0fpx)" % (card as Control).size.x, failures)
+
+	var summary_host := Control.new()
+	summary_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	tree.root.add_child(summary_host)
+	var summary_view = RunSummaryViewScript.new()
+	summary_host.add_child(summary_view)
+	summary_view.render(null, "A readable run chronicle with a recorded ending.", "en", 1.0)
+	for _frame in range(4):
+		await tree.process_frame
+	for panel_name in ["BuildChroniclePanel", "RunOutcomePanel"]:
+		var panel := summary_view.find_child(panel_name, true, false) as Control
+		assert_true(panel != null and panel.size.x <= 760.0, "ultrawide %s stays within the readable-width cap (%.0fpx)" % [panel_name, panel.size.x if panel != null else -1.0], failures)
+
+	summary_host.queue_free()
+	_free_scene(scene)
+	tree.root.size = original_window_size
+	await tree.process_frame
 
 
 func test_character_contract_selection_and_map_state(failures: Array[String]) -> void:

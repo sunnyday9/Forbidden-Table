@@ -26,6 +26,13 @@ const REQUIRED_BATTLE_ACTION_KINDS := [
 	"RESERVE_SWAP",
 	"COMPLETE_HAND",
 ]
+const BATTLE_CONTEXT_ACTION_KINDS := [
+	"PARTIAL_SETTLEMENT",
+	"RESERVE",
+	"DISCARD",
+	"RESERVE_SWAP",
+	"COMPLETE_HAND",
+]
 const REQUIRED_BATTLE_CUES := [
 	"Enemy HP:",
 	"Enemy intent:",
@@ -207,7 +214,9 @@ func test_virtual_overview_scroll_reachable(failures: Array[String]) -> void:
 		await tree.process_frame
 		var scroll := find_named_node(scene, "RunOverviewScroll") as ScrollContainer
 		assert_true(scroll != null and scroll.is_visible_in_tree() and scroll.focus_mode != Control.FOCUS_NONE, "Run guidance scroll has a visible keyboard/controller focus target", failures)
-		assert_true(find_named_node(scene, "BattleChoiceScroll") is ScrollContainer, "Battle choices have a separate focus-following vertical scroll", failures)
+		var battle_scroll := find_named_node(scene, "BattleViewportScroll") as ScrollContainer
+		assert_true(battle_scroll != null and battle_scroll.is_visible_in_tree() and battle_scroll.follow_focus, "Battle table and action choices share a visible focus-following viewport scroll", failures)
+		assert_true(battle_scroll != null and battle_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Battle viewport scroll disables horizontal overflow", failures)
 		if scroll != null:
 			_audit_text_bounds(scene, failures)
 			assert_true(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "Run guidance is vertically scrollable at 960x540", failures)
@@ -309,6 +318,7 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 
 	var descriptors: Array = scene.controller.action_descriptors()
 	var action_kinds: Dictionary = {}
+	var descriptors_by_id: Dictionary = {}
 	for action in descriptors:
 		var kind := str(action.get("kind", ""))
 		if kind.is_empty():
@@ -316,6 +326,7 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 		action_kinds[kind] = true
 		_observed_action_kinds[kind] = true
 		var action_id := str(action.get("id", ""))
+		descriptors_by_id[action_id] = action
 		var button: Button = find_action_button(scene, action_id)
 		if phase == "RUN_SUMMARY" and action_id == "run.summary.acknowledge":
 			button = find_named_node(scene, "CommitSelectedButton") as Button
@@ -323,11 +334,33 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 		if kind == "SHOP_OFFER":
 			var offer_validation = scene.controller.domain.validate_buy_shop_offer(str(action.get("entry_id", "")), str(action.get("target_id", "")))
 			unavailable_offer = offer_validation == null or not offer_validation.is_valid()
-		assert_true(button != null and button.is_visible_in_tree() and button.disabled == unavailable_offer, "%s action %s displays the authoritative availability" % [phase, action_id], failures)
+		var contextual_battle_action := phase == "BATTLE" and kind in BATTLE_CONTEXT_ACTION_KINDS
+		if button == null and contextual_battle_action:
+			continue
+		var expected_disabled := unavailable_offer or not bool(action.get("enabled", true)) or bool(action.get("disabled", false))
+		assert_true(button != null and button.is_visible_in_tree() and button.disabled == expected_disabled, "%s visible action %s displays the authoritative availability" % [phase, action_id], failures)
 		if button != null:
 			assert_true(button.focus_mode != Control.FOCUS_NONE and (not button.text.strip_edges().is_empty() or button.find_child("MapNodeLabel", true, false) is Label or (button.has_meta("tile_instance_id") and not button.accessibility_name.is_empty())), "%s action %s has keyboard/controller focus and a text label" % [phase, action_id], failures)
 			if unavailable_offer:
 				assert_true(not button.tooltip_text.is_empty() and button.get_parent().find_child("ShopOfferStatus", true, false) is Label, "unavailable Shop offers visibly explain their disabled state", failures)
+	if phase == "BATTLE":
+		for node in scene.find_children("*", "Button", true, false):
+			var action_button := node as Button
+			if not action_button.is_visible_in_tree() or not action_button.has_meta("run_action_id"):
+				continue
+			var action_id := str(action_button.get_meta("run_action_id", ""))
+			var live_action: Dictionary = descriptors_by_id.get(action_id, {})
+			assert_true(not action_id.is_empty() and not live_action.is_empty(), "visible Battle action button %s projects a current authoritative descriptor" % action_id, failures)
+			if live_action.is_empty():
+				continue
+			var projected_action_disabled := not bool(live_action.get("enabled", true)) or bool(live_action.get("disabled", false))
+			assert_true(action_button.disabled == projected_action_disabled, "visible Battle action %s matches its current enabled state" % action_id, failures)
+			assert_true(action_button.focus_mode != Control.FOCUS_NONE and not action_button.text.strip_edges().is_empty(), "visible Battle action %s has keyboard/controller focus and a player-facing label" % action_id, failures)
+		for node in scene.find_children("*", "TileFaceButton", true, false):
+			var tile_button := node as Button
+			if not tile_button.is_visible_in_tree() or not tile_button.has_meta("battle_hand_tile"):
+				continue
+			assert_true(tile_button.focus_mode != Control.FOCUS_NONE and not tile_button.accessibility_name.strip_edges().is_empty(), "physical Battle hand tile has keyboard/controller focus and an accessible player-facing name", failures)
 
 	var phase_label = find_named_node(scene, "RunPhaseLabel")
 	assert_true(phase_label is Label and phase_label.is_visible_in_tree() and not phase_label.text.strip_edges().is_empty(), "%s has a visible textual phase label" % phase, failures)
@@ -401,7 +434,7 @@ func _audit_text_bounds(scene, failures: Array[String]) -> void:
 			continue
 		var rect := control.get_global_rect()
 		var allocated_size: Vector2 = control.size
-		if control is Button and control.has_meta("run_action_id") and not control.has_meta("tile_instance_id") and _has_named_ancestor(control, "BattleChoiceScroll"):
+		if control is Button and control.has_meta("run_action_id") and not control.has_meta("tile_instance_id") and _has_named_ancestor(control, "BattleViewportScroll"):
 			assert_true(allocated_size.x >= 120.0, "%s Battle action retains a readable minimum width" % control.name, failures)
 		if control.name == "SelectedActionDetails" and not (control as Label).text.is_empty():
 			assert_true(allocated_size.x >= 140.0, "Context details retain a readable column width", failures)
@@ -423,7 +456,7 @@ func _audit_text_bounds(scene, failures: Array[String]) -> void:
 			else:
 				var rendered_text_height: float = float(control.get_line_count()) * float(control.get_line_height())
 				assert_true(rendered_text_height <= allocated_size.y + 2.0, "%s wrapped label fits its allocated height (path=%s text=%s rect=%s allocated_size=%s minimum=%s custom_minimum=%s lines=%d line_height=%.1f rendered_height=%.1f parent=%s)" % [control.name, str(control.get_path()), _text_snippet(control), str(rect), str(allocated_size), str(minimum), str(control.custom_minimum_size), control.get_line_count(), control.get_line_height(), rendered_text_height, _parent_layout_context(control)], failures)
-	for container_name in ["RunOverviewScroll", "RunJourneyScroll", "BattleChoiceScroll", "BattleInspectionScroll"]:
+	for container_name in ["RunOverviewScroll", "RunJourneyScroll", "BattleViewportScroll", "BattleInspectionScroll"]:
 		var scroll := find_named_node(scene, container_name) as ScrollContainer
 		if scroll == null or not scroll.is_visible_in_tree():
 			continue

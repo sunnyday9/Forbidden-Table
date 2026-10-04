@@ -10,9 +10,11 @@ const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_
 const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot_dto.gd")
 const MetaProgressSnapshotScript = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
+const GnuTimeoutLocatorScript = preload("res://src/infrastructure/simulation/gnu_timeout_locator.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
+	test_gnu_timeout_path_is_native_and_existing(failures)
 	test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures)
 	test_resume_rejects_an_unverified_repeat_claim(failures)
 	test_compact_resume_links_projection_and_summary_digest(failures)
@@ -24,6 +26,15 @@ func run() -> Array[String]:
 	for failure in failures:
 		push_error(failure)
 	return failures
+
+func test_gnu_timeout_path_is_native_and_existing(failures: Array[String]) -> void:
+	var path := GnuTimeoutLocatorScript.resolve_path()
+	assert_true(not path.is_empty() and path.is_absolute_path() and FileAccess.file_exists(path), "GNU timeout resolves to an existing native executable path", failures)
+	if path.is_empty() or not FileAccess.file_exists(path):
+		return
+	var version_output: Array[String] = []
+	var version_exit_code := OS.execute(path, ["--version"], version_output, true)
+	assert_true(version_exit_code == 0 and "GNU coreutils" in "\n".join(version_output), "the resolved timeout executable is GNU coreutils, not a same-named system command (%s)" % "\n".join(version_output), failures)
 
 func test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures: Array[String]) -> void:
 	var character_ids: Array[String] = AlphaScaleCatalogScript.all_character_ids()
@@ -206,25 +217,19 @@ func test_compact_resume_links_projection_and_summary_digest(failures: Array[Str
 	assert_true(not corrupt_projection_result.get("valid", true) and str(corrupt_projection_result.get("errors", [])).contains("repeat comparison fingerprints differ from their compact attempt summaries"), "resume rejects field hashes not linked to their attempt summary", failures)
 
 func test_cli_resume_rejects_a_forged_comparison(failures: Array[String]) -> void:
-	var project_path := ProjectSettings.globalize_path("res://")
 	var scratch_path := ProjectSettings.globalize_path("res://.godot/alpha_corpus_resume_test")
 	DirAccess.make_dir_recursive_absolute(scratch_path)
 	var smoke_path := scratch_path.path_join("smoke.jsonl")
 	var resume_path := scratch_path.path_join("forged-resume.jsonl")
 	var output_path := scratch_path.path_join("resumed-output.jsonl")
-	var executable_path := OS.get_executable_path()
 	var smoke_args := PackedStringArray([
-		"--headless",
-		"--path", project_path,
-		"--script", "res://scripts/run_alpha_gate_corpus.gd",
-		"--",
 		"--smoke",
 		"--gate", "stage4_beta",
 		"--output", smoke_path,
 	])
-	var smoke_output: Array[String] = []
-	var smoke_exit := OS.execute(executable_path, smoke_args, smoke_output, true)
-	assert_true(smoke_exit == 0, "the real corpus CLI can produce a one-case smoke source (%s)" % "\n".join(smoke_output), failures)
+	var smoke_result := _execute_corpus_cli(smoke_args)
+	var smoke_exit := int(smoke_result.exit_code)
+	assert_true(smoke_exit == 0, "the real corpus CLI can produce a one-case smoke source (exit=%d, output=%s)" % [smoke_exit, str(smoke_result.output)], failures)
 	if smoke_exit != 0:
 		_cleanup_files([smoke_path, resume_path, output_path])
 		return
@@ -254,10 +259,6 @@ func test_cli_resume_rejects_a_forged_comparison(failures: Array[String]) -> voi
 	resume_file.close()
 	_write_process_status(resume_path, header, 0)
 	var resume_args := PackedStringArray([
-		"--headless",
-		"--path", project_path,
-		"--script", "res://scripts/run_alpha_gate_corpus.gd",
-		"--",
 		"--full",
 		"--gate", "stage4_beta",
 		"--resume-from", resume_path,
@@ -265,10 +266,9 @@ func test_cli_resume_rejects_a_forged_comparison(failures: Array[String]) -> voi
 		"--process-timeout-seconds", "990",
 		"--process-timeout-enforced",
 	])
-	var resume_output: Array[String] = []
-	var resume_exit := OS.execute(executable_path, resume_args, resume_output, true)
-	var resume_output_text := "\n".join(resume_output)
-	assert_true(resume_exit == 2, "the real corpus CLI rejects an unverifiable resumed case before running the remaining manifest cases (%s)" % resume_output_text, failures)
+	var resume_result := _execute_corpus_cli(resume_args)
+	var resume_output_text := str(resume_result.output)
+	assert_true(int(resume_result.exit_code) == 2, "the real corpus CLI rejects an unverifiable resumed case before running the remaining manifest cases (exit=%d, %s)" % [int(resume_result.exit_code), resume_output_text], failures)
 	assert_true(resume_output_text.contains("repeat comparison field hash count is invalid"), "the real corpus CLI reports the forged compact repeat-comparison field (%s)" % resume_output_text, failures)
 	_cleanup_files([smoke_path, smoke_path + ".manifest.json", resume_path, resume_path + ".status.json", output_path, output_path + ".manifest.json"])
 
@@ -362,7 +362,11 @@ func test_cli_rejects_tampered_provenance(failures: Array[String]) -> void:
 			"--output", scratch_path.path_join("bad-manifest-output.jsonl"),
 			"--process-timeout-seconds", "270", "--process-timeout-enforced",
 		])
-		assert_true(int(artifact_result.exit_code) == 2 and str(artifact_result.output).contains("Could not create or validate the manifest artifact"), "the CLI validates an existing manifest's canonical payload and hash", failures)
+		assert_true(
+			int(artifact_result.exit_code) == 2 and str(artifact_result.output).contains("Could not create or validate the manifest artifact"),
+			"the CLI validates an existing manifest's canonical payload and hash (exit=%d, output=%s)" % [int(artifact_result.exit_code), str(artifact_result.output)],
+			failures,
+		)
 
 	_cleanup_files([
 		smoke_path, manifest_artifact, mismatch_build_path, mismatch_build_path + ".status.json", mismatch_manifest_path, mismatch_manifest_path + ".status.json", mismatch_schema_path, mismatch_schema_path + ".status.json", missing_lineage_path, missing_lineage_path + ".status.json",
@@ -399,7 +403,11 @@ func test_cli_requires_successful_gnu_timeout_status(failures: Array[String]) ->
 			"--full", "--gate", "stage4_beta", "--resume-from", chunk_path,
 			"--output", output_path, "--process-timeout-seconds", "270", "--process-timeout-enforced",
 		])
-		assert_true(int(result.exit_code) == 2 and str(result.output).contains("process-status record"), "finalization input with process exit %d or a tampered status digest is rejected before simulation" % int(status_code), failures)
+		assert_true(
+			int(result.exit_code) == 2 and str(result.output).contains("process-status record"),
+			"finalization input with process exit %d or a tampered status digest is rejected before simulation (exit=%d, output=%s)" % [int(status_code), int(result.exit_code), str(result.output)],
+			failures,
+		)
 		_cleanup_files([output_path, output_path + ".manifest.json"])
 	var good_header: Dictionary = _full_chunk_header(base_header, 1, 1, [], 270)
 	_write_jsonl_records(chunk_path, [good_header])
@@ -424,7 +432,7 @@ func test_process_wrapper_records_real_status_and_hashes(failures: Array[String]
 	assert_true(int(success_code.exit_code) == 0, "the process wrapper returns a real GNU timeout success status (%s)" % str(success_code.output), failures)
 	var success_status = JSON.parse_string(FileAccess.get_file_as_string(success_path + ".status.json")) if FileAccess.file_exists(success_path + ".status.json") else null
 	assert_true(success_status is Dictionary and int(success_status.get("process_exit_code", -1)) == 0 and str(success_status.get("output_sha256", "")) == _sha256_file(success_path), "success sidecar records the exact exit code, command argv, and output SHA-256", failures)
-	assert_true(success_status is Dictionary and str(success_status.get("timeout_executable_path", "")).is_absolute_path() and str(success_status.get("command_argv", [""])[0]) == str(success_status.get("timeout_executable_path", "")), "the process sidecar records the resolved GNU timeout path as argv[0]", failures)
+	assert_true(success_status is Dictionary and str(success_status.get("timeout_executable_path", "")).is_absolute_path() and str(success_status.get("timeout_executable_path", "")) == GnuTimeoutLocatorScript.resolve_path() and str(success_status.get("command_argv", [""])[0]) == str(success_status.get("timeout_executable_path", "")), "the process sidecar uses the exact resolved GNU timeout path as argv[0]", failures)
 	var failure_writer_code := "from pathlib import Path; import sys; Path(sys.argv[-1]).write_text('failed'); raise SystemExit(7)"
 	var failure_result := _execute_process_wrapper(python_path, wrapper_path, failure_path, 10, [python_path, "-c", failure_writer_code, "--output", failure_path])
 	var failure_status = JSON.parse_string(FileAccess.get_file_as_string(failure_path + ".status.json")) if FileAccess.file_exists(failure_path + ".status.json") else null
@@ -437,7 +445,14 @@ func test_process_wrapper_records_real_status_and_hashes(failures: Array[String]
 		_cleanup_files([output_path, output_path + ".status.json"])
 
 func _execute_process_wrapper(python_path: String, wrapper_path: String, output_path: String, timeout_seconds: int, command_argv: Array[String]) -> Dictionary:
-	var arguments := PackedStringArray([wrapper_path, str(timeout_seconds), output_path, "--"])
+	var arguments := PackedStringArray([
+		wrapper_path,
+		str(timeout_seconds),
+		output_path,
+		"--timeout-executable",
+		GnuTimeoutLocatorScript.resolve_path(),
+		"--",
+	])
 	for argument in command_argv:
 		arguments.append(argument)
 	var output: Array[String] = []
@@ -632,7 +647,11 @@ func test_cli_finalizes_bounded_chunks_and_preserves_sources(failures: Array[Str
 		reviewed_command.append("--resume-from")
 		reviewed_command.append(chunk_path)
 	var reviewed_result := _execute_process_wrapper("python3", ProjectSettings.globalize_path("res://scripts/run_alpha_gate_corpus_chunk.py"), reviewed_summary_path, 120, reviewed_command)
-	assert_true(int(reviewed_result.exit_code) == 1, "content-owner dispositions are recorded while independent coverage gates remain failing", failures)
+	assert_true(
+		int(reviewed_result.exit_code) == 1,
+		"content-owner dispositions are recorded while independent coverage gates remain failing (exit=%d, output=%s)" % [int(reviewed_result.exit_code), str(reviewed_result.output)],
+		failures,
+	)
 	var reviewed_lines := FileAccess.get_file_as_string(reviewed_summary_path).strip_edges().split("\n") if FileAccess.file_exists(reviewed_summary_path) else PackedStringArray()
 	var reviewed_summary_value = JSON.parse_string(reviewed_lines[1]) if reviewed_lines.size() > 1 else null
 	assert_true(reviewed_summary_value is Dictionary and reviewed_summary_value.get("content_owner_review", {}).get("status", "") == "DISPOSITIONED_ACCEPTED_AS_DESIGNED" and bool(reviewed_summary_value.get("content_owner_review", {}).get("gate_clear", false)), "a complete owner decision file clears only the outlier review blocker", failures)
@@ -654,7 +673,7 @@ func _create_smoke_source(path: String, failures: Array[String]) -> String:
 		"--smoke", "--gate", "stage4_beta", "--output", path,
 	])
 	var smoke_result := _execute_corpus_cli(smoke_args)
-	assert_true(int(smoke_result.exit_code) == 0, "the real corpus CLI emits a smoke source for provenance fixtures (%s)" % str(smoke_result.output), failures)
+	assert_true(int(smoke_result.exit_code) == 0, "the real corpus CLI emits a smoke source for provenance fixtures (exit=%d, output=%s)" % [int(smoke_result.exit_code), str(smoke_result.output)], failures)
 	return FileAccess.get_file_as_string(path) if int(smoke_result.exit_code) == 0 and FileAccess.file_exists(path) else ""
 
 func _full_chunk_header(base_header: Dictionary, case_start: int, case_limit: int, prior_references: Array, timeout_seconds: int) -> Dictionary:
@@ -701,16 +720,41 @@ func _write_process_status(chunk_path: String, header: Dictionary, exit_code: in
 	})
 
 func _execute_corpus_cli(arguments: PackedStringArray) -> Dictionary:
-	var full_arguments := PackedStringArray(["--headless", "--path", ProjectSettings.globalize_path("res://"), "--script", "res://scripts/run_alpha_gate_corpus.gd", "--"])
-	full_arguments.append_array(arguments)
+	var output_path := ""
+	for index in range(arguments.size() - 1):
+		if arguments[index] == "--output":
+			output_path = arguments[index + 1]
+			break
+	if output_path.is_empty():
+		return {"exit_code": 2, "output": "CLI fixture is missing its explicit --output path."}
+	var status_path := output_path + ".status.json"
+	_cleanup_files([status_path])
+	var command_argv: Array[String] = [
+		OS.get_executable_path(),
+		"--headless",
+		"--path", ProjectSettings.globalize_path("res://"),
+		"--script", "res://scripts/run_alpha_gate_corpus.gd",
+		"--",
+	]
+	for argument in arguments:
+		command_argv.append(str(argument))
+	var wrapper_arguments := PackedStringArray([
+		ProjectSettings.globalize_path("res://scripts/run_alpha_gate_corpus_chunk.py"),
+		"120",
+		output_path,
+		"--timeout-executable",
+		GnuTimeoutLocatorScript.resolve_path(),
+		"--",
+	])
+	for argument in command_argv:
+		wrapper_arguments.append(argument)
 	var output: Array[String] = []
-	var exit_code := OS.execute(OS.get_executable_path(), full_arguments, output, true)
+	var exit_code := OS.execute("python3", wrapper_arguments, output, true)
+	_cleanup_files([status_path])
 	return {"exit_code": exit_code, "output": "\n".join(output)}
 
 func _resolved_timeout_executable_path() -> String:
-	var output: Array[String] = []
-	var exit_code := OS.execute("which", ["timeout"], output, true)
-	return str(output[0]).strip_edges() if exit_code == 0 and not output.is_empty() else ""
+	return GnuTimeoutLocatorScript.resolve_path()
 
 func _write_jsonl_records(path: String, records: Array) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)

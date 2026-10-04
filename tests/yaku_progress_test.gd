@@ -64,6 +64,7 @@ func test_progress_uses_hand_only_and_reports_reserve_potential(failures: Array[
 	assert_true(result.blockers.is_empty(), "a viable structural path has no blockers", failures)
 	assert_true(result.reserve_potential != null, "progress exposes optional Reserve potential", failures)
 	assert_true(result.reserve_potential["missing_conditions"] == ["1 more sequence"], "Reserve potential is reported separately from formal progress", failures)
+	assert_true(is_equal_approx(float(result.reserve_potential.get("normalized_score", 0.0)), 2.0 / 3.0), "Reserve potential exposes a comparable normalized progress value", failures)
 	assert_true(result.display_tokens == ["SEQUENCE", "1/3"], "progress exposes stable display tokens", failures)
 
 func test_progress_recomputes_after_partial_settlement(failures: Array[String]) -> void:
