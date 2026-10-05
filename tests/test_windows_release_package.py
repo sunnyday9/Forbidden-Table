@@ -120,6 +120,36 @@ class WindowsReleasePackageTest(unittest.TestCase):
     def _artifact(self, output_dir):
         return Path(output_dir) / EXPECTED_NAME
 
+    def test_documented_package_cli_is_executable_from_a_clean_checkout(self):
+        git_mode = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={ROOT}",
+                "ls-files",
+                "--stage",
+                "--",
+                "scripts/package_windows_release.sh",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(git_mode.returncode, 0, git_mode.stderr)
+        self.assertTrue(
+            git_mode.stdout.split() and git_mode.stdout.split()[0] == "100755",
+            "the documented ./scripts/package_windows_release.sh command must be executable in a clean checkout",
+        )
+        help_result = subprocess.run(
+            [str(PACKAGE_SCRIPT), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        self.assertEqual(help_result.returncode, 0, help_result.stdout + help_result.stderr)
+
     def test_package_contains_only_launchable_runtime_files_and_build_identity(self):
         output_dir = self.root / "success"
 
