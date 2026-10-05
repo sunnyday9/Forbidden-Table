@@ -40,6 +40,7 @@ func run() -> Array[String]:
 	test_invalid_tile_modifier_rejects_settlement_atomically(failures)
 	test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures)
 	test_authored_run_modifiers_have_gameplay_effects_and_expire(failures)
+	test_run_modifier_behavior_is_data_driven(failures)
 	return failures
 
 func test_owned_starting_relic_effect_replays_and_resumes_once(failures: Array[String]) -> void:
@@ -350,6 +351,35 @@ func test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures: Arra
 func test_authored_run_modifiers_have_gameplay_effects_and_expire(failures: Array[String]) -> void:
 	test_workshop_kit_changes_workshop_prices_and_expires(failures)
 	test_rule_memory_changes_battle_entry_tp_and_replays_once(failures)
+
+func test_run_modifier_behavior_is_data_driven(failures: Array[String]) -> void:
+	var registry := ContentRegistryScript.new()
+	Phase2CatalogScript.register_all(registry)
+	var domain := _prepared_domain("build-effects.generic-modifier", 7830, registry)
+	var modifier := ActiveEffectInstanceScript.new(
+		"run.modifier.event.custom.training",
+		DurationSpecScript.new(DurationSpecScript.RUN, 1),
+		"UNIQUE",
+		"test.custom.training",
+		1,
+		-1,
+		-1,
+		"run.modifier.event.custom.training",
+		0,
+		{
+			"modifier_id": "event.custom.training",
+			"workshop_price_discount": 4,
+			"battle_entry_operations": [{"operation_id": "GainTP", "amount": 3}],
+			"battle_victory_gold": 6,
+		},
+	)
+	domain.state.active_effects[modifier.instance_id] = modifier
+	var resolver = RunModifierEffectResolverScript.new()
+	var workshop_price: Dictionary = resolver.workshop_price(domain.state, 10)
+	assert_true(int(workshop_price.get("price", -1)) == 6, "a previously unknown modifier applies its authored Workshop discount", failures)
+	var entry_effects: Array = resolver.battle_entry_effects(domain.state)
+	assert_true(entry_effects.size() == 1 and entry_effects[0].operations[0].amount == 3, "a previously unknown modifier resolves its authored battle-entry operation", failures)
+	assert_true(resolver.battle_victory_gold_bonus(domain.state) == 6, "a previously unknown modifier applies its authored victory Gold bonus", failures)
 
 func test_workshop_kit_changes_workshop_prices_and_expires(failures: Array[String]) -> void:
 	var registry := ContentRegistryScript.new()

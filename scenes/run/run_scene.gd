@@ -8,6 +8,7 @@ const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
+const GuidedSampleSessionScript = preload("res://src/presentation/run/guided_sample_session.gd")
 const TutorialProgressScript = preload("res://src/presentation/run/tutorial_progress.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
@@ -23,8 +24,12 @@ const RunSummaryViewScript = preload("res://src/presentation/ui/run_summary_view
 const PreferencesOverlayScript = preload("res://src/presentation/ui/preferences_overlay.gd")
 const YakuProgressTextScript = preload("res://src/presentation/ui/yaku_progress_text.gd")
 const BattleViewPath := "res://src/presentation/ui/battle_view.gd"
+const GUIDED_SAMPLE_SEED := 53005
 
 var controller
+var _guided_sample_session
+var _guided_sample_campaign_controller
+var _guided_sample_suspend_choice_visible := false
 var meta_progress_coordinator
 var content_registry_factory: Callable
 var suspend_file_path := "user://alpha_suspend.json"
@@ -58,6 +63,11 @@ var _profile_technical_details: Dictionary = {}
 var _profile_details_expanded := false
 var _reset_profile_button: Button
 var _new_run_button: Button
+var _guided_sample_button: Button
+var _guided_sample_restart_button: Button
+var _guided_sample_skip_button: Button
+var _guided_sample_exit_button: Button
+var _guided_sample_complete_panel: PanelContainer
 var _suspend_choice_panel: VBoxContainer
 var _suspend_status_scroll: ScrollContainer
 var _suspend_status: Label
@@ -175,6 +185,8 @@ func _input(event: InputEvent) -> void:
 				_refresh_action_rail()
 			elif _battle_view != null and _battle_view.visible and _battle_view.has_method("cancel") and _battle_view.cancel():
 				pass
+			elif _guided_sample_can_exit():
+				_on_guided_sample_exit_pressed()
 			elif controller != null:
 				controller.back()
 		"ui_focus_next":
@@ -612,11 +624,104 @@ func _start_new_run(registry) -> void:
 	_attach_controller(RunDomainScript.new_alpha_run(run_id, seed, registry, "", null, null, meta_progress_coordinator.state))
 
 func _attach_controller(run_domain) -> void:
-	controller = RunPresentationControllerScript.new(run_domain, null, meta_progress_coordinator, suspend_store)
-	_summary_duration_identity = ""
-	_summary_duration_anchor_unix_seconds = -1
+	_set_active_controller(RunPresentationControllerScript.new(run_domain, null, meta_progress_coordinator, suspend_store), true)
+
+func _set_active_controller(next_controller, reset_summary_clock: bool = false) -> void:
+	if controller != null and controller.presentation_changed.is_connected(_on_controller_presentation_changed):
+		controller.presentation_changed.disconnect(_on_controller_presentation_changed)
+	controller = next_controller
+	if reset_summary_clock:
+		_summary_duration_identity = ""
+		_summary_duration_anchor_unix_seconds = -1
+	if controller == null:
+		return
 	controller.set_mode(str(_applied_preferences.get("presentation_mode", "NORMAL")))
-	controller.presentation_changed.connect(_on_controller_presentation_changed)
+	if not controller.presentation_changed.is_connected(_on_controller_presentation_changed):
+		controller.presentation_changed.connect(_on_controller_presentation_changed)
+
+func _make_header_button(button_name: String, text_key: String, pressed_callback: Callable) -> Button:
+	var button := Button.new()
+	button.name = button_name
+	button.text = LocalizationCatalogScript.text(text_key)
+	button.custom_minimum_size = Vector2(0.0, 40.0)
+	button.pressed.connect(pressed_callback)
+	ForbiddenThemeScript.style_button(button)
+	return button
+
+func _guided_sample_is_active() -> bool:
+	return _guided_sample_session != null and _guided_sample_session.status == GuidedSampleSessionScript.STATUS_ACTIVE
+
+func _guided_sample_is_complete() -> bool:
+	return _guided_sample_session != null and _guided_sample_session.status == GuidedSampleSessionScript.STATUS_COMPLETED
+
+func _guided_sample_can_exit() -> bool:
+	return _guided_sample_is_active() or _guided_sample_is_complete()
+
+func _refresh_guided_sample_controls() -> void:
+	if _guided_sample_button == null:
+		return
+	_guided_sample_button.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_ENTRY")
+	_guided_sample_restart_button.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_RESTART")
+	_guided_sample_skip_button.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_SKIP")
+	_guided_sample_exit_button.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_EXIT")
+	if _guided_sample_complete_panel != null:
+		var complete_label := _guided_sample_complete_panel.find_child("GuidedSampleCompleteLabel", true, false) as Label
+		if complete_label != null:
+			complete_label.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_0022")
+	var sample_open := _guided_sample_can_exit()
+	_guided_sample_button.visible = not sample_open
+	_guided_sample_button.disabled = _content_registry == null
+	_guided_sample_restart_button.visible = sample_open
+	_guided_sample_restart_button.disabled = false
+	_guided_sample_skip_button.visible = _guided_sample_is_active()
+	_guided_sample_exit_button.visible = sample_open
+	_guided_sample_exit_button.disabled = false
+
+func _on_guided_sample_pressed() -> void:
+	if _guided_sample_session != null or _content_registry == null:
+		return
+	var candidate = GuidedSampleSessionScript.new()
+	var result: Dictionary = candidate.start(_content_registry, GUIDED_SAMPLE_SEED)
+	if not result.get("accepted", false):
+		return
+	_guided_sample_campaign_controller = controller
+	_guided_sample_suspend_choice_visible = _suspend_choice_panel != null and _suspend_choice_panel.visible
+	_guided_sample_session = candidate
+	_set_active_controller(candidate.controller)
+	_render()
+
+func _on_guided_sample_restart_pressed() -> void:
+	if _guided_sample_session == null or not _guided_sample_session.restart():
+		return
+	_set_active_controller(_guided_sample_session.controller)
+	_render()
+
+func _on_guided_sample_skip_pressed() -> void:
+	if _guided_sample_session == null or not _guided_sample_session.skip():
+		return
+	_leave_guided_sample(false)
+
+func _on_guided_sample_exit_pressed() -> void:
+	if not _guided_sample_can_exit():
+		return
+	_leave_guided_sample(true)
+
+func _leave_guided_sample(mark_exited: bool) -> void:
+	if _guided_sample_session == null:
+		return
+	if mark_exited:
+		_guided_sample_session.exit()
+	var campaign_controller = _guided_sample_campaign_controller
+	var restore_suspend_choice := campaign_controller == null and _guided_sample_suspend_choice_visible
+	_guided_sample_session = null
+	_guided_sample_campaign_controller = null
+	_guided_sample_suspend_choice_visible = false
+	_set_active_controller(campaign_controller)
+	_render()
+	if restore_suspend_choice and _suspend_choice_panel != null:
+		_suspend_choice_panel.visible = true
+		_refresh_suspend_presentation()
+		_refresh_action_rail()
 
 
 func _on_controller_presentation_changed() -> void:
@@ -787,6 +892,14 @@ func _build_interface() -> void:
 	_new_run_button.pressed.connect(_on_new_run_pressed)
 	ForbiddenThemeScript.style_button(_new_run_button)
 	header.add_child(_new_run_button)
+	_guided_sample_button = _make_header_button("GuidedSampleButton", "UI_GUIDED_SAMPLE_ENTRY", _on_guided_sample_pressed)
+	header.add_child(_guided_sample_button)
+	_guided_sample_restart_button = _make_header_button("GuidedSampleRestartButton", "UI_GUIDED_SAMPLE_RESTART", _on_guided_sample_restart_pressed)
+	header.add_child(_guided_sample_restart_button)
+	_guided_sample_skip_button = _make_header_button("GuidedSampleSkipButton", "UI_GUIDED_SAMPLE_SKIP", _on_guided_sample_skip_pressed)
+	header.add_child(_guided_sample_skip_button)
+	_guided_sample_exit_button = _make_header_button("GuidedSampleExitButton", "UI_GUIDED_SAMPLE_EXIT", _on_guided_sample_exit_pressed)
+	header.add_child(_guided_sample_exit_button)
 
 	_profile_recovery_scroll = ScrollContainer.new()
 	_profile_recovery_scroll.name = "ProfileRecoveryScroll"
@@ -945,6 +1058,20 @@ func _build_interface() -> void:
 	_journey_view.connect("focus_changed", Callable(self, "_on_journey_focus_changed"))
 	_journey_view.connect("confirmation_changed", Callable(self, "_on_journey_confirmation_changed"))
 	_journey_host.add_child(_journey_view)
+	_guided_sample_complete_panel = PanelContainer.new()
+	_guided_sample_complete_panel.name = "GuidedSampleCompletePanel"
+	_guided_sample_complete_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_guided_sample_complete_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ForbiddenThemeScript.style_panel(_guided_sample_complete_panel, "raised")
+	var guided_sample_complete_label := Label.new()
+	guided_sample_complete_label.name = "GuidedSampleCompleteLabel"
+	guided_sample_complete_label.text = LocalizationCatalogScript.text("UI_GUIDED_SAMPLE_0022")
+	guided_sample_complete_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	guided_sample_complete_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	guided_sample_complete_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_guided_sample_complete_panel.add_child(guided_sample_complete_label)
+	_guided_sample_complete_panel.visible = false
+	_journey_host.add_child(_guided_sample_complete_panel)
 	_action_details_value = _journey_view.details_label()
 
 	_summary_panel = PanelContainer.new()
@@ -1231,17 +1358,30 @@ func _refresh_tutorial_presentation() -> void:
 		return
 	var phase := str(controller.domain.state.phase)
 	_render_tutorial(phase)
-	if _run_status_panel != null:
-		if phase == RunPhaseScript.BATTLE:
-			_run_status_panel.visible = _tutorial_prompt.visible
-			_run_status_panel.custom_minimum_size.y = (34.0 if _tutorial_prompt.visible else 0.0) * float(_applied_preferences.get("ui_scale", 1.0))
-			var overview_scroll := _run_status_panel.find_child("RunOverviewScroll", true, false) as ScrollContainer
-			if overview_scroll != null:
-				overview_scroll.custom_minimum_size.y = 24.0 * float(_applied_preferences.get("ui_scale", 1.0))
-		else:
-			_run_status_panel.visible = true
-			_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
+	_update_run_status_panel_metrics(phase)
 	_update_run_stage_minimum()
+
+
+func _update_run_status_panel_metrics(phase: String) -> void:
+	if _run_status_panel == null:
+		return
+	var ui_scale := float(_applied_preferences.get("ui_scale", 1.0))
+	var tutorial_visible := _tutorial_prompt != null and _tutorial_prompt.visible
+	var panel_height := 58.0 if tutorial_visible else 54.0
+	var overview_height := 42.0
+	if _guided_sample_can_exit():
+		_run_status_panel.visible = true
+		panel_height = 70.0
+		overview_height = 58.0
+	elif phase == RunPhaseScript.BATTLE:
+		_run_status_panel.visible = tutorial_visible
+		panel_height = 34.0 if tutorial_visible else 0.0
+		overview_height = 24.0
+	else:
+		_run_status_panel.visible = true
+	_run_status_panel.custom_minimum_size.y = panel_height * ui_scale
+	if _overview_scroll != null:
+		_overview_scroll.custom_minimum_size.y = overview_height * ui_scale
 
 
 func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_descriptors: bool) -> void:
@@ -1348,7 +1488,8 @@ func _on_settings_pressed() -> void:
 	if _preferences_overlay == null or preferences_service == null:
 		return
 	var preferences: Dictionary = preferences_service.call("snapshot")
-	_preferences_overlay.call("open", preferences, _settings_button, controller.tutorial_progress if controller != null else null)
+	var tutorial_progress = controller.tutorial_progress if controller != null and not _guided_sample_can_exit() else null
+	_preferences_overlay.call("open", preferences, _settings_button, tutorial_progress)
 
 
 func _preferences_service():
@@ -1387,6 +1528,7 @@ func _confirm_pending_new_run() -> void:
 		_perform_terminal_new_run()
 
 func _render() -> void:
+	_refresh_guided_sample_controls()
 	var viewport := get_viewport()
 	var focused_control: Control = viewport.gui_get_focus_owner() as Control if viewport != null else null
 	var prior_focus_name: String = focused_control.name if focused_control != null else ""
@@ -1418,6 +1560,8 @@ func _render() -> void:
 			_journey_view.visible = false
 		if _battle_view != null:
 			_battle_view.visible = false
+		if _guided_sample_complete_panel != null:
+			_guided_sample_complete_panel.visible = false
 		if _new_run_button != null:
 			_new_run_button.disabled = true
 		if _feedback_value != null:
@@ -1446,16 +1590,9 @@ func _render() -> void:
 	_hand_value.visible = false
 	_help_value.visible = phase != RunPhaseScript.BATTLE
 	_render_tutorial(phase)
-	if phase == RunPhaseScript.BATTLE:
-		_run_status_panel.visible = _tutorial_prompt.visible
-		_run_status_panel.custom_minimum_size.y = (34.0 if _tutorial_prompt.visible else 0.0) * float(_applied_preferences.get("ui_scale", 1.0))
-		_overview_scroll.custom_minimum_size.y = 24.0 * float(_applied_preferences.get("ui_scale", 1.0))
-	else:
-		_run_status_panel.visible = true
-		_run_status_panel.custom_minimum_size.y = (58.0 if _tutorial_prompt.visible else 54.0) * float(_applied_preferences.get("ui_scale", 1.0))
-		_overview_scroll.custom_minimum_size.y = 42.0 * float(_applied_preferences.get("ui_scale", 1.0))
+	_update_run_status_panel_metrics(phase)
 	_refresh_profile_recovery_presentation()
-	_reset_profile_button.visible = meta_progress_coordinator.recovery_required
+	_reset_profile_button.visible = not _guided_sample_can_exit() and meta_progress_coordinator.recovery_required
 	_reset_profile_button.disabled = _profile_reset_unavailable()
 	var showing_summary := phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]
 	_run_columns.visible = not showing_summary
@@ -1470,7 +1607,9 @@ func _render() -> void:
 	_update_run_stage_minimum()
 	_update_header_label_minimum_widths()
 	if viewport != null and not _preferences_overlay.visible and not _confirmation_overlay.visible:
-		if _journey_view.is_confirmation_open:
+		if _guided_sample_is_complete():
+			_grab_focus_if_available(_guided_sample_exit_button)
+		elif _journey_view.is_confirmation_open:
 			_grab_focus_if_available(_commit_selected_button if prior_confirmation_open and prior_commit_focus else _back_button)
 		elif phase_changed and phase == RunPhaseScript.BATTLE:
 			_focus_initial_battle_control()
@@ -1541,6 +1680,16 @@ func _focus_initial_journey_choice() -> void:
 func _render_actions() -> void:
 	if controller == null:
 		return
+	_reset_guided_sample_emphasis()
+	if _guided_sample_complete_panel != null:
+		_guided_sample_complete_panel.visible = _guided_sample_is_complete()
+	if _guided_sample_is_complete():
+		_journey_view.visible = false
+		if _battle_view != null:
+			_battle_view.visible = false
+		_back_button.visible = false
+		_commit_selected_button.visible = false
+		return
 	var feedback := str(controller.snapshot().get("feedback", ""))
 	var descriptors: Array = controller.action_descriptors()
 	var phase := str(controller.domain.state.phase)
@@ -1551,6 +1700,7 @@ func _render_actions() -> void:
 		if str(_battle_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_battle_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_battle_view.get("_presentation_mode")) != effective_mode or bool(_battle_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)) or bool(_battle_view.get("_ambient_glow")) != bool(_applied_preferences.get("ambient_glow", true)):
 			_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
 		_battle_view.render()
+		_apply_guided_sample_emphasis(descriptors)
 		_set_wrapped_label_text(_feedback_value, feedback)
 		_back_button.visible = false
 		_commit_selected_button.visible = false
@@ -1566,6 +1716,7 @@ func _render_actions() -> void:
 		_journey_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)))
 	var preferred_focus := str(_journey_view.get("focused_action_id"))
 	_journey_view.render(controller, descriptors, preferred_focus)
+	_apply_guided_sample_emphasis(descriptors)
 	_action_details_value = _journey_view.details_label()
 	if phase in [RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD, RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE] and _battle_view != null and _battle_view.has_method("persistent_receipt_text"):
 		var receipt := str(_battle_view.call("persistent_receipt_text"))
@@ -1577,6 +1728,47 @@ func _render_actions() -> void:
 	# Publish the complete receipt once; intermediate plain feedback would reset
 	# a reader's scroll position on an otherwise unchanged focus refresh.
 	_set_wrapped_label_text(_feedback_value, feedback)
+
+func _reset_guided_sample_emphasis() -> void:
+	for candidate in find_children("*", "Button", true, false):
+		var button := candidate as Button
+		if not bool(button.get_meta("guided_sample_emphasis", false)):
+			continue
+		button.modulate = button.get_meta("guided_sample_original_modulate", Color.WHITE)
+		button.remove_theme_color_override("font_color")
+		button.remove_theme_color_override("font_hover_color")
+		button.remove_theme_stylebox_override("normal")
+		button.remove_theme_stylebox_override("hover")
+		button.remove_theme_stylebox_override("pressed")
+		button.remove_theme_stylebox_override("focus")
+		button.remove_meta("guided_sample_emphasis")
+		button.remove_meta("guided_sample_original_modulate")
+
+func _apply_guided_sample_emphasis(actions: Array) -> void:
+	if not _guided_sample_is_active() or controller == null:
+		return
+	for action_id in _guided_sample_session.highlighted_action_ids(actions):
+		var button: Button
+		if _battle_view != null and _battle_view.visible and _battle_view.has_method("action_button"):
+			button = _battle_view.call("action_button", action_id) as Button
+		elif _journey_view != null and _journey_view.visible:
+			button = _journey_view.action_button(action_id)
+		if button == null:
+			continue
+		button.set_meta("guided_sample_emphasis", true)
+		button.set_meta("guided_sample_original_modulate", button.modulate)
+		button.modulate = Color(1.12, 1.06, 0.84, 1.0)
+		button.add_theme_color_override("font_color", Color(1.0, 0.87, 0.56, 1.0))
+		button.add_theme_color_override("font_hover_color", Color(1.0, 0.93, 0.7, 1.0))
+		var accent := StyleBoxFlat.new()
+		accent.bg_color = Color(0.16, 0.15, 0.11, 1.0)
+		accent.border_color = Color(0.9, 0.72, 0.36, 1.0)
+		accent.set_border_width_all(2)
+		accent.set_corner_radius_all(8)
+		button.add_theme_stylebox_override("normal", accent.duplicate())
+		button.add_theme_stylebox_override("hover", accent.duplicate())
+		button.add_theme_stylebox_override("pressed", accent.duplicate())
+		button.add_theme_stylebox_override("focus", accent.duplicate())
 
 
 func _ensure_battle_view() -> bool:
@@ -1608,7 +1800,7 @@ func _ensure_battle_view() -> bool:
 
 
 func _on_battle_action_requested(action_id: String) -> void:
-	if controller == null:
+	if controller == null or _guided_sample_is_complete():
 		return
 	controller.confirm(action_id)
 
@@ -1749,6 +1941,8 @@ func _focus_initial_battle_control() -> void:
 
 
 func _on_action_pressed(action_id: String):
+	if controller == null or _guided_sample_is_complete():
+		return null
 	var result = controller.confirm(action_id)
 	return result
 
@@ -1768,6 +1962,10 @@ func _on_tutorial_reset_pressed() -> void:
 	_render()
 
 func _render_tutorial(phase: String) -> void:
+	if _guided_sample_session != null and _guided_sample_session.status in [GuidedSampleSessionScript.STATUS_ACTIVE, GuidedSampleSessionScript.STATUS_COMPLETED]:
+		_set_wrapped_label_text(_tutorial_prompt, LocalizationCatalogScript.text(_guided_sample_session.current_prompt_key()))
+		_tutorial_prompt.visible = true
+		return
 	var progress = controller.tutorial_progress
 	var active_step := str(progress.current_step_id)
 	_set_wrapped_label_text(_tutorial_prompt, _tutorial_prompt_for_step(active_step))

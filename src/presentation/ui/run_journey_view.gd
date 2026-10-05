@@ -696,10 +696,16 @@ func _workshop_before_after(action: Dictionary) -> String:
 		return ""
 	var details: Dictionary = action.get("details", {})
 	var before := _pretty_id_value(str(details.get("tile_definition_id", "")))
-	var after := _pretty_id_value(str(action.get("value_id", action.get("modifier_id", details.get("modifier_id", "")))))
 	var price := int(details.get("price", 0))
-	var lines := ["%s → %s" % [before, after], LocalizationCatalogScript.template("UI_RUN_SCENE_0137") % price]
-	if str(action.get("service_id", "")) == "REFINEMENT_TOKEN":
+	var is_refinement_token := str(action.get("service_id", "")) == "REFINEMENT_TOKEN"
+	var result := ""
+	if is_refinement_token:
+		result = LocalizationCatalogScript.format("UI_RUN_SCENE_0156", [before])
+	else:
+		var after := _pretty_id_value(str(action.get("value_id", action.get("modifier_id", details.get("modifier_id", "")))))
+		result = "%s → %s" % [before, after]
+	var lines := [result, LocalizationCatalogScript.template("UI_RUN_SCENE_0137") % price]
+	if is_refinement_token:
 		lines.append(LocalizationCatalogScript.text("UI_RUN_SCENE_0138"))
 	return "\n".join(lines)
 

@@ -48,6 +48,29 @@ class LocalizationAuditTest(unittest.TestCase):
         self.assertEqual(report.coverage, (1, 1))
         self.assertEqual(report.unresolved, [])
 
+    def test_data_driven_prompt_keys_count_as_stable_localization_references(self):
+        root = self._project(
+            '{"id": "sample_step", "prompt_key": "UI_GUIDED_SAMPLE_0001"}\n',
+            'keys,en\nUI_GUIDED_SAMPLE_0001,Choose a character\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertTrue(report.passed, report.render())
+        self.assertEqual(report.coverage, (1, 1))
+        self.assertEqual(report.unresolved, [])
+
+    def test_missing_data_driven_prompt_key_fails_extraction(self):
+        root = self._project(
+            '{"id": "sample_step", "prompt_key": "UI_GUIDED_SAMPLE_MISSING"}\n',
+            'keys,en\nUI_START,Start Run\n',
+        )
+
+        report = VALIDATOR.audit(root)
+
+        self.assertFalse(report.passed)
+        self.assertIn("missing key UI_GUIDED_SAMPLE_MISSING", " ".join(report.unresolved))
+
     def test_content_text_catalog_calls_count_as_canonical_references(self):
         root = self._project(
             'ContentTextCatalogScript.canonical_text("CONTENT_LABEL")\n',

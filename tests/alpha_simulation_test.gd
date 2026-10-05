@@ -188,7 +188,7 @@ func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) ->
 		"gate_profiles": [{
 			"gate_id": "hardening",
 			"attempt_count": 1,
-			"seed_start": 8803,
+			"seed_start": 8800,
 			"policy_ids": ["Hybrid"],
 			"character_ids": ["base.character.sequence"],
 			"contract_ids": ["base.contract.pressure"],
@@ -210,9 +210,9 @@ func test_runner_emits_a_real_replayable_run_attempt(failures: Array[String]) ->
 	assert_true(not str(attempt.get("starting_pool_hash", "")).is_empty(), "the attempt records a deterministic hash for the initial tile pool", failures)
 	assert_true(attempt.get("terminal", false), "a complete gameplay attempt reaches its actual Run Summary", failures)
 	assert_true(attempt.get("configured_act_count", 0) == 2, "the attempt records that the Run uses the two-Act profile", failures)
-	assert_true(attempt.get("act_reached", 0) == 2, "seed 8803's actual terminal Defeat occurs in Act 2", failures)
+	assert_true(attempt.get("act_reached", 0) == 2, "seed 8800's actual terminal Defeat occurs in Act 2", failures)
 	assert_true(attempt.get("progress_status", "") == "TERMINAL_AFTER_FINAL_ACT", "the attempt records its real Act 2 terminal outcome", failures)
-	assert_true(attempt.get("outcome", "") == "DEFEAT", "seed 8803 reaches a real terminal Act 2 Defeat", failures)
+	assert_true(attempt.get("outcome", "") == "DEFEAT", "seed 8800 reaches a real terminal Act 2 Defeat", failures)
 	assert_true(attempt.get("failure_classification", "") == "NONE", "a terminal Victory or Defeat is not classified as a harness failure", failures)
 	assert_true(_has_event(attempt.get("events", []), "RunSummaryReached"), "the attempt records its final Run Summary event", failures)
 	assert_true(_has_event(attempt.get("events", []), "ActTransitioned"), "the attempt reaches Act 2 through its real Act transition", failures)

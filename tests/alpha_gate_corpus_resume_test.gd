@@ -15,6 +15,7 @@ const GnuTimeoutLocatorScript = preload("res://src/infrastructure/simulation/gnu
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_gnu_timeout_path_is_native_and_existing(failures)
+	test_windows_git_timeout_fallback(failures)
 	test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures)
 	test_resume_rejects_an_unverified_repeat_claim(failures)
 	test_compact_resume_links_projection_and_summary_digest(failures)
@@ -35,6 +36,38 @@ func test_gnu_timeout_path_is_native_and_existing(failures: Array[String]) -> vo
 	var version_output: Array[String] = []
 	var version_exit_code := OS.execute(path, ["--version"], version_output, true)
 	assert_true(version_exit_code == 0 and "GNU coreutils" in "\n".join(version_output), "the resolved timeout executable is GNU coreutils, not a same-named system command (%s)" % "\n".join(version_output), failures)
+
+
+func test_windows_git_timeout_fallback(failures: Array[String]) -> void:
+	var fixture_root := ProjectSettings.globalize_path("res://.godot/gnu_timeout_locator_fixture")
+	var system_timeout := fixture_root.path_join("Windows/System32/timeout.exe")
+	var git_executable := fixture_root.path_join("Program Files/Git/cmd/git.exe").replace("/", "\\")
+	var git_timeout := fixture_root.path_join("Program Files/Git/usr/bin/timeout.exe")
+	var existing_paths := {system_timeout: true, git_timeout: true}
+	var file_exists_check := func(path: String) -> bool:
+		return existing_paths.has(path)
+	var gnu_timeout_check := func(path: String) -> bool:
+		return path == git_timeout
+	var resolved_path := GnuTimeoutLocatorScript._resolve_path_from_candidates(
+		"Windows",
+		[system_timeout],
+		[git_executable],
+		file_exists_check,
+		gnu_timeout_check,
+	)
+	assert_true(
+		resolved_path == git_timeout,
+		"Windows timeout discovery skips an incompatible System32 timeout.exe and derives Git usr/bin/timeout.exe through a spaced installation path",
+		failures,
+	)
+	var incompatible_only_path := GnuTimeoutLocatorScript._resolve_path_from_candidates(
+		"Windows",
+		[system_timeout],
+		[],
+		file_exists_check,
+		gnu_timeout_check,
+	)
+	assert_true(incompatible_only_path.is_empty(), "Windows timeout discovery never accepts a candidate that fails GNU identity validation", failures)
 
 func test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures: Array[String]) -> void:
 	var character_ids: Array[String] = AlphaScaleCatalogScript.all_character_ids()

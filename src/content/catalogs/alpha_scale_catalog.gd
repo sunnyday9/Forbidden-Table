@@ -262,11 +262,11 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0010"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0011"), "effects": [_event_modifier_effect("event.contract_clause.apply", "RUN", 1, "REPLACE")]},
+			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0011"), "effects": [_event_modifier_effect("event.contract_clause.apply", "RUN", 1, "REPLACE", [{"operation_id": "ModifySettlementCapacity", "amount": 1}])]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0012"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_ONE_EVENT_IDS[5], [
-			{"choice_id": "remember_rule", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0013"), "effects": [_event_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE"), _event_currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "remember_rule", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0013"), "effects": [_event_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", [{"operation_id": "GainTP", "amount": 1}]), _event_currency_effect("REFINEMENT_TOKENS", 1)]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_SCALE_0014"), "is_skip": true, "effects": []},
 		]),
 	]
@@ -274,7 +274,7 @@ static func _event_definitions() -> Array:
 static func _event_currency_effect(currency: String, amount: int) -> Dictionary:
 	return {"kind": currency, "amount": amount}
 
-static func _event_modifier_effect(modifier_id: String, scope: String, duration_amount: int, stack_policy: String) -> Dictionary:
+static func _event_modifier_effect(modifier_id: String, scope: String, duration_amount: int, stack_policy: String, battle_entry_operations: Array = []) -> Dictionary:
 	return {
 		"kind": "RUN_MODIFIER",
 		"modifier_id": modifier_id,
@@ -283,7 +283,7 @@ static func _event_modifier_effect(modifier_id: String, scope: String, duration_
 		"duration_amount": duration_amount,
 		"stack_policy": stack_policy,
 		"source_id": modifier_id,
-		"parameters": {},
+		"parameters": {"battle_entry_operations": battle_entry_operations.duplicate(true)},
 	}
 
 static func _enemy_definitions() -> Array:

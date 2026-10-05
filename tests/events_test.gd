@@ -759,7 +759,7 @@ func test_base_event_modifiers_change_battleplay_and_expire(failures: Array[Stri
 		assert_true(victory.terminal_outcome == CombatState.VICTORY, "the Risk Bargain fixture reaches a battle victory", failures)
 		var victory_events: Array = risk_domain.apply_battle_outcome()
 		assert_true(risk_domain.state.gold == gold_before_victory + 2, "Risk Bargain grants two Gold on a subsequent victory", failures)
-		assert_true(_has_currency_event(victory_events, DomainEvent.GOLD_CHANGED, RunEconomy.GOLD, "EVENT_RISK_BARGAIN_VICTORY", 2), "the Risk Bargain victory payout has a causal GoldChanged event", failures)
+		assert_true(_has_currency_event(victory_events, DomainEvent.GOLD_CHANGED, RunEconomy.GOLD, "RUN_MODIFIER_VICTORY_BONUS", 2), "the configured Run modifier victory payout has a causal GoldChanged event", failures)
 		var post_victory_gold: int = risk_domain.state.gold
 		risk_domain.apply_battle_outcome()
 		assert_true(risk_domain.state.gold == post_victory_gold, "transferring one victory twice cannot duplicate the Risk Bargain payout", failures)
@@ -785,7 +785,7 @@ func test_base_event_modifiers_change_battleplay_and_expire(failures: Array[Stri
 	assert_true(lethal_entry.accepted, "the map command accepts the authored lethal Risk Bargain battle entry", failures)
 	assert_true(lethal_risk_domain.state.phase == RunPhase.RUN_SUMMARY and lethal_risk_domain.state.terminal_summary.outcome == "DEFEAT", "entry Pressure at the enemy limit transfers to Run Defeat instead of stranding a terminal Battle", failures)
 	assert_true(_has_event(lethal_entry.events, DomainEvent.BATTLE_OUTCOME_TRANSFERRED) and _has_event(lethal_entry.events, DomainEvent.RUN_SUMMARY_REACHED), "lethal entry preserves battle-outcome and Run-summary events", failures)
-	assert_true(lethal_risk_domain.state.gold == 0 and not _has_currency_event(lethal_entry.events, DomainEvent.GOLD_CHANGED, RunEconomy.GOLD, "EVENT_RISK_BARGAIN_VICTORY", 2), "Risk Bargain pays no victory Gold on entry defeat", failures)
+	assert_true(lethal_risk_domain.state.gold == 0 and not _has_currency_event(lethal_entry.events, DomainEvent.GOLD_CHANGED, RunEconomy.GOLD, "RUN_MODIFIER_VICTORY_BONUS", 2), "a Run modifier pays no victory Gold on entry defeat", failures)
 	assert_true(lethal_entry.data.get("phase", "") == RunPhase.RUN_SUMMARY, "the lethal map command returns its final Run Summary phase", failures)
 	var event_types: Array = lethal_entry.events.map(func(event): return event.event_type)
 	var battle_phase_index := -1

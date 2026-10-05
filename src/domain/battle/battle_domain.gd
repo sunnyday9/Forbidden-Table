@@ -528,6 +528,21 @@ func complete_hand_interpretations() -> Array:
 		return []
 	return complete_hand_evaluator.evaluate(zones.contents(TileZoneScript.HAND))
 
+func can_draw() -> bool:
+	var draw_sources_available: bool = draw_wall != null and draw_wall.size() > 0
+	if not draw_sources_available and zones != null:
+		draw_sources_available = zones.size(TileZoneScript.DISCARD) > 0
+	return combat_state != null and combat_state.is_active() and combat_state.draw_actions_remaining() > 0 and draw_sources_available
+
+func is_safe_reserve_candidate(instance_id: String) -> bool:
+	if zones == null or instance_id.is_empty():
+		return false
+	for tile in zones.contents(TileZoneScript.HAND):
+		if str(tile.instance_id) != instance_id:
+			continue
+		return not tile.integrity_initialized() or int(tile.integrity) >= int(tile.max_integrity)
+	return false
+
 func can_complete_hand() -> bool:
 	return combat_state != null and combat_state.is_active() and recovery_state != null and recovery_state.can_complete_hand() and not complete_hand_interpretations().is_empty()
 
@@ -713,7 +728,12 @@ func resolve_enemy_intent():
 	if combat_resolver == null:
 		return {"accepted": false, "status": "COMBAT_RESOLVER_NOT_READY", "events": []}
 	var before_state: Dictionary = _capture_battle_transaction()
-	var result = combat_resolver.resolve_enemy_intent(combat_state, Callable(self, "_resolve_enemy_reaction_techniques"))
+	var contamination_config: Dictionary = context.contamination_config if context != null else {}
+	var result = combat_resolver.resolve_enemy_intent(
+		combat_state,
+		Callable(self, "_resolve_enemy_reaction_techniques"),
+		contamination_config,
+	)
 	var events: Array = result.events.duplicate()
 	if not result.is_resolved():
 		if not _restore_battle_transaction(before_state):

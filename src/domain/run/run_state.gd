@@ -127,11 +127,21 @@ func to_dictionary() -> Dictionary:
 	return result
 
 func active_modifier(modifier_id: String):
-	for effect_key in _sorted_effect_keys():
-		var effect = active_effects[effect_key]
-		if effect is ActiveEffectInstanceScript and effect.runtime_parameters.get("modifier_id", "") == modifier_id:
+	for effect in active_modifiers():
+		if str(effect.runtime_parameters.get("modifier_id", "")) == modifier_id:
 			return effect
 	return null
+
+func active_modifiers() -> Array:
+	var modifiers: Array = []
+	for effect_key in _sorted_effect_keys():
+		var effect = active_effects.get(effect_key)
+		if not effect is ActiveEffectInstanceScript or not effect.is_active():
+			continue
+		if str(effect.runtime_parameters.get("modifier_id", "")).is_empty():
+			continue
+		modifiers.append(effect)
+	return modifiers
 
 func _sorted_effect_keys() -> Array:
 	var keys: Array = active_effects.keys()

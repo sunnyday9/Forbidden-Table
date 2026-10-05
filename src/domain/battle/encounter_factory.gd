@@ -21,6 +21,7 @@ const PatternEvaluatorScript = preload("res://src/domain/mahjong/pattern/pattern
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const SettlementTurnScript = preload("res://src/domain/mahjong/settlement/settlement_turn.gd")
 const SettlementWindowScript = preload("res://src/domain/mahjong/settlement/settlement_window.gd")
+const YakuEvaluatorScript = preload("res://src/domain/mahjong/yaku/yaku_evaluator.gd")
 const TileActionServiceScript = preload("res://src/domain/tiles/tile_action_service.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 const TileOriginScript = preload("res://src/domain/tiles/tile_origin.gd")
@@ -133,6 +134,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	var settlement_context := EffectContextScript.new(state, zones, draw_wall, tile_actions.reserve_service, null, run_state)
 	var build_effect_resolver := BuildEffectResolverScript.new(content_registry)
 	var settlement_turn := SettlementTurnScript.new(settlement_window, tile_actions, zones, int(values.get("normal_hand_baseline", 13)), null, settlement_context, build_effect_resolver)
+	var local_yaku_resolver = YakuEvaluatorScript.new(content_registry) if bool(values.get("local_yaku_enabled", false)) else null
 	var domain := BattleDomainScript.new(
 		zones,
 		draw_wall,
@@ -154,7 +156,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 		int(values.get("normal_hand_baseline", 13)),
 		int(values.get("recovery_baseline", 10)),
 		TileZoneScript.DISCARD,
-		null,
+		local_yaku_resolver,
 		domain_rng_streams,
 	)
 	domain.encounter_id = encounter_id

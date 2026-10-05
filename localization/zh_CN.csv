@@ -1187,3 +1187,44 @@ UI_RUN_SCENE_0152,牌面 · %s
 UI_RUN_SCENE_0153,%s · %s
 UI_RUN_SCENE_0154,对子 · %s
 UI_RUN_SCENE_0155,役种 · %s · %s
+UI_RUN_SCENE_0156,%s 增加 1 份额外副本
+UI_GUIDED_SAMPLE_ENTRY,示例旅程
+UI_GUIDED_SAMPLE_RESTART,重来
+UI_GUIDED_SAMPLE_SKIP,跳过
+UI_GUIDED_SAMPLE_EXIT,退出示例
+UI_GUIDED_SAMPLE_0001,选择角色：起始牌组与核心技法会塑造旅程。
+UI_GUIDED_SAMPLE_0002,选择契约；规则或奖励只影响本次示例。
+UI_GUIDED_SAMPLE_0003,选择起点。稍后比较路线的风险与回报。
+UI_GUIDED_SAMPLE_0004,摸牌会增加手牌；牌墙显示剩余牌数。上方显示敌方生命与意图。压力达到上限时战斗结束。
+UI_GUIDED_SAMPLE_0005,结束回合以结算可见的敌方意图。压力达到上限时战斗结束。
+UI_GUIDED_SAMPLE_0006,组成牌型后选牌预览行动，再完成结算。役种显示手牌进度。
+UI_GUIDED_SAMPLE_0007,将一张牌存入备牌（上限 3 张）。完整度保护备牌；稳定度降低压力。
+UI_GUIDED_SAMPLE_0008,弃掉选中的牌来调整手牌。
+UI_GUIDED_SAMPLE_0009,交换手牌与备牌；每次摸牌只可操作一次。
+UI_GUIDED_SAMPLE_0010,TP 用于技法。TP 足够时使用核心技法。
+UI_GUIDED_SAMPLE_0011,完整和牌会用整手牌结算，获得完整奖励并推进役种进度。
+UI_GUIDED_SAMPLE_0012,选择奖励。奖励只保留在本次示例中。
+UI_GUIDED_SAMPLE_0013,战后比较“地图揭示”（安全）与“风险交易”（风险和回报更高）。
+UI_GUIDED_SAMPLE_0014,进入后阅读事件。
+UI_GUIDED_SAMPLE_0015,选择一个事件选项；只有本次示例的资源会改变。
+UI_GUIDED_SAMPLE_0016,选择商店节点。路线与花费会显示风险和回报。
+UI_GUIDED_SAMPLE_0017,进入商店，查看金币可购买的商品。
+UI_GUIDED_SAMPLE_0018,也可以不消费并离开商店。
+UI_GUIDED_SAMPLE_0019,选择工坊，查看精炼令牌与牌面服务。
+UI_GUIDED_SAMPLE_0020,工坊服务会花费金币来改变牌池。
+UI_GUIDED_SAMPLE_0021,退出工坊以完成短示例。内容不会带入正式旅程。
+UI_GUIDED_SAMPLE_0022,示例完成。你可以重来或退出。
+UI_GUIDED_SAMPLE_0024,进入练习战斗，体验其余行动。
+UI_GUIDED_SAMPLE_0025,消耗 1 枚精炼代币和金币，为选中的牌增加一份额外副本。
+base.map.guided_sample,引导示例路线
+base.map_node.guided_sample.practice_battle,练习战斗
+base.map_node.guided_sample.intro,开场战斗
+base.map_node.guided_sample.map_reveal,地图揭示
+base.map_node.guided_sample.risk_bargain,风险交易
+base.map_node.guided_sample.shop,商店
+base.map_node.guided_sample.workshop,工坊
+base.map_node.guided_sample.boss,首领
+prototype.encounter.guided_sample,引导示例遭遇
+prototype.encounter.guided_sample_actions,引导行动练习遭遇
+prototype.enemy.guided_sample,练习哨兵
+prototype.enemy.guided_sample_actions,陪练哨兵

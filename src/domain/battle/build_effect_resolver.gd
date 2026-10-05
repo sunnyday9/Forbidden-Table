@@ -7,7 +7,6 @@ const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
-const GainTPOperationScript = preload("res://src/domain/effects/operations/gain_tp_operation.gd")
 const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
@@ -17,9 +16,6 @@ const TechniqueDefinitionScript = preload("res://src/content/definitions/techniq
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
-
-const RULE_MEMORY_RELIC_ID := "base.relic.rule_memory"
-const RULE_MEMORY_MODIFIER_ID := "content.base.relic.rule_memory"
 
 var _content_registry
 var _run_modifier_effect_resolver
@@ -43,15 +39,6 @@ func resolve_battle_entry(run_state, battle) -> Dictionary:
 	))
 	effects.append_array(_owned_passive_technique_effects(run_state.build_ownership.run_technique_ids))
 	effects.append_array(_run_modifier_effect_resolver.battle_entry_effects(run_state))
-	var rule_memory_amount := _rule_memory_entry_amount(run_state, effects)
-	if rule_memory_amount > 0:
-		effects.append(EffectScript.new(
-			"run_modifier.%s" % RULE_MEMORY_MODIFIER_ID,
-			EffectTriggerScript.new(EffectTriggerScript.MANUAL),
-			[],
-			[],
-			[GainTPOperationScript.new(rule_memory_amount)],
-		))
 	if effects.is_empty():
 		return {"accepted": true, "events": []}
 	var selection := _select_valid_effects(effects, context)
@@ -257,18 +244,6 @@ func _is_manual_or_settlement_effect(effect) -> bool:
 		EffectTriggerScript.MANUAL,
 		EffectTriggerScript.SETTLEMENT,
 	]
-
-func _rule_memory_entry_amount(run_state, effects: Array) -> int:
-	for effect in effects:
-		if effect == null or not effect.get("operations") is Array:
-			continue
-		for operation in effect.operations:
-			if operation != null and str(operation.get("operation_id")) == "ApplyRunModifier" and str(operation.get("modifier_id")) == RULE_MEMORY_MODIFIER_ID:
-				return maxi(0, int(operation.get("modifier_value")))
-	var active_modifier = run_state.active_modifier(RULE_MEMORY_MODIFIER_ID) if run_state != null and run_state.has_method("active_modifier") else null
-	if active_modifier != null:
-		return maxi(0, int(active_modifier.runtime_parameters.get("value", 0)))
-	return 0
 
 func _context_for_battle(run_state, battle):
 	return EffectContextScript.new(

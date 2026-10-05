@@ -224,11 +224,11 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0023"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0024"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0024"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {"battle_entry_operations": [{"operation_id": "ModifyReserveCapacity", "amount": 1}]})]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0025"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_EVENT_IDS[5], [
-			{"choice_id": "study_yaku", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0026"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "study_yaku", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0026"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {"battle_entry_operations": [{"operation_id": "GainTP", "amount": 1}]}), _currency_effect("REFINEMENT_TOKENS", 1)]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0027"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[0], [
@@ -251,11 +251,11 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0035"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0036"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {})]},
+			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0036"), "effects": [_modifier_effect("event.act_two.contract_clause", "ACT", 1, "REPLACE", {"battle_entry_operations": [{"operation_id": "ModifyReserveCapacity", "amount": 1}]})]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0037"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(ACT_TWO_ADDITIONAL_EVENT_IDS[5], [
-			{"choice_id": "cross_reference", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0038"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {}), _currency_effect("REFINEMENT_TOKENS", 1)]},
+			{"choice_id": "cross_reference", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0038"), "effects": [_modifier_effect("event.act_two.rule_memory", "RUN", 1, "UNIQUE", {"battle_entry_operations": [{"operation_id": "GainTP", "amount": 1}]}), _currency_effect("REFINEMENT_TOKENS", 1)]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_ACT_TWO_0039"), "is_skip": true, "effects": []},
 		]),
 	]

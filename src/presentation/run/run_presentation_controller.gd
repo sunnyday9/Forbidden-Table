@@ -3,6 +3,7 @@ extends RefCounted
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 signal presentation_changed
+signal command_processed(command, result)
 
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
@@ -123,6 +124,7 @@ func submit(command):
 		elif str(save_result.get("code", "")) not in ["UNSUPPORTED_CHECKPOINT", "UNSTABLE_CHECKPOINT"]:
 			suspend_feedback_key = "UI_RUN_CONTROLLER_0005"
 			suspend_feedback_args = [str(save_result.get("code", "SUSPEND_SAVE_FAILED"))]
+	command_processed.emit(command, result)
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
 		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0006"))
@@ -404,9 +406,10 @@ func _contract_actions() -> Array:
 
 func _typed_content_actions(definition_script: Script, prefix: String, kind: String) -> Array:
 	var actions: Array = []
+	var unlock_policy = meta_progress_coordinator.state if meta_progress_coordinator != null else domain.unlock_policy
 	for definition in domain.content_registry.enumerate():
 		if definition.get_script() == definition_script:
-			if meta_progress_coordinator != null and not meta_progress_coordinator.is_unlocked(kind, definition.content_id):
+			if unlock_policy != null and not unlock_policy.is_unlocked(kind, definition.content_id):
 				continue
 			var details := {"content_id": definition.content_id}
 			if definition is ContractDefinitionScript:

@@ -1187,3 +1187,44 @@ UI_RUN_SCENE_0152,Tiles · %s
 UI_RUN_SCENE_0153,%s · %s
 UI_RUN_SCENE_0154,Pair · %s
 UI_RUN_SCENE_0155,Yaku · %s · %s
+UI_RUN_SCENE_0156,%s gains 1 extra copy
+UI_GUIDED_SAMPLE_ENTRY,Sample Run
+UI_GUIDED_SAMPLE_RESTART,Restart
+UI_GUIDED_SAMPLE_SKIP,Skip
+UI_GUIDED_SAMPLE_EXIT,Exit Sample
+UI_GUIDED_SAMPLE_0001,Choose a Character: starting tiles and Core Technique shape your Run.
+UI_GUIDED_SAMPLE_0002,Choose a Contract; its rule or reward changes this sample only.
+UI_GUIDED_SAMPLE_0003,Choose the starting node. Later, compare route risk and reward.
+UI_GUIDED_SAMPLE_0004,Draw adds a tile. The Wall counts draws; enemy HP and Intent sit above. Pressure / Limit ends the battle.
+UI_GUIDED_SAMPLE_0005,End Turn to resolve the visible Intent. Pressure reaching its Limit ends the battle.
+UI_GUIDED_SAMPLE_0006,Build a Pattern, then select tiles to preview actions and settle. Yaku tracks hand progress.
+UI_GUIDED_SAMPLE_0007,Store one tile in Reserve (capacity 3). Integrity protects it; Stability lowers Pressure.
+UI_GUIDED_SAMPLE_0008,Discard a selected tile to reshape your hand.
+UI_GUIDED_SAMPLE_0009,Swap a hand tile with Reserve; it uses this Draw's manipulation.
+UI_GUIDED_SAMPLE_0010,TP pays for Techniques. Use the Core Technique when enough is available.
+UI_GUIDED_SAMPLE_0011,Complete Hand uses your whole hand for a full payoff and Yaku progress.
+UI_GUIDED_SAMPLE_0012,Choose a reward. It stays inside this sample.
+UI_GUIDED_SAMPLE_0013,After the fight, compare Map Reveal (safe) with Risk Bargain (more risk, reward).
+UI_GUIDED_SAMPLE_0014,Enter to read the Event.
+UI_GUIDED_SAMPLE_0015,Choose one Event option; only this sample's resources change.
+UI_GUIDED_SAMPLE_0016,Choose the Shop node. The path and costs show risk and reward.
+UI_GUIDED_SAMPLE_0017,Enter the Shop; offers show what Gold buys.
+UI_GUIDED_SAMPLE_0018,Leave the Shop without spending if you prefer.
+UI_GUIDED_SAMPLE_0019,Choose Workshop to see Refinement Tokens and tile services.
+UI_GUIDED_SAMPLE_0020,Workshop services spend Gold to change your Tile Pool.
+UI_GUIDED_SAMPLE_0021,Exit Workshop to finish this short sample. Nothing carries to your Run.
+UI_GUIDED_SAMPLE_0022,Sample complete. Restart or exit whenever you're ready.
+UI_GUIDED_SAMPLE_0024,Enter the Practice Battle to try the remaining actions.
+UI_GUIDED_SAMPLE_0025,Spend 1 Refinement Token plus Gold to create an extra copy of the chosen tile.
+base.map.guided_sample,Guided Sample Route
+base.map_node.guided_sample.practice_battle,Practice Battle
+base.map_node.guided_sample.intro,Opening Battle
+base.map_node.guided_sample.map_reveal,Map Reveal
+base.map_node.guided_sample.risk_bargain,Risk Bargain
+base.map_node.guided_sample.shop,Shop
+base.map_node.guided_sample.workshop,Workshop
+base.map_node.guided_sample.boss,Boss
+prototype.encounter.guided_sample,Guided Sample Encounter
+prototype.encounter.guided_sample_actions,Guided Sample Action Practice
+prototype.enemy.guided_sample,Practice Sentinel
+prototype.enemy.guided_sample_actions,Sparring Sentinel

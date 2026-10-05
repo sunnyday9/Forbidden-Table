@@ -59,6 +59,7 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
 	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
+	test_enemy_contamination_uses_authored_definition_and_count(failures)
 	test_stage_four_enemy_encounters_resolve_through_catalog_path(failures)
 	test_owned_passive_technique_applies_once_on_battle_entry(failures)
 	test_stage_four_run_techniques_resolve_through_existing_commands_and_resume_replay(failures)
@@ -241,6 +242,44 @@ func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Arra
 		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
 		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
 
+func test_enemy_contamination_uses_authored_definition_and_count(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var registration = Phase2Catalog.register_all(registry)
+	assert_true(registration.is_valid(), "the contamination fixture has a valid base catalog", failures)
+	if not registration.is_valid():
+		return
+	var graph := IntentGraph.new("configured_contamination.seed", [
+		EnemyIntent.new("configured_contamination.seed", "Seed the Table", 1, EnemyIntent.CONTAMINATION, [IntentTransition.fixed("configured_contamination.loop", "configured_contamination.seed")]),
+	])
+	var enemy_id := "prototype.enemy.configured_contaminator"
+	var encounter_id := "prototype.encounter.configured_contaminator"
+	var enemy_registration = registry.register(EnemyDefinition.new(
+		enemy_id,
+		graph,
+		EnemyDefinition.NORMAL,
+		8,
+		{"pressure_limit": 10},
+		{"contamination_id": "base.contamination.pressure_dross", "injection_count": 2},
+	))
+	var encounter_registration = registry.register(EncounterDefinition.new(encounter_id, [enemy_id], EncounterDefinition.NORMAL))
+	assert_true(enemy_registration.is_valid() and encounter_registration.is_valid(), "the authored contamination fixture registers", failures)
+	if not enemy_registration.is_valid() or not encounter_registration.is_valid():
+		return
+	var domain := RunDomain.new("run.enemy.configured_contamination", 7426, registry)
+	domain.execute(ChooseCharacterCommand.new("configured.contamination.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("configured.contamination.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, EncounterDefinition.NORMAL)
+	assert_true(battle != null, "the enemy with authored contamination settings enters BattleDomain", failures)
+	if battle == null:
+		return
+	var result: Dictionary = battle.resolve_enemy_intent()
+	var injected_tiles: Array = battle.zones.contents(TileZone.DRAW_WALL).filter(func(tile): return tile.origin == "ENEMY")
+	var contamination_event = _event_of_type(result.get("events", []), DomainEvent.CONTAMINATION_APPLIED)
+	assert_true(result.get("accepted", false), "the authored Contamination Intent resolves through BattleDomain", failures)
+	assert_true(injected_tiles.size() == 2, "the authored injection_count controls the number of contaminated tiles", failures)
+	assert_true(injected_tiles.all(func(tile): return tile.contamination_id == "base.contamination.pressure_dross"), "every injected tile uses the configured Pressure Dross definition", failures)
+	assert_true(contamination_event != null and contamination_event.data.get("contamination_id", "") == "base.contamination.pressure_dross", "the causal contamination event reports its authored definition", failures)
+
 func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
 	var phase2_registration = Phase2Catalog.register_all(registry)
@@ -273,8 +312,8 @@ func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Arr
 		var draw_wall_before: int = battle.zones.size(TileZone.DRAW_WALL)
 		if starting_intent != null and starting_intent.action_type in [EnemyIntent.INTEGRITY, EnemyIntent.HUNT]:
 			battle.zones.add(TileInstance.new("stage4.reserve.%s" % encounter_id, "base.tile.characters.1"), TileZone.RESERVE)
-		var intent_result = battle.combat_resolver.resolve_enemy_intent(battle.combat_state)
-		assert_true(intent_result.is_resolved(), "%s resolves its starting authored enemy intent" % encounter_id, failures)
+		var intent_result: Dictionary = battle.resolve_enemy_intent()
+		assert_true(intent_result.get("accepted", false), "%s resolves its starting authored enemy intent" % encounter_id, failures)
 		if starting_intent == null:
 			continue
 		match starting_intent.action_type:
@@ -284,14 +323,14 @@ func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Arr
 				assert_true(battle.combat_state.draw_capacity < draw_capacity_before, "%s applies its authored Wall Tax action" % encounter_id, failures)
 			EnemyIntent.CONTAMINATION:
 				assert_true(battle.zones.size(TileZone.DRAW_WALL) > draw_wall_before, "%s adds authored contamination to the Draw Wall" % encounter_id, failures)
-				var contamination_applied = _event_of_type(intent_result.events, DomainEvent.CONTAMINATION_APPLIED)
+				var contamination_applied = _event_of_type(intent_result.get("events", []), DomainEvent.CONTAMINATION_APPLIED)
 				assert_true(contamination_applied != null and contamination_applied.data.get("contamination_id", "") == "base.contamination.clutter", "%s applies the supported Clutter contamination" % encounter_id, failures)
 			EnemyIntent.AUDIT:
 				assert_true(battle.combat_state.fatigue > fatigue_before, "%s applies its authored Audit action" % encounter_id, failures)
 			EnemyIntent.REWARD_TAX:
 				assert_true(battle.combat_state.reward_tax > reward_tax_before, "%s applies its authored Reward Tax action" % encounter_id, failures)
 			EnemyIntent.INTEGRITY, EnemyIntent.HUNT:
-				assert_true(_event_of_type(intent_result.events, DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
+				assert_true(_event_of_type(intent_result.get("events", []), DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
 
 	var persisted_domain := RunDomain.new("run.stage4.enemy.resume", 8411, registry)
 	persisted_domain.execute(ChooseCharacterCommand.new("stage4.enemy.resume.character", Phase2Catalog.CHARACTER_IDS[0]))

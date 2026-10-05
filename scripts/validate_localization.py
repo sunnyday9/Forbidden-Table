@@ -18,6 +18,7 @@ LITERAL_PERCENT_RE = re.compile(r"%%")
 CALL_RE = re.compile(r'(?:Localization(?:CatalogScript)?|ContentTextCatalogScript)\.(text|format|template|canonical_text)\s*\(\s*"([^"]+)"')
 CONTENT_PRESENTATION_IMPORT_RE = re.compile(r'["\']res://src/presentation/')
 MESSAGE_PART_CALL_RE = re.compile(r'(?<![A-Za-z0-9_])_localized_message_part\s*\(\s*"([^"]+)"')
+DYNAMIC_PROMPT_KEY_RE = re.compile(r'"prompt_key"\s*:\s*"([A-Za-z][A-Za-z0-9_.-]*)"')
 SCENE_KEY_RE = re.compile(r'^\s*text\s*=\s*"([A-Za-z][A-Za-z0-9_.-]*)"\s*$', re.MULTILINE)
 DIRECT_UI_TEXT_CALL_RE = re.compile(r'_(?:add_section_heading|set_wrapped_label_text)\([^,]+,\s*"([^"]*)"')
 DIRECT_UI_TEXT_ASSIGNMENT_RE = re.compile(r'\.(?:text|tooltip_text|placeholder_text)\s*=\s*"([^"]+)"')
@@ -53,7 +54,7 @@ class Report:
     def render(self) -> str:
         covered, total = self.coverage
         percentage = 100 if total == 0 else round(covered * 100 / total)
-        literal_keys = {reference.key for reference in self.references if reference.kind in {"text", "format", "template", "canonical_text", "message_part", "scene"}}
+        literal_keys = {reference.key for reference in self.references if reference.kind in {"text", "format", "template", "canonical_text", "message_part", "dynamic_prompt", "scene"}}
         content_ids = {reference.key for reference in self.references if reference.kind == "content_id"}
         dynamic_words = {reference.key for reference in self.references if reference.kind == "dynamic_word"}
         lines = [f"Localization source extraction: {covered}/{total} stable keys ({percentage}%)"]
@@ -368,6 +369,14 @@ def audit(root: Path) -> Report:
                 unresolved.append(f"{reference.path}: missing key {key}")
                 continue
             _check_format(key, keys[key], argument_count, reference.path, structural_errors)
+        for match in DYNAMIC_PROMPT_KEY_RE.finditer(source):
+            key = match.group(1)
+            reference = Reference(str(path.relative_to(root)), key, "dynamic_prompt", 0)
+            references.append(reference)
+            if key not in keys:
+                unresolved.append(f"{reference.path}: missing key {key}")
+                continue
+            _check_format(key, keys[key], 0, reference.path, structural_errors)
 
     for content_id in sorted(_dynamic_content_ids(root, source_paths)):
         references.append(Reference("dynamic content ID inventory", content_id, "content_id", 0))

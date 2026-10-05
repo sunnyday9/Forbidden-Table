@@ -46,6 +46,7 @@ var state
 var content_registry
 var rng_streams
 var map_definition
+var _initial_map_definition
 var encounter_factory
 var reward_draft_selector
 var economy
@@ -58,6 +59,8 @@ var run_summary_flow
 var run_event_flow
 var tile_pool_editor
 var reward_flow
+var _initial_gold := 0
+var _initial_refinement_tokens := 0
 
 func _init(
 	initial_run_id: String = "run.1",
@@ -68,13 +71,19 @@ func _init(
 	initial_act_count: int = 1,
 	initial_tile_pool = null,
 	initial_unlock_policy = null,
+	initial_map_definition = null,
+	initial_gold: int = 0,
+	initial_refinement_tokens: int = 0,
 ) -> void:
 	content_registry = domain_content_registry if domain_content_registry != null else ContentRegistryScript.new()
 	var resolved_content_version := initial_content_version
 	if resolved_content_version.is_empty() and content_registry.has_method("content_version"):
 		resolved_content_version = content_registry.content_version()
 	rng_streams = domain_rng_streams if domain_rng_streams != null else DomainRngStreamsScript.new(initial_seed)
-	map_definition = MiniActMapCatalogScript.definition_for_act(1, content_registry)
+	_initial_map_definition = initial_map_definition if initial_map_definition != null else MiniActMapCatalogScript.definition_for_act(1, content_registry)
+	_initial_gold = maxi(0, initial_gold)
+	_initial_refinement_tokens = maxi(0, initial_refinement_tokens)
+	map_definition = _initial_map_definition
 	encounter_factory = EncounterFactoryScript.new(content_registry)
 	reward_draft_selector = RewardDraftSelectorScript.new()
 	economy = RunEconomyScript.new()
@@ -82,6 +91,8 @@ func _init(
 	current_battle = null
 	unlock_policy = initial_unlock_policy if initial_unlock_policy is MetaProgressStateScript else MetaProgressStateScript.new()
 	state = RunStateScript.new(initial_run_id, initial_seed, resolved_content_version, initial_tile_pool, null, initial_act_count)
+	state.gold = _initial_gold
+	state.refinement_tokens = _initial_refinement_tokens
 	tile_pool_editor = RunTilePoolEditorScript.new(state)
 	shop_workshop_flow = RunShopWorkshopFlowScript.new(state, content_registry, rng_streams, economy, shop_offer_selector, tile_pool_editor)
 	run_summary_flow = RunSummaryFlowScript.new(state, content_registry)
@@ -107,8 +118,11 @@ static func new_alpha_run(
 	domain_rng_streams = null,
 	initial_tile_pool = null,
 	initial_unlock_policy = null,
+	initial_map_definition = null,
+	initial_gold: int = 0,
+	initial_refinement_tokens: int = 0,
 ):
-	return RunDomain.new(initial_run_id, initial_seed, domain_content_registry, initial_content_version, domain_rng_streams, 2, initial_tile_pool, initial_unlock_policy)
+	return RunDomain.new(initial_run_id, initial_seed, domain_content_registry, initial_content_version, domain_rng_streams, 2, initial_tile_pool, initial_unlock_policy, initial_map_definition, initial_gold, initial_refinement_tokens)
 
 func execute(command) -> RefCounted:
 	var result: RefCounted
@@ -137,7 +151,7 @@ func verify_replay(record = replay_record, resume_factory: Callable = Callable()
 		var replay_run_id: String = state.run_id
 		if record != null and not record.run_id.is_empty():
 			replay_run_id = record.run_id
-		var replay_domain = RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, null, unlock_policy)
+		var replay_domain = RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, null, unlock_policy, _initial_map_definition, _initial_gold, _initial_refinement_tokens)
 		var initial_run_state: Dictionary = {}
 		if record != null and not record.checkpoints.is_empty():
 			var initial_domain_state: Dictionary = record.checkpoints[0].domain_snapshot.data
@@ -156,7 +170,7 @@ func verify_replay(record = replay_record, resume_factory: Callable = Callable()
 			)
 			initial_tile_records.append(tile_record)
 		var initial_tile_pool = RunTilePoolStateScript.new(initial_tile_records)
-		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, initial_tile_pool, unlock_policy)
+		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, initial_tile_pool, unlock_policy, _initial_map_definition, _initial_gold, _initial_refinement_tokens)
 	return ReplayVerifierScript.verify(record, replay_factory, state.content_version, resume_factory)
 
 func validate_choose_character(selected_character_id: String) -> RefCounted:
@@ -540,16 +554,16 @@ func apply_battle_outcome() -> Array:
 			"amount": reward_tax_applied,
 			"currency": RunEconomyScript.GOLD,
 		}))
-	var risk_bargain_gold: int = RunModifierEffectResolverScript.new().risk_bargain_victory_gold(state)
-	if risk_bargain_gold > 0:
-		var risk_bargain_transaction: Dictionary = economy.apply_source(
+	var modifier_victory_gold: int = RunModifierEffectResolverScript.new().battle_victory_gold_bonus(state)
+	if modifier_victory_gold > 0:
+		var modifier_victory_transaction: Dictionary = economy.apply_source(
 			state,
 			RunEconomyScript.GOLD,
-			risk_bargain_gold,
-			RunEconomyScript.SOURCE_EVENT_RISK_BARGAIN_VICTORY,
+			modifier_victory_gold,
+			RunEconomyScript.SOURCE_RUN_MODIFIER_VICTORY_BONUS,
 		)
-		if not risk_bargain_transaction.is_empty():
-			events.append(RunEconomyScript.event_for_transaction(risk_bargain_transaction))
+		if not modifier_victory_transaction.is_empty():
+			events.append(RunEconomyScript.event_for_transaction(modifier_victory_transaction))
 	var previous_phase: String = state.phase
 	events.append_array(reward_flow.create_draft(encounter_kind_before, encounter_id_before, previous_phase))
 	state.map_state.last_events = events
@@ -633,6 +647,15 @@ func _encounter_kind_for_node(node) -> String:
 	if node.node_kind == "BOSS":
 		return EncounterDefinitionScript.BOSS
 	return EncounterDefinitionScript.NORMAL
+
+func can_draw() -> bool:
+	return current_battle != null and current_battle.can_draw()
+
+func can_complete_hand() -> bool:
+	return current_battle != null and current_battle.can_complete_hand()
+
+func is_safe_reserve_candidate(instance_id: String) -> bool:
+	return current_battle != null and current_battle.is_safe_reserve_candidate(instance_id)
 
 func _transition_to_act_two(previous_phase: String) -> Array:
 	var events: Array = _clear_act_boundary_effects()
