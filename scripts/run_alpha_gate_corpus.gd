@@ -535,6 +535,31 @@ func _execution_metadata(options: Dictionary, cumulative_case_count: int, repeat
 		"exact_repeats_match_so_far": repeat_matches,
 	}
 
+func _command_argv_matches(expected: Array, observed: Array) -> bool:
+	if expected.size() != observed.size():
+		return false
+	var index := 0
+	while index < expected.size():
+		var expected_argument := str(expected[index])
+		var observed_argument := str(observed[index])
+		if expected_argument == "--path" or observed_argument == "--path":
+			if expected_argument != observed_argument or index + 1 >= expected.size():
+				return false
+			if _normalize_command_path(str(expected[index + 1])) != _normalize_command_path(str(observed[index + 1])):
+				return false
+			index += 2
+			continue
+		if expected_argument != observed_argument:
+			return false
+		index += 1
+	return true
+
+func _normalize_command_path(path: String) -> String:
+	var normalized := path.replace("\\", "/")
+	while normalized.ends_with("/") and normalized != "/" and not normalized.ends_with(":/"):
+		normalized = normalized.trim_suffix("/")
+	return normalized
+
 func _recorded_timeout_command(options: Dictionary) -> String:
 	var project_path := ProjectSettings.globalize_path("res://")
 	var parts: Array[String] = [
@@ -744,7 +769,7 @@ func _consume_resume_chunks(
 			or not expected_command_argv_value is Array
 			or not status_command_argv_value is Array
 			or not timeout_command_matches
-			or _canonical_hash(expected_command_argv_value) != _canonical_hash(status_command_argv_value)
+			or not _command_argv_matches(expected_command_argv_value, status_command_argv_value)
 		):
 			source.close()
 			return "Resume chunk %s has a missing, nonzero, timed-out, or mismatched GNU process-status record." % path

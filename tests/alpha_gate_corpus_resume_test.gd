@@ -21,6 +21,7 @@ func run() -> Array[String]:
 	test_compact_resume_links_projection_and_summary_digest(failures)
 	test_cli_resume_rejects_a_forged_comparison(failures)
 	test_cli_rejects_tampered_provenance(failures)
+	test_cli_resumes_engine_normalized_project_path(failures)
 	test_cli_requires_successful_gnu_timeout_status(failures)
 	test_process_wrapper_records_real_status_and_hashes(failures)
 	test_cli_finalizes_bounded_chunks_and_preserves_sources(failures)
@@ -452,6 +453,37 @@ func test_cli_requires_successful_gnu_timeout_status(failures: Array[String]) ->
 	assert_true(int(missing_result.exit_code) == 2 and str(missing_result.output).contains("missing its GNU timeout process-status sidecar"), "resume rejects a missing process-status sidecar before simulation", failures)
 	_cleanup_files([smoke_path, smoke_path + ".manifest.json", chunk_path, chunk_path + ".status.json", output_path, output_path + ".manifest.json"])
 
+func test_cli_resumes_engine_normalized_project_path(failures: Array[String]) -> void:
+	var scratch_path := ProjectSettings.globalize_path("res://.godot/alpha_corpus_normalized_path_test")
+	DirAccess.make_dir_recursive_absolute(scratch_path)
+	var manifest_path := scratch_path.path_join("manifest.json")
+	var source_path := scratch_path.path_join("source.jsonl")
+	var resumed_path := scratch_path.path_join("resumed.jsonl")
+	var first_result := _execute_corpus_cli([
+		"--full", "--gate", "stage4_beta", "--max-cases", "1",
+		"--output", source_path, "--manifest-output", manifest_path,
+		"--process-timeout-seconds", "270", "--process-timeout-enforced",
+	], true)
+	assert_true(
+		int(first_result.exit_code) == 0 and str(first_result.output).contains("chunk_cases=1 cumulative_cases=1/1000"),
+		"the real CLI produces one timeout-bounded chunk with a resumable process-status sidecar (exit=%d, output=%s)" % [int(first_result.exit_code), str(first_result.output)],
+		failures,
+	)
+	if int(first_result.exit_code) != 0:
+		_cleanup_files([source_path, source_path + ".status.json", manifest_path, resumed_path, resumed_path + ".status.json", resumed_path + ".manifest.json"])
+		return
+	var resume_result := _execute_corpus_cli([
+		"--full", "--gate", "stage4_beta", "--max-cases", "1",
+		"--resume-from", source_path, "--output", resumed_path, "--manifest-output", manifest_path,
+		"--process-timeout-seconds", "270", "--process-timeout-enforced",
+	])
+	assert_true(
+		int(resume_result.exit_code) == 0 and str(resume_result.output).contains("chunk_cases=1 cumulative_cases=2/1000"),
+		"the real CLI resumes a chunk when Godot adds a trailing separator to the --path argument it records (exit=%d, output=%s)" % [int(resume_result.exit_code), str(resume_result.output)],
+		failures,
+	)
+	_cleanup_files([source_path, source_path + ".status.json", manifest_path, resumed_path, resumed_path + ".status.json", resumed_path + ".manifest.json"])
+
 func test_process_wrapper_records_real_status_and_hashes(failures: Array[String]) -> void:
 	var scratch_path := ProjectSettings.globalize_path("res://.godot/alpha_corpus_wrapper_test")
 	DirAccess.make_dir_recursive_absolute(scratch_path)
@@ -752,7 +784,7 @@ func _write_process_status(chunk_path: String, header: Dictionary, exit_code: in
 		"report_output_sha256": "",
 	})
 
-func _execute_corpus_cli(arguments: PackedStringArray) -> Dictionary:
+func _execute_corpus_cli(arguments: PackedStringArray, preserve_output_status: bool = false) -> Dictionary:
 	var output_path := ""
 	for index in range(arguments.size() - 1):
 		if arguments[index] == "--output":
@@ -762,10 +794,15 @@ func _execute_corpus_cli(arguments: PackedStringArray) -> Dictionary:
 		return {"exit_code": 2, "output": "CLI fixture is missing its explicit --output path."}
 	var status_path := output_path + ".status.json"
 	_cleanup_files([status_path])
+	var process_timeout_seconds := 120
+	for index in range(arguments.size() - 1):
+		if arguments[index] == "--process-timeout-seconds" and str(arguments[index + 1]).is_valid_int():
+			process_timeout_seconds = int(arguments[index + 1])
+			break
 	var command_argv: Array[String] = [
 		OS.get_executable_path(),
 		"--headless",
-		"--path", ProjectSettings.globalize_path("res://"),
+		"--path", _project_path_without_trailing_separator(),
 		"--script", "res://scripts/run_alpha_gate_corpus.gd",
 		"--",
 	]
@@ -773,7 +810,7 @@ func _execute_corpus_cli(arguments: PackedStringArray) -> Dictionary:
 		command_argv.append(str(argument))
 	var wrapper_arguments := PackedStringArray([
 		ProjectSettings.globalize_path("res://scripts/run_alpha_gate_corpus_chunk.py"),
-		"120",
+		str(process_timeout_seconds),
 		output_path,
 		"--timeout-executable",
 		GnuTimeoutLocatorScript.resolve_path(),
@@ -783,8 +820,15 @@ func _execute_corpus_cli(arguments: PackedStringArray) -> Dictionary:
 		wrapper_arguments.append(argument)
 	var output: Array[String] = []
 	var exit_code := OS.execute("python3", wrapper_arguments, output, true)
-	_cleanup_files([status_path])
+	if not preserve_output_status:
+		_cleanup_files([status_path])
 	return {"exit_code": exit_code, "output": "\n".join(output)}
+
+func _project_path_without_trailing_separator() -> String:
+	var project_path := ProjectSettings.globalize_path("res://")
+	while project_path.ends_with("/") and project_path != "/" and not project_path.ends_with(":/"):
+		project_path = project_path.trim_suffix("/")
+	return project_path
 
 func _resolved_timeout_executable_path() -> String:
 	return GnuTimeoutLocatorScript.resolve_path()
