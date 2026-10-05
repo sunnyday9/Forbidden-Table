@@ -540,6 +540,8 @@ func _command_argv_matches(expected: Array, observed: Array) -> bool:
 		return false
 	var index := 0
 	while index < expected.size():
+		if typeof(expected[index]) != TYPE_STRING or typeof(observed[index]) != TYPE_STRING:
+			return false
 		var expected_argument := str(expected[index])
 		var observed_argument := str(observed[index])
 		if expected_argument == "--path" or observed_argument == "--path":

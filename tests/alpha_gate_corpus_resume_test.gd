@@ -443,6 +443,32 @@ func test_cli_requires_successful_gnu_timeout_status(failures: Array[String]) ->
 			failures,
 		)
 		_cleanup_files([output_path, output_path + ".manifest.json"])
+	var forged_argv_header: Dictionary = _full_chunk_header(base_header, 1, 1, [], 270)
+	var forged_execution: Dictionary = forged_argv_header.get("execution", {})
+	var expected_argv: Array = forged_execution.get("command_argv", []).duplicate(true)
+	expected_argv[4] = "true"
+	forged_execution["command_argv"] = expected_argv
+	forged_argv_header["execution"] = forged_execution
+	_write_jsonl_records(chunk_path, [forged_argv_header])
+	_write_process_status(chunk_path, forged_argv_header, 0)
+	var forged_status_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(chunk_path + ".status.json"))
+	assert_true(forged_status_value is Dictionary, "the process-status sidecar can be parsed before its argv is forged", failures)
+	if forged_status_value is Dictionary:
+		var forged_status: Dictionary = forged_status_value
+		var forged_argv: Array = forged_status.get("command_argv", []).duplicate(true)
+		forged_argv[4] = true
+		forged_status["command_argv"] = forged_argv
+		_write_json_file(chunk_path + ".status.json", forged_status)
+		var forged_argv_result := _execute_corpus_cli([
+			"--full", "--gate", "stage4_beta", "--max-cases", "1", "--resume-from", chunk_path,
+			"--output", output_path, "--process-timeout-seconds", "270", "--process-timeout-enforced",
+		])
+		assert_true(
+			int(forged_argv_result.exit_code) == 2 and str(forged_argv_result.output).contains("process-status record"),
+			"resume rejects a non-string argv value that merely stringifies to the recorded command argument",
+			failures,
+		)
+	_cleanup_files([output_path, output_path + ".manifest.json"])
 	var good_header: Dictionary = _full_chunk_header(base_header, 1, 1, [], 270)
 	_write_jsonl_records(chunk_path, [good_header])
 	_cleanup_files([chunk_path + ".status.json"])
