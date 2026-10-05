@@ -51,6 +51,8 @@ The optional Guided Sample must:
 
 The Sample is successful when scripted tests verify the intended action sequence and isolation invariants. With no outside testers, scripted completion does **not** establish player comprehension or usability; report those as unverified.
 
+The current scripted path and remaining human-evidence limits are recorded in [Stage 5 Guided Sample evidence](STAGE_5_GUIDED_SAMPLE_EVIDENCE.md).
+
 ## 3. Candidate build and compatibility
 
 ### Build identity and artifact
