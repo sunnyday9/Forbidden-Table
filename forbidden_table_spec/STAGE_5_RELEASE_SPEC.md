@@ -57,7 +57,7 @@ The Sample is successful when scripted tests verify the intended action sequence
 
 Before RC testing, pin the exact Godot stable version used for import, tests, and Windows export. Record the source commit, application version, content identity, save/replay schema versions, engine version, and output hashes together.
 
-Create a repeatable Windows x64 export and package process. The current project.godot version still reads stage3-alpha-playable-1; replace stale development metadata with the candidate’s version. The proposed distribution artifact is a portable ZIP containing only the files needed to run the exported game. No installer or auto-updater is in scope.
+Create a repeatable Windows x64 export and package process. Candidate metadata must identify the release candidate instead of the stale Stage 3 development version. The current package pipeline records the candidate version and the source, content, save/replay, engine, and artifact identities. The proposed distribution artifact is a portable ZIP containing only the files needed to run the exported game. No installer or auto-updater is in scope.
 
 The build must launch without a local developer path or editor dependency. Include concise extraction/launch instructions and release notes with the public artifact.
 
@@ -68,6 +68,8 @@ The build must launch without a local developer path or editor dependency. Inclu
 - For each 1.0.x patch candidate, test loading and continuing older supported 1.0.x save fixtures, plus replay compatibility under the declared policy. Compare authoritative checkpoints and deterministic replay outcomes where applicable.
 - Do not rewrite the original compatibility fixtures. Record each tested source format, target patch, and result.
 - Do not claim compatibility for 1.1+, downgrades, or unpublished pre-1.0 artifacts without a later scope decision.
+
+The current RC1 fixture identities, hashes, focused test evidence, and the remaining cross-patch limitation are recorded in [the Stage 5 save/replay baseline report](STAGE_5_SAVE_REPLAY_BASELINE.md).
 
 ## 4. Verification gates
 

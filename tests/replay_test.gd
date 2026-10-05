@@ -39,6 +39,7 @@ func run() -> Array[String]:
 	test_identical_replay_reproduces_checkpoints_and_terminal_outcome(failures)
 	test_changed_command_is_structured_divergence(failures)
 	test_replay_game_and_schema_versions_are_validated(failures)
+	test_replay_missing_schema_identity_is_unavailable(failures)
 	test_unavailable_content_version_is_structured(failures)
 	test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures)
 	test_phase2_v2_replay_is_unavailable_under_updated_events(failures)
@@ -145,6 +146,22 @@ func test_replay_game_and_schema_versions_are_validated(failures: Array[String])
 	unsupported_schema.schema_version = 99
 	var schema_report = ReplayVerifier.verify(unsupported_schema, Callable())
 	assert_true(schema_report.is_unavailable() and schema_report.reason == "REPLAY_SCHEMA_VERSION_UNAVAILABLE", "replay verification rejects an unavailable schema version", failures)
+
+func test_replay_missing_schema_identity_is_unavailable(failures: Array[String]) -> void:
+	var controller := BattleController.new(73, "content.replay.missing-schema")
+	controller.submit(DrawCommand.new("replay.missing-schema.draw", "player.1"))
+	var record_data: Dictionary = controller.replay_record.to_dictionary()
+	record_data.erase("schema_version")
+	var record = ReplayRecord.from_dictionary(record_data)
+	var factory_call_count := [0]
+	var replay_factory := func(seed: int, content_version: String):
+		factory_call_count[0] = int(factory_call_count[0]) + 1
+		return BattleController.new(seed, content_version)
+
+	var report = ReplayVerifier.verify(record, replay_factory, "content.replay.missing-schema")
+	assert_true(report.is_unavailable(), "a ReplayRecord without an explicit schema identity is unavailable", failures)
+	assert_true(report.reason == "REPLAY_SCHEMA_VERSION_UNAVAILABLE", "a missing schema identity has the structured unavailable reason", failures)
+	assert_true(int(factory_call_count[0]) == 0, "a replay with a missing schema identity never starts playback", failures)
 
 func test_phase2_v1_replay_stays_pinned_and_mismatches_v2(failures: Array[String]) -> void:
 	var record := ReplayRecord.new(2039, "content.slice.v1", "phase2.v1.fixture")

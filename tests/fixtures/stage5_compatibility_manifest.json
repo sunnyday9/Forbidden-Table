@@ -1,0 +1,104 @@
+{
+  "manifest_version": 1,
+  "support": {
+    "starts_at": "1.0.0",
+    "patch_line": "1.0.x",
+    "pre_1_0": "unsupported",
+    "downgrades": "unsupported",
+    "1_1_plus": "undecided"
+  },
+  "baseline_candidate": {
+    "application_version": "1.0.0-rc.1",
+    "public_baseline_version": "1.0.0",
+    "artifact": "forbidden-table-1.0.0-rc.1-windows-x64.zip",
+    "artifact_sha256": "1c24a36d807866cd73533c9f17ab45860e2acdc945f6033b064518e32ecb1e1d",
+    "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+    "engine_version": "4.7.2.stable.official.ed1daf0bf",
+    "game_version": "game.phase2.v1",
+    "save_schema_versions": {
+      "suspend_snapshot": 1,
+      "meta_progress": 2
+    },
+    "replay_schema_version": 1,
+    "source_commit": "05b183e6825ccfa8c7674c493644bba2f3840e99",
+    "source_dirty": false
+  },
+  "capture_method": "Fixtures were serialized by the pinned Godot engine from a clean source checkout at the exact source_commit below; they were not extracted from the exported ZIP. That ZIP is recorded as the independently hash-identified package built from the same commit. The suspend fixture was saved at a stable MAP_CHOICE boundary, then its expected route-and-draw continuation was captured from that same checkout.",
+  "fixture_hash_encoding": "UTF-8 fixture text with CRLF normalized to LF before SHA-256; test readers never write fixture files.",
+  "fixtures": [
+    {
+      "id": "1.0.0-suspend-map-choice",
+      "record": "SuspendSnapshot",
+      "schema_version": 1,
+      "game_version": "game.phase2.v1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "run_id": "stage5.compatibility.100.suspend",
+      "path": "tests/fixtures/stage5_100_suspend_snapshot.json",
+      "sha256_lf_canonical": "e88e3474903950bf2e6cc277f790591f6390bf2978f4e31c6ac936b13a6a1bbb",
+      "checkpoint_state_hash": "f3e2372e5d057546d7bd31d80f82defdac7dafccd176c87627e57095241f1f6d",
+      "continuation": {
+        "route_node_id": "base.map_node.intro",
+        "route_checkpoint_state_hash": "0912bab2e12ccce82289b7740934aa1d1786268d4ec71f6b37d851a77074a59d",
+        "draw_checkpoint_state_hash": "850d34bbddf7acb676b5514a0163d5a0c5ad20e9bcaa591d516bb817a62da734",
+        "draw_rng_state": {
+          "streams": {
+            "combat": {
+              "state": 7116628606889969452,
+              "stream_id": "combat",
+              "version": 1
+            },
+            "cosmetic": {
+              "state": 2572155090671189283,
+              "stream_id": "cosmetic",
+              "version": 1
+            },
+            "draw_wall": {
+              "state": -2341915896827898550,
+              "stream_id": "draw_wall",
+              "version": 1
+            },
+            "enemy": {
+              "state": 7993645210846797447,
+              "stream_id": "enemy",
+              "version": 1
+            },
+            "event": {
+              "state": -1697846299333176268,
+              "stream_id": "event",
+              "version": 1
+            },
+            "map": {
+              "state": -2895594302882977995,
+              "stream_id": "map",
+              "version": 1
+            },
+            "reward": {
+              "state": -8130599245451206697,
+              "stream_id": "reward",
+              "version": 1
+            },
+            "shop": {
+              "state": 6004680943258779301,
+              "stream_id": "shop",
+              "version": 1
+            }
+          },
+          "version": 1
+        },
+        "final_phase": "BATTLE"
+      }
+    },
+    {
+      "id": "1.0.0-replay-character-contract",
+      "record": "ReplayRecord",
+      "schema_version": 1,
+      "game_version": "game.phase2.v1",
+      "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+      "run_id": "stage5.compatibility.100.replay",
+      "path": "tests/fixtures/stage5_100_replay_record.json",
+      "sha256_lf_canonical": "8c7fab40e6ff327c5d55a8bb58581828ff6063049a545f85ef6decf2992c50fb",
+      "command_count": 2,
+      "terminal_outcome": "ONGOING"
+    }
+  ]
+}

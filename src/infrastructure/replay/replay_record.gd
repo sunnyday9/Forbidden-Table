@@ -64,7 +64,9 @@ func serialize() -> String:
 
 static func from_dictionary(record_data: Dictionary):
 	var record := ReplayRecordScript.new(int(record_data.get("run_seed", 0)), str(record_data.get("content_version", "")), str(record_data.get("run_id", "")))
-	record.schema_version = int(record_data.get("schema_version", SCHEMA_VERSION))
+	# Missing schema metadata must stay unsupported rather than being relabeled
+	# as the current schema during decoding.
+	record.schema_version = int(record_data.get("schema_version", -1))
 	# Missing game_version remains unsupported instead of being silently relabeled as the current game.
 	record.game_version = str(record_data.get("game_version", ""))
 	for command_data in record_data.get("commands", []):
