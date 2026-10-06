@@ -13,10 +13,13 @@
 | Focused result | **PASS** — isolated Guided Sample lifecycle, action-gating, and persistence tests |
 | Full-suite command | `GODOT_BIN=<pinned Godot 4.7.2 binary> ./scripts/test.sh` |
 | Full-suite result | **PASS** at `5b52f63`; `bff2beb` changes only Windows export exclusions, not the sample or its tests |
+| Current RC2 full-suite re-verification | **PASS** at `9279e9070ee45d4298c01ea260a141be8aacc374`; `GODOT_BIN=<pinned Godot 4.7.2 binary> ./scripts/test.sh` passed on the candidate source |
 | Localization audit | **PASS** — `python3 scripts/validate_localization.py`: 1,076/1,076 stable keys; 1,203 English and Simplified Chinese entries; 0 unresolved items |
 | Audit unit tests | **PASS** — `python3 -m unittest tests.localization_audit_test`: 21 tests |
 
 All Godot tests were run with `--headless`.
+
+The original focused sample result above remains tied to its recorded implementation evidence. The current RC2 full-suite run re-exercises the sample and its isolation checks on the frozen candidate source; it does not add player-comprehension or physical-device evidence.
 
 ## Scripted acceptance coverage
 

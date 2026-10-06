@@ -1,6 +1,6 @@
 # Stage 5 — 1.0 Release Candidate and Public Release
 
-**Status:** Scope aligned for planning on 2026-10-04. Implementation, public repository visibility, and release publication have not been authorized by this document.
+**Status:** Stage 5 is in progress. Scope was aligned on 2026-10-04. RC2 automated and package evidence is recorded; owner Windows validation and the separate public go/no-go remain outstanding.
 
 **Decision owner:** Project maintainer.
 
@@ -114,6 +114,8 @@ After publication, download the ZIP from the public release page on a clean Wind
 ## 5. Release evidence
 
 The Stage 5 evidence report must identify the exact source commit and all build/content/save/replay versions, engine version, test commands, candidate/public tag, artifact hashes, Windows build numbers, compatibility fixtures and results, defect dispositions, and gate decisions.
+
+The current private candidate's automated evidence and remaining owner-only gates are recorded in [Stage 5 RC2 Candidate Evidence](STAGE_5_RC2_EVIDENCE.md). This report does not pass the Windows owner-validation gate or authorize repository visibility changes or release publication.
 
 Every area is marked **PASS**, **FAIL**, **WAIVED**, or **UNVERIFIED** with its evidence. No numeric performance result is required. Do not turn absent outside testers or player-comprehension evidence into a PASS.
 

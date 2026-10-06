@@ -45,3 +45,5 @@ Focused and full automated checks passed on the current source target, whose pro
 - GODOT_BIN=<Godot 4.7.2 binary> ./scripts/test.sh
 
 The source baseline is the frozen RC1 candidate; the target is the current RC2 source diff. RC2 is not a frozen owner RC, so these checks do not establish owner approval. They do not prove cross-patch compatibility because no later 1.0.x candidate exists yet. Windows 10/11 launch and the private RC gate remain separate Stage 5 evidence.
+
+The current RC2 full-suite verification target is source commit `9279e9070ee45d4298c01ea260a141be8aacc374` with no tracked or untracked changes reported by Git. The exact package and corpus identities, plus the remaining RC gate limits, are listed in [Stage 5 RC2 Candidate Evidence](STAGE_5_RC2_EVIDENCE.md).
