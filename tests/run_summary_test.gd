@@ -66,7 +66,7 @@ func test_build_story_contains_tracked_run_data(failures: Array[String]) -> void
 		assert_true(summary.has(key), "Run Summary Build Story includes %s" % key, failures)
 	assert_true(summary.outcome == "VICTORY" and summary.character_id == Phase2CatalogScript.CHARACTER_IDS[0] and summary.contract_id == Phase2CatalogScript.CONTRACT_IDS[0], "summary records the actual result, Character and Contract", failures)
 	assert_true(summary.act_progress.bosses_defeated.size() == 1, "summary records the tracked Boss progress", failures)
-	assert_true(summary.final_tile_pool.size() == 14, "summary includes the final Tile Pool created by the Run", failures)
+	assert_true(summary.final_tile_pool.size() == 68, "summary includes all 68 tiles in the Sequence Run's final pool", failures)
 	assert_true(summary.core_yaku.get(tracked_yaku_id, 0) == 1 and summary.relics.has("base.relic.open_hand"), "summary includes tracked Yaku and Relic ownership", failures)
 	assert_true(summary.techniques.has(Phase2CatalogScript.RUN_TECHNIQUE_IDS[0]) and summary.rule_breakers.has(Phase2CatalogScript.BOSS_RULE_BREAKER_IDS[0]), "summary includes owned Techniques and Rule Breakers", failures)
 	assert_true(summary.complete_hand_count == 2 and summary.maximum_mahjong_score == 180 and summary.seed == 5501, "summary reports tracked counters and the actual Run seed", failures)
@@ -74,7 +74,7 @@ func test_build_story_contains_tracked_run_data(failures: Array[String]) -> void
 	var text := RunSummaryPresenterScript.format(domain.state, 5000)
 	for heading in ["Build Story", "Final Tile Pool:", "Core Yaku:", "Common Patterns:", "Complete Hands:", "Maximum Mahjong Score:", "Milestones:", "Seed:", "Duration: 00:16:40"]:
 		assert_true(text.contains(heading), "player-facing summary displays %s" % heading, failures)
-	assert_true(text.contains("Characters 1 ×"), "final Tile Pool names preserve tile suit and rank", failures)
+	assert_true(text.contains("Characters: 1×2") and text.contains("9×2") and text.contains("East ×2"), "compact final pool retains numbered suit/rank copy counts and full honor identities", failures)
 	assert_true(not summary.has("duration_seconds"), "elapsed wall time is added by the presentation layer and does not make replay state nondeterministic", failures)
 	domain.state.run_started_at_unix_seconds = 0
 	assert_true(RunSummaryPresenterScript.format(domain.state, 5000).contains("Duration: Not tracked for this Run"), "legacy saves with no recorded start time do not receive an invented duration", failures)

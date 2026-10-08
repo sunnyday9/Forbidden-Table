@@ -52,7 +52,6 @@ var _help_scroll_frame: Control
 var _mode_buttons: Dictionary = {}
 var _language_buttons: Dictionary = {}
 var _scale_buttons: Dictionary = {}
-var _serif_labels: Array[Label] = []
 var _reduced_motion_button: CheckButton
 var _ambient_glow_button: CheckButton
 var _tutorial_enabled_button: CheckButton
@@ -236,14 +235,16 @@ func _build_ui() -> void:
 	_brand.name = "BrandLabel"
 	_brand.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_brand.set_meta("localization_key", "UI_PREFS_BRAND")
+	_brand.set_meta("typography_role", "secondary")
 	_brand.text = Localization.text("UI_PREFS_BRAND")
+	ForbiddenTheme.style_label(_brand, "secondary", "en")
 	title_stack.add_child(_brand)
 	_title = Label.new()
 	_title.name = "TitleLabel"
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title.set_meta("typography_role", "title")
 	title_stack.add_child(_title)
 	ForbiddenTheme.title(_title, "en")
-	_serif_labels.append(_title)
 	var close_button := _make_button("UI_PREFS_CLOSE", _on_cancel_pressed)
 	close_button.name = "CloseButton"
 	_header.add_child(close_button)
@@ -275,6 +276,8 @@ func _build_ui() -> void:
 	_status_label = Label.new()
 	_status_label.name = "StatusLabel"
 	_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_status_label.set_meta("typography_role", "secondary")
+	ForbiddenTheme.style_label(_status_label, "secondary", "en")
 	_status_label.visible = false
 	_stack.add_child(_status_label)
 
@@ -300,6 +303,7 @@ func _build_settings_page() -> Control:
 	var columns := GridContainer.new()
 	columns.name = "SettingsPage"
 	columns.columns = 2
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	columns.add_theme_constant_override("h_separation", 16)
 	columns.add_theme_constant_override("v_separation", 16)
 	var feedback_panel := _section_panel("UI_PREFS_FEEDBACK_SPEED")
@@ -369,7 +373,7 @@ func _build_help_page() -> Control:
 	content.add_child(_make_label("UI_PREFS_HELP_TILE_MARKS", true))
 	content.add_child(_make_label("UI_PREFS_HELP_INPUT", true))
 	content.add_child(_make_label("UI_PREFS_HELP_LANGUAGE", true))
-	var tutorial_heading := _make_label("UI_PREFS_TUTORIAL_TITLE", false)
+	var tutorial_heading := _make_label("UI_PREFS_TUTORIAL_TITLE", false, "heading")
 	content.add_child(tutorial_heading)
 	_tutorial_enabled_button = CheckButton.new()
 	_tutorial_enabled_button.name = "TutorialEnabledButton"
@@ -442,13 +446,19 @@ func _fit_to_viewport() -> void:
 	_outer_margin.add_theme_constant_override("margin_left", side_margin)
 	_outer_margin.add_theme_constant_override("margin_right", side_margin)
 	var panel_style := _card.get_theme_stylebox("panel")
-	# Use the actual available inner width so the two-column layout only appears
-	# when both settings panels have room; smaller cards keep one readable column.
+	var ui_scale := float(_preferences.get("ui_scale", _prefs.ui_scale if _prefs != null else 1.0))
+	# Measure the page viewport after layout. The scroll bar takes part of that
+	# allocation when content overflows, and larger type needs wider columns.
 	var settings_grid := _settings_page as GridContainer
 	if settings_grid != null:
-		var panel_insets := panel_style.get_minimum_size().x if panel_style != null else 0.0
-		var inner_width := maxf(0.0, card_width - panel_insets - side_margin * 2.0)
-		settings_grid.columns = 2 if inner_width >= TWO_COLUMN_MIN_CONTENT_WIDTH else 1
+		var available_grid_width := _settings_scroll.size.x
+		var settings_scrollbar := _settings_scroll.get_v_scroll_bar()
+		available_grid_width -= settings_scrollbar.get_combined_minimum_size().x
+		if available_grid_width <= 0.0:
+			var panel_insets := panel_style.get_minimum_size().x if panel_style != null else 0.0
+			available_grid_width = card_width - panel_insets - side_margin * 2.0 - scrollbar_width
+		available_grid_width = maxf(0.0, available_grid_width)
+		settings_grid.columns = 2 if available_grid_width >= TWO_COLUMN_MIN_CONTENT_WIDTH * ui_scale else 1
 	var visible_children := 0
 	for child in _stack.get_children():
 		if (child as Control).visible:
@@ -462,10 +472,13 @@ func _fit_to_viewport() -> void:
 	var frame_height := panel_style.get_minimum_size().y if panel_style != null else 0.0
 	frame_height += _outer_margin.get_theme_constant("margin_top") + _outer_margin.get_theme_constant("margin_bottom")
 	var available_body_height := viewport_size.y - CARD_VERTICAL_MARGIN * 2.0 - chrome_height - frame_height
-	var ui_scale := float(_prefs.ui_scale) if _prefs != null else 1.0
 	var body_height := maxf(MIN_PAGE_BODY_HEIGHT * ui_scale, minf(MAX_PAGE_BODY_HEIGHT * ui_scale, maxf(0.0, available_body_height)))
 	_settings_scroll.custom_minimum_size.y = body_height
 	_help_scroll.custom_minimum_size.y = body_height
+	_settings_scroll_frame.custom_minimum_size.y = body_height
+	_help_scroll_frame.custom_minimum_size.y = body_height
+	_stack.queue_sort()
+	_viewport_scroll.queue_sort()
 
 
 func _schedule_viewport_fit() -> void:
@@ -504,8 +517,8 @@ func _section_panel(heading_key: String) -> PanelContainer:
 	var heading := Label.new()
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.set_meta("localization_key", heading_key)
-	ForbiddenTheme.title(heading, "en")
-	_serif_labels.append(heading)
+	heading.set_meta("typography_role", "heading")
+	ForbiddenTheme.heading(heading, "en")
 	stack.add_child(heading)
 	return panel
 
@@ -519,11 +532,13 @@ func _make_button(text_key: String, callback: Callable, primary: bool = false) -
 	return button
 
 
-func _make_label(text_key: String, wrap: bool) -> Label:
+func _make_label(text_key: String, wrap: bool, typography_role: String = "secondary") -> Label:
 	var label := Label.new()
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.set_meta("localization_key", text_key)
+	label.set_meta("typography_role", typography_role)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
+	ForbiddenTheme.style_label(label, typography_role, "en")
 	return label
 
 
@@ -534,14 +549,13 @@ func _refresh() -> void:
 	var ui_scale := float(_prefs.ui_scale) if _prefs != null else 1.0
 	theme = ForbiddenTheme.create_theme(active_locale, ui_scale)
 	ForbiddenTheme.style_panel(_card, "lacquer")
-	for label in _serif_labels:
-		ForbiddenTheme.title(label, active_locale)
 	_title.text = Localization.text("UI_PREFS_TITLE")
 	_brand.text = Localization.text("UI_PREFS_BRAND")
 	for node in find_children("*", "Label", true, false):
 		var label := node as Label
 		if label.has_meta("localization_key"):
 			label.text = Localization.text(str(label.get_meta("localization_key")))
+		ForbiddenTheme.style_label(label, str(label.get_meta("typography_role", "body")), active_locale)
 	for node in find_children("*", "Button", true, false):
 		var button := node as Button
 		if button.has_meta("localization_key"):

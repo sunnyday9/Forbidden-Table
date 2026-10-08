@@ -255,7 +255,7 @@ func test_authoritative_run_commands_enforce_unlocks(failures: Array[String]) ->
 	assert_true(not locked_character.accepted and locked_character.validation.code == "CHARACTER_LOCKED", "a direct Run command cannot select a registered but locked Character", failures)
 	var choose_base = locked_domain.execute(ChooseCharacterCommandScript.new("choose.base.character", Phase2CatalogScript.CHARACTER_IDS[0]))
 	assert_true(choose_base.accepted, "the default unlock policy permits a base Character", failures)
-	assert_true(locked_domain.state.tile_pool.tile_instances.size() == 14, "the authoritative Character command initializes the starting Tile Pool", failures)
+	assert_true(locked_domain.state.tile_pool.tile_instances.size() == 68, "the authoritative Sequence command initializes its full 68-tile starting pool", failures)
 	var locked_contract = locked_domain.execute(ChooseContractCommandScript.new("choose.locked.contract", AlphaScaleCatalogScript.CONTRACT_IDS[0]))
 	assert_true(not locked_contract.accepted and locked_contract.validation.code == "CONTRACT_LOCKED", "a direct Run command cannot select a registered but locked Contract", failures)
 	var all_unlocked = RunDomainScript.new_alpha_run("meta.all-unlocked-direct", 5202, registry, "", null, null, MetaProgressStateScript.all_unlocked_test_profile())

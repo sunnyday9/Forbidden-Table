@@ -359,9 +359,9 @@ UI_RUN_SCENE_0057,No actions are available in this state.
 UI_RUN_SCENE_0058,Tutorial complete
 UI_RUN_SCENE_0059,Disable tutorial
 UI_RUN_SCENE_0060,Enable tutorial
-UI_RUN_SCENE_0061,"Tutorial: draw a tile, inspect the highlighted Patterns, then settle one to deal damage."
-UI_RUN_SCENE_0062,Tutorial: spend TP on your Core Technique when its timing is legal.
-UI_RUN_SCENE_0063,Tutorial: store a tile in Reserve to protect it from enemy Pressure.
+UI_RUN_SCENE_0061,"Tutorial: draw a tile, then select a pair, three identical tiles, or a suited run of three. Settle Pattern consumes those tiles for replacement draws; build 14 tiles for Complete Hand damage."
+UI_RUN_SCENE_0062,Tutorial: use your Core Technique. Check its effect and TP cost first; some starter skills cost 0 TP.
+UI_RUN_SCENE_0063,Tutorial: store a tile in Reserve. Integrity decays when turns end; at 0 the tile expires.
 UI_RUN_SCENE_0064,Tutorial: build and settle a Complete Hand to advance Yaku progress.
 UI_RUN_SCENE_0065,Tutorial: inspect enemy intent and Contamination before ending the turn.
 UI_RUN_SCENE_0066,A new run could not start because game content failed validation.
@@ -412,7 +412,7 @@ UI_RUN_SCENE_0103,%s — %s
 UI_RUN_SCENE_0104,Choose %s
 UI_RUN_SCENE_0105,Choose Contract — %s
 UI_RUN_SCENE_0106,Use %s Technique
-UI_RUN_SCENE_0107,Settle %s
+UI_RUN_SCENE_0107,Play %s
 UI_RUN_SCENE_0108,Settle complete hand
 UI_RUN_SCENE_0109,Store tile
 UI_RUN_SCENE_0110,Discard tile
@@ -421,14 +421,14 @@ UI_RUN_SCENE_0112,Choose reward
 UI_RUN_SCENE_0113,Buy offer
 UI_RUN_SCENE_0114,Choose Event option
 UI_RUN_SCENE_0115,Choose tile
-UI_RUN_SCENE_0116,"Choose a Character, then a Contract to begin the Act 1 map. Select and commit each choice; the starting Tile Pool is prepared when you choose a Contract."
-UI_RUN_SCENE_0117,Select a Contract and commit it. The choice applies across both Acts.
-UI_RUN_SCENE_0118,Select an adjacent node and commit it. Complete battles and the Boss reward to continue the Run.
-UI_RUN_SCENE_0119,Draw tiles to find legal Patterns and Complete Hands. Select a choice and commit it; end the turn to resolve enemy intent.
-UI_RUN_SCENE_0120,"Review the Build Story, then select and commit the acknowledgement to finish the Run."
+UI_RUN_SCENE_0116,Choose a Character and Contract to begin the Act 1 map. Your starting Tile Pool is prepared when you choose a Contract.
+UI_RUN_SCENE_0117,Choose a Contract. It applies across both Acts.
+UI_RUN_SCENE_0118,Choose an adjacent node to travel there. Complete battles and the Boss reward to continue the Run.
+UI_RUN_SCENE_0119,Draw tiles to find legal Patterns and Complete Hands. Activate an available action to play it; select tiles to inspect or build a hand. End the turn to resolve enemy intent.
+UI_RUN_SCENE_0120,"Review the Build Story, then choose Finish Run to close the summary."
 UI_RUN_SCENE_0121,Run complete. Start another Run when you are ready.
-UI_RUN_SCENE_0122,"Select an available action, then choose Confirm selection. Enter / A confirms the focused control."
-UI_RUN_SCENE_0123,"%s Tab / L/R shoulder moves focus. Arrow keys / D-pad move between choices. Focus Run state, then press Up/Down to scroll its overview. Enter / A confirms; Esc / B returns."
+UI_RUN_SCENE_0122,Activate an available action to proceed. Enter / A activates the focused choice; focus any option to inspect it.
+UI_RUN_SCENE_0123,"%s Tab / L/R shoulder moves focus. Arrow keys / D-pad move between choices. Focus Run state, then press Up/Down to scroll its overview. Enter / A activates; Esc / B returns."
 UI_RUN_SCENE_0124,%s — %s
 UI_RUN_SCENE_0125,Transform %s to %s (%d Gold)
 UI_RUN_SCENE_0126,Add %s to %s (%d Gold)
@@ -900,7 +900,7 @@ base.relic.contamination_filter,Contamination filter
 base.relic.elite_bounty,Elite bounty
 base.relic.fatigue_buffer,Fatigue buffer
 base.relic.integrity_seal,Integrity seal
-base.relic.open_hand,Open hand
+base.relic.open_hand,Reserve preparation
 base.relic.reserve_sleeve,Reserve sleeve
 base.relic.reward_pivot,Reward pivot
 base.relic.rule_memory,Rule memory
@@ -1007,7 +1007,7 @@ UI_BATTLE_VIEW_0020,No legal tile actions are available right now.
 UI_BATTLE_VIEW_0021,No Technique is currently available.
 UI_BATTLE_VIEW_0022,No choices are available.
 UI_BATTLE_VIEW_0023,Commit selected
-UI_BATTLE_VIEW_0024,"Focus to inspect. Select a choice, then commit."
+UI_BATTLE_VIEW_0024,Select tiles to inspect; activate an available action to play it.
 UI_BATTLE_VIEW_0025,No tiles in this zone.
 UI_BATTLE_VIEW_0026,%s · copy %s
 UI_BATTLE_VIEW_0027,Integrity %d / %d
@@ -1063,6 +1063,10 @@ UI_PREFS_TUTORIAL_RESET_PENDING,The tutorial will restart when you apply these s
 UI_PREFS_TUTORIAL_TITLE,Tutorial
 UI_PREFS_UI_SCALE,Interface size
 UI_RUN_JOURNEY_0001,Take your seat
+UI_RUN_CHARACTER_FACT_TILE_BIAS,Tile Pool bias: %s
+UI_RUN_CHARACTER_FACT_RELIC,Starting Relic: %s
+UI_RUN_CHARACTER_FACT_TECHNIQUE,Core Technique: %s
+UI_RUN_CHARACTER_FACT_PASSIVE,Signature Passive: %s
 UI_RUN_JOURNEY_0002,Sign your Contract
 UI_RUN_JOURNEY_0003,Act %d · Choose your path
 UI_RUN_JOURNEY_0004,Choose your reward
@@ -1091,7 +1095,7 @@ UI_RUN_JOURNEY_0026,Run details
 UI_RUN_JOURNEY_0027,No eligible choices are available.
 UI_RUN_JOURNEY_0031,"Revealed, not reachable"
 UI_RUN_JOURNEY_0032,Refreshes remaining: %d
-UI_RUN_JOURNEY_0033,"Choose a service, then a tile and its legal result. Review the exact change and cost before confirming."
+UI_RUN_JOURNEY_0033,"Choose a service, then a tile and its legal result. Review the exact change and cost before activating the service."
 UI_RUN_JOURNEY_0034,Begin a new Run?
 UI_RUN_JOURNEY_0035,A new Run begins from the start and cannot resume the current Run.
 UI_RUN_JOURNEY_0036,Keep current Run
@@ -1131,7 +1135,26 @@ Recovery copy: %s
 Run: %s
 Boundary: %s
 Codes: %s"
+UI_RUN_CHECKPOINT_MAP_NODE,Map choice recorded
+UI_RUN_CHECKPOINT_BATTLE_START,Battle begins
+UI_RUN_CHECKPOINT_TURN_START,Turn begins
+UI_RUN_CHECKPOINT_DRAW_ACTION,Draw accepted
+UI_RUN_CHECKPOINT_BATTLE_ACTION,Battle action complete
+UI_RUN_CHECKPOINT_SETTLEMENT_COMPLETE,Settlement complete
+UI_RUN_CHECKPOINT_ENEMY_INTENT_COMPLETE,Enemy turn complete
+UI_RUN_CHECKPOINT_SHOP,Shop
+UI_RUN_CHECKPOINT_WORKSHOP,Workshop
+UI_RUN_CHECKPOINT_EVENT_CHOICE_BEFORE,Event opened
+UI_RUN_CHECKPOINT_EVENT_CHOICE_AFTER,Event choice recorded
+UI_RUN_CHECKPOINT_REWARD,Reward recorded
+UI_RUN_CHECKPOINT_RUN_SUMMARY,Run summary
+UI_RUN_CHECKPOINT_RUN_COMPLETE,Run complete
+UI_RUN_CHECKPOINT_UNKNOWN,Unknown checkpoint
 UI_RUN_RECOVERY_READY,A saved Run is ready to continue. Resume restores its saved state; New Run replaces this continuation save.
+UI_RUN_RECOVERY_SUMMARY,"%s
+Character: %s
+Contract: %s
+Saved at: %s"
 UI_RUN_RECOVERY_PRESERVED,The saved Run could not be loaded. The original save is unchanged and a recovery copy has been preserved. Choose New Run only if you want to leave this save behind.
 UI_RUN_RECOVERY_MANUAL_COPY,The saved Run needs attention. Recovery could not be completed. Keep the original files and make a manual copy before starting over. Technical details show the paths and errors.
 UI_RUN_RECOVERY_INTERRUPTED_PRESERVED,The Suspend Save commit was interrupted. No older save was loaded. The recovery sources are unchanged and copies have been preserved. Choose New Run only if you want to leave this save behind.
@@ -1181,6 +1204,10 @@ UI_BATTLE_TABLE_NO_MATCH,No legal action for this selection. Change the tiles or
 UI_BATTLE_TABLE_ALL,Select Hand
 UI_BATTLE_TABLE_CLEAR,Clear selection
 UI_BATTLE_TABLE_WALL,%s tiles in the Wall
+UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_EXHAUSTED,Settlement capacity is used (%d/%d). You can still draw or end the turn.
+UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_REMAINING,Settlements remaining: %d/%d
+UI_BATTLE_TABLE_PAIR_INCOMPLETE,A Pair alone is not a Complete Hand; add it to a legal hand to play it.
+UI_BATTLE_TABLE_WINDOW_CLOSED,Settlement window is closed; play this set when it opens again.
 UI_RUN_SCENE_0150,%s · %s/%s
 UI_RUN_SCENE_0151,Pattern · %s
 UI_RUN_SCENE_0152,Tiles · %s
@@ -1188,23 +1215,25 @@ UI_RUN_SCENE_0153,%s · %s
 UI_RUN_SCENE_0154,Pair · %s
 UI_RUN_SCENE_0155,Yaku · %s · %s
 UI_RUN_SCENE_0156,%s gains 1 extra copy
+UI_RUN_SCENE_0157,Saved Run ready
+UI_RUN_SCENE_0158,"The Battle screen could not be loaded. Restart the game; if this continues, reinstall the game."
 UI_GUIDED_SAMPLE_ENTRY,Sample Run
 UI_GUIDED_SAMPLE_RESTART,Restart
 UI_GUIDED_SAMPLE_SKIP,Skip
 UI_GUIDED_SAMPLE_EXIT,Exit Sample
-UI_GUIDED_SAMPLE_0001,Choose a Character: starting tiles and Core Technique shape your Run.
+UI_GUIDED_SAMPLE_0001,"Choose Sequence directly: its 68-tile pool has two copies of every type, including honors. Its Core Technique shapes your Run."
 UI_GUIDED_SAMPLE_0002,Choose a Contract; its rule or reward changes this sample only.
-UI_GUIDED_SAMPLE_0003,Choose the starting node. Later, compare route risk and reward.
-UI_GUIDED_SAMPLE_0004,Draw adds a tile. The Wall counts draws; enemy HP and Intent sit above. Pressure / Limit ends the battle.
-UI_GUIDED_SAMPLE_0005,End Turn to resolve the visible Intent. Pressure reaching its Limit ends the battle.
-UI_GUIDED_SAMPLE_0006,Build a Pattern, then select tiles to preview actions and settle. Yaku tracks hand progress.
-UI_GUIDED_SAMPLE_0007,Store one tile in Reserve (capacity 3). Integrity protects it; Stability lowers Pressure.
-UI_GUIDED_SAMPLE_0008,Discard a selected tile to reshape your hand.
-UI_GUIDED_SAMPLE_0009,Swap a hand tile with Reserve; it uses this Draw's manipulation.
-UI_GUIDED_SAMPLE_0010,TP pays for Techniques. Use the Core Technique when enough is available.
-UI_GUIDED_SAMPLE_0011,Complete Hand uses your whole hand for a full payoff and Yaku progress.
+UI_GUIDED_SAMPLE_0003,"Choose the starting node. Later, compare route risk and reward."
+UI_GUIDED_SAMPLE_0004,"Draw until you have 14 tiles. In this sample, three draws complete the prepared hand. Small Patterns exchange tiles; Complete Hand is your main damage action."
+UI_GUIDED_SAMPLE_0005,You have played a tile. End Turn now resolves the visible Intent. Pressure reaching its limit ends the battle.
+UI_GUIDED_SAMPLE_0006,"Select a pair, three identical tiles, or three consecutive tiles of one suit, then Settle Pattern. It consumes only those tiles and draws replacements. This practice enemy also demonstrates a local Yaku bonus."
+UI_GUIDED_SAMPLE_0007,"Draw if needed, select one hand tile, then Store in Reserve. Watch Capacity and Integrity: stored tiles expire when Integrity reaches 0."
+UI_GUIDED_SAMPLE_0008,"Select a hand tile, then Play. Every turn requires 1–3 played tiles. Three tiles forming a sequence or triplet grant +3 Gold."
+UI_GUIDED_SAMPLE_0009,"Select one hand tile and one Reserve tile, then Swap. Each Draw opens one Store or Swap action."
+UI_GUIDED_SAMPLE_0010,"Use the highlighted Core Technique. Sequence Line costs 0 TP and grants 1 TP, once per turn. Check the effect shown on its button; this skill does not deal damage."
+UI_GUIDED_SAMPLE_0011,"Select all 14 hand tiles, then Complete Hand. The prepared hand contains four groups of three and one pair. Check the damage preview before settling."
 UI_GUIDED_SAMPLE_0012,Choose a reward. It stays inside this sample.
-UI_GUIDED_SAMPLE_0013,After the fight, compare Map Reveal (safe) with Risk Bargain (more risk, reward).
+UI_GUIDED_SAMPLE_0013,"After the fight, compare Map Reveal (safe) with Risk Bargain (more risk, reward)."
 UI_GUIDED_SAMPLE_0014,Enter to read the Event.
 UI_GUIDED_SAMPLE_0015,Choose one Event option; only this sample's resources change.
 UI_GUIDED_SAMPLE_0016,Choose the Shop node. The path and costs show risk and reward.
@@ -1228,3 +1257,98 @@ prototype.encounter.guided_sample,Guided Sample Encounter
 prototype.encounter.guided_sample_actions,Guided Sample Action Practice
 prototype.enemy.guided_sample,Practice Sentinel
 prototype.enemy.guided_sample_actions,Sparring Sentinel
+UI_RUN_REWARD_KIND_TILE,Tile
+UI_RUN_REWARD_KIND_MODIFIED_TILE,Tile upgrade
+UI_RUN_REWARD_KIND_SKIP,Take resources
+UI_RUN_REWARD_KIND_RELIC,Relic
+UI_RUN_REWARD_KIND_TECHNIQUE,Run technique
+UI_RUN_REWARD_KIND_RULE_BREAKER,Rule breaker
+UI_RUN_REWARD_EFFECT_ADD_TILE,Add this tile to your pool.
+UI_RUN_REWARD_EFFECT_MODIFIER_TO_TILE,Upgrade %s with %s.
+UI_RUN_REWARD_EFFECT_ACQUIRE,Add to your build.
+UI_RUN_REWARD_CHANGE_AMOUNT,%s %s
+UI_RUN_REWARD_EFFECT_DRAW_TILE,Draw a tile.
+UI_RUN_REWARD_EFFECT_PURGE_CONTAMINATION,Clear contamination.
+UI_RUN_REWARD_EFFECT_RUN_MODIFIER,Run modifier: %s
+UI_RUN_REWARD_EFFECT_WORKSHOP_DISCOUNT,Workshop discount: %d gold
+WORD_STABILITY,Stability
+WORD_DAMAGE,Damage
+WORD_DRAW_CAPACITY,Draw capacity
+WORD_RESERVE_CAPACITY,Reserve capacity
+WORD_SETTLEMENT_CAPACITY,Settlement capacity
+UI_RUN_RECEIPT_REWARD,Reward received
+UI_RUN_RECEIPT_TILE_ADDED,Tile added
+UI_RUN_RECEIPT_TILE_IMPROVED,Tile upgraded
+UI_RUN_RECEIPT_TILE_REMOVED,Tile removed
+UI_RUN_RECEIPT_TILE_TRANSFORMED,Tile transformed
+UI_RUN_RECEIPT_TILE_DUPLICATED,Tile duplicated
+UI_RUN_RECEIPT_TILE_MODIFIED,Tile modified
+UI_RUN_RECEIPT_SHOP_PURCHASED,Purchase complete
+UI_RUN_REWARD_KIND_SPECIAL,Special offer
+UI_RUN_TILE_TRANSITION,→
+UI_RUN_CHARACTER_SUIT_PROMPT,Choose one suit to remove
+UI_RUN_CHARACTER_SUIT_GUIDANCE,"Honors are removed too. The other two suits provide four copies of ranks 1–9 each, for 72 tiles."
+UI_RUN_CHARACTER_SUIT_LABEL_CHARACTERS,Remove Characters
+UI_RUN_CHARACTER_SUIT_LABEL_DOTS,Remove Dots
+UI_RUN_CHARACTER_SUIT_LABEL_BAMBOO,Remove Bamboo
+UI_RUN_CHARACTER_SUIT_BACK,Back to character choice
+UI_RUN_CHARACTER_POOL_RESERVE,Starting pool: 72 suited tiles (four copies of ranks 1–9 in each of the two kept suits). Honors and the chosen suit are excluded.
+UI_RUN_CHARACTER_POOL_SEQUENCE,"Starting pool: 68 tiles (two copies of every tile type, including honors)."
+UI_BATTLE_HAND_CAP,Hand %d/14
+UI_BATTLE_HAND_LIMIT_HINT,Opening hand: 11 tiles. Hand limit: 14.
+UI_BATTLE_HAND_CAP_REACHED,Hand is full (%d/14). Play or discard tiles to make room before drawing.
+UI_RC7_REWARD_TARGET_PROMPT,Choose an owned tile type to upgrade.
+UI_RC7_REWARD_TARGET_BACK,Back to rewards
+UI_RC7_REWARD_TARGET_LABEL,Upgrade %s · %d copies
+UI_RC7_REWARD_UPGRADE_PROMPT,Choose an owned tile type. Upgrade up to %d eligible copies; your pool size stays the same.
+UI_RC7_REWARD_TARGET_EFFECT,Upgrade %s · %d copies with %s. Pool size stays the same.
+UI_RC7_SPECIAL_PIVOT,Special pivot reward
+UI_RC7_PIVOT_EFFECT,Add this tile to your pool. This special pivot can introduce a removed suit or honor tile.
+UI_RC7_REMOVE_PAIR_PREVIEW,"Permanently remove 2 copies of %s, including their modifiers. Pool: %d → %d. Cost: %d gold. Battle discards do not remove pool tiles."
+UI_RC7_REMOVE_PAIR_LABEL,Remove 2 × %s · %d gold
+UI_RC7_REMOVE_PAIR_RECEIPT,Permanently removed 2 copies. Their modifiers were removed too.
+WORD_REMOVE_PAIR,Remove two copies
+UI_RC7_DISCARD_HINT,Discard hint: %s. %s
+UI_RC7_DISCARD_RULE,"One discard per draw, separate from Reserve/swap. A full 14-tile hand can discard before drawing. Discarding never grants draws or TP."
+UI_RC7_DISCARD_HINT_ISOLATED,A weak connection to your current hand.
+UI_RC7_DISCARD_HINT_GROUP,Preserves your stronger pairs and groups.
+UI_RC7_DISCARD_HINT_READY,This belongs to a ready group; consider playing the group first.
+UI_RC7_DISCARD_HINT_PAIR,This supports a pair; consider preserving it if useful.
+UI_RC7_DISCARD_HINT_CONNECTOR,This connects numbered tiles; compare your other groups first.
+UI_RC7_DISCARD_ADVICE_SHOW,Discard advice
+UI_RC7_DISCARD_ADVICE_HIDE,Hide advice
+UI_RC7_COPY_SEPARATOR,+
+UI_PLAYER_SETTLEMENT_PREVIEW,Base outcome: consume %d tiles → draw %d replacements. Score %d → %d damage · %d Stability.
+UI_PLAYER_COMMIT_PREVIEW,Base: %d damage · draw %d replacements
+UI_PLAYER_TRIGGERED_EFFECTS,"Tile, relic and triggered effects resolve when you settle."
+UI_PLAYER_WALL_SHORTFALL,The Wall cannot supply all replacement draws.
+UI_PLAYER_RECOVERY_PREVIEW,Complete Hand starts Recovery after rebuilding your hand.
+UI_PLAYER_LETHAL_INTENT,Danger: +%d Pressure reaches the limit.
+UI_PLAYER_RESERVE_EXPIRY,"Reserve Integrity decays as turns end. At 0, the stored tile expires; swap valuable tiles back before then."
+UI_PLAYER_DEFEAT_CAUSE,Pressure %d / %d (limit reached). Enemy HP %d.
+UI_PLAYER_DEFEAT_LESSON,Next time: inspect Intent before End Turn. Use Stability to lower Pressure and build a Complete Hand for damage; small Patterns mainly exchange tiles.
+UI_PLAYER_WIN_RECEIPT,Complete Hand: %d score → %d damage dealt
+UI_PLAYER_MAP_PREVIEW,"Preview this destination, then choose Travel. Travel commits your route."
+UI_PLAYER_MAP_TRAVEL,Travel → %s
+UI_PLAYER_MAP_CHOOSE,Select a destination to preview its type before travelling.
+UI_PLAYER_MAP_FACTS,Gold %d · Refinement %d · Pool %d tiles
+UI_PLAYER_EFFECT_TILE_SETTLED,When this tile settles: %s
+UI_PLAYER_EFFECT_BATTLE_START,At battle start: %s
+UI_PLAYER_DEFEAT_GENERIC,Pressure limit
+UI_PLAYER_SHOP_UNAVAILABLE,Unavailable for purchase
+UI_PLAYER_SKILL_COST,Cost %d TP · %s
+UI_PLAYER_SKILL_USE,use during battle
+UI_PLAYER_SKILL_SETTLEMENT,use while a Settlement Window is open
+UI_PLAYER_REACTION_CONTAMINATION,automatically reacts when the enemy adds Contamination
+UI_PLAYER_REACTION_STABILITY,automatically reacts when the enemy removes Stability
+UI_RC8_SORT_HAND,Sort hand
+UI_RC8_MOVE_LEFT,Move left
+UI_RC8_MOVE_RIGHT,Move right
+UI_RC8_HAND_ORDER_HINT,"Drag a hand tile to change its position. You can also select or focus a tile, then use Move left / Move right. Sort groups suits and ranks."
+UI_RC8_PLAY_REQUIRED,Play at least 1 hand tile before End Turn.
+UI_RC8_PLAY_RULE,"Play 1–3 hand tiles before End Turn. Select up to your remaining allowance, then Play. A sequence or triplet across all 3 tiles played this turn grants +3 Gold once. Playing moves tiles to Discard without drawing replacements."
+UI_RC8_PLAY_PROGRESS,Played this turn: %d / 3 · At least 1 required · Sequence / triplet: +3 Gold
+UI_RC8_PLAY_SELECTED,Play %d selected tiles
+UI_RC8_SINGLE_PLAY,Play %s
+UI_RC8_COMBO_PREVIEW,Combo bonus: +3 Gold
+UI_RC8_COMBO_RECEIPT,Played sequence / triplet: +%d Gold

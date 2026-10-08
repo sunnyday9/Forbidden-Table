@@ -50,6 +50,24 @@ func draw_one():
 		return null
 	return tile_instance
 
+func reorder_opening_tiles(definition_ids: Array) -> bool:
+	if not _initialized or definition_ids.is_empty():
+		return false
+	var remaining_tiles: Array = contents()
+	var ordered_tiles: Array = []
+	for definition_id in definition_ids:
+		var match_index := -1
+		for index in range(remaining_tiles.size()):
+			if str(remaining_tiles[index].definition_id) == str(definition_id):
+				match_index = index
+				break
+		if match_index < 0:
+			return false
+		ordered_tiles.append(remaining_tiles[match_index])
+		remaining_tiles.remove_at(match_index)
+	ordered_tiles.append_array(remaining_tiles)
+	return _zones.reorder(TileZoneScript.DRAW_WALL, _tile_ids(ordered_tiles))
+
 func reshuffle_discard() -> bool:
 	if not _initialized or _zones == null:
 		return false

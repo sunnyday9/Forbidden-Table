@@ -2,6 +2,8 @@ class_name WorkshopState
 extends RefCounted
 
 const REMOVE := "REMOVE"
+const REMOVE_PAIR := "REMOVE_PAIR"
+const REMOVE_PAIR_MINIMUM_POOL_SIZE := 14
 const TRANSFORM := "TRANSFORM"
 const ADD_MODIFIER := "ADD_MODIFIER"
 const REPLACE_MODIFIER := "REPLACE_MODIFIER"
@@ -33,7 +35,7 @@ func begin(initial_node_id: String, initial_entry_id: String) -> void:
 	completed = false
 	node_id = initial_node_id
 	entry_id = initial_entry_id
-	available_service_ids = [REMOVE, TRANSFORM, MODIFIER, DUPLICATE, REFINEMENT_TOKEN]
+	available_service_ids = [REMOVE, REMOVE_PAIR, TRANSFORM, MODIFIER, DUPLICATE, REFINEMENT_TOKEN]
 	used_service_ids = []
 	entry_sequence += 1
 

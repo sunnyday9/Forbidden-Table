@@ -240,13 +240,14 @@ func test_brittle_compass_adds_distinct_modified_choice(failures: Array[String])
 			dots_preference_found = true
 	assert_true(dots_preference_found, "Brittle Compass biases Normal Add Tile choices toward Dots 4–6", failures)
 	if modified_options.size() == 2:
-		var first_pair := "%s|%s" % [modified_options[0].target_instance_id, modified_options[0].modifier_id]
-		var second_pair := "%s|%s" % [modified_options[1].target_instance_id, modified_options[1].modifier_id]
-		assert_true(first_pair != second_pair, "Brittle Compass Modified Tile choices use distinct target-instance/modifier pairs", failures)
+		assert_true(modified_options[0].modifier_id != modified_options[1].modifier_id, "Brittle Compass targeted Modified Tile choices offer distinct modifiers", failures)
 		domain.state.phase = RunPhase.REWARD_CHOICE
 		domain.state.reward_draft = draft
-		var validation = domain.validate_choose_reward(draft.draft_id, modified_options[1].option_id)
-		assert_true(validation.is_valid(), "the extra Modified Tile pair is legal under authoritative validation", failures)
+		var targets: Dictionary = domain.reward_target_choices(modified_options[1].option_id)
+		assert_true(targets.get("accepted", false) and not targets.get("choices", []).is_empty(), "the extra Modified Tile option has an eligible owned type", failures)
+		if not targets.get("choices", []).is_empty():
+			var validation = domain.validate_choose_reward(draft.draft_id, modified_options[1].option_id, str(targets["choices"][0]["tile_id"]))
+			assert_true(validation.is_valid(), "the extra Modified Tile type choice is legal under authoritative validation", failures)
 	assert_true(draft.to_dictionary() == repeat_draft.to_dictionary(), "Brittle Compass extra choice repeats exactly for a fixed seed", failures)
 	assert_true(domain.rng_snapshot()["streams"]["reward"] == repeat_domain.rng_snapshot()["streams"]["reward"], "Brittle Compass extra choice preserves deterministic Reward RNG", failures)
 
@@ -262,11 +263,18 @@ func test_stale_contract_reward_options_are_rejected_atomically(failures: Array[
 	if modified == null:
 		assert_true(false, "Brittle Compass stale-option fixture has a Modified Tile choice", failures)
 		return
-	modified.target_instance_id = "run.tile.no-longer-owned"
+	var targets: Dictionary = domain.reward_target_choices(modified.option_id)
+	if targets.get("choices", []).is_empty():
+		assert_true(false, "Brittle Compass stale-option fixture has an eligible target type", failures)
+		return
+	var stale_type: String = str(targets["choices"][0]["tile_id"])
+	for tile in domain.state.tile_pool.tile_instances.duplicate():
+		if tile.definition_id == stale_type:
+			domain.state.tile_pool.tile_instances.erase(tile)
 	var before := domain.checkpoint()
 	var rng_before := domain.rng_snapshot()
 	var replay_count: int = domain.replay_record.commands.size()
-	var result = domain.execute(ChooseRewardCommand.new("contract.brittle.stale.choose", modified.option_id, draft.draft_id))
+	var result = domain.execute(ChooseRewardCommand.new("contract.brittle.stale.choose", modified.option_id, draft.draft_id, "", "", false, stale_type))
 	assert_true(not result.accepted and result.validation.code == "INVALID_REWARD_TARGET", "a stale Brittle Compass Modified Tile target is rejected", failures)
 	assert_true(domain.checkpoint() == before and domain.rng_snapshot() == rng_before, "stale Modified Tile rejection leaves state and RNG unchanged", failures)
 	assert_true(domain.replay_record.commands.size() == replay_count, "stale Modified Tile rejection is absent from replay", failures)

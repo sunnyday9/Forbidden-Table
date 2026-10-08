@@ -9,6 +9,7 @@ const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const RunPresentationControllerScript = preload("res://src/presentation/run/run_presentation_controller.gd")
 const GuidedSampleSessionScript = preload("res://src/presentation/run/guided_sample_session.gd")
+const PlayerActionTextScript = preload("res://src/presentation/ui/player_action_text.gd")
 const TutorialProgressScript = preload("res://src/presentation/run/tutorial_progress.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
@@ -21,9 +22,26 @@ const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.
 const TableBackdropScript = preload("res://src/presentation/ui/table_backdrop.gd")
 const RunJourneyViewScript = preload("res://src/presentation/ui/run_journey_view.gd")
 const RunSummaryViewScript = preload("res://src/presentation/ui/run_summary_view.gd")
+const RunRewardReceiptViewScript = preload("res://src/presentation/ui/run_reward_receipt_view.gd")
 const PreferencesOverlayScript = preload("res://src/presentation/ui/preferences_overlay.gd")
 const YakuProgressTextScript = preload("res://src/presentation/ui/yaku_progress_text.gd")
 const BattleViewPath := "res://src/presentation/ui/battle_view.gd"
+const CHECKPOINT_LABEL_KEYS := {
+	"MAP_NODE": "UI_RUN_CHECKPOINT_MAP_NODE",
+	"BATTLE_START": "UI_RUN_CHECKPOINT_BATTLE_START",
+	"TURN_START": "UI_RUN_CHECKPOINT_TURN_START",
+	"DRAW_ACTION": "UI_RUN_CHECKPOINT_DRAW_ACTION",
+	"BATTLE_ACTION": "UI_RUN_CHECKPOINT_BATTLE_ACTION",
+	"SETTLEMENT_COMPLETE": "UI_RUN_CHECKPOINT_SETTLEMENT_COMPLETE",
+	"ENEMY_INTENT_COMPLETE": "UI_RUN_CHECKPOINT_ENEMY_INTENT_COMPLETE",
+	"SHOP": "UI_RUN_CHECKPOINT_SHOP",
+	"WORKSHOP": "UI_RUN_CHECKPOINT_WORKSHOP",
+	"EVENT_CHOICE_BEFORE": "UI_RUN_CHECKPOINT_EVENT_CHOICE_BEFORE",
+	"EVENT_CHOICE_AFTER": "UI_RUN_CHECKPOINT_EVENT_CHOICE_AFTER",
+	"REWARD": "UI_RUN_CHECKPOINT_REWARD",
+	"RUN_SUMMARY": "UI_RUN_CHECKPOINT_RUN_SUMMARY",
+	"RUN_COMPLETE": "UI_RUN_CHECKPOINT_RUN_COMPLETE",
+}
 const GUIDED_SAMPLE_SEED := 53005
 
 var controller
@@ -44,13 +62,16 @@ var _run_value: Label
 var _battle_value: Label
 var _hand_value: Label
 var _help_value: Label
+var _guidance_scroll: ScrollContainer
 var _tutorial_prompt: Label
 var _tutorial_toggle_button: Button
 var _tutorial_reset_button: Button
 var _overview_scroll: ScrollContainer
+var _overview_content: VBoxContainer
 var _feedback_value: Label
 var _feedback_scroll: ScrollContainer
 var _feedback_viewport: Control
+var _reward_receipt: Control
 var _footer_actions: HFlowContainer
 var _run_action_rail: BoxContainer
 var _profile_status: Label
@@ -68,7 +89,11 @@ var _guided_sample_restart_button: Button
 var _guided_sample_skip_button: Button
 var _guided_sample_exit_button: Button
 var _guided_sample_complete_panel: PanelContainer
-var _suspend_choice_panel: VBoxContainer
+var _suspend_choice_slot: CenterContainer
+var _character_composition_top_spacer: Control
+var _character_composition_bottom_spacer: Control
+var _suspend_choice_panel: PanelContainer
+var _suspend_choice_content: VBoxContainer
 var _suspend_status_scroll: ScrollContainer
 var _suspend_status: Label
 var _suspend_details_button: Button
@@ -77,6 +102,8 @@ var _suspend_details_value: Label
 var _resume_run_button: Button
 var _new_run_from_suspend_button: Button
 var _suspend_message_parts: Array[Dictionary] = []
+var _suspend_summary_domain
+var _suspend_summary_boundary := ""
 var _suspend_technical_details: Dictionary = {}
 var _suspend_details_expanded := false
 var _suspend_new_run_label_key := "UI_RUN_SCENE_0044"
@@ -98,21 +125,15 @@ var _journey_host: Control
 var _journey_view
 var _summary_view
 var _battle_view
+var _battle_view_resource_path := BattleViewPath
+var _battle_view_failure: PanelContainer
+var _battle_view_failure_message: Label
 var _run_status_panel: PanelContainer
 var _run_header: HFlowContainer
 var _game_title: Label
 var _settings_button: Button
-var _commit_selected_button: Button
 var _back_button: Button
 var _preferences_overlay: Control
-var _confirmation_overlay: Control
-var _confirmation_card: PanelContainer
-var _confirmation_actions: BoxContainer
-var _confirmation_message: Label
-var _confirm_new_run_button: Button
-var _cancel_new_run_button: Button
-var _new_run_from_suspend_pending := false
-var _new_run_confirmation_origin: Control
 var _applied_preferences: Dictionary = {}
 var _battle_focus_action_id := ""
 var _battle_configured_controller
@@ -158,21 +179,6 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if _preferences_overlay != null and _preferences_overlay.visible:
 		_preferences_overlay.call("_input", event)
-		return
-	if _confirmation_overlay != null and _confirmation_overlay.visible:
-		var modal_action := _mapped_ui_action(event)
-		if modal_action == "ui_cancel":
-			_close_new_run_confirmation(true)
-			get_viewport().set_input_as_handled()
-		elif modal_action == "ui_accept":
-			_confirm_focused_control()
-			get_viewport().set_input_as_handled()
-		elif modal_action == "ui_focus_next":
-			_move_control_focus(1)
-			get_viewport().set_input_as_handled()
-		elif modal_action == "ui_focus_prev":
-			_move_control_focus(-1)
-			get_viewport().set_input_as_handled()
 		return
 	var action := _mapped_ui_action(event)
 	if action.is_empty():
@@ -231,12 +237,6 @@ func _register_controller_input_mappings() -> void:
 func _move_directional_focus(direction: int) -> void:
 	if _preferences_overlay != null and _preferences_overlay.visible:
 		return
-	if _confirmation_overlay != null and _confirmation_overlay.visible:
-		_move_control_focus(direction)
-		return
-	if _journey_view != null and bool(_journey_view.get("is_confirmation_open")):
-		_move_control_focus(direction)
-		return
 	var viewport := get_viewport()
 	if viewport != null and _suspend_status_scroll != null and viewport.gui_get_focus_owner() == _suspend_status_scroll:
 		_scroll_suspend_text(_suspend_status_scroll, direction)
@@ -247,6 +247,9 @@ func _move_directional_focus(direction: int) -> void:
 	if viewport != null and _profile_details_scroll != null and viewport.gui_get_focus_owner() == _profile_details_scroll:
 		_scroll_suspend_text(_profile_details_scroll, direction)
 		return
+	if viewport != null and _guidance_scroll != null and viewport.gui_get_focus_owner() == _guidance_scroll:
+		_scroll_overview(direction, _guidance_scroll)
+		return
 	if viewport != null and _overview_scroll != null and viewport.gui_get_focus_owner() == _overview_scroll:
 		_scroll_overview(direction)
 		return
@@ -254,22 +257,17 @@ func _move_directional_focus(direction: int) -> void:
 
 func _move_control_focus(direction: int) -> void:
 	var focusable: Array[Control] = []
-	if _confirmation_overlay != null and _confirmation_overlay.visible:
-		focusable = [_cancel_new_run_button, _confirm_new_run_button]
-	elif _journey_view != null and bool(_journey_view.get("is_confirmation_open")):
-		focusable = [_back_button, _commit_selected_button]
-	else:
-		for candidate in find_children("*", "Control", true, false):
-			if not (candidate is BaseButton or candidate == _overview_scroll or candidate == _suspend_status_scroll or candidate == _suspend_details_scroll or candidate == _profile_details_scroll):
-				continue
-			var control := candidate as Control
-			if not control.is_visible_in_tree() or control.focus_mode == Control.FOCUS_NONE:
-				continue
-			if control is BaseButton and (control as BaseButton).disabled:
-				continue
-			if control == _commit_selected_button and str(control.get_meta("run_commit_action_id", "")).is_empty():
-				continue
-			focusable.append(control)
+	for candidate in find_children("*", "Control", true, false):
+		if not (candidate is BaseButton or candidate == _overview_scroll or candidate == _guidance_scroll or candidate == _suspend_status_scroll or candidate == _suspend_details_scroll or candidate == _profile_details_scroll):
+			continue
+		var control := candidate as Control
+		if not control.is_visible_in_tree() or control.focus_mode == Control.FOCUS_NONE:
+			continue
+		if control is BaseButton and (control as BaseButton).disabled:
+			continue
+		if control == _summary_acknowledge_button and str(control.get_meta("run_summary_action_id", "")).is_empty():
+			continue
+		focusable.append(control)
 	if focusable.is_empty():
 		return
 	var viewport := get_viewport()
@@ -281,15 +279,120 @@ func _move_control_focus(direction: int) -> void:
 		index = 0 if direction > 0 else focusable.size() - 1
 	else:
 		index = (index + direction + focusable.size()) % focusable.size()
-	_grab_focus_if_available(focusable[index])
+	var next_focus := focusable[index]
+	_grab_focus_if_available(next_focus)
+	if viewport.gui_get_focus_owner() == next_focus:
+		_schedule_focused_control_reveal()
 
-func _scroll_overview(direction: int) -> void:
-	if _overview_scroll == null:
+
+func _schedule_focused_control_reveal() -> void:
+	if not is_inside_tree():
 		return
-	var scrollbar := _overview_scroll.get_v_scroll_bar()
+	var tree := get_tree()
+	if tree == null:
+		return
+	var reveal_callback := Callable(self, "_queue_focused_control_reveal_after_layout")
+	if not tree.process_frame.is_connected(reveal_callback):
+		tree.process_frame.connect(reveal_callback, CONNECT_ONE_SHOT)
+
+
+func _queue_focused_control_reveal_after_layout() -> void:
+	if not is_inside_tree() or not is_visible_in_tree():
+		return
+	var tree := get_tree()
+	if tree == null:
+		return
+	var reveal_callback := Callable(self, "_reveal_focused_control_after_layout")
+	if not tree.process_frame.is_connected(reveal_callback):
+		tree.process_frame.connect(reveal_callback, CONNECT_ONE_SHOT)
+
+
+func _reveal_focused_control_after_layout() -> void:
+	if not is_inside_tree() or not is_visible_in_tree():
+		return
+	var tree := get_tree()
+	call_deferred("_apply_focused_control_reveal")
+
+
+func _apply_focused_control_reveal(remaining_passes: int = 2) -> void:
+	if not is_inside_tree() or not is_visible_in_tree():
+		return
+	var viewport := get_viewport()
+	var control := viewport.gui_get_focus_owner() as Control if viewport != null else null
+	if control == null or not control.is_visible_in_tree():
+		return
+	_reveal_control_in_scrolls(control)
+	# Nested scroll positions and wrapped text can settle on later layout frames.
+	# Retry a bounded number of times without changing focus or executing a choice.
+	if remaining_passes > 0:
+		var retry_callback := Callable(self, "_apply_focused_control_reveal").bind(remaining_passes - 1)
+		if not get_tree().process_frame.is_connected(retry_callback):
+			get_tree().process_frame.connect(retry_callback, CONNECT_ONE_SHOT)
+
+
+func _reveal_control_in_scrolls(control: Control) -> void:
+	if control == null or not control.is_inside_tree():
+		return
+	var ancestor: Node = control.get_parent()
+	while ancestor != null and ancestor != self:
+		if ancestor is ScrollContainer and ancestor.is_visible_in_tree():
+			var scroll := ancestor as ScrollContainer
+			# Reveal the actual target rectangle, rather than a large intervening
+			# card column, in each nested viewport from the inside out.
+			_reveal_control_in_scroll(scroll, control)
+		ancestor = ancestor.get_parent()
+
+
+func _reveal_control_in_scroll(scroll: ScrollContainer, control: Control) -> void:
+	if scroll == null or control == null:
+		return
+	var scrollbar := scroll.get_v_scroll_bar()
+	var maximum := maxf(0.0, scrollbar.max_value - scrollbar.page)
+	var viewport_rect := scroll.get_global_rect()
+	var viewport := get_viewport()
+	if viewport != null:
+		viewport_rect = viewport_rect.intersection(Rect2(Vector2.ZERO, viewport.get_visible_rect().size))
+	var control_rect := control.get_global_rect()
+	var scroll_delta := 0.0
+	if control_rect.size.y > viewport_rect.size.y:
+		# A wrapped choice may exceed a compact scroll viewport. Keep its text
+		# and pointer target centered while the rest remains scrollable.
+		scroll_delta = control_rect.get_center().y - viewport_rect.get_center().y
+	elif control_rect.position.y < viewport_rect.position.y:
+		scroll_delta = control_rect.position.y - viewport_rect.position.y
+	elif control_rect.end.y > viewport_rect.end.y:
+		scroll_delta = control_rect.end.y - viewport_rect.end.y
+	if maximum > 1.0 and not is_zero_approx(scroll_delta):
+		scroll.scroll_vertical = roundi(clampf(float(scroll.scroll_vertical) + scroll_delta, 0.0, maximum))
+	var horizontal_bar := scroll.get_h_scroll_bar()
+	var horizontal_maximum := maxf(0.0, horizontal_bar.max_value - horizontal_bar.page)
+	if scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED or horizontal_maximum <= 1.0:
+		return
+	control_rect = control.get_global_rect()
+	var horizontal_delta := 0.0
+	if control_rect.size.x > viewport_rect.size.x:
+		horizontal_delta = control_rect.get_center().x - viewport_rect.get_center().x
+	elif control_rect.position.x < viewport_rect.position.x:
+		horizontal_delta = control_rect.position.x - viewport_rect.position.x
+	elif control_rect.end.x > viewport_rect.end.x:
+		horizontal_delta = control_rect.end.x - viewport_rect.end.x
+	if not is_zero_approx(horizontal_delta):
+		scroll.scroll_horizontal = roundi(clampf(float(scroll.scroll_horizontal) + horizontal_delta, 0.0, horizontal_maximum))
+
+func _scroll_overview(direction: int, scroll_override: ScrollContainer = null) -> void:
+	var target_scroll := scroll_override if scroll_override != null else _overview_scroll
+	if target_scroll == null:
+		return
+	var scrollbar := target_scroll.get_v_scroll_bar()
 	var maximum := maxi(0, int(scrollbar.max_value - scrollbar.page))
+	if maximum <= 0 and _run_root_scroll != null and _run_root_scroll.is_visible_in_tree():
+		target_scroll = _run_root_scroll
+		scrollbar = target_scroll.get_v_scroll_bar()
+		maximum = maxi(0, int(scrollbar.max_value - scrollbar.page))
+	if maximum <= 0:
+		return
 	var step := maxi(72, int(scrollbar.page * 0.75))
-	_overview_scroll.scroll_vertical = clampi(_overview_scroll.scroll_vertical + direction * step, 0, maximum)
+	target_scroll.scroll_vertical = clampi(target_scroll.scroll_vertical + direction * step, 0, maximum)
 
 
 func _scroll_suspend_text(scroll: ScrollContainer, direction: int) -> void:
@@ -310,16 +413,16 @@ func _confirm_focused_control() -> void:
 	var focused_control := viewport.gui_get_focus_owner() as Control
 	if focused_control == null or not focused_control.is_visible_in_tree():
 		return
-	if focused_control == _commit_selected_button:
-		if str(_commit_selected_button.get_meta("run_commit_action_id", "")).is_empty() or _commit_selected_button.disabled:
+	if focused_control == _summary_acknowledge_button:
+		if str(_summary_acknowledge_button.get_meta("run_summary_action_id", "")).is_empty() or _summary_acknowledge_button.disabled:
 			return
-		_commit_selected_button.emit_signal("pressed")
+		_summary_acknowledge_button.emit_signal("pressed")
 		return
 	if not focused_control is BaseButton or (focused_control as BaseButton).disabled:
 		return
 	var focused_button := focused_control as Button
 	if focused_button.has_meta("run_action_id"):
-		# Action cards only change selected presentation state. The action rail is the command seam.
+		# Each Journey button is a direct choice; Battle hand tiles use a separate inspection path.
 		focused_button.emit_signal("pressed")
 		return
 	focused_button.emit_signal("pressed")
@@ -499,6 +602,8 @@ func _show_valid_suspend_choice(saved_domain, prefix: Dictionary = {}, can_start
 		message_parts.append(prefix)
 	var run_id := str(saved_domain.state.run_id)
 	var boundary := saved_boundary if not saved_boundary.is_empty() else str(checkpoint.get("stable_boundary", ""))
+	_suspend_summary_domain = saved_domain
+	_suspend_summary_boundary = boundary
 	if prefix.is_empty():
 		message_parts.append(_localized_message_part("UI_RUN_RECOVERY_READY"))
 	else:
@@ -515,6 +620,8 @@ func _show_valid_suspend_choice(saved_domain, prefix: Dictionary = {}, can_start
 	)
 
 func _show_suspend_recovery_required(message: Variant, can_start_new: bool, technical_details: Dictionary = {}) -> void:
+	_suspend_summary_domain = null
+	_suspend_summary_boundary = ""
 	var message_parts: Array[Dictionary] = []
 	if message is Array:
 		for part in message:
@@ -539,6 +646,28 @@ func _show_suspend_choice_parts(message_parts: Array[Dictionary], can_resume: bo
 	var initial_choice: Button = _resume_run_button if _resume_run_button.visible and not _resume_run_button.disabled else _new_run_from_suspend_button
 	if initial_choice.visible and not initial_choice.disabled and initial_choice.is_inside_tree():
 		initial_choice.grab_focus()
+		var tree := get_tree()
+		var focus_callback := Callable(self, "_focus_suspend_choice_after_layout")
+		if tree != null and not tree.process_frame.is_connected(focus_callback):
+			tree.process_frame.connect(focus_callback, CONNECT_ONE_SHOT)
+
+
+func _focus_suspend_choice_after_layout() -> void:
+	if not is_inside_tree() or not is_visible_in_tree() or _suspend_choice_panel == null or not _suspend_choice_panel.is_visible_in_tree():
+		return
+	var initial_choice: Button = _resume_run_button if _resume_run_button.visible and not _resume_run_button.disabled else _new_run_from_suspend_button
+	if initial_choice == null or not initial_choice.visible or initial_choice.disabled or not initial_choice.is_inside_tree() or not initial_choice.is_visible_in_tree():
+		return
+	if _preferences_overlay != null and _preferences_overlay.visible:
+		return
+	var viewport := get_viewport()
+	var focused_control := viewport.gui_get_focus_owner() as Control if viewport != null else null
+	if focused_control != null and focused_control != initial_choice:
+		return
+	if focused_control == null:
+		_grab_focus_if_available(initial_choice)
+	if viewport != null and viewport.gui_get_focus_owner() == initial_choice and _run_root_scroll != null and _run_root_scroll.is_inside_tree():
+		_run_root_scroll.ensure_control_visible(initial_choice)
 
 
 func _localized_message_part(key: String, args: Array = []) -> Dictionary:
@@ -572,17 +701,30 @@ func _suspend_details(codes: Array, recovery_path: String = "", run_id: String =
 		"source_path": ProjectSettings.globalize_path(suspend_file_path),
 		"recovery_path": recovery_path,
 		"run_id": run_id,
-		"boundary": _pretty_words(boundary) if not boundary.is_empty() else "",
+		"boundary": _checkpoint_label(boundary) if not boundary.is_empty() else "",
 		"codes": codes.duplicate(),
 	}
 
 
+func _checkpoint_label(boundary: String) -> String:
+	var key := str(CHECKPOINT_LABEL_KEYS.get(boundary, "UI_RUN_CHECKPOINT_UNKNOWN"))
+	return LocalizationCatalogScript.text(key)
+
+
 func _refresh_suspend_presentation() -> void:
 	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	if _suspend_choice_slot != null and _suspend_choice_panel != null:
+		_suspend_choice_slot.visible = _suspend_choice_panel.visible
+	_update_suspend_choice_width()
 	if _suspend_status_scroll != null:
 		_suspend_status_scroll.custom_minimum_size.y = 80.0 * scale
 	if _suspend_status != null:
-		_set_wrapped_label_text(_suspend_status, _message_parts_text(_suspend_message_parts))
+		var status_text := _message_parts_text(_suspend_message_parts)
+		var saved_summary := _suspend_summary_text()
+		if not saved_summary.is_empty():
+			status_text = saved_summary + "\n\n" + status_text if not status_text.is_empty() else saved_summary
+		_set_wrapped_label_text(_suspend_status, status_text)
+		_defer_suspend_status_minimum_update()
 	if _resume_run_button != null:
 		_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
 		_resume_run_button.visible = _suspend_resume_visible
@@ -614,6 +756,40 @@ func _refresh_suspend_presentation() -> void:
 	_update_run_stage_minimum()
 
 
+func _suspend_summary_text() -> String:
+	if _suspend_summary_domain == null:
+		return ""
+	var state = _suspend_summary_domain.state
+	var act_and_phase := LocalizationCatalogScript.format("UI_RUN_SCENE_0055", [
+		state.act_index,
+		state.act_count,
+		_pretty_words(str(state.phase)),
+	])
+	return LocalizationCatalogScript.format("UI_RUN_RECOVERY_SUMMARY", [
+		act_and_phase,
+		_pretty_id(str(state.character_id)),
+		_pretty_id(str(state.contract_id)),
+		_checkpoint_label(_suspend_summary_boundary),
+	])
+
+
+func _defer_suspend_status_minimum_update() -> void:
+	if _suspend_summary_domain != null and _suspend_status_scroll != null:
+		call_deferred("_update_suspend_status_minimum")
+
+
+func _update_suspend_status_minimum() -> void:
+	if _suspend_summary_domain == null or _suspend_status_scroll == null or _suspend_status == null:
+		return
+	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	var required_height := _suspend_status.get_combined_minimum_size().y + 8.0 * scale
+	var status_minimum := _suspend_status_scroll.custom_minimum_size
+	var target_height := maxf(80.0 * scale, required_height)
+	if not is_equal_approx(status_minimum.y, target_height):
+		status_minimum.y = target_height
+		_suspend_status_scroll.custom_minimum_size = status_minimum
+
+
 func _on_suspend_details_pressed() -> void:
 	_suspend_details_expanded = not _suspend_details_expanded
 	_refresh_suspend_presentation()
@@ -629,6 +805,9 @@ func _attach_controller(run_domain) -> void:
 func _set_active_controller(next_controller, reset_summary_clock: bool = false) -> void:
 	if controller != null and controller.presentation_changed.is_connected(_on_controller_presentation_changed):
 		controller.presentation_changed.disconnect(_on_controller_presentation_changed)
+	if controller != null and controller.command_processed.is_connected(_on_controller_command_processed):
+		controller.command_processed.disconnect(_on_controller_command_processed)
+	_clear_reward_receipt()
 	controller = next_controller
 	if reset_summary_clock:
 		_summary_duration_identity = ""
@@ -638,6 +817,24 @@ func _set_active_controller(next_controller, reset_summary_clock: bool = false) 
 	controller.set_mode(str(_applied_preferences.get("presentation_mode", "NORMAL")))
 	if not controller.presentation_changed.is_connected(_on_controller_presentation_changed):
 		controller.presentation_changed.connect(_on_controller_presentation_changed)
+	if not controller.command_processed.is_connected(_on_controller_command_processed):
+		controller.command_processed.connect(_on_controller_command_processed)
+
+
+func _clear_reward_receipt() -> void:
+	if _reward_receipt != null and _reward_receipt.has_method("clear_receipt"):
+		_reward_receipt.call("clear_receipt")
+
+
+func _on_controller_command_processed(_command, result) -> void:
+	if _reward_receipt == null or result == null or not bool(result.accepted) or bool(result.preview):
+		return
+	_clear_reward_receipt()
+	var payload: Dictionary = result.to_dictionary()
+	var before_checkpoint: Dictionary = result.before_checkpoint
+	var after_checkpoint: Dictionary = result.state_checkpoint
+	_reward_receipt.call("show_result", payload, before_checkpoint.get("run_state", {}), after_checkpoint.get("run_state", {}), controller.domain.content_registry, float(_applied_preferences.get("ui_scale", 1.0)))
+	_update_run_stage_minimum()
 
 func _make_header_button(button_name: String, text_key: String, pressed_callback: Callable) -> Button:
 	var button := Button.new()
@@ -759,7 +956,7 @@ func _on_new_run_from_suspend_pressed() -> void:
 		return
 	if _pending_resume_domain == null and _suspend_rejected_copy_path.is_empty():
 		return
-	_open_new_run_confirmation(true)
+	_perform_new_run_from_suspend()
 
 
 func _perform_new_run_from_suspend() -> void:
@@ -834,6 +1031,7 @@ func _build_interface() -> void:
 	_run_root_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_run_root_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_run_root_scroll.resized.connect(_update_run_stage_minimum)
+	_run_root_scroll.resized.connect(_schedule_focused_control_reveal)
 	root_layout.add_child(_run_root_scroll)
 
 	var margin := MarginContainer.new()
@@ -848,6 +1046,7 @@ func _build_interface() -> void:
 
 	_page = VBoxContainer.new()
 	_page.name = "RunJourneyPage"
+	_page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_page.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_page.add_theme_constant_override("separation", 5)
 	_page.resized.connect(_update_run_content_widths)
@@ -866,7 +1065,7 @@ func _build_interface() -> void:
 	title.name = "GameTitle"
 	title.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0038")
 	ForbiddenThemeScript.title(title, initial_locale)
-	title.add_theme_font_size_override("font_size", roundi(25.0 * initial_scale))
+	title.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("title", initial_scale))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_game_title = title
@@ -952,12 +1151,22 @@ func _build_interface() -> void:
 	_reset_profile_button.disabled = _profile_reset_unavailable()
 	_reset_profile_button.pressed.connect(_on_reset_profile_pressed)
 	_profile_recovery_content.add_child(_reset_profile_button)
-	_suspend_choice_panel = VBoxContainer.new()
+	_suspend_choice_slot = CenterContainer.new()
+	_suspend_choice_slot.name = "SuspendChoiceSlot"
+	_suspend_choice_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_suspend_choice_slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_suspend_choice_slot.resized.connect(_update_run_stage_minimum)
+	_page.add_child(_suspend_choice_slot)
+	_suspend_choice_panel = PanelContainer.new()
 	_suspend_choice_panel.name = "SuspendChoicePanel"
 	_suspend_choice_panel.visible = false
-	_suspend_choice_panel.add_theme_constant_override("separation", 8)
-	_suspend_choice_panel.resized.connect(_update_run_stage_minimum)
-	_page.add_child(_suspend_choice_panel)
+	_suspend_choice_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ForbiddenThemeScript.style_panel(_suspend_choice_panel, "raised")
+	_suspend_choice_panel.resized.connect(_defer_suspend_status_minimum_update)
+	_suspend_choice_slot.add_child(_suspend_choice_panel)
+	_suspend_choice_content = VBoxContainer.new()
+	_suspend_choice_content.add_theme_constant_override("separation", 8)
+	_suspend_choice_panel.add_child(_suspend_choice_content)
 	_suspend_status_scroll = ScrollContainer.new()
 	_suspend_status_scroll.name = "SuspendMessageScroll"
 	_suspend_status_scroll.custom_minimum_size.y = 80.0 * initial_scale
@@ -966,19 +1175,33 @@ func _build_interface() -> void:
 	_suspend_status_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_suspend_status_scroll.follow_focus = true
 	_suspend_status_scroll.focus_mode = Control.FOCUS_ALL
-	_suspend_choice_panel.add_child(_suspend_status_scroll)
+	_suspend_choice_content.add_child(_suspend_status_scroll)
 	_suspend_status = Label.new()
 	_suspend_status.name = "SuspendStatus"
 	_configure_wrapped_label(_suspend_status)
 	_suspend_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_suspend_status_scroll.add_child(_suspend_status)
+	_resume_run_button = Button.new()
+	_resume_run_button.name = "ResumeRunButton"
+	_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
+	_resume_run_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_resume_run_button.pressed.connect(_on_resume_run_pressed)
+	ForbiddenThemeScript.style_button(_resume_run_button, true)
+	_suspend_choice_content.add_child(_resume_run_button)
+	_new_run_from_suspend_button = Button.new()
+	_new_run_from_suspend_button.name = "NewRunFromSuspendButton"
+	_new_run_from_suspend_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0044")
+	_new_run_from_suspend_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_new_run_from_suspend_button.pressed.connect(_on_new_run_from_suspend_pressed)
+	ForbiddenThemeScript.style_button(_new_run_from_suspend_button)
+	_suspend_choice_content.add_child(_new_run_from_suspend_button)
 	_suspend_details_button = Button.new()
 	_suspend_details_button.name = "SuspendDetailsButton"
 	_suspend_details_button.text = LocalizationCatalogScript.text("UI_RUN_RECOVERY_DETAILS_SHOW")
 	_suspend_details_button.visible = false
 	_suspend_details_button.pressed.connect(_on_suspend_details_pressed)
 	ForbiddenThemeScript.style_button(_suspend_details_button)
-	_suspend_choice_panel.add_child(_suspend_details_button)
+	_suspend_choice_content.add_child(_suspend_details_button)
 	_suspend_details_scroll = ScrollContainer.new()
 	_suspend_details_scroll.name = "SuspendDetailsScroll"
 	_suspend_details_scroll.visible = false
@@ -988,23 +1211,20 @@ func _build_interface() -> void:
 	_suspend_details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_suspend_details_scroll.follow_focus = true
 	_suspend_details_scroll.focus_mode = Control.FOCUS_ALL
-	_suspend_choice_panel.add_child(_suspend_details_scroll)
+	_suspend_choice_content.add_child(_suspend_details_scroll)
 	_suspend_details_value = Label.new()
 	_suspend_details_value.name = "SuspendDetailsValue"
 	_configure_wrapped_label(_suspend_details_value)
 	_suspend_details_value.visible = false
 	_suspend_details_value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_suspend_details_scroll.add_child(_suspend_details_value)
-	_resume_run_button = Button.new()
-	_resume_run_button.name = "ResumeRunButton"
-	_resume_run_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0043")
-	_resume_run_button.pressed.connect(_on_resume_run_pressed)
-	_suspend_choice_panel.add_child(_resume_run_button)
-	_new_run_from_suspend_button = Button.new()
-	_new_run_from_suspend_button.name = "NewRunFromSuspendButton"
-	_new_run_from_suspend_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0044")
-	_new_run_from_suspend_button.pressed.connect(_on_new_run_from_suspend_pressed)
-	_suspend_choice_panel.add_child(_new_run_from_suspend_button)
+
+	_character_composition_top_spacer = Control.new()
+	_character_composition_top_spacer.name = "CharacterCompositionTopSpace"
+	_character_composition_top_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_character_composition_top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_character_composition_top_spacer.visible = false
+	_page.add_child(_character_composition_top_spacer)
 
 	_run_status_panel = PanelContainer.new()
 	_run_status_panel.name = "RunStatusRail"
@@ -1022,20 +1242,63 @@ func _build_interface() -> void:
 	_overview_scroll.focus_mode = Control.FOCUS_ALL
 	_overview_scroll.tooltip_text = LocalizationCatalogScript.text("UI_RUN_SCENE_0050")
 	_run_status_panel.add_child(_overview_scroll)
-	var overview := VBoxContainer.new()
-	overview.add_theme_constant_override("separation", 2)
-	overview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_overview_scroll.add_child(overview)
-	_run_value = _add_wrapped_label(overview)
-	_battle_value = _add_wrapped_label(overview)
-	_hand_value = _add_wrapped_label(overview)
-	_help_value = _add_wrapped_label(overview)
+	_overview_content = VBoxContainer.new()
+	_overview_content.add_theme_constant_override("separation", 2)
+	_overview_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_overview_scroll.add_child(_overview_content)
+	# Phase changes hide guidance labels after their old minimum was measured.
+	# Recompute once the content invalidates that cached size, even if the
+	# surrounding scroll viewport has not resized.
+	_overview_content.minimum_size_changed.connect(_update_overview_guidance_allocation)
+	_run_value = _add_wrapped_label(_overview_content)
+	_battle_value = _add_wrapped_label(_overview_content)
+	_hand_value = _add_wrapped_label(_overview_content)
+	_help_value = _add_wrapped_label(_overview_content)
 	_help_value.name = "RunHelpPrompt"
 	_help_value.add_theme_color_override("font_color", ForbiddenThemeScript.color("muted"))
-	_tutorial_prompt = _add_wrapped_label(overview)
+	# Keep the current lesson outside the scrolling journey, so focusing a tile
+	# cannot scroll the instruction away.
+	var guidance_panel := PanelContainer.new()
+	guidance_panel.name = "PlayerGuidanceRail"
+	guidance_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ForbiddenThemeScript.style_panel(guidance_panel, "raised")
+	root_layout.add_child(guidance_panel)
+	root_layout.move_child(guidance_panel, 0)
+	_guidance_scroll = ScrollContainer.new()
+	_guidance_scroll.name = "PlayerGuidanceScroll"
+	_guidance_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_guidance_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_guidance_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_guidance_scroll.focus_mode = Control.FOCUS_ALL
+	guidance_panel.add_child(_guidance_scroll)
+	var guidance_content := VBoxContainer.new()
+	guidance_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_guidance_scroll.add_child(guidance_content)
+	_tutorial_prompt = _add_wrapped_label(guidance_content)
+	_tutorial_prompt.minimum_size_changed.connect(_update_guidance_rail_metrics)
+	_guidance_scroll.resized.connect(_update_guidance_rail_metrics)
+	resized.connect(_update_guidance_rail_metrics)
 	_tutorial_prompt.name = "TutorialPrompt"
 	_tutorial_prompt.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
 	_tutorial_prompt.visible = false
+	guidance_panel.visible = false
+	_tutorial_prompt.visibility_changed.connect(func():
+		guidance_panel.visible = _tutorial_prompt.visible
+		_update_guidance_rail_metrics()
+	)
+	_overview_scroll.resized.connect(_update_overview_guidance_allocation)
+
+	_reward_receipt = RunRewardReceiptViewScript.new()
+	_reward_receipt.name = "RunRewardReceipt"
+	_reward_receipt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_reward_receipt.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_reward_receipt.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), initial_scale)
+	_reward_receipt.visibility_changed.connect(_update_run_stage_minimum)
+	_reward_receipt.minimum_size_changed.connect(_update_run_stage_minimum)
+	_reward_receipt.resized.connect(_update_run_stage_minimum)
+	# Keep applied-result feedback visible while the journey scroll follows the
+	# next focused choice. The receipt needs no interaction or confirmation.
+	root_layout.add_child(_reward_receipt)
 
 	_run_columns = PanelContainer.new()
 	_run_columns.name = "RunJourneyStage"
@@ -1048,15 +1311,22 @@ func _build_interface() -> void:
 	_journey_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_journey_host.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_run_columns.add_child(_journey_host)
+	_character_composition_bottom_spacer = Control.new()
+	_character_composition_bottom_spacer.name = "CharacterCompositionBottomSpace"
+	_character_composition_bottom_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_character_composition_bottom_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_character_composition_bottom_spacer.visible = false
+	_page.add_child(_character_composition_bottom_spacer)
 	_journey_view = RunJourneyViewScript.new()
 	_journey_view.name = "RunJourneyView"
 	_journey_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_journey_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_journey_view.configure(Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"), Callable(self, "_pretty_id"), Callable(self, "_pretty_words"))
 	_journey_view.connect("selection_changed", Callable(self, "_on_journey_selection_changed"))
-	_journey_view.connect("action_committed", Callable(self, "_on_journey_action_committed"))
+	_journey_view.connect("action_activated", Callable(self, "_on_journey_action_activated"))
 	_journey_view.connect("focus_changed", Callable(self, "_on_journey_focus_changed"))
-	_journey_view.connect("confirmation_changed", Callable(self, "_on_journey_confirmation_changed"))
+	_journey_view.connect("content_minimum_changed", Callable(self, "_update_run_stage_minimum"))
+	_journey_view.resized.connect(_update_run_stage_minimum)
 	_journey_host.add_child(_journey_view)
 	_guided_sample_complete_panel = PanelContainer.new()
 	_guided_sample_complete_panel.name = "GuidedSampleCompletePanel"
@@ -1138,21 +1408,20 @@ func _build_interface() -> void:
 	_back_button.pressed.connect(_on_back_pressed)
 	ForbiddenThemeScript.style_button(_back_button)
 	footer_actions.add_child(_back_button)
-	_commit_selected_button = Button.new()
-	_commit_selected_button.name = "CommitSelectedButton"
-	_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0037")
-	_commit_selected_button.custom_minimum_size = Vector2(0.0, 44.0)
-	_commit_selected_button.pressed.connect(_on_commit_selected_pressed)
-	ForbiddenThemeScript.style_button(_commit_selected_button, true)
-	footer_actions.add_child(_commit_selected_button)
-	_summary_acknowledge_button = _commit_selected_button
-	_build_new_run_confirmation()
+	_summary_acknowledge_button = Button.new()
+	_summary_acknowledge_button.name = "FinishRunButton"
+	_summary_acknowledge_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
+	_summary_acknowledge_button.custom_minimum_size = Vector2(0.0, 44.0)
+	_summary_acknowledge_button.pressed.connect(_on_summary_acknowledge_pressed)
+	ForbiddenThemeScript.style_button(_summary_acknowledge_button, true)
+	footer_actions.add_child(_summary_acknowledge_button)
 	_preferences_overlay = PreferencesOverlayScript.new()
 	_preferences_overlay.name = "PreferencesOverlay"
 	_preferences_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_preferences_overlay.connect("preferences_applied", Callable(self, "_on_preferences_applied"))
 	add_child(_preferences_overlay)
 	resized.connect(_update_run_footer_layout)
+	resized.connect(_update_run_content_widths)
 	_update_run_footer_layout()
 	_update_run_content_widths()
 	_update_run_stage_minimum()
@@ -1190,12 +1459,70 @@ func _update_window_margins() -> void:
 func _update_run_content_widths() -> void:
 	if _page == null:
 		return
-	for content in [_run_status_panel, _profile_recovery_scroll, _suspend_choice_panel, _run_columns, _summary_panel]:
+	var character_phase := _is_character_selection_phase()
+	for content in [_profile_recovery_scroll, _suspend_choice_slot, _summary_panel]:
 		var control := content as Control
 		if control == null:
 			continue
 		control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		control.custom_minimum_size.x = 0.0
+	if _character_composition_top_spacer != null:
+		_character_composition_top_spacer.visible = character_phase
+	if _character_composition_bottom_spacer != null:
+		_character_composition_bottom_spacer.visible = character_phase
+	var viewport_width := get_viewport_rect().size.x if is_inside_tree() else size.x
+	var horizontal_insets := 0.0
+	if _run_body_margin != null:
+		horizontal_insets = float(_run_body_margin.get_theme_constant("margin_left") + _run_body_margin.get_theme_constant("margin_right"))
+	var scroll_bar_width := _run_root_scroll.get_v_scroll_bar().get_combined_minimum_size().x if _run_root_scroll != null else 0.0
+	var available_page_width := maxf(0.0, viewport_width - horizontal_insets - scroll_bar_width)
+	var character_width := minf(available_page_width, 1500.0 * float(_applied_preferences.get("ui_scale", 1.0)))
+	if _journey_view != null:
+		var stage_style := _run_columns.get_theme_stylebox("panel") if _run_columns != null else null
+		var stage_insets := stage_style.get_minimum_size().x if stage_style != null else 0.0
+		_journey_view.set_content_width_limit(maxf(0.0, character_width - stage_insets) if character_phase else 0.0)
+	for content in [_run_status_panel, _run_columns]:
+		var control := content as Control
+		if control == null:
+			continue
+		control.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if character_phase else Control.SIZE_EXPAND_FILL
+		var minimum_size := control.custom_minimum_size
+		minimum_size.x = character_width if character_phase else 0.0
+		control.custom_minimum_size = minimum_size
+	_update_suspend_choice_width()
+	_update_header_label_minimum_widths()
+	_update_overview_guidance_allocation()
+	_update_run_stage_minimum()
+	_schedule_focused_control_reveal()
+
+
+func _is_character_selection_phase() -> bool:
+	return controller != null and str(controller.domain.state.phase) == RunPhaseScript.CHARACTER_SELECT
+
+
+func _update_suspend_choice_width() -> void:
+	if _suspend_choice_panel == null or _page == null:
+		return
+	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	var viewport_width := get_viewport_rect().size.x if is_inside_tree() else size.x
+	var horizontal_insets := 0.0
+	if _run_body_margin != null:
+		horizontal_insets = float(_run_body_margin.get_theme_constant("margin_left") + _run_body_margin.get_theme_constant("margin_right"))
+	var scroll_bar_width := _run_root_scroll.get_v_scroll_bar().get_combined_minimum_size().x if _run_root_scroll != null else 0.0
+	var available_width := maxf(0.0, viewport_width - horizontal_insets - scroll_bar_width)
+	if _page.size.x > 0.0:
+		available_width = minf(available_width, _page.size.x)
+	if available_width <= 0.0:
+		var fallback_viewport_width := size.x
+		if fallback_viewport_width <= 0.0 and is_inside_tree():
+			fallback_viewport_width = get_viewport_rect().size.x
+		if fallback_viewport_width > 0.0:
+			available_width = maxf(0.0, fallback_viewport_width - 36.0)
+	var target_width := minf(720.0 * scale, available_width)
+	var minimum_size := _suspend_choice_panel.custom_minimum_size
+	if not is_equal_approx(minimum_size.x, target_width):
+		minimum_size.x = target_width
+		_suspend_choice_panel.custom_minimum_size = minimum_size
 
 
 func _footer_actions_natural_width() -> float:
@@ -1218,6 +1545,13 @@ func _update_header_label_minimum_widths() -> void:
 	if _run_header == null or _game_title == null or _phase_value == null:
 		return
 	var available_width := maxf(0.0, _run_header.size.x)
+	if is_inside_tree():
+		var viewport_width := get_viewport_rect().size.x
+		var horizontal_insets := 0.0
+		if _run_body_margin != null:
+			horizontal_insets = float(_run_body_margin.get_theme_constant("margin_left") + _run_body_margin.get_theme_constant("margin_right"))
+		var scroll_bar_width := _run_root_scroll.get_v_scroll_bar().get_combined_minimum_size().x if _run_root_scroll != null else 0.0
+		available_width = minf(available_width, maxf(0.0, viewport_width - horizontal_insets - scroll_bar_width))
 	_game_title.custom_minimum_size.x = minf(_natural_label_width(_game_title), available_width)
 	_phase_value.custom_minimum_size.x = minf(_natural_label_width(_phase_value), available_width)
 
@@ -1231,6 +1565,16 @@ func _natural_label_width(label: Label) -> float:
 func _update_run_stage_minimum() -> void:
 	if _run_root_scroll == null or _run_body_margin == null or _page == null or _run_columns == null:
 		return
+	if _is_character_selection_phase():
+		_run_columns.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+		var content_height: float = _journey_view.character_content_minimum_height() if _journey_view != null else 0.0
+		var panel_style := _run_columns.get_theme_stylebox("panel")
+		var panel_insets := panel_style.get_minimum_size().y if panel_style != null else 0.0
+		var character_stage_height := maxf(128.0 * float(_applied_preferences.get("ui_scale", 1.0)), content_height + panel_insets)
+		if not is_equal_approx(_run_columns.custom_minimum_size.y, character_stage_height):
+			_run_columns.custom_minimum_size.y = character_stage_height
+		return
+	_run_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var fixed_height := 0.0
 	var visible_child_count := 0
 	for child in _page.get_children():
@@ -1249,87 +1593,15 @@ func _update_run_stage_minimum() -> void:
 		available_scroll_height = minf(available_scroll_height, size.y - pinned_footer_height)
 	var stage_budget := available_scroll_height - body_insets - fixed_height - page_spacing
 	var stage_minimum := clampf(stage_budget, 128.0, 500.0)
+	if controller != null and str(controller.domain.state.phase) == RunPhaseScript.BATTLE and _battle_view != null:
+		# The anchored BattleView cannot propagate its table height through the
+		# generic journey host. Reserve room for its scaled action bar and hand;
+		# compact windows can then reveal the table through the outer scroll.
+		var panel_style := _run_columns.get_theme_stylebox("panel")
+		var panel_insets := panel_style.get_minimum_size().y if panel_style != null else 0.0
+		stage_minimum = maxf(stage_minimum, 360.0 * float(_applied_preferences.get("ui_scale", 1.0)) + panel_insets)
 	if not is_equal_approx(_run_columns.custom_minimum_size.y, stage_minimum):
 		_run_columns.custom_minimum_size.y = stage_minimum
-
-
-func _build_new_run_confirmation() -> void:
-	_confirmation_overlay = Control.new()
-	_confirmation_overlay.name = "NewRunConfirmation"
-	_confirmation_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirmation_overlay.visible = false
-	_confirmation_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
-	_confirmation_overlay.z_index = 30
-	add_child(_confirmation_overlay)
-	var scrim := ColorRect.new()
-	scrim.name = "ConfirmationScrim"
-	scrim.color = Color(0.015, 0.055, 0.043, 0.9)
-	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
-	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirmation_overlay.add_child(scrim)
-	var center := CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirmation_overlay.add_child(center)
-	var card := PanelContainer.new()
-	card.name = "NewRunConfirmationCard"
-	card.custom_minimum_size = Vector2(0.0, 220.0)
-	card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ForbiddenThemeScript.style_panel(card, "paper", true)
-	center.add_child(card)
-	_confirmation_card = card
-	_confirmation_overlay.resized.connect(_update_confirmation_card_width)
-	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
-	card.add_child(layout)
-	var heading := Label.new()
-	heading.name = "ConfirmationHeading"
-	heading.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0034")
-	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ForbiddenThemeScript.title(heading, str(_applied_preferences.get("locale", "en")))
-	layout.add_child(heading)
-	_confirmation_message = Label.new()
-	_confirmation_message.name = "ConfirmationDetails"
-	_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
-	_confirmation_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_confirmation_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(_confirmation_message)
-	var buttons := BoxContainer.new()
-	buttons.name = "ConfirmationActions"
-	buttons.vertical = false
-	buttons.alignment = BoxContainer.ALIGNMENT_END
-	buttons.add_theme_constant_override("separation", 10)
-	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_confirmation_actions = buttons
-	layout.add_child(buttons)
-	_cancel_new_run_button = Button.new()
-	_cancel_new_run_button.name = "CancelNewRunButton"
-	_cancel_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0036")
-	_cancel_new_run_button.custom_minimum_size = Vector2(0.0, 44.0)
-	_cancel_new_run_button.pressed.connect(_close_new_run_confirmation.bind(true))
-	ForbiddenThemeScript.style_button(_cancel_new_run_button)
-	buttons.add_child(_cancel_new_run_button)
-	_confirm_new_run_button = Button.new()
-	_confirm_new_run_button.name = "ConfirmNewRunButton"
-	_confirm_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0019")
-	_confirm_new_run_button.custom_minimum_size = Vector2(0.0, 44.0)
-	_confirm_new_run_button.pressed.connect(_confirm_pending_new_run)
-	ForbiddenThemeScript.style_button(_confirm_new_run_button, true)
-	buttons.add_child(_confirm_new_run_button)
-	_update_confirmation_card_width()
-
-
-func _update_confirmation_card_width() -> void:
-	if _confirmation_card == null or _confirmation_overlay == null:
-		return
-	var available_width := maxf(0.0, _confirmation_overlay.size.x - 24.0)
-	_confirmation_card.custom_minimum_size.x = minf(540.0, available_width)
-	if _confirmation_actions != null:
-		var stack_actions := _confirmation_overlay.size.x < 520.0
-		_confirmation_actions.vertical = stack_actions
-		for child in _confirmation_actions.get_children():
-			var button := child as Control
-			if button != null:
-				button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if stack_actions else Control.SIZE_SHRINK_END
 
 
 func _connect_presentation_preferences() -> void:
@@ -1362,11 +1634,20 @@ func _refresh_tutorial_presentation() -> void:
 	_update_run_stage_minimum()
 
 
+func _update_guidance_rail_metrics() -> void:
+	if not is_inside_tree() or _guidance_scroll == null or _tutorial_prompt == null:
+		return
+	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	var maximum := minf(180.0 * scale, maxf(40.0 * scale, get_viewport_rect().size.y * 0.45))
+	var height := minf(maximum, maxf(40.0 * scale, _tutorial_prompt.get_combined_minimum_size().y))
+	if not is_equal_approx(_guidance_scroll.custom_minimum_size.y, height):
+		_guidance_scroll.custom_minimum_size.y = height
+
 func _update_run_status_panel_metrics(phase: String) -> void:
 	if _run_status_panel == null:
 		return
 	var ui_scale := float(_applied_preferences.get("ui_scale", 1.0))
-	var tutorial_visible := _tutorial_prompt != null and _tutorial_prompt.visible
+	var tutorial_visible := false # Guidance has its own persistent rail.
 	var panel_height := 58.0 if tutorial_visible else 54.0
 	var overview_height := 42.0
 	if _guided_sample_can_exit():
@@ -1382,6 +1663,36 @@ func _update_run_status_panel_metrics(phase: String) -> void:
 	_run_status_panel.custom_minimum_size.y = panel_height * ui_scale
 	if _overview_scroll != null:
 		_overview_scroll.custom_minimum_size.y = overview_height * ui_scale
+	_update_overview_guidance_allocation()
+
+
+func _update_overview_guidance_allocation() -> void:
+	if _overview_scroll == null or _overview_content == null or _run_status_panel == null:
+		return
+	var ui_scale := float(_applied_preferences.get("ui_scale", 1.0))
+	var phase := str(controller.domain.state.phase) if controller != null else ""
+	var tutorial_visible := false # Guidance has its own persistent rail.
+	var overview_base_height := 42.0 * ui_scale
+	var panel_base_height := (58.0 if tutorial_visible else 54.0) * ui_scale
+	if _guided_sample_can_exit():
+		overview_base_height = 58.0 * ui_scale
+		panel_base_height = 70.0 * ui_scale
+	elif phase == RunPhaseScript.BATTLE:
+		overview_base_height = 24.0 * ui_scale
+		panel_base_height = (34.0 if tutorial_visible else 0.0) * ui_scale
+	var measured_content_height := _overview_content.get_combined_minimum_size().y
+	var overview_height := maxf(overview_base_height, measured_content_height)
+	var overview_minimum := _overview_scroll.custom_minimum_size
+	if not is_equal_approx(overview_minimum.y, overview_height):
+		overview_minimum.y = overview_height
+		_overview_scroll.custom_minimum_size = overview_minimum
+	var panel_style := _run_status_panel.get_theme_stylebox("panel")
+	var panel_insets := panel_style.get_minimum_size().y if panel_style != null else 0.0
+	var panel_height := maxf(panel_base_height, overview_height + panel_insets)
+	var panel_minimum := _run_status_panel.custom_minimum_size
+	if not is_equal_approx(panel_minimum.y, panel_height):
+		panel_minimum.y = panel_height
+		_run_status_panel.custom_minimum_size = panel_minimum
 
 
 func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_descriptors: bool) -> void:
@@ -1396,8 +1707,11 @@ func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_des
 		_table_backdrop.call("configure", str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)), bool(normalized.get("ambient_glow", true)))
 	if _journey_view != null:
 		_journey_view.set_presentation_preferences(locale, scale, str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)))
+	if _reward_receipt != null:
+		_reward_receipt.set_presentation_preferences(locale, scale)
 	if _battle_view != null and _battle_view.has_method("set_presentation_preferences"):
 		_battle_view.call("set_presentation_preferences", locale, scale, str(normalized.get("presentation_mode", "NORMAL")), bool(normalized.get("reduced_motion", false)), bool(normalized.get("ambient_glow", true)))
+	_refresh_static_button_styles()
 	_refresh_static_labels()
 	if controller != null:
 		_suppress_controller_render = true
@@ -1410,6 +1724,26 @@ func _apply_presentation_preferences(preferences: Dictionary, refresh_cached_des
 	_render()
 
 
+func _refresh_static_button_styles() -> void:
+	# These controls are built once. Reapply their roles after they inherit the
+	# scene theme, and when language/scale changes, just as rebuilt choices do.
+	var scale := float(_applied_preferences.get("ui_scale", 1.0))
+	for choice in [_resume_run_button, _new_run_from_suspend_button, _suspend_details_button]:
+		if choice != null:
+			choice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	for button in [_settings_button, _new_run_button, _guided_sample_button,
+			_guided_sample_restart_button, _guided_sample_skip_button, _guided_sample_exit_button,
+			_profile_details_button, _reset_profile_button, _suspend_details_button,
+			_resume_run_button, _new_run_from_suspend_button, _back_button,
+			_summary_acknowledge_button, _tutorial_toggle_button, _tutorial_reset_button]:
+		if button == null:
+			continue
+		button.custom_minimum_size.y = 44.0 * scale
+		ForbiddenThemeScript.style_button(button, button == _resume_run_button or button == _summary_acknowledge_button)
+	_update_run_footer_layout()
+	_update_header_label_minimum_widths()
+
+
 func _refresh_static_labels() -> void:
 	if not _meta_progress_warning_parts.is_empty():
 		_meta_progress_load_warning = _message_parts_text(_meta_progress_warning_parts)
@@ -1419,12 +1753,6 @@ func _refresh_static_labels() -> void:
 		_settings_button.text = LocalizationCatalogScript.text("UI_PREFS_TAB_SETTINGS")
 	if _back_button != null:
 		_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
-	if _cancel_new_run_button != null:
-		_cancel_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0036")
-	if _confirm_new_run_button != null:
-		_confirm_new_run_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0019")
-	if _confirmation_message != null:
-		_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
 	if _tutorial_reset_button != null:
 		_tutorial_reset_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0039")
 	if _new_run_button != null:
@@ -1499,46 +1827,18 @@ func _preferences_service():
 	return scene_tree.root.get_node_or_null("PresentationPrefs")
 
 
-func _open_new_run_confirmation(from_suspend: bool) -> void:
-	_new_run_from_suspend_pending = from_suspend
-	_new_run_confirmation_origin = _new_run_from_suspend_button if from_suspend else _new_run_button
-	_confirmation_overlay.visible = true
-	_confirmation_message.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0035")
-	_grab_focus_if_available(_cancel_new_run_button)
-
-
-func _close_new_run_confirmation(restore_focus: bool = false) -> void:
-	if _confirmation_overlay == null or not _confirmation_overlay.visible:
-		return
-	_confirmation_overlay.visible = false
-	_new_run_from_suspend_pending = false
-	if restore_focus and is_instance_valid(_new_run_confirmation_origin) and _new_run_confirmation_origin.is_visible_in_tree():
-		_grab_focus_if_available(_new_run_confirmation_origin)
-	_new_run_confirmation_origin = null
-
-
-func _confirm_pending_new_run() -> void:
-	if _confirmation_overlay == null or not _confirmation_overlay.visible:
-		return
-	var from_suspend := _new_run_from_suspend_pending
-	_close_new_run_confirmation(false)
-	if from_suspend:
-		_perform_new_run_from_suspend()
-	else:
-		_perform_terminal_new_run()
-
 func _render() -> void:
 	_refresh_guided_sample_controls()
 	var viewport := get_viewport()
 	var focused_control: Control = viewport.gui_get_focus_owner() as Control if viewport != null else null
 	var prior_focus_name: String = focused_control.name if focused_control != null else ""
 	var prior_action_id := str(focused_control.get_meta("run_action_id", "")) if focused_control != null else ""
-	var prior_commit_focus := focused_control == _commit_selected_button
-	var prior_confirmation_open := _journey_view != null and bool(_journey_view.get("is_confirmation_open"))
+	var prior_summary_focus := focused_control == _summary_acknowledge_button
 	if controller == null:
 		_last_rendered_phase = ""
 		if _phase_value != null:
-			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0054")
+			var valid_resume_waiting := _pending_resume_domain != null and _suspend_resume_visible
+			_phase_value.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0157" if valid_resume_waiting else "UI_RUN_SCENE_0054")
 		_update_header_label_minimum_widths()
 		_refresh_profile_recovery_presentation()
 		if _reset_profile_button != null:
@@ -1546,6 +1846,8 @@ func _render() -> void:
 			_reset_profile_button.disabled = _profile_reset_unavailable()
 		if _run_columns != null:
 			_run_columns.visible = false
+		if _suspend_choice_slot != null and _suspend_choice_panel != null:
+			_suspend_choice_slot.visible = _suspend_choice_panel.visible
 		if _tutorial_prompt != null:
 			_tutorial_prompt.visible = false
 		if _tutorial_toggle_button != null:
@@ -1560,6 +1862,8 @@ func _render() -> void:
 			_journey_view.visible = false
 		if _battle_view != null:
 			_battle_view.visible = false
+		if _battle_view_failure != null:
+			_battle_view_failure.visible = false
 		if _guided_sample_complete_panel != null:
 			_guided_sample_complete_panel.visible = false
 		if _new_run_button != null:
@@ -1567,9 +1871,11 @@ func _render() -> void:
 		if _feedback_value != null:
 			_set_wrapped_label_text(_feedback_value, _startup_error)
 		_refresh_action_rail()
+		_update_run_content_widths()
 		_update_run_stage_minimum()
 		return
 	_suspend_choice_panel.visible = false
+	_suspend_choice_slot.visible = false
 	_run_status_panel.visible = true
 	var state = controller.domain.state
 	var phase := str(state.phase)
@@ -1597,38 +1903,38 @@ func _render() -> void:
 	var showing_summary := phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]
 	_run_columns.visible = not showing_summary
 	_summary_panel.visible = showing_summary
+	_update_run_content_widths()
 	var summary_clock_anchor := _summary_clock_anchor(state) if phase in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE] else -1
 	_summary_view.render(state, RunSummaryPresenterScript.format(state, summary_clock_anchor), str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)))
 	_summary_acknowledge_button.visible = false
 	_new_run_button.disabled = phase != RunPhaseScript.RUN_COMPLETE
 	_new_run_button.visible = phase == RunPhaseScript.RUN_COMPLETE
 	_render_actions()
+	_update_run_content_widths()
 	_refresh_action_rail()
 	_update_run_stage_minimum()
 	_update_header_label_minimum_widths()
-	if viewport != null and not _preferences_overlay.visible and not _confirmation_overlay.visible:
+	if viewport != null and not _preferences_overlay.visible:
 		if _guided_sample_is_complete():
 			_grab_focus_if_available(_guided_sample_exit_button)
-		elif _journey_view.is_confirmation_open:
-			_grab_focus_if_available(_commit_selected_button if prior_confirmation_open and prior_commit_focus else _back_button)
 		elif phase_changed and phase == RunPhaseScript.BATTLE:
 			_focus_initial_battle_control()
-		elif phase_changed and phase == RunPhaseScript.RUN_SUMMARY and not _commit_selected_button.disabled and _commit_selected_button.visible:
-			_grab_focus_if_available(_commit_selected_button)
+		elif phase_changed and phase == RunPhaseScript.RUN_SUMMARY and not _summary_acknowledge_button.disabled and _summary_acknowledge_button.visible:
+			_grab_focus_if_available(_summary_acknowledge_button)
 		elif phase_changed and phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled and _new_run_button.visible:
 			_grab_focus_if_available(_new_run_button)
 		elif phase_changed and _journey_view.visible:
 			_focus_initial_journey_choice()
-		elif prior_commit_focus and not _commit_selected_button.disabled and _commit_selected_button.visible:
-			_grab_focus_if_available(_commit_selected_button)
+		elif prior_summary_focus and not _summary_acknowledge_button.disabled and _summary_acknowledge_button.visible:
+			_grab_focus_if_available(_summary_acknowledge_button)
 		elif not prior_action_id.is_empty() and _journey_view.visible:
 			var same_choice: Button = _journey_view.action_button(prior_action_id)
 			if same_choice != null and not same_choice.disabled:
 				_grab_focus_if_available(same_choice)
 		elif prior_focus_name == "SettingsButton" and _settings_button.visible:
 			_grab_focus_if_available(_settings_button)
-		elif phase == RunPhaseScript.RUN_SUMMARY and not _commit_selected_button.disabled:
-			_grab_focus_if_available(_commit_selected_button)
+		elif phase == RunPhaseScript.RUN_SUMMARY and not _summary_acknowledge_button.disabled:
+			_grab_focus_if_available(_summary_acknowledge_button)
 		elif phase == RunPhaseScript.RUN_COMPLETE and not _new_run_button.disabled:
 			_grab_focus_if_available(_new_run_button)
 		elif _journey_view.visible and _journey_view.get("focused_action_id") != "":
@@ -1655,7 +1961,7 @@ func _restore_focus_after_render(phase: String) -> void:
 		return
 	var focus_owner := viewport.gui_get_focus_owner() as Control
 	if phase == RunPhaseScript.BATTLE and _battle_view != null and _battle_view.visible:
-		if focus_owner == null or not focus_owner.is_visible_in_tree() or not _battle_view.is_ancestor_of(focus_owner):
+		if focus_owner == null or not focus_owner.is_visible_in_tree() or (focus_owner is BaseButton and (focus_owner as BaseButton).disabled):
 			_focus_initial_battle_control()
 		return
 	if _journey_view == null or not _journey_view.visible:
@@ -1687,31 +1993,47 @@ func _render_actions() -> void:
 		_journey_view.visible = false
 		if _battle_view != null:
 			_battle_view.visible = false
+		if _battle_view_failure != null:
+			_battle_view_failure.visible = false
 		_back_button.visible = false
-		_commit_selected_button.visible = false
+		_summary_acknowledge_button.visible = false
 		return
 	var feedback := str(controller.snapshot().get("feedback", ""))
 	var descriptors: Array = controller.action_descriptors()
 	var phase := str(controller.domain.state.phase)
 	var effective_mode := str(controller.snapshot().get("presentation_mode", _applied_preferences.get("presentation_mode", "NORMAL")))
-	if phase == RunPhaseScript.BATTLE and _ensure_battle_view():
+	if phase == RunPhaseScript.BATTLE:
+		if not _ensure_battle_view():
+			_journey_view.visible = false
+			if _battle_view != null:
+				_battle_view.visible = false
+			if _battle_view_failure != null:
+				_battle_view_failure.visible = true
+			_back_button.visible = false
+			_summary_acknowledge_button.visible = false
+			_set_wrapped_label_text(_feedback_value, feedback)
+			return
 		_journey_view.visible = false
 		_battle_view.visible = true
+		if _battle_view_failure != null:
+			_battle_view_failure.visible = false
 		if str(_battle_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_battle_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_battle_view.get("_presentation_mode")) != effective_mode or bool(_battle_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)) or bool(_battle_view.get("_ambient_glow")) != bool(_applied_preferences.get("ambient_glow", true)):
 			_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
 		_battle_view.render()
 		_apply_guided_sample_emphasis(descriptors)
 		_set_wrapped_label_text(_feedback_value, feedback)
 		_back_button.visible = false
-		_commit_selected_button.visible = false
+		_summary_acknowledge_button.visible = false
 		return
+	if _battle_view_failure != null:
+		_battle_view_failure.visible = false
 	if _battle_view != null:
 		_battle_view.visible = false
 		if _battle_view.has_method("sync_persistent_receipt"):
 			_battle_view.call("sync_persistent_receipt")
 	_journey_view.visible = true
 	_back_button.visible = true
-	_commit_selected_button.visible = true
+	_summary_acknowledge_button.visible = false
 	if str(_journey_view.get("_locale")) != str(_applied_preferences.get("locale", "en")) or float(_journey_view.get("_ui_scale")) != float(_applied_preferences.get("ui_scale", 1.0)) or str(_journey_view.get("_presentation_mode")) != effective_mode or bool(_journey_view.get("_reduced_motion")) != bool(_applied_preferences.get("reduced_motion", false)):
 		_journey_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), effective_mode, bool(_applied_preferences.get("reduced_motion", false)))
 	var preferred_focus := str(_journey_view.get("focused_action_id"))
@@ -1776,13 +2098,25 @@ func _ensure_battle_view() -> bool:
 		if _battle_configured_controller != controller:
 			_battle_view.configure(controller, Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"))
 			_battle_configured_controller = controller
+		if _battle_view_failure != null:
+			_battle_view_failure.visible = false
 		return true
-	if not FileAccess.file_exists(ProjectSettings.globalize_path(BattleViewPath)):
+	if not ResourceLoader.exists(_battle_view_resource_path):
+		_show_battle_view_construction_failure("resource is missing: %s" % _battle_view_resource_path)
 		return false
-	var script = load(BattleViewPath)
+	var script := ResourceLoader.load(_battle_view_resource_path) as GDScript
 	if script == null:
+		_show_battle_view_construction_failure("resource could not be loaded: %s" % _battle_view_resource_path)
 		return false
-	_battle_view = script.new()
+	var instance = script.new()
+	if not instance is Control:
+		_show_battle_view_construction_failure("resource did not construct a Control: %s" % _battle_view_resource_path)
+		return false
+	if not instance.has_method("configure") or not instance.has_method("set_presentation_preferences") or not instance.has_method("set_feedback_host") or not instance.has_signal("action_requested") or not instance.has_signal("focus_requested"):
+		instance.free()
+		_show_battle_view_construction_failure("resource is missing the BattleView interface: %s" % _battle_view_resource_path)
+		return false
+	_battle_view = instance as Control
 	_battle_view.name = "BattleView"
 	_battle_view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_battle_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1792,22 +2126,53 @@ func _ensure_battle_view() -> bool:
 	_battle_view.configure(controller, Callable(self, "_action_label"), Callable(self, "_action_tooltip"), Callable(self, "_action_details_text"))
 	_battle_configured_controller = controller
 	_battle_view.action_requested.connect(_on_battle_action_requested)
+	_battle_view.hand_play_requested.connect(func(instance_ids: Array):
+		if controller != null:
+			controller.play_hand_tiles(instance_ids)
+	)
 	_battle_view.focus_requested.connect(_on_battle_focus_requested)
 	_battle_view.set_presentation_preferences(str(_applied_preferences.get("locale", "en")), float(_applied_preferences.get("ui_scale", 1.0)), str(_applied_preferences.get("presentation_mode", "NORMAL")), bool(_applied_preferences.get("reduced_motion", false)), bool(_applied_preferences.get("ambient_glow", true)))
 	_journey_host.add_child(_battle_view)
 	_battle_view.set_feedback_host(self)
+	if _battle_view_failure != null:
+		_battle_view_failure.visible = false
 	return true
+
+
+func _show_battle_view_construction_failure(reason: String) -> void:
+	push_warning("Could not construct BattleView: %s" % reason)
+	if _battle_view_failure == null:
+		_battle_view_failure = PanelContainer.new()
+		_battle_view_failure.name = "BattleViewFailure"
+		_battle_view_failure.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		_battle_view_failure.mouse_filter = Control.MOUSE_FILTER_STOP
+		ForbiddenThemeScript.style_panel(_battle_view_failure, "raised")
+		_battle_view_failure_message = Label.new()
+		_battle_view_failure_message.name = "BattleViewFailureMessage"
+		_battle_view_failure_message.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0158")
+		_battle_view_failure_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_battle_view_failure_message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_battle_view_failure_message.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_battle_view_failure_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_battle_view_failure_message.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_battle_view_failure.add_child(_battle_view_failure_message)
+		_journey_host.add_child(_battle_view_failure)
+	else:
+		_battle_view_failure_message.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0158")
+	_battle_view_failure.set_meta("construction_error", reason)
+	_battle_view_failure.visible = true
 
 
 func _on_battle_action_requested(action_id: String) -> void:
 	if controller == null or _guided_sample_is_complete():
 		return
-	controller.confirm(action_id)
+	_on_action_pressed(action_id)
 
 
 func _on_battle_focus_requested(action_id: String) -> void:
 	_battle_focus_action_id = action_id
 	_sync_presentation_focus(action_id)
+	_schedule_focused_control_reveal()
 	if _action_details_value != null and controller != null:
 		for action in controller.action_descriptors():
 			if str(action.get("id", "")) == action_id:
@@ -1816,41 +2181,28 @@ func _on_battle_focus_requested(action_id: String) -> void:
 
 
 func _refresh_action_rail() -> void:
-	if _commit_selected_button == null or _back_button == null:
+	if _summary_acknowledge_button == null or _back_button == null:
 		return
 	var action_id := ""
 	var action: Dictionary = {}
-	var is_confirming := _journey_view != null and bool(_journey_view.get("is_confirmation_open"))
-	if is_confirming:
-		action_id = str(_journey_view.confirmation_action_id())
-		action = _journey_view.selected_action()
-		_commit_selected_button.text = _journey_view.confirmation_commit_label()
-	elif controller != null and str(controller.domain.state.phase) == RunPhaseScript.RUN_SUMMARY:
+	var in_summary := controller != null and str(controller.domain.state.phase) == RunPhaseScript.RUN_SUMMARY
+	if in_summary:
 		for candidate in controller.action_descriptors():
 			if str(candidate.get("kind", "")) == "RUN_SUMMARY":
 				action = candidate
 				action_id = str(candidate.get("id", ""))
 				break
-		_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
-	else:
-		if _journey_view != null:
-			action = _journey_view.selected_action()
-			action_id = str(action.get("id", ""))
-		var kind := str(action.get("kind", ""))
-		if kind == "SHOP_OFFER":
-			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0038")
-		elif kind == "WORKSHOP_SERVICE":
-			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0039")
-		else:
-			_commit_selected_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0037")
-	_commit_selected_button.set_meta("run_commit_action_id", action_id)
-	_commit_selected_button.tooltip_text = _action_tooltip(action) if not action.is_empty() else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013")
-	_commit_selected_button.disabled = action_id.is_empty() or controller == null
-	_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0015") if is_confirming else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
+	_summary_acknowledge_button.text = LocalizationCatalogScript.text("UI_RUN_SCENE_0053")
+	var ui_scale := float(_applied_preferences.get("ui_scale", 1.0))
+	_summary_acknowledge_button.custom_minimum_size = Vector2(144.0 * ui_scale, 44.0 * ui_scale)
+	_summary_acknowledge_button.set_meta("run_summary_action_id", action_id)
+	_summary_acknowledge_button.tooltip_text = _action_tooltip(action) if not action.is_empty() else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013")
+	_summary_acknowledge_button.disabled = action_id.is_empty() or controller == null
+	_summary_acknowledge_button.visible = in_summary
+	_back_button.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0014")
 	_back_button.disabled = controller == null
 	var in_battle := controller != null and str(controller.domain.state.phase) == RunPhaseScript.BATTLE
 	_back_button.visible = not in_battle
-	_commit_selected_button.visible = not in_battle
 	if _feedback_value != null:
 		_feedback_value.visible = not _feedback_value.text.is_empty()
 	_update_run_footer_layout()
@@ -1863,20 +2215,25 @@ func _on_journey_selection_changed(action_id: String) -> void:
 func _on_journey_focus_changed(action_id: String) -> void:
 	_battle_focus_action_id = action_id
 	_sync_presentation_focus(action_id)
+	_schedule_focused_control_reveal()
 
 
-func _on_journey_confirmation_changed(_opened: bool) -> void:
-	_refresh_action_rail()
-	if _opened:
-		_grab_focus_if_available(_back_button)
-
-
-func _on_journey_action_committed(action_id: String) -> void:
+func _on_journey_action_activated(action_id: String) -> void:
 	if controller == null:
 		return
-	var result = controller.confirm(action_id)
+	var was_travel := false
+	for action in controller.action_descriptors():
+		if str(action.get("id", "")) == action_id:
+			was_travel = str(action.get("kind", "")) == "MAP_NODE"
+			break
+	var result = _on_action_pressed(action_id)
 	if result != null and result.accepted:
-		_journey_view.clear_committed_selection()
+		if was_travel and str(controller.domain.state.phase) == RunPhaseScript.MAP_CHOICE:
+			for entry_action in controller.action_descriptors():
+				if str(entry_action.get("kind", "")) in ["ENTER_EVENT", "ENTER_SHOP", "ENTER_WORKSHOP"]:
+					_on_action_pressed(str(entry_action.id))
+					break
+		_journey_view.clear_selection()
 
 
 func _sync_presentation_focus(action_id: String) -> void:
@@ -1887,25 +2244,15 @@ func _sync_presentation_focus(action_id: String) -> void:
 		controller.state.focused_index = focused_index
 
 
-func _on_commit_selected_pressed() -> void:
-	if _confirmation_overlay != null and _confirmation_overlay.visible:
-		_confirm_pending_new_run()
+func _on_summary_acknowledge_pressed() -> void:
+	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_SUMMARY:
 		return
-	if controller == null:
-		return
-	if str(controller.domain.state.phase) in [RunPhaseScript.RUN_SUMMARY, RunPhaseScript.RUN_COMPLETE]:
-		var action_id := str(_commit_selected_button.get_meta("run_commit_action_id", ""))
-		if not action_id.is_empty():
-			_on_action_pressed(action_id)
-		return
-	if _journey_view != null and _journey_view.visible:
-		_journey_view.commit_selected()
+	var action_id := str(_summary_acknowledge_button.get_meta("run_summary_action_id", ""))
+	if not action_id.is_empty():
+		_on_action_pressed(action_id)
 
 
 func _on_back_pressed() -> void:
-	if _confirmation_overlay != null and _confirmation_overlay.visible:
-		_close_new_run_confirmation(true)
-		return
 	if _journey_view != null and _journey_view.visible and _journey_view.cancel_local_state():
 		_refresh_action_rail()
 		return
@@ -1943,6 +2290,7 @@ func _focus_initial_battle_control() -> void:
 func _on_action_pressed(action_id: String):
 	if controller == null or _guided_sample_is_complete():
 		return null
+	_clear_reward_receipt()
 	var result = controller.confirm(action_id)
 	return result
 
@@ -1988,7 +2336,7 @@ func _tutorial_prompt_for_step(step_id: String) -> String:
 func _on_new_run_pressed() -> void:
 	if controller == null or str(controller.domain.state.phase) != RunPhaseScript.RUN_COMPLETE:
 		return
-	_open_new_run_confirmation(false)
+	_perform_terminal_new_run()
 
 
 func _perform_terminal_new_run() -> void:
@@ -2088,6 +2436,8 @@ func _action_label(action: Dictionary) -> String:
 	var target := str(action.get("target_id", ""))
 	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
 	match kind:
+		"REWARD_TARGET_BACK": return LocalizationCatalogScript.text("UI_RC7_REWARD_TARGET_BACK")
+		"REWARD_TARGET": return LocalizationCatalogScript.format("UI_RC7_REWARD_TARGET_LABEL", [_pretty_id(str(details.get("tile_id", ""))), int(details.get("target_count", 1))])
 		"CHARACTER": return LocalizationCatalogScript.template("UI_RUN_SCENE_0078") % _pretty_id(target)
 		"CONTRACT": return _contract_action_label(details, target)
 		"MAP_NODE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0079") % [_pretty_words(str(action.get("node_kind", "Map"))), _pretty_id(target)]
@@ -2119,7 +2469,9 @@ func _action_label(action: Dictionary) -> String:
 				])
 			return LocalizationCatalogScript.template("UI_RUN_SCENE_0086") % hand_type
 		"RESERVE": return LocalizationCatalogScript.template("UI_RUN_SCENE_0087") % _pretty_tile_id(str(details.get("tile_id", target)))
-		"DISCARD": return LocalizationCatalogScript.template("UI_RUN_SCENE_0088") % _pretty_tile_id(str(details.get("tile_id", target)))
+		"DISCARD":
+			var key := "UI_RC8_SINGLE_PLAY" if controller != null and controller.domain.current_battle != null and controller.domain.current_battle.combat_state.turn_play_enabled else "UI_RUN_SCENE_0088"
+			return LocalizationCatalogScript.format(key, [_pretty_tile_id(str(details.get("tile_id", target)))])
 		"RESERVE_SWAP": return LocalizationCatalogScript.template("UI_RUN_SCENE_0089") % [
 			_pretty_tile_id(str(details.get("hand_tile_id", ""))),
 			_pretty_tile_id(str(details.get("reserve_tile_id", ""))),
@@ -2156,7 +2508,7 @@ func _compact_action_label(action: Dictionary) -> String:
 		"PARTIAL_SETTLEMENT": return LocalizationCatalogScript.template("UI_RUN_SCENE_0107") % _pretty_words(str(details.get("pattern_type", "Pattern")))
 		"COMPLETE_HAND": return LocalizationCatalogScript.text("UI_RUN_SCENE_0108")
 		"RESERVE": return LocalizationCatalogScript.text("UI_RUN_SCENE_0109")
-		"DISCARD": return LocalizationCatalogScript.text("UI_RUN_SCENE_0110")
+		"DISCARD": return LocalizationCatalogScript.text("UI_RC8_PLAY_RULE") if controller != null and controller.domain.current_battle != null and controller.domain.current_battle.combat_state.turn_play_enabled else LocalizationCatalogScript.text("UI_RUN_SCENE_0110")
 		"RESERVE_SWAP": return LocalizationCatalogScript.text("UI_RUN_SCENE_0111")
 		"REWARD", "ELITE_REWARD", "BOSS_REWARD": return LocalizationCatalogScript.text("UI_RUN_SCENE_0112")
 		"SHOP_OFFER": return LocalizationCatalogScript.text("UI_RUN_SCENE_0113")
@@ -2177,13 +2529,22 @@ func _action_details_text(action: Dictionary) -> String:
 		return _partial_settlement_inspection_text(action, details)
 	if kind == "COMPLETE_HAND":
 		return _complete_hand_inspection_text(action, details)
+	if kind == "TECHNIQUE":
+		return _action_label(action) + "\n" + "\n".join(PackedStringArray(PlayerActionTextScript.definition_effect_lines(controller.domain.content_registry, str(action.get("target_id", "")))))
+	if kind == "END_TURN":
+		var risk := PlayerActionTextScript.lethal_intent_amount(controller.domain.current_battle)
+		return _action_label(action) + ("\n" + LocalizationCatalogScript.format("UI_PLAYER_LETHAL_INTENT", [risk]) if risk > 0 else "") + "\n" + LocalizationCatalogScript.text("UI_PLAYER_RESERVE_EXPIRY")
+	if kind in ["RESERVE", "RESERVE_SWAP"]:
+		return _action_label(action) + "\n" + LocalizationCatalogScript.text("UI_PLAYER_RESERVE_EXPIRY")
+	if kind == "MAP_NODE":
+		return _action_label(action) + "\n" + LocalizationCatalogScript.text("UI_PLAYER_MAP_PREVIEW")
 	if kind == "WORKSHOP_SERVICE":
 		return _action_label(action)
 	return _action_label(action)
 
 
 func _partial_settlement_inspection_text(action: Dictionary, details: Dictionary) -> String:
-	var lines: Array[String] = [_action_label(action)]
+	var lines: Array[String] = [_action_label(action), PlayerActionTextScript.settlement_text(controller.domain.current_battle, action)]
 	var pattern_label := LocalizationCatalogScript.word_text(str(details.get("pattern_type", "PATTERN")))
 	lines.append(LocalizationCatalogScript.template("UI_RUN_SCENE_0151") % pattern_label)
 	var tile_labels := _battle_tile_instance_labels(details.get("instance_ids", []))
@@ -2193,7 +2554,7 @@ func _partial_settlement_inspection_text(action: Dictionary, details: Dictionary
 
 
 func _complete_hand_inspection_text(action: Dictionary, details: Dictionary) -> String:
-	var lines: Array[String] = [_action_label(action)]
+	var lines: Array[String] = [_action_label(action), PlayerActionTextScript.settlement_text(controller.domain.current_battle, action)]
 	var groups: Variant = details.get("groups", [])
 	if groups is Array:
 		for group in groups:
@@ -2277,7 +2638,7 @@ func _help_text(phase: String) -> String:
 		RunPhaseScript.RUN_SUMMARY: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0120")
 		RunPhaseScript.RUN_COMPLETE: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0121")
 		_: phase_help = LocalizationCatalogScript.text("UI_RUN_SCENE_0122")
-	return LocalizationCatalogScript.template("UI_RUN_SCENE_0123") % phase_help
+	return phase_help
 
 func _action_label_for_target(kind: String, target_id: String) -> String:
 	return LocalizationCatalogScript.template("UI_RUN_SCENE_0124") % [_pretty_words(kind), _pretty_id(target_id)]
@@ -2287,6 +2648,8 @@ func _workshop_action_label(action: Dictionary, details: Dictionary) -> String:
 	var tile_label := _pretty_tile_id(str(details.get("tile_definition_id", "")))
 	var price := int(details.get("price", 0))
 	match service_id:
+		"REMOVE_PAIR":
+			return LocalizationCatalogScript.format("UI_RC7_REMOVE_PAIR_LABEL", [tile_label, price])
 		"TRANSFORM":
 			return LocalizationCatalogScript.template("UI_RUN_SCENE_0125") % [tile_label, _pretty_tile_id(str(action.get("value_id", ""))), price]
 		"ADD_MODIFIER":
@@ -2367,7 +2730,7 @@ func _pretty_words(value: String) -> String:
 func _add_section_heading(parent: Control, text: String) -> void:
 	var heading := Label.new()
 	heading.text = text
-	heading.add_theme_font_size_override("font_size", 16)
+	heading.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("body", float(_applied_preferences.get("ui_scale", 1.0))))
 	parent.add_child(heading)
 
 func _add_wrapped_label(parent: Control) -> Label:
@@ -2405,3 +2768,5 @@ func _update_wrapped_label_height(label: Label) -> void:
 		required_height = float(maxi(1, label.get_line_count()) * label.get_line_height() + 4)
 	if absf(label.custom_minimum_size.y - required_height) > 0.5:
 		label.custom_minimum_size.y = required_height
+		if label == _run_value or label == _help_value:
+			call_deferred("_update_overview_guidance_allocation")

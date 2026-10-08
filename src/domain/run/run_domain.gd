@@ -173,7 +173,7 @@ func verify_replay(record = replay_record, resume_factory: Callable = Callable()
 		return RunDomain.new(replay_run_id, replay_seed, content_registry, replay_content_version, null, state.act_count, initial_tile_pool, unlock_policy, _initial_map_definition, _initial_gold, _initial_refinement_tokens)
 	return ReplayVerifierScript.verify(record, replay_factory, state.content_version, resume_factory)
 
-func validate_choose_character(selected_character_id: String) -> RefCounted:
+func validate_choose_character(selected_character_id: String, excluded_suit: String = "") -> RefCounted:
 	if state.character_id == selected_character_id and not selected_character_id.is_empty():
 		return CommandValidationScript.new(false, "DUPLICATE_CHOICE", "The Character has already been selected.")
 	if state.phase != RunPhaseScript.CHARACTER_SELECT:
@@ -183,35 +183,59 @@ func validate_choose_character(selected_character_id: String) -> RefCounted:
 		return CommandValidationScript.new(false, "INVALID_CHARACTER_ID", "The selected Character ID is not registered.")
 	if not unlock_policy.is_unlocked("CHARACTER", selected_character_id):
 		return CommandValidationScript.new(false, "CHARACTER_LOCKED", "The selected Character is locked in the active progression profile.", {"character_id": selected_character_id})
-	var starting_tile_ids := RunStartingPoolFactoryScript.tile_definition_ids(definition.starting_tile_pool_bias)
-	if starting_tile_ids.size() != RunStartingPoolFactoryScript.TILE_COUNT:
+	if not excluded_suit.is_empty() and excluded_suit not in RunStartingPoolFactoryScript.RESERVE_SUIT_IDS:
+		return CommandValidationScript.new(false, "INVALID_EXCLUDED_SUIT", "The selected excluded suit is not valid.", {"excluded_suit": excluded_suit})
+	if selected_character_id != RunStartingPoolFactoryScript.RESERVE_CHARACTER_ID and not excluded_suit.is_empty():
+		return CommandValidationScript.new(false, "EXCLUDED_SUIT_NOT_APPLICABLE", "Only Reserve can select an excluded suit.", {"character_id": selected_character_id})
+	var resolved_excluded_suit := excluded_suit
+	if selected_character_id == RunStartingPoolFactoryScript.RESERVE_CHARACTER_ID and resolved_excluded_suit.is_empty():
+		resolved_excluded_suit = RunStartingPoolFactoryScript.DEFAULT_RESERVE_EXCLUDED_SUIT
+	var starting_tile_ids := RunStartingPoolFactoryScript.starting_tile_definition_ids(
+		selected_character_id,
+		definition.starting_tile_pool_bias,
+		resolved_excluded_suit,
+	)
+	if starting_tile_ids.is_empty():
 		return CommandValidationScript.new(false, "INVALID_STARTING_POOL", "The selected Character has no valid starting Tile Pool profile.", {"character_id": selected_character_id})
 	for tile_id in starting_tile_ids:
 		if not content_registry.resolve(tile_id) is TileDefinitionScript:
 			return CommandValidationScript.new(false, "INVALID_STARTING_POOL", "The selected Character's starting Tile Pool references unavailable tile content.", {"character_id": selected_character_id, "tile_id": tile_id})
 	return CommandValidationScript.new(true)
 
-func execute_choose_character(selected_character_id: String) -> Dictionary:
+func execute_choose_character(selected_character_id: String, excluded_suit: String = "") -> Dictionary:
 	var previous_phase: String = state.phase
 	var character = content_registry.resolve(selected_character_id)
-	state.tile_pool = RunTilePoolStateScript.new(RunStartingPoolFactoryScript.create(selected_character_id, character.starting_tile_pool_bias))
+	var resolved_excluded_suit := excluded_suit
+	if selected_character_id == RunStartingPoolFactoryScript.RESERVE_CHARACTER_ID and resolved_excluded_suit.is_empty():
+		resolved_excluded_suit = RunStartingPoolFactoryScript.DEFAULT_RESERVE_EXCLUDED_SUIT
+	state.tile_pool = RunTilePoolStateScript.new(RunStartingPoolFactoryScript.create_for_character(
+		selected_character_id,
+		character.starting_tile_pool_bias,
+		resolved_excluded_suit,
+	))
 	state.character_id = selected_character_id
+	state.excluded_suit = resolved_excluded_suit
 	state.build_ownership.character_core_technique_id = character.core_technique_id
 	if not state.build_ownership.owned_relic_ids.has(character.starting_relic_id):
 		state.build_ownership.owned_relic_ids.append(character.starting_relic_id)
 	_record_run_milestone("character_chosen")
 	state.phase = RunPhaseScript.CONTRACT_SELECT
+	var character_event_data := {
+		"run_id": state.run_id,
+		"character_id": selected_character_id,
+	}
+	var result_data := {"character_id": selected_character_id, "phase": state.phase}
+	if not resolved_excluded_suit.is_empty():
+		character_event_data["excluded_suit"] = resolved_excluded_suit
+		result_data["excluded_suit"] = resolved_excluded_suit
 	return {
 		"accepted": true,
 		"status": CommandResultScript.ACCEPTED,
 		"events": [
-			DomainEventScript.new(DomainEventScript.CHARACTER_SELECTED, {
-				"run_id": state.run_id,
-				"character_id": selected_character_id,
-			}),
+			DomainEventScript.new(DomainEventScript.CHARACTER_SELECTED, character_event_data),
 			_run_phase_event(previous_phase, state.phase),
 		],
-		"data": {"character_id": selected_character_id, "phase": state.phase},
+		"data": result_data,
 	}
 
 func validate_choose_contract(selected_contract_id: String) -> RefCounted:
@@ -482,6 +506,10 @@ func execute_battle(command):
 	var result = current_battle.execute(command)
 	var passive_events: Array = []
 	if result.accepted:
+		var play_bonus := int(result.data.get("gold_bonus", 0))
+		if play_bonus > 0:
+			var transaction: Dictionary = economy.apply_source(state, RunEconomyScript.GOLD, play_bonus, RunEconomyScript.SOURCE_HAND_PLAY_COMBO)
+			passive_events.append(RunEconomyScript.event_for_transaction(transaction))
 		_record_run_summary_metrics(result.data, result.events)
 		if _has_event_type(result.events, DomainEventScript.COMPLETE_HAND_SETTLED):
 			var character = content_registry.resolve(state.character_id)
@@ -489,7 +517,7 @@ func execute_battle(command):
 			if passive is CharacterPassiveDefinitionScript and passive.trigger_id == CharacterPassiveDefinitionScript.AFTER_COMPLETE_HAND:
 				var passive_result: Dictionary = current_battle.resolve_character_passive(passive)
 				if passive_result.get("accepted", false):
-					passive_events = passive_result.get("events", [])
+						passive_events.append_array(passive_result.get("events", []))
 	var transfer_events: Array = []
 	if current_battle != null and current_battle.combat_state != null:
 		state.current_battle_snapshot = RunBattleSnapshotScript.new(current_battle.checkpoint())
@@ -519,6 +547,7 @@ func apply_battle_outcome() -> Array:
 	var outcome: String = current_battle.outcome()
 	if not [CombatStateScript.VICTORY, CombatStateScript.DEFEAT].has(outcome):
 		return []
+	var defeat_context := {"pressure": current_battle.combat_state.pressure, "pressure_limit": current_battle.combat_state.pressure_limit, "enemy_hp": current_battle.combat_state.enemy_hp}
 	var encounter_id_before: String = current_battle.encounter_id
 	var encounter_kind_before: String = current_battle.encounter_kind
 	var reward_tax_requested: int = maxi(0, int(current_battle.combat_state.reward_tax))
@@ -535,7 +564,7 @@ func apply_battle_outcome() -> Array:
 	current_battle = null
 	state.current_battle_snapshot = null
 	if outcome == CombatStateScript.DEFEAT:
-		events.append_array(enter_run_summary("DEFEAT", "BATTLE_DEFEAT", {"encounter_id": encounter_id_before}))
+		events.append_array(enter_run_summary("DEFEAT", "BATTLE_DEFEAT", {"encounter_id": encounter_id_before, "defeat_context": defeat_context}))
 		state.map_state.last_events = events
 		return events
 	if reward_tax_requested > 0:
@@ -569,12 +598,12 @@ func apply_battle_outcome() -> Array:
 	state.map_state.last_events = events
 	return events
 
-func validate_choose_reward(selected_draft_id: String, selected_option_id: String) -> RefCounted:
-	return reward_flow.validate_choice(selected_draft_id, selected_option_id)
+func validate_choose_reward(selected_draft_id: String, selected_option_id: String, selected_target_tile_id: String = "") -> RefCounted:
+	return reward_flow.validate_choice(selected_draft_id, selected_option_id, selected_target_tile_id)
 
-func execute_choose_reward(selected_draft_id: String, selected_option_id: String) -> Dictionary:
+func execute_choose_reward(selected_draft_id: String, selected_option_id: String, selected_target_tile_id: String = "") -> Dictionary:
 	var resolving_boss_reward: bool = state.phase == RunPhaseScript.BOSS_REWARD
-	var result: Dictionary = reward_flow.execute_choice(selected_draft_id, selected_option_id)
+	var result: Dictionary = reward_flow.execute_choice(selected_draft_id, selected_option_id, selected_target_tile_id)
 	if not result.get("accepted", false) or not resolving_boss_reward:
 		return result
 	var reward_data: Dictionary = result.get("data", {}).duplicate(true)
@@ -595,6 +624,9 @@ func execute_choose_reward(selected_draft_id: String, selected_option_id: String
 		"events": events,
 		"data": reward_data.merged({"phase": state.phase}),
 	}
+
+func reward_target_choices(selected_option_id: String) -> Dictionary:
+	return reward_flow.target_choices(selected_option_id)
 
 func _record_run_milestone(milestone_id: String) -> void:
 	if not milestone_id.is_empty() and not state.milestones.has(milestone_id):
@@ -710,6 +742,9 @@ func checkpoint() -> Dictionary:
 	var run_state_checkpoint: Dictionary = state.to_dictionary()
 	# Wall-clock tracking is saved for the player summary but excluded from deterministic replay state.
 	run_state_checkpoint.erase("run_started_at_unix_seconds")
+	# Defeat explanation is saved for the UI, like the wall-clock summary. It
+	# adds no rule state and must not change hashes of existing RC7 replays.
+	run_state_checkpoint.get("terminal_summary", {}).get("summary_data", {}).erase("defeat_context")
 	return {
 		"schema_version": 1,
 		"run_state": run_state_checkpoint,

@@ -8,6 +8,7 @@ if [[ ! -r "$godot_version_file" ]]; then
   exit 2
 fi
 IFS= read -r godot_version < "$godot_version_file"
+godot_version="${godot_version%$'\r'}"
 if [[ ! "$godot_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "ERROR: invalid pinned Godot version in $godot_version_file: $godot_version" >&2
   exit 2
@@ -92,11 +93,14 @@ fi
 
 project_path="$project_root"
 if [[ "${godot_binary,,}" == *.exe ]]; then
-  if ! command -v wslpath >/dev/null 2>&1; then
-    echo "ERROR: Windows Godot binary detected but 'wslpath' is unavailable for project path conversion." >&2
+  if command -v cygpath >/dev/null 2>&1; then
+    project_path="$(cygpath -w "$project_root")"
+  elif command -v wslpath >/dev/null 2>&1; then
+    project_path="$(wslpath -w "$project_root")"
+  else
+    echo "ERROR: Windows Godot requires cygpath (Git Bash) or wslpath for project path conversion." >&2
     exit 2
   fi
-  project_path="$(wslpath -w "$project_root")"
 fi
 
 set +e

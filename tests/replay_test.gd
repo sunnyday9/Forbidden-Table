@@ -124,7 +124,7 @@ func test_unavailable_content_version_is_structured(failures: Array[String]) -> 
 func test_replay_game_and_schema_versions_are_validated(failures: Array[String]) -> void:
 	var record := ReplayRecord.new(2038, "content.slice.v1", "phase2.version.fixture")
 	var record_data: Dictionary = record.to_dictionary()
-	assert_true(record_data.get("game_version", "") == "game.phase2.v1", "ReplayRecord stores the specified game version", failures)
+	assert_true(record_data.get("game_version", "") == ReplayRecord.GAME_VERSION, "ReplayRecord stores the current mechanical rules identity", failures)
 	var round_tripped = ReplayRecord.from_dictionary(record_data)
 	assert_true(round_tripped.to_dictionary() == record_data, "ReplayRecord game-version metadata round-trips", failures)
 

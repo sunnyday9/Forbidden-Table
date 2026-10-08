@@ -2,6 +2,10 @@
 .cache/
 *.uid
 /dist/
+/.scratch/
+/.codex-worktrees/
+/evidence/
+/graphify-out/
 __pycache__/
 *.py[cod]
 

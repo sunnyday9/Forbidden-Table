@@ -42,6 +42,9 @@ func _init(
 	if settlement_capacity != null and _settlement_window != null:
 		_settlement_window.set_settlement_capacity(settlement_capacity)
 
+func replacement_draw_request_after(consumed: int) -> int:
+	return maxi(0, _hand_baseline - (_zones.size(TileZoneScript.HAND) - consumed))
+
 func resolve_partial_settlement(selected_instance_ids: Array, combat_output = null):
 	if _ended:
 		return _result(

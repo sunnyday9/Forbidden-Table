@@ -925,7 +925,7 @@ func test_unknown_event_modifier_has_no_invented_battle_effect(failures: Array[S
 	var selection = domain.execute(SelectMapNodeCommand.new("event.modifier.unknown.battle", "base.map_node.normal.mid"))
 	assert_true(selection.accepted, "an unknown active Event modifier does not block battle entry", failures)
 	if selection.accepted:
-		assert_true(domain.current_battle.combat_state.pressure == 0 and domain.current_battle.combat_state.tp == 0 and domain.current_battle.combat_state.settlement_capacity == 2 and domain.current_battle.combat_state.reserve_capacity == 3, "an unknown modifier ID receives no generic Event gameplay benefit", failures)
+		assert_true(domain.current_battle.combat_state.pressure == 0 and domain.current_battle.combat_state.tp == 0 and domain.current_battle.combat_state.settlement_capacity == 2 and domain.current_battle.combat_state.reserve_capacity == 4, "an unknown modifier ID receives no generic Event gameplay benefit beyond the owned Reserve preparation relic", failures)
 		assert_true(not _has_effect_event(selection.events, DomainEvent.PRESSURE_CHANGED, "run_modifier.event.future_unknown") and not _has_effect_event(selection.events, DomainEvent.TP_CHANGED, "run_modifier.event.future_unknown"), "unknown Event modifiers emit no invented battle-entry effects", failures)
 
 func _event_effect_registry(include_act_two: bool) -> ContentRegistry:

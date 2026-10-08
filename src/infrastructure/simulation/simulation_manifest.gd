@@ -7,7 +7,7 @@ const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_
 const Phase2CatalogScript = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const SCHEMA_VERSION := 1
 const RUNS_REQUIRED_PER_GATE := 1000
-const STARTING_POOL_FIXTURE_ID := "phase2.character_biased_complete_hand.v1"
+const STARTING_POOL_FIXTURE_ID := "phase2.character_choice_starting_pool.v2"
 const POLICY_ORDER := ["Partial", "Complete", "Hybrid"]
 const GATE_ORDER := ["readiness", "hardening", "scale", "exit", "stage4_beta"]
 const ACT_1_BOSS_THREE_CHOICE_PATH := "ACT_1_BOSS_RULE_BREAKER_THREE_CHOICES"
@@ -186,17 +186,21 @@ func _build_gate_profile(
 			var character_stride := maxi(1, policies.size())
 			var contract_stride := character_stride * maxi(1, character_ids.size())
 			var route_stride := contract_stride * maxi(1, contract_ids.size())
-			cases.append({
+			var selected_character_id := str(case_spec.get("character_id", character_ids[floori(float(index) / float(character_stride)) % character_ids.size()]))
+			var case_data := {
 				"attempt_index": index,
 				"attempt_id": "%s.%05d" % [gate_id, index + 1],
 				"gate_id": gate_id,
 				"seed": seed_start + index,
 				"policy_id": str(case_spec.get("policy_id", policies[index % policies.size()])),
-				"character_id": str(case_spec.get("character_id", character_ids[floori(float(index) / float(character_stride)) % character_ids.size()])),
+				"character_id": selected_character_id,
 				"contract_id": str(case_spec.get("contract_id", contract_ids[floori(float(index) / float(contract_stride)) % contract_ids.size()])),
 				"route_id": str(case_spec.get("route_id", route_ids[floori(float(index) / float(route_stride)) % route_ids.size()])),
 				"starting_pool_fixture_id": _starting_pool_fixture_id,
-			})
+			}
+			if selected_character_id == "base.character.reserve":
+				case_data["excluded_suit"] = str(case_spec.get("excluded_suit", "characters"))
+			cases.append(case_data)
 
 	return {
 		"gate_id": gate_id,

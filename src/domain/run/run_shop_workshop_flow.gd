@@ -91,7 +91,7 @@ func execute(command_type: String, arguments: Dictionary = {}) -> Dictionary:
 	return {"accepted": false, "status": "UNKNOWN_SERVICE_COMMAND", "message": "Unsupported Shop or Workshop command."}
 
 func workshop_price(service_key: String) -> int:
-	return _workshop_price(service_key)
+	return _workshop_price(state.workshop_state.service_key(service_key))
 
 func _invalid_phase(expected_phase: String) -> RefCounted:
 	return CommandValidationScript.new(
@@ -378,7 +378,7 @@ func _validate_use_workshop_service(
 	if state.phase != RunPhaseScript.WORKSHOP or not state.workshop_state.active:
 		return _invalid_phase(RunPhaseScript.WORKSHOP)
 	var service_key: String = state.workshop_state.service_key(service_id)
-	if not [WorkshopStateScript.REMOVE, WorkshopStateScript.TRANSFORM, WorkshopStateScript.MODIFIER, WorkshopStateScript.DUPLICATE, WorkshopStateScript.REFINEMENT_TOKEN].has(service_key):
+	if not [WorkshopStateScript.REMOVE, WorkshopStateScript.REMOVE_PAIR, WorkshopStateScript.TRANSFORM, WorkshopStateScript.MODIFIER, WorkshopStateScript.DUPLICATE, WorkshopStateScript.REFINEMENT_TOKEN].has(service_key):
 		return CommandValidationScript.new(false, "INVALID_WORKSHOP_SERVICE", "The Workshop service ID is not supported.")
 	if not state.workshop_state.is_service_available(service_id):
 		return CommandValidationScript.new(false, "SERVICE_UNAVAILABLE", "The selected Workshop service is no longer available.")
@@ -391,10 +391,18 @@ func _validate_use_workshop_service(
 	var price := int(price_data.get("price", 0))
 	if state.gold < price:
 		return CommandValidationScript.new(false, "INSUFFICIENT_GOLD", "The run does not have enough Gold for this Workshop service.")
+	var remove_pair_instance_ids: Array[String] = []
+	if service_key == WorkshopStateScript.REMOVE_PAIR:
+		remove_pair_instance_ids = _workshop_remove_pair_instance_ids(instance_id, tile_instance.definition_id)
 	match service_key:
 		WorkshopStateScript.REMOVE:
 			if state.tile_pool.tile_instances.size() <= economy.workshop_minimum_pool_size:
 				return CommandValidationScript.new(false, "POOL_MINIMUM", "Remove cannot reduce the Tile Pool below its configured minimum.")
+		WorkshopStateScript.REMOVE_PAIR:
+			if remove_pair_instance_ids.size() != 2:
+				return CommandValidationScript.new(false, "NO_MATCHING_TILE_PAIR", "Remove Pair requires two Run-owned copies of the selected Tile type.")
+			if _workshop_run_tile_count() - 2 < WorkshopStateScript.REMOVE_PAIR_MINIMUM_POOL_SIZE:
+				return CommandValidationScript.new(false, "POOL_MINIMUM", "Remove Pair cannot reduce the Run Tile Pool below 14 Tiles.")
 		WorkshopStateScript.TRANSFORM:
 			var transform_definition_id := value_id if not value_id.is_empty() else modifier_id
 			var transform_definition = content_registry.resolve(transform_definition_id)
@@ -426,12 +434,19 @@ func _validate_use_workshop_service(
 		WorkshopStateScript.REFINEMENT_TOKEN:
 			if state.refinement_tokens < 1:
 				return CommandValidationScript.new(false, "INSUFFICIENT_REFINEMENT_TOKENS", "The Refinement Token service requires one Refinement Token.")
-	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {
+	var details: Dictionary = {
 		"service_id": service_id,
 		"price": price,
 		"base_price": int(price_data.get("base_price", price)),
 		"price_adjustments": price_data.get("adjustments", []).duplicate(true),
-	})
+	}
+	if service_key == WorkshopStateScript.REMOVE_PAIR:
+		var pool_size_before := _workshop_run_tile_count()
+		details["instance_ids"] = remove_pair_instance_ids.duplicate()
+		details["definition_id"] = tile_instance.definition_id
+		details["pool_size_before"] = pool_size_before
+		details["pool_size_after"] = pool_size_before - 2
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", details)
 
 func _execute_use_workshop_service(
 	service_id: String,
@@ -441,6 +456,16 @@ func _execute_use_workshop_service(
 	replace_existing: bool = false,
 ) -> Dictionary:
 	var service_key: String = state.workshop_state.service_key(service_id)
+	var tile_instance = tile_pool_editor.find_instance(instance_id)
+	var remove_pair_instance_ids: Array[String] = []
+	if service_key == WorkshopStateScript.REMOVE_PAIR:
+		if tile_instance == null:
+			return {"accepted": false, "status": "INVALID_TILE_INSTANCE", "message": "The selected TileInstance is not in the Run Tile Pool."}
+		remove_pair_instance_ids = _workshop_remove_pair_instance_ids(instance_id, tile_instance.definition_id)
+		if remove_pair_instance_ids.size() != 2:
+			return {"accepted": false, "status": "NO_MATCHING_TILE_PAIR", "message": "Remove Pair requires two Run-owned copies of the selected Tile type."}
+		if _workshop_run_tile_count() - 2 < WorkshopStateScript.REMOVE_PAIR_MINIMUM_POOL_SIZE:
+			return {"accepted": false, "status": "POOL_MINIMUM", "message": "Remove Pair cannot reduce the Run Tile Pool below 14 Tiles."}
 	var price_data: Dictionary = _workshop_price_details(service_key)
 	var price := int(price_data.get("price", 0))
 	var gold_transaction: Dictionary = economy.apply_sink(state, RunEconomyScript.GOLD, price, RunEconomyScript.SINK_WORKSHOP_SERVICE)
@@ -457,11 +482,18 @@ func _execute_use_workshop_service(
 		"modifier_id": modifier_id,
 		"currency_transactions": [gold_transaction],
 	}
-	var tile_instance = tile_pool_editor.find_instance(instance_id)
+	if service_key == WorkshopStateScript.REMOVE_PAIR:
+		data["instance_ids"] = remove_pair_instance_ids.duplicate()
+		data["definition_id"] = tile_instance.definition_id
 	if service_key == WorkshopStateScript.REMOVE:
 		var remove_index: int = tile_pool_editor.instance_index(instance_id)
 		state.tile_pool.tile_instances.remove_at(remove_index)
 		state.build_ownership.persistent_tile_modifier_state.erase(instance_id)
+	elif service_key == WorkshopStateScript.REMOVE_PAIR:
+		for removed_instance_id in remove_pair_instance_ids:
+			var remove_index: int = tile_pool_editor.instance_index(removed_instance_id)
+			state.tile_pool.tile_instances.remove_at(remove_index)
+			state.build_ownership.persistent_tile_modifier_state.erase(removed_instance_id)
 	elif service_key == WorkshopStateScript.TRANSFORM:
 		var transform_definition_id := value_id if not value_id.is_empty() else modifier_id
 		tile_instance.definition_id = transform_definition_id
@@ -500,6 +532,15 @@ func _execute_use_workshop_service(
 			"scope": "RUN_TILE_POOL",
 			"permanent": true,
 		}))
+	elif service_key == WorkshopStateScript.REMOVE_PAIR:
+		for removed_instance_id in remove_pair_instance_ids:
+			events.append(DomainEventScript.new(DomainEventScript.TILE_REMOVED, {
+				"instance_id": removed_instance_id,
+				"definition_id": tile_instance.definition_id,
+				"service_id": service_id,
+				"scope": "RUN_TILE_POOL",
+				"permanent": true,
+			}))
 	data["phase"] = state.phase
 	events.append(DomainEventScript.new(DomainEventScript.WORKSHOP_SERVICE_USED, data.duplicate(true)))
 	state.map_state.last_events = events
@@ -561,6 +602,18 @@ func _workshop_price(service_key: String) -> int:
 	return int(_workshop_price_details(service_key).get("price", 0))
 
 func _workshop_price_details(service_key: String) -> Dictionary:
+	if service_key == WorkshopStateScript.REMOVE_PAIR:
+		var remove_price := RunModifierEffectResolverScript.new().workshop_price(state, economy.workshop_remove_price)
+		var doubled_adjustments: Array = []
+		for adjustment in remove_price.get("adjustments", []):
+			var doubled: Dictionary = adjustment.duplicate(true)
+			doubled["amount"] = int(doubled.get("amount", 0)) * 2
+			doubled_adjustments.append(doubled)
+		return {
+			"base_price": int(remove_price.get("base_price", economy.workshop_remove_price)) * 2,
+			"price": int(remove_price.get("price", economy.workshop_remove_price)) * 2,
+			"adjustments": doubled_adjustments,
+		}
 	var base_price := 0
 	match service_key:
 		WorkshopStateScript.REMOVE:
@@ -574,6 +627,31 @@ func _workshop_price_details(service_key: String) -> Dictionary:
 		WorkshopStateScript.REFINEMENT_TOKEN:
 			base_price = economy.workshop_refinement_price + AlphaContractEffectsScript.workshop_refinement_gold_surcharge(content_registry, state.contract_id)
 	return RunModifierEffectResolverScript.new().workshop_price(state, base_price)
+
+func _workshop_remove_pair_instance_ids(selected_instance_id: String, selected_definition_id: String) -> Array[String]:
+	var matching_instance_ids: Array[String] = []
+	for tile_instance in state.tile_pool.tile_instances:
+		if tile_instance == null or tile_instance.instance_id == selected_instance_id:
+			continue
+		if tile_instance.definition_id != selected_definition_id:
+			continue
+		if tile_instance.ownership_scope != "RUN" or tile_instance.lifetime_scope != "RUN":
+			continue
+		matching_instance_ids.append(tile_instance.instance_id)
+	matching_instance_ids.sort()
+	if matching_instance_ids.is_empty():
+		return []
+	var selected_instance_ids: Array[String] = [selected_instance_id, matching_instance_ids[0]]
+	selected_instance_ids.sort()
+	return selected_instance_ids
+
+func _workshop_run_tile_count() -> int:
+	var count := 0
+	for tile_instance in state.tile_pool.tile_instances:
+		if tile_instance == null or tile_instance.ownership_scope != "RUN" or tile_instance.lifetime_scope != "RUN":
+			continue
+		count += 1
+	return count
 
 func _duplicate_run_tile(source_tile) -> Dictionary:
 	var duplicate_result: Dictionary = tile_pool_editor.add_tile(source_tile.definition_id)

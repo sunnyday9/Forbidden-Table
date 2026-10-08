@@ -74,14 +74,26 @@ func validate_in_context(context) -> Dictionary:
 			var condition_reason: String = condition.failure_reason() if condition is EffectConditionScript else "INVALID_CONDITION_DECLARATION"
 			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_CONDITION, "reason": condition_reason}
 
+	var hand_demand := 0
 	for operation in operations:
 		if not operation is EffectOperationScript:
 			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_OPERATION, "reason": "INVALID_OPERATION_DECLARATION"}
 		var validation_reason: String = operation.validate(context, resolved_targets)
 		if not validation_reason.is_empty():
 			return {"valid": false, "status": EffectResolutionResultScript.REJECTED_OPERATION, "reason": validation_reason}
+		hand_demand += operation.hand_addition_demand(context, resolved_targets)
+	if context != null and context.zones != null and context.zones.has_method("remaining_hand_capacity") and hand_demand > context.zones.remaining_hand_capacity():
+		return {"valid": false, "status": EffectResolutionResultScript.REJECTED_OPERATION, "reason": "HAND_CAPACITY_REACHED", "requested": hand_demand, "remaining": context.zones.remaining_hand_capacity()}
 
 	return {"valid": true, "resolved_targets": resolved_targets}
+
+func hand_addition_demand(context) -> int:
+	var resolved_targets: Dictionary = {}
+	var hand_demand := 0
+	for operation in operations:
+		if operation is EffectOperationScript:
+			hand_demand += operation.hand_addition_demand(context, resolved_targets)
+	return hand_demand
 
 func _rejected(status: String, reason: String, sequence_index: int):
 	return EffectResolutionResultScript.new(

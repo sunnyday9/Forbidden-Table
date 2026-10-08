@@ -64,7 +64,10 @@ func _run_tests() -> void:
 	# Test presentation is independent of the player's saved preferences/system locale.
 	TranslationServer.set_locale("en")
 	var test_preferences = root.get_node_or_null("PresentationPrefs")
+	var isolated_preferences_path := "user://test_runner_preferences_%s_%s.cfg" % [OS.get_process_id(), Time.get_ticks_usec()]
 	if test_preferences != null:
+		# UI tests may exercise Apply. Keep those writes away from the player's file.
+		test_preferences.config_path = isolated_preferences_path
 		test_preferences.locale = "en"
 		test_preferences.ui_scale = 1.0
 		test_preferences.presentation_mode = "NORMAL"
@@ -128,7 +131,10 @@ func _run_tests() -> void:
 	var stage45_ui_only := "--stage45-ui" in test_arguments
 	var guided_sample_only := "--guided-sample" in test_arguments
 	var runner_dispatch_only := "--runner-dispatch" in test_arguments
+	var starting_rules_only := "--starting-rules" in test_arguments
+	var discard_rewards_only := "--discard-rewards" in test_arguments
 	var focused_test_requested := (
+		starting_rules_only or discard_rewards_only or
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
@@ -136,6 +142,22 @@ func _run_tests() -> void:
 	)
 	var selected_suite_ids := TestSuiteDispatch.select_suite_ids(test_arguments, focused_test_requested)
 	var failures: Array[String] = []
+	if discard_rewards_only or not focused_test_requested:
+		for rules_suite in ["res://tests/discard_capacity_rules_test.gd", "res://tests/discard_tile_scorer_test.gd", "res://tests/rc7_reward_rules_regression_test.gd", "res://tests/rc7_reward_ui_regression_test.gd"]:
+			var rules_script: Script = load(rules_suite) as Script
+			if rules_script == null or not rules_script.can_instantiate():
+				failures.append("Discard/reward rules suite failed to load: " + rules_suite)
+			else:
+				failures.append_array(await rules_script.new().run())
+		print("RC7_DISCARD_REWARDS_REPORT modules=4 failures=%d" % failures.size())
+	if starting_rules_only or not focused_test_requested:
+		for rules_suite in ["res://tests/starting_pool_rules_regression_test.gd", "res://tests/starting_hand_limit_regression_test.gd", "res://tests/rc6_starting_hand_rules_test.gd"]:
+			var rules_script: Script = load(rules_suite) as Script
+			if rules_script == null or not rules_script.can_instantiate():
+				failures.append("Starting rules suite failed to load: " + rules_suite)
+			else:
+				failures.append_array(await rules_script.new().run())
+		print("RC6_STARTING_RULES_REPORT modules=3 failures=%d" % failures.size())
 	if not focused_test_requested or runner_dispatch_only:
 		failures.append_array(TestRunnerDispatchTest.new().run())
 	if not focused_test_requested:
@@ -259,8 +281,15 @@ func _run_tests() -> void:
 	if selected_suite_ids.has("guided-sample"):
 		failures.append_array(await GuidedSampleTest.new().run())
 
+	if FileAccess.file_exists(isolated_preferences_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(isolated_preferences_path))
+
 	if failures.is_empty():
-		if content_registry_only:
+		if starting_rules_only:
+			print("PASS: RC6 starting pool and Hand rules")
+		elif discard_rewards_only:
+			print("PASS: RC7 discard, reward and UI rules")
+		elif content_registry_only:
 			print("PASS: content registry tests")
 		elif rng_only:
 			print("PASS: RNG stream tests")

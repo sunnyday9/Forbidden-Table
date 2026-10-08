@@ -359,9 +359,9 @@ UI_RUN_SCENE_0057,当前状态下没有可用行动。
 UI_RUN_SCENE_0058,教程已完成
 UI_RUN_SCENE_0059,关闭教程
 UI_RUN_SCENE_0060,启用教程
-UI_RUN_SCENE_0061,教程：摸一张牌，查看高亮牌型，然后结算其中一种以造成伤害。
-UI_RUN_SCENE_0062,教程：时机允许时，花费 TP 使用核心技法。
-UI_RUN_SCENE_0063,教程：将一张牌存入备牌，以保护它免受敌方压力影响。
+UI_RUN_SCENE_0061,教程：先摸牌，再选择对子、三张相同牌或同花色连续三张。小牌型结算消耗所选牌并补牌；凑成14张完整和牌才能造成完整伤害。
+UI_RUN_SCENE_0062,教程：使用核心技巧。先查看效果和TP消耗；部分初始技巧消耗0 TP。
+UI_RUN_SCENE_0063,教程：将一张牌存入储备区。回合结束会降低完整度，降至0时该牌失效。
 UI_RUN_SCENE_0064,教程：组成并结算完整和牌，以推进役种进度。
 UI_RUN_SCENE_0065,教程：结束回合前，先查看敌方意图与污染。
 UI_RUN_SCENE_0066,游戏内容未通过验证，无法开始新旅程。
@@ -412,7 +412,7 @@ UI_RUN_SCENE_0103,%s — %s
 UI_RUN_SCENE_0104,选择%s
 UI_RUN_SCENE_0105,选择契约 — %s
 UI_RUN_SCENE_0106,使用技法：%s
-UI_RUN_SCENE_0107,结算 %s
+UI_RUN_SCENE_0107,打出%s
 UI_RUN_SCENE_0108,结算完整和牌
 UI_RUN_SCENE_0109,存入备牌
 UI_RUN_SCENE_0110,弃牌
@@ -421,14 +421,14 @@ UI_RUN_SCENE_0112,选择奖励
 UI_RUN_SCENE_0113,购买商品
 UI_RUN_SCENE_0114,选择事件选项
 UI_RUN_SCENE_0115,选择牌
-UI_RUN_SCENE_0116,选择角色，再选择契约以进入第一幕地图。每次选择后请确认执行；选择契约时会生成初始牌池。
-UI_RUN_SCENE_0117,选择一份契约并确认执行。该选择在两个幕中均生效。
-UI_RUN_SCENE_0118,选择一个相邻节点并确认前往。完成战斗并领取首领奖励后即可继续旅程。
-UI_RUN_SCENE_0119,摸牌以寻找合法牌型和完整和牌。选择一个选项并确认执行；结束回合以处理敌方意图。
-UI_RUN_SCENE_0120,查看构筑纪事，然后选择并确认旅程总结，以结束本次旅程。
+UI_RUN_SCENE_0116,选择角色和契约即可进入第一幕地图。选择契约时会生成初始牌池。
+UI_RUN_SCENE_0117,选择一份契约即可生效；该选择在两个幕中均有效。
+UI_RUN_SCENE_0118,选择一个相邻节点即可前往。完成战斗并领取首领奖励后即可继续旅程。
+UI_RUN_SCENE_0119,摸牌以寻找合法牌型和完整和牌。激活可用行动即可打出；选择牌面可查看详情或组牌。结束回合以处理敌方意图。
+UI_RUN_SCENE_0120,查看构筑纪事，然后选择“结束旅程”以关闭总结。
 UI_RUN_SCENE_0121,旅程已完成。准备好后即可开始新的旅程。
-UI_RUN_SCENE_0122,选择一个可用行动，然后选择“确认选择”。按 Enter / A 确认当前焦点上的控件。
-UI_RUN_SCENE_0123,%s 按 Tab / 左右肩键移动焦点，按方向键 / 十字键切换选项。将焦点移至旅程状态后，按上 / 下滚动概览。按 Enter / A 确认，按 Esc / B 返回。
+UI_RUN_SCENE_0122,激活可用行动即可继续。按 Enter / A 激活当前焦点选项；移动焦点可查看选项详情。
+UI_RUN_SCENE_0123,%s 按 Tab / 左右肩键移动焦点，按方向键 / 十字键切换选项。将焦点移至旅程状态后，按上 / 下滚动概览。按 Enter / A 激活，按 Esc / B 返回。
 UI_RUN_SCENE_0124,%s — %s
 UI_RUN_SCENE_0125,将 %s 变换为 %s（%d 金币）
 UI_RUN_SCENE_0126,将 %s 添加到 %s（%d 金币）
@@ -900,7 +900,7 @@ base.relic.contamination_filter,污染过滤器
 base.relic.elite_bounty,精英悬赏
 base.relic.fatigue_buffer,疲劳缓冲
 base.relic.integrity_seal,完整度封印
-base.relic.open_hand,开放手牌
+base.relic.open_hand,备牌准备
 base.relic.reserve_sleeve,藏牌袖套
 base.relic.reward_pivot,奖励转向
 base.relic.rule_memory,规则记忆
@@ -1007,7 +1007,7 @@ UI_BATTLE_VIEW_0020,当前没有可用的牌操作。
 UI_BATTLE_VIEW_0021,当前没有可用技法。
 UI_BATTLE_VIEW_0022,当前没有可选操作。
 UI_BATTLE_VIEW_0023,确认所选操作
-UI_BATTLE_VIEW_0024,移动焦点可查看详情。选择操作后，再确认执行。
+UI_BATTLE_VIEW_0024,选择牌面可查看详情；激活可用行动即可打出。
 UI_BATTLE_VIEW_0025,此区域暂无牌。
 UI_BATTLE_VIEW_0026,%s · 副本 %s
 UI_BATTLE_VIEW_0027,完整度 %d / %d
@@ -1063,6 +1063,10 @@ UI_PREFS_TUTORIAL_RESET_PENDING,应用这些设置后，教程将从头开始。
 UI_PREFS_TUTORIAL_TITLE,教程
 UI_PREFS_UI_SCALE,界面大小
 UI_RUN_JOURNEY_0001,请入座
+UI_RUN_CHARACTER_FACT_TILE_BIAS,牌池偏向：%s
+UI_RUN_CHARACTER_FACT_RELIC,初始遗物：%s
+UI_RUN_CHARACTER_FACT_TECHNIQUE,核心技法：%s
+UI_RUN_CHARACTER_FACT_PASSIVE,专属被动：%s
 UI_RUN_JOURNEY_0002,签订契约
 UI_RUN_JOURNEY_0003,第 %d 幕 · 选择路线
 UI_RUN_JOURNEY_0004,选择奖励
@@ -1091,7 +1095,7 @@ UI_RUN_JOURNEY_0026,旅程详情
 UI_RUN_JOURNEY_0027,当前没有可用选项。
 UI_RUN_JOURNEY_0031,已揭晓，当前不可前往
 UI_RUN_JOURNEY_0032,剩余刷新次数：%d
-UI_RUN_JOURNEY_0033,先选择服务，再选择牌面和合法结果。确认前请核对具体变化与费用。
+UI_RUN_JOURNEY_0033,先选择服务，再选择牌面和合法结果。激活服务前请核对具体变化与费用。
 UI_RUN_JOURNEY_0034,开始新的旅程？
 UI_RUN_JOURNEY_0035,新的旅程将从头开始，无法继续当前旅程。
 UI_RUN_JOURNEY_0036,保留当前旅程
@@ -1131,7 +1135,26 @@ UI_RUN_RECOVERY_DETAILS_BODY,"存档：%s
 旅程：%s
 存档边界：%s
 错误代码：%s"
+UI_RUN_CHECKPOINT_MAP_NODE,地图选择已记录
+UI_RUN_CHECKPOINT_BATTLE_START,战斗开始
+UI_RUN_CHECKPOINT_TURN_START,回合开始
+UI_RUN_CHECKPOINT_DRAW_ACTION,摸牌已完成
+UI_RUN_CHECKPOINT_BATTLE_ACTION,战斗行动已完成
+UI_RUN_CHECKPOINT_SETTLEMENT_COMPLETE,结算已完成
+UI_RUN_CHECKPOINT_ENEMY_INTENT_COMPLETE,敌方回合已结算
+UI_RUN_CHECKPOINT_SHOP,商店
+UI_RUN_CHECKPOINT_WORKSHOP,工坊
+UI_RUN_CHECKPOINT_EVENT_CHOICE_BEFORE,事件已开启
+UI_RUN_CHECKPOINT_EVENT_CHOICE_AFTER,事件选择已记录
+UI_RUN_CHECKPOINT_REWARD,奖励已记录
+UI_RUN_CHECKPOINT_RUN_SUMMARY,旅程总结
+UI_RUN_CHECKPOINT_RUN_COMPLETE,旅程已完成
+UI_RUN_CHECKPOINT_UNKNOWN,未知存档边界
 UI_RUN_RECOVERY_READY,已保存的旅程可以继续。继续会恢复存档状态；新旅程会替换这份续玩存档。
+UI_RUN_RECOVERY_SUMMARY,"%s
+角色：%s
+契约：%s
+存档位置：%s"
 UI_RUN_RECOVERY_PRESERVED,无法载入已保存的旅程。原始存档未被修改，并已保留恢复副本。只有在决定放弃这份存档时，才选择新旅程。
 UI_RUN_RECOVERY_MANUAL_COPY,已保存的旅程需要处理。恢复未能完成。请保留原始文件，并在重新开始前手动备份。技术详情中列出了文件路径和错误。
 UI_RUN_RECOVERY_INTERRUPTED_PRESERVED,续玩存档的写入被中断。未载入任何旧存档。原始恢复文件未被修改，并已保留副本。只有在决定放弃这份存档时，才选择新旅程。
@@ -1181,6 +1204,10 @@ UI_BATTLE_TABLE_NO_MATCH,当前选牌没有合法行动。请调整选牌，或�
 UI_BATTLE_TABLE_ALL,选择全部手牌
 UI_BATTLE_TABLE_CLEAR,清除选牌
 UI_BATTLE_TABLE_WALL,牌墙剩余 %s 张
+UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_EXHAUSTED,结算次数已用完（%d/%d）。你仍可摸牌或结束回合。
+UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_REMAINING,剩余结算次数：%d/%d
+UI_BATTLE_TABLE_PAIR_INCOMPLETE,对子本身不构成完整和牌；需将其加入合法牌型后才能打出。
+UI_BATTLE_TABLE_WINDOW_CLOSED,结算窗口已关闭；待窗口再次开启时可打出此牌组。
 UI_RUN_SCENE_0150,%s · %s/%s
 UI_RUN_SCENE_0151,牌型 · %s
 UI_RUN_SCENE_0152,牌面 · %s
@@ -1188,21 +1215,23 @@ UI_RUN_SCENE_0153,%s · %s
 UI_RUN_SCENE_0154,对子 · %s
 UI_RUN_SCENE_0155,役种 · %s · %s
 UI_RUN_SCENE_0156,%s 增加 1 份额外副本
+UI_RUN_SCENE_0157,已保存旅程就绪
+UI_RUN_SCENE_0158,无法载入战斗界面。请重启游戏；如果问题仍然存在，请重新安装游戏。
 UI_GUIDED_SAMPLE_ENTRY,示例旅程
 UI_GUIDED_SAMPLE_RESTART,重来
 UI_GUIDED_SAMPLE_SKIP,跳过
 UI_GUIDED_SAMPLE_EXIT,退出示例
-UI_GUIDED_SAMPLE_0001,选择角色：起始牌组与核心技法会塑造旅程。
+UI_GUIDED_SAMPLE_0001,直接选择顺子师：68张起始牌池含34种牌各两张，包括字牌。核心技法会塑造旅程。
 UI_GUIDED_SAMPLE_0002,选择契约；规则或奖励只影响本次示例。
 UI_GUIDED_SAMPLE_0003,选择起点。稍后比较路线的风险与回报。
-UI_GUIDED_SAMPLE_0004,摸牌会增加手牌；牌墙显示剩余牌数。上方显示敌方生命与意图。压力达到上限时战斗结束。
-UI_GUIDED_SAMPLE_0005,结束回合以结算可见的敌方意图。压力达到上限时战斗结束。
-UI_GUIDED_SAMPLE_0006,组成牌型后选牌预览行动，再完成结算。役种显示手牌进度。
-UI_GUIDED_SAMPLE_0007,将一张牌存入备牌（上限 3 张）。完整度保护备牌；稳定度降低压力。
-UI_GUIDED_SAMPLE_0008,弃掉选中的牌来调整手牌。
-UI_GUIDED_SAMPLE_0009,交换手牌与备牌；每次摸牌只可操作一次。
-UI_GUIDED_SAMPLE_0010,TP 用于技法。TP 足够时使用核心技法。
-UI_GUIDED_SAMPLE_0011,完整和牌会用整手牌结算，获得完整奖励并推进役种进度。
+UI_GUIDED_SAMPLE_0004,摸牌至14张。本练习再摸三张即可凑齐预设和牌。小牌型用于换牌，完整和牌是主要伤害来源。
+UI_GUIDED_SAMPLE_0005,你已打出一张牌，现在可结束回合并结算可见意图。压力达到上限时战斗失败。
+UI_GUIDED_SAMPLE_0006,选择对子、三张相同牌或同花色连续三张，再点小牌型结算。只消耗所选牌并补牌；本练习敌人还会演示局部役种奖励。
+UI_GUIDED_SAMPLE_0007,必要时先摸牌，选择手牌中的一张，再存入储备区。留意容量和完整度：完整度降至0时储备牌会失效。
+UI_GUIDED_SAMPLE_0008,选中一张手牌，再打出。每回合须打出1至3张牌；打出的3张牌若组成顺子或刻子，获得金币+3。
+UI_GUIDED_SAMPLE_0009,选择一张手牌和一张储备牌，再点交换。每次摸牌提供一次存牌或交换机会。
+UI_GUIDED_SAMPLE_0010,使用高亮的核心技巧。顺子技巧消耗0 TP并获得1 TP，每回合限一次。查看按钮上的实际效果；此技巧不造成伤害。
+UI_GUIDED_SAMPLE_0011,选择全部14张手牌，再点完整和牌。预设和牌由四组三张和一个对子组成。结算前查看伤害预览。
 UI_GUIDED_SAMPLE_0012,选择奖励。奖励只保留在本次示例中。
 UI_GUIDED_SAMPLE_0013,战后比较“地图揭示”（安全）与“风险交易”（风险和回报更高）。
 UI_GUIDED_SAMPLE_0014,进入后阅读事件。
@@ -1228,3 +1257,98 @@ prototype.encounter.guided_sample,引导示例遭遇
 prototype.encounter.guided_sample_actions,引导行动练习遭遇
 prototype.enemy.guided_sample,练习哨兵
 prototype.enemy.guided_sample_actions,陪练哨兵
+UI_RUN_REWARD_KIND_TILE,牌
+UI_RUN_REWARD_KIND_MODIFIED_TILE,强化牌
+UI_RUN_REWARD_KIND_SKIP,领取资源
+UI_RUN_REWARD_KIND_RELIC,遗物
+UI_RUN_REWARD_KIND_TECHNIQUE,旅程技法
+UI_RUN_REWARD_KIND_RULE_BREAKER,破规能力
+UI_RUN_REWARD_EFFECT_ADD_TILE,将这张牌加入牌池。
+UI_RUN_REWARD_EFFECT_MODIFIER_TO_TILE,为%s附加%s。
+UI_RUN_REWARD_EFFECT_ACQUIRE,加入当前构筑。
+UI_RUN_REWARD_CHANGE_AMOUNT,%s %s
+UI_RUN_REWARD_EFFECT_DRAW_TILE,摸一张牌。
+UI_RUN_REWARD_EFFECT_PURGE_CONTAMINATION,清除污染。
+UI_RUN_REWARD_EFFECT_RUN_MODIFIER,旅程加成：%s
+UI_RUN_REWARD_EFFECT_WORKSHOP_DISCOUNT,工坊折扣：%d 金币
+WORD_STABILITY,稳定度
+WORD_DAMAGE,伤害
+WORD_DRAW_CAPACITY,摸牌数量
+WORD_RESERVE_CAPACITY,备牌上限
+WORD_SETTLEMENT_CAPACITY,结算次数
+UI_RUN_RECEIPT_REWARD,已领取奖励
+UI_RUN_RECEIPT_TILE_ADDED,已加入牌池
+UI_RUN_RECEIPT_TILE_IMPROVED,牌已强化
+UI_RUN_RECEIPT_TILE_REMOVED,牌已移除
+UI_RUN_RECEIPT_TILE_TRANSFORMED,牌已替换
+UI_RUN_RECEIPT_TILE_DUPLICATED,牌已复制
+UI_RUN_RECEIPT_TILE_MODIFIED,牌已改造
+UI_RUN_RECEIPT_SHOP_PURCHASED,购买完成
+UI_RUN_REWARD_KIND_SPECIAL,特殊商品
+UI_RUN_TILE_TRANSITION,→
+UI_RUN_CHARACTER_SUIT_PROMPT,选择要移除的一门花色
+UI_RUN_CHARACTER_SUIT_GUIDANCE,也会移除所有字牌。其余两门花色的1至9各有四张，共72张。
+UI_RUN_CHARACTER_SUIT_LABEL_CHARACTERS,移除万子
+UI_RUN_CHARACTER_SUIT_LABEL_DOTS,移除筒子
+UI_RUN_CHARACTER_SUIT_LABEL_BAMBOO,移除条子
+UI_RUN_CHARACTER_SUIT_BACK,返回角色选择
+UI_RUN_CHARACTER_POOL_RESERVE,起始牌池：72张数牌（保留的两门花色中，1至9各四张）；所有字牌及所选花色都会移除。
+UI_RUN_CHARACTER_POOL_SEQUENCE,起始牌池：68张（34种牌各两张，包括字牌）。
+UI_BATTLE_HAND_CAP,手牌 %d/14
+UI_BATTLE_HAND_LIMIT_HINT,起手11张。手牌上限14张。
+UI_BATTLE_HAND_CAP_REACHED,手牌已满（%d/14）。请先打出或弃置手牌腾出空间，再摸牌。
+UI_RC7_REWARD_TARGET_PROMPT,选择已有牌种进行强化。
+UI_RC7_REWARD_TARGET_BACK,返回奖励
+UI_RC7_REWARD_TARGET_LABEL,强化%s · %d张
+UI_RC7_REWARD_UPGRADE_PROMPT,选择已有牌种，强化最多%d张可强化副本；牌池数量不变。
+UI_RC7_REWARD_TARGET_EFFECT,为%s的%d张副本附加%s。牌池数量不变。
+UI_RC7_SPECIAL_PIVOT,特殊转型奖励
+UI_RC7_PIVOT_EFFECT,加入这张牌。此特殊转型奖励可引入已移除花色或字牌。
+UI_RC7_REMOVE_PAIR_PREVIEW,永久移除2张%s及其附加效果。牌池：%d → %d。费用：%d金币。战斗弃牌不会移除牌池中的牌。
+UI_RC7_REMOVE_PAIR_LABEL,移除2张%s · %d金币
+UI_RC7_REMOVE_PAIR_RECEIPT,已永久移除2张副本，同时移除其附加效果。
+WORD_REMOVE_PAIR,移除两张同种牌
+UI_RC7_DISCARD_HINT,弃牌建议：%s。%s
+UI_RC7_DISCARD_RULE,每次摸牌后可弃牌一次，与备牌／换牌独立。手牌满14张时可在摸牌前弃牌；弃牌不会增加摸牌次数或TP。
+UI_RC7_DISCARD_HINT_ISOLATED,与当前手牌的联系较弱。
+UI_RC7_DISCARD_HINT_GROUP,保留较强的对子与组合。
+UI_RC7_DISCARD_HINT_READY,此牌属于可用组合，可考虑先出牌。
+UI_RC7_DISCARD_HINT_PAIR,此牌支持对子，可按需要保留。
+UI_RC7_DISCARD_HINT_CONNECTOR,此牌连接数牌，请先比较其他组合。
+UI_RC7_DISCARD_ADVICE_SHOW,弃牌建议
+UI_RC7_DISCARD_ADVICE_HIDE,隐藏建议
+UI_RC7_COPY_SEPARATOR,+
+UI_PLAYER_SETTLEMENT_PREVIEW,基础结果：消耗%d张 → 补%d张。分数%d → 伤害%d · 稳定%d。
+UI_PLAYER_COMMIT_PREVIEW,基础：伤害%d · 补牌%d
+UI_PLAYER_TRIGGERED_EFFECTS,牌面、遗物与触发效果将在结算时生效。
+UI_PLAYER_WALL_SHORTFALL,牌墙不足，无法补齐所有牌。
+UI_PLAYER_RECOVERY_PREVIEW,完整和牌补牌后进入恢复期。
+UI_PLAYER_LETHAL_INTENT,危险：压力+%d将达到上限。
+UI_PLAYER_RESERVE_EXPIRY,回合结束时储备完整度会降低。降至0时该牌失效，请提前换回重要的牌。
+UI_PLAYER_DEFEAT_CAUSE,压力%d / %d（达到上限）· 敌人生命%d
+UI_PLAYER_DEFEAT_LESSON,下次尝试：结束回合前查看意图，用稳定降低压力，并凑齐完整和牌造成伤害；小牌型主要用于换牌。
+UI_PLAYER_WIN_RECEIPT,完整和牌：分数%d → 实际伤害%d
+UI_PLAYER_MAP_PREVIEW,先预览目的地，再点击前往。前往将确定路线。
+UI_PLAYER_MAP_TRAVEL,前往 → %s
+UI_PLAYER_MAP_CHOOSE,选择目的地，预览其类型后再前往。
+UI_PLAYER_MAP_FACTS,金币%d · 精炼%d · 牌库%d张
+UI_PLAYER_EFFECT_TILE_SETTLED,此牌结算时：%s
+UI_PLAYER_EFFECT_BATTLE_START,战斗开始时：%s
+UI_PLAYER_DEFEAT_GENERIC,压力达到上限
+UI_PLAYER_SHOP_UNAVAILABLE,暂不可购买
+UI_PLAYER_SKILL_COST,消耗%d TP · %s
+UI_PLAYER_SKILL_USE,战斗中主动使用
+UI_PLAYER_SKILL_SETTLEMENT,结算窗口开启时使用
+UI_PLAYER_REACTION_CONTAMINATION,敌人施加污染时自动触发
+UI_PLAYER_REACTION_STABILITY,敌人降低稳定时自动触发
+UI_RC8_SORT_HAND,整理手牌
+UI_RC8_MOVE_LEFT,向左移动
+UI_RC8_MOVE_RIGHT,向右移动
+UI_RC8_HAND_ORDER_HINT,拖动手牌可调整位置；也可选中或聚焦一张牌，再点击向左／向右移动。整理手牌按花色与点数排列。
+UI_RC8_PLAY_REQUIRED,结束回合前，至少打出1张手牌。
+UI_RC8_PLAY_RULE,结束回合前须打出1至3张手牌。选中不超过剩余额度的牌，再点击打出。本回合打出的3张牌若组成顺子或刻子，获得一次金币+3。打出的牌进入弃牌区，不自动补牌。
+UI_RC8_PLAY_PROGRESS,本回合已打出：%d / 3 · 至少1张 · 顺子／刻子：金币+3
+UI_RC8_PLAY_SELECTED,打出选中的%d张牌
+UI_RC8_SINGLE_PLAY,打出%s
+UI_RC8_COMBO_PREVIEW,组合奖励：金币+3
+UI_RC8_COMBO_RECEIPT,打出顺子／刻子：金币+%d

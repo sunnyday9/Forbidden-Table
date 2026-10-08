@@ -47,16 +47,16 @@ const SAMPLE_WORKSHOP_REFINEMENT_TOKEN_ALLOWANCE := 1
 const BATTLE_SETUP_FALLBACK_STEPS := [STEP_DRAW, STEP_PATTERN, STEP_RESERVE, STEP_DISCARD, STEP_SWAP, STEP_TECHNIQUE, STEP_COMPLETE_HAND]
 
 const STEP_DESCRIPTORS := [
-	{"id": STEP_CHARACTER, "prompt_key": "UI_GUIDED_SAMPLE_0001", "command_type": "ChooseCharacter", "action_kinds": ["CHARACTER"]},
+	{"id": STEP_CHARACTER, "prompt_key": "UI_GUIDED_SAMPLE_0001", "command_type": "ChooseCharacter", "action_kinds": ["CHARACTER"], "target_ids": ["base.character.sequence"]},
 	{"id": STEP_CONTRACT, "prompt_key": "UI_GUIDED_SAMPLE_0002", "command_type": "ChooseContract", "action_kinds": ["CONTRACT"]},
 	{"id": STEP_INTRO_ROUTE, "prompt_key": "UI_GUIDED_SAMPLE_0003", "command_type": "SelectMapNode", "target_ids": [GuidedSampleMapCatalogScript.INTRO_NODE], "action_kinds": ["MAP_NODE"]},
-	{"id": STEP_INTENT, "prompt_key": "UI_GUIDED_SAMPLE_0005", "command_type": "EndTurn", "action_kinds": ["END_TURN"]},
 	{"id": STEP_DRAW, "prompt_key": "UI_GUIDED_SAMPLE_0004", "command_type": "Draw", "action_kinds": ["DRAW"]},
 	{"id": STEP_COMPLETE_HAND, "prompt_key": "UI_GUIDED_SAMPLE_0011", "command_type": "SettleCompleteHand", "action_kinds": ["COMPLETE_HAND"]},
 	{"id": STEP_FIRST_REWARD, "prompt_key": "UI_GUIDED_SAMPLE_0012", "command_type": "ChooseReward", "action_kinds": ["REWARD", "ELITE_REWARD", "BOSS_REWARD"]},
 	{"id": STEP_PRACTICE_ROUTE, "prompt_key": "UI_GUIDED_SAMPLE_0024", "command_type": "SelectMapNode", "target_ids": [GuidedSampleMapCatalogScript.PRACTICE_NODE], "action_kinds": ["MAP_NODE"]},
 	{"id": STEP_RESERVE, "prompt_key": "UI_GUIDED_SAMPLE_0007", "command_type": "StoreTile", "action_kinds": ["RESERVE"]},
 	{"id": STEP_DISCARD, "prompt_key": "UI_GUIDED_SAMPLE_0008", "command_type": "DiscardTile", "action_kinds": ["DISCARD"]},
+	{"id": STEP_INTENT, "prompt_key": "UI_GUIDED_SAMPLE_0005", "command_type": "EndTurn", "action_kinds": ["END_TURN"]},
 	{"id": STEP_SWAP, "prompt_key": "UI_GUIDED_SAMPLE_0009", "command_type": "SwapReserveTile", "action_kinds": ["RESERVE_SWAP"]},
 	{"id": STEP_TECHNIQUE, "prompt_key": "UI_GUIDED_SAMPLE_0010", "command_type": "UseTechnique", "action_kinds": ["TECHNIQUE"]},
 	{"id": STEP_PATTERN, "prompt_key": "UI_GUIDED_SAMPLE_0006", "command_type": "SettlePattern", "action_kinds": ["PARTIAL_SETTLEMENT"]},
@@ -109,6 +109,7 @@ func _build_sample_content_registry(source_registry) -> Dictionary:
 		return {"accepted": false, "code": "SAMPLE_PRACTICE_ENEMY_UNAVAILABLE"}
 	var battle_values: Dictionary = source_enemy.battle_values.duplicate(true)
 	battle_values["pressure_limit"] = 60
+	battle_values["opening_tile_orders"] = _training_opening_orders()
 	var practice_enemy = EnemyDefinitionScript.new(
 		GuidedSampleMapCatalogScript.PRACTICE_ENEMY,
 		source_enemy.intent_graph,
@@ -123,6 +124,7 @@ func _build_sample_content_registry(source_registry) -> Dictionary:
 	var action_battle_values: Dictionary = source_enemy.battle_values.duplicate(true)
 	action_battle_values["pressure_limit"] = 999
 	action_battle_values["local_yaku_enabled"] = true
+	action_battle_values["opening_tile_orders"] = _training_opening_orders()
 	var action_enemy = EnemyDefinitionScript.new(
 		GuidedSampleMapCatalogScript.ACTION_PRACTICE_ENEMY,
 		source_enemy.intent_graph,
@@ -154,6 +156,29 @@ func _build_sample_content_registry(source_registry) -> Dictionary:
 	if not report.is_valid():
 		return {"accepted": false, "code": "SAMPLE_CONTENT_INVALID", "issues": report.issues}
 	return {"accepted": true, "registry": registry}
+
+# Training encounters retain the Character's complete Run pool. A satisfiable
+# prefix demonstrates four sequences and a pair after the 11-tile opening deal
+# and three ordinary draws, independently of which suit Reserve excluded.
+func _training_opening_orders() -> Array:
+	var orders: Array = []
+	for suit_pair in [["characters", "dots"], ["dots", "bamboo"], ["bamboo", "characters"]]:
+		var order: Array[String] = []
+		for suit in suit_pair:
+			for rank in range(1, 7):
+				order.append("base.tile.%s.%d" % [suit, rank])
+		for _copy in range(2):
+			order.append("base.tile.%s.9" % suit_pair[0])
+		orders.append(order)
+	# The locked Harbor Reader retains its original distinct starter.
+	orders.append([
+		"base.tile.honors.east", "base.tile.honors.east", "base.tile.honors.east",
+		"base.tile.honors.south", "base.tile.honors.south", "base.tile.honors.south",
+		"base.tile.honors.west", "base.tile.honors.west", "base.tile.honors.west",
+		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3",
+		"base.tile.dots.5", "base.tile.dots.5",
+	])
+	return orders
 
 func restart() -> bool:
 	if _content_registry == null:
@@ -210,6 +235,8 @@ func highlighted_action_ids(actions: Array) -> Array[String]:
 	for action in actions:
 		if not action is Dictionary or not kinds.has(str(action.get("kind", ""))):
 			continue
+		if not bool(action.get("enabled", true)):
+			continue
 		if step_id == STEP_WORKSHOP_SERVICE and str(action.get("service_id", "")) != "REFINEMENT_TOKEN":
 			continue
 		if step_id == STEP_RESERVE:
@@ -222,10 +249,12 @@ func highlighted_action_ids(actions: Array) -> Array[String]:
 			continue
 		result.append(str(action.get("id", "")))
 	if result.is_empty() and BATTLE_SETUP_FALLBACK_STEPS.has(step_id):
-		var fallback_kind := "DRAW" if _battle_can_draw() else "END_TURN"
-		for action in actions:
-			if action is Dictionary and str(action.get("kind", "")) == fallback_kind:
-				result.append(str(action.get("id", "")))
+		for fallback_kind in ["DRAW", "END_TURN", "DISCARD"]:
+			for action in actions:
+				if action is Dictionary and str(action.get("kind", "")) == fallback_kind and bool(action.get("enabled", true)):
+					result.append(str(action.get("id", "")))
+					break
+			if not result.is_empty():
 				break
 	return result
 
@@ -261,6 +290,9 @@ func _on_command_processed(command, result) -> void:
 		if str(command.command_type()) == "SettlePattern" and controller.domain.state.phase == RunPhaseScript.REWARD_CHOICE:
 			_advance_current_step()
 		return
+	if step_id == STEP_DISCARD and str(command.command_type()) == "PlayHandTiles":
+		_advance_current_step()
+		return
 	if str(command.command_type()) != str(step.get("command_type", "")):
 		return
 	var targets: Array = step.get("target_ids", [])
@@ -286,6 +318,8 @@ func _is_safe_reserve_candidate(instance_id: String) -> bool:
 func _command_target(command) -> String:
 	if command.get("node_id") != null:
 		return str(command.get("node_id"))
+	if command.get("character_id") != null:
+		return str(command.get("character_id"))
 	return ""
 
 func _disconnect_controller() -> void:

@@ -63,6 +63,8 @@ func draw(requested_count = 1, source: String = DrawSourceScript.NORMAL_ACTION, 
 		return _result(DrawResultScript.DRAW_WALL_NOT_READY, requested, 0, requested, [], source, [])
 	if requested == 0:
 		return _result(DrawResultScript.ACCEPTED, 0, 0, 0, [], source, [])
+	if zones != null and requested > zones.remaining_hand_capacity():
+		return _result(DrawResultScript.HAND_CAPACITY_REACHED, requested, 0, requested, [], source, [])
 
 	var drawn_tiles: Array = []
 	var events: Array = []

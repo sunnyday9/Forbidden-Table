@@ -1,12 +1,7 @@
 class_name GnuTimeoutLocator
 extends RefCounted
 
-static var _cached_path := ""
-
-
 static func resolve_path() -> String:
-	if not _cached_path.is_empty():
-		return _cached_path
 	var executable_names: Array[String] = ["timeout"]
 	if OS.get_name() == "Windows":
 		executable_names = ["timeout.exe", "timeout"]
@@ -21,8 +16,7 @@ static func resolve_path() -> String:
 		_append_command_paths("where.exe", PackedStringArray(["git.exe"]), git_executable_candidates)
 		_append_command_paths("which", PackedStringArray(["-a", "git.exe"]), git_executable_candidates)
 		_append_command_paths("which", PackedStringArray(["git.exe"]), git_executable_candidates)
-	_cached_path = _resolve_path_from_candidates(OS.get_name(), candidates, git_executable_candidates)
-	return _cached_path
+	return _resolve_path_from_candidates(OS.get_name(), candidates, git_executable_candidates)
 
 
 static func _resolve_path_from_candidates(

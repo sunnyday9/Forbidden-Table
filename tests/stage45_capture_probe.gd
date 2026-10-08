@@ -186,9 +186,17 @@ func _capture_resume_recovery_states(flow_test, audit) -> void:
 	root.size = _capture_size
 	root.add_child(scene)
 	await _capture_state(audit, scene, "suspend_resume_choice")
+	var saved_fixture := FileAccess.get_file_as_string(suspend_path)
 	scene._on_new_run_from_suspend_pressed()
-	await _capture_state(audit, scene, "new_run_confirmation")
-	scene._close_new_run_confirmation(true)
+	await _capture_state(audit, scene, "new_run_direct")
+	root.remove_child(scene)
+	scene.free()
+	var restored_fixture := FileAccess.open(suspend_path, FileAccess.WRITE)
+	restored_fixture.store_string(saved_fixture)
+	restored_fixture.close()
+	scene = flow_test._new_test_scene(profile_path, suspend_path)
+	root.add_child(scene)
+	await _wait_for_rendered_frame()
 	scene._on_resume_run_pressed()
 	await _capture_state(audit, scene, "resumed_map")
 	_cleanup_probe_scene(flow_test, scene, profile_path, suspend_path)
@@ -375,7 +383,7 @@ func _capture_shop_workshop_states(flow_test, accessibility_test) -> void:
 	scene.controller.domain.state.gold = 1000
 	scene._render()
 	await _capture_state(accessibility_test, scene, "shop")
-	await _capture_local_choice(accessibility_test, scene, _action_id(scene, "SHOP_OFFER"), "shop_confirmation", true)
+	await _capture_local_choice(accessibility_test, scene, _action_id(scene, "SHOP_OFFER"), "shop_offer_inspection")
 	if not await _confirm_and_wait(scene, _action_id(scene, "SHOP_EXIT")) or not await _confirm_and_wait(scene, _action_id(scene, "MAP_NODE", "base.map_node.workshop")) or not await _confirm_and_wait(scene, _action_id(scene, "ENTER_WORKSHOP")):
 		_flow_failures.append("Could not enter Workshop for its accessibility capture.")
 		_cleanup_probe_scene(flow_test, scene, profile_path, suspend_path)
@@ -391,7 +399,7 @@ func _capture_shop_workshop_states(flow_test, accessibility_test) -> void:
 		var target_id := _action_id(scene, "WORKSHOP_SELECT_TARGET")
 		if not target_id.is_empty() and await _confirm_and_wait(scene, target_id):
 			await _capture_state(accessibility_test, scene, "workshop_value_choice")
-			await _capture_local_choice(accessibility_test, scene, _action_id(scene, "WORKSHOP_SERVICE"), "workshop_confirmation", true)
+			await _capture_local_choice(accessibility_test, scene, _action_id(scene, "WORKSHOP_SERVICE"), "workshop_service_inspection")
 	else:
 		_flow_failures.append("Workshop did not expose a selectable service for its accessibility capture.")
 	_cleanup_probe_scene(flow_test, scene, profile_path, suspend_path)
@@ -526,28 +534,25 @@ func _capture_settings(scene) -> void:
 	scene._input(event)
 	await _wait_for_rendered_frame()
 
-func _capture_local_choice(audit, scene, action_id: String, state_name: String, confirmation := false) -> void:
+func _capture_local_choice(audit, scene, action_id: String, state_name: String) -> void:
+	if str(scene.controller.domain.state.phase) == "BATTLE":
+		OnboardingFlowTest.new()._select_action_tiles(scene, action_id, _flow_failures)
+		await _wait_for_rendered_frame()
 	var button := OnboardingFlowTest.new().find_action_button(scene, action_id)
 	if button == null:
 		_flow_failures.append("No choice control for state " + state_name)
 		return
 	var before: int = scene.controller.domain.replay_record.commands.size()
 	button.grab_focus()
-	button.pressed.emit()
-	if confirmation:
-		scene._commit_selected_button.pressed.emit()
+	# Focus previews copy without activating a direct gameplay choice.
 	await _capture_state(audit, scene, state_name)
-	if not confirmation:
-		var focused := scene.get_viewport().gui_get_focus_owner() as Control
-		if focused != null and str(scene.controller.domain.state.phase) == "BATTLE":
-			var focus_scroll := scene._battle_view.find_child("BattleChoiceScroll", true, false) as ScrollContainer
-			if focus_scroll == null or not focus_scroll.get_global_rect().intersects(focused.get_global_rect()):
-				_flow_failures.append("Focused Battle choice is outside its visible scroll area: " + state_name)
-		if focused == null or str(focused.get_meta("run_action_id", "")) != action_id:
-			_flow_failures.append("A newer selected choice lost its visible focus: " + state_name)
+	var focused := scene.get_viewport().gui_get_focus_owner() as Control
+	if focused != null and str(scene.controller.domain.state.phase) == "BATTLE":
+		var focus_scroll := scene._battle_view.find_child("BattleChoiceScroll", true, false) as ScrollContainer
+		if focus_scroll == null or not focus_scroll.get_global_rect().intersects(focused.get_global_rect()):
+			_flow_failures.append("Focused Battle choice is outside its visible scroll area: " + state_name)
+	if focused == null or str(focused.get_meta("run_action_id", "")) != action_id:
+		_flow_failures.append("A newer inspected choice lost its visible focus: " + state_name)
 	if scene.controller.domain.replay_record.commands.size() != before:
-		_flow_failures.append("Preview/confirmation submitted a command: " + state_name)
-	scene._on_back_pressed()
-	if confirmation:
-		scene._on_back_pressed()
+		_flow_failures.append("Focus preview submitted a command: " + state_name)
 	await _wait_for_rendered_frame()

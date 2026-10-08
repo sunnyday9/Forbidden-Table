@@ -14,6 +14,8 @@ const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save
 const LoadValidatorScript = preload("res://src/infrastructure/persistence/load_validator.gd")
 const CharacterDefinitionScript = preload("res://src/content/definitions/character_definition.gd")
 const AlphaSimulationStartingPoolFixtureScript = preload("res://src/infrastructure/simulation/alpha_simulation_starting_pool_fixture.gd")
+const RunStartingPoolFactoryScript = preload("res://src/domain/run/run_starting_pool_factory.gd")
+const DiscardTileScorerScript = preload("res://src/domain/tiles/discard_tile_scorer.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
@@ -37,8 +39,9 @@ const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_com
 const SUPPORTED_POLICIES := ["Partial", "Complete", "Hybrid"]
 const SCALE_ROSTER_GATE_IDS := ["scale", "exit", "stage4_beta"]
 const DEFAULT_ATTEMPT_TIMEOUT_MSEC := 120000
-const POLICY_RULE_VERSION := "v7"
-const COMPLETE_POLICY_RULE_VERSION := "v8"
+const POLICY_RULE_VERSION := "v10"
+const COMPLETE_POLICY_RULE_VERSION := "v11"
+const DISCARD_POLICY_DESCRIPTION := "Hand play policy: rank only public Hand tiles, protect legal ready groups and honor pairs, value same-suit connectors for Sequence and identical pairs/Triplet prospects for Reserve, and choose the lowest retention score with instance ID as the deterministic tie-break. Before End Turn, play at least one tile if Hand is nonempty, sharing a maximum of three plays across all draws in a turn. Playing does not spend Draw budget or Reserve manipulation allowance."
 
 var _domain
 var _attempt_case: Dictionary
@@ -102,22 +105,37 @@ func run_attempt(
 	elif registry.resolve(str(_attempt_case.get("contract_id", ""))) == null:
 		_content_available = false
 		_failure_detail = "Scheduled Contract content is unavailable: %s" % str(_attempt_case.get("contract_id", ""))
+	elif str(_attempt_case.get("starting_pool_fixture_id", AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID)) != AlphaSimulationStartingPoolFixtureScript.FIXTURE_ID:
+		_content_available = false
+		_failure_detail = "The stored starting-pool fixture is historical and cannot be applied to the current Run rules."
 	else:
 		var character = registry.resolve(str(_attempt_case.get("character_id", "")))
+		var excluded_suit := str(_attempt_case.get("excluded_suit", ""))
+		if str(_attempt_case.get("character_id", "")) == "base.character.reserve" and excluded_suit.is_empty():
+			excluded_suit = RunStartingPoolFactoryScript.DEFAULT_RESERVE_EXCLUDED_SUIT
 		var starting_pool: Array = AlphaSimulationStartingPoolFixtureScript.create(
 			str(_attempt_case.get("character_id", "")),
 			character.starting_tile_pool_bias,
+			excluded_suit,
 		)
 		if starting_pool.is_empty():
 			_content_available = false
-			_failure_detail = "The versioned starting-pool fixture could not be materialized from the selected Character bias."
+			_failure_detail = "The versioned starting-pool fixture could not be materialized from the selected Character and excluded-suit choice."
 		else:
 			_starting_pool_tile_count = starting_pool.size()
 			_starting_pool_hash = AlphaSimulationStartingPoolFixtureScript.hash(
 				str(_attempt_case.get("character_id", "")),
 				character.starting_tile_pool_bias,
+				excluded_suit,
 			)
-			_execute_command(ChooseCharacterCommandScript.new(_next_command_id("character"), str(_attempt_case.get("character_id", ""))))
+			_execute_command(ChooseCharacterCommandScript.new(
+				_next_command_id("character"),
+				str(_attempt_case.get("character_id", "")),
+				"",
+				"",
+				false,
+				excluded_suit,
+			))
 			if _domain.state.tile_pool.tile_instances.size() != _starting_pool_tile_count:
 				_content_available = false
 				_failure_detail = "RunDomain did not apply the versioned starting-pool fixture during Character selection."
@@ -290,11 +308,11 @@ func _step_battle() -> bool:
 				_failure_detail = "A Recovery draw was accepted without moving the Hand toward its normal baseline."
 				return false
 			return drew_recovery_tile
-		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.recovery.end_turn")))
+		return _end_turn_step("battle.recovery.end_turn")
 
 	var policy_id := str(_attempt_case.get("policy_id", ""))
 	if policy_id in ["Partial", "Hybrid"] and _should_discard_excess_hand_tile(battle):
-		var discard_target := _lowest_instance_id_in_hand(battle)
+		var discard_target := _recommended_discard_instance_id(battle)
 		if not discard_target.is_empty():
 			return _execute_command(DiscardTileCommandScript.new(
 				_next_command_id("battle.discard.excess"),
@@ -318,7 +336,7 @@ func _step_battle() -> bool:
 		"Complete":
 			if has_complete_hand:
 				decision = "COMPLETE_HAND"
-			elif has_partial and (battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available):
+			elif has_partial and (battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available or not battle.can_draw()):
 				decision = "PARTIAL_SETTLEMENT"
 		"Hybrid":
 			if has_complete_hand and (pressure * 2 < pressure_limit or not has_partial):
@@ -359,16 +377,45 @@ func _step_battle() -> bool:
 					store_target,
 				))
 		if _should_discard_excess_hand_tile(battle):
-			var discard_target := _lowest_instance_id_in_hand(battle)
+			var discard_target := _recommended_discard_instance_id(battle)
 			if not discard_target.is_empty():
 				return _execute_command(DiscardTileCommandScript.new(
 					_next_command_id("battle.discard.excess"),
 					discard_target,
 				))
 
+	if battle.can_draw():
+		return _execute_command(DrawCommandScript.new(_next_command_id("battle.draw")))
+	if battle.zones.remaining_hand_capacity() <= 0 and draw_sources_available:
+		var discard_target := _recommended_discard_instance_id(battle)
+		if not discard_target.is_empty():
+			var discard_validation = battle.validate_discard_tile(discard_target)
+			if discard_validation.is_valid():
+				return _execute_command(DiscardTileCommandScript.new(
+					_next_command_id("battle.discard.capacity"),
+					discard_target,
+				))
+			if battle.combat_state.draw_actions_remaining() > 0:
+				if discard_validation.code == "PLAY_LIMIT":
+					return _end_turn_step("battle.play_limit.end_turn")
+				_failure_detail = "The Hand is full and no settlement or legal capacity discard is available (%s)." % str(discard_validation.code)
+				return false
 	if battle.combat_state.draw_actions_remaining() <= 0 or not draw_sources_available:
-		return _execute_command(EndTurnCommandScript.new(_next_command_id("battle.end_turn")))
-	return _execute_command(DrawCommandScript.new(_next_command_id("battle.draw")))
+		return _end_turn_step("battle.end_turn")
+	if battle.zones.remaining_hand_capacity() <= 0:
+		_failure_detail = "The Hand is full and no settlement or legal capacity discard is available."
+		return false
+	var draw_validation = battle.validate_draw()
+	_failure_detail = "Draw is unavailable despite remaining Hand capacity (%s)." % str(draw_validation.code)
+	return false
+
+func _end_turn_step(command_prefix: String) -> bool:
+	var battle = _domain.current_battle
+	var validation = battle.validate_end_turn()
+	if not validation.is_valid() and validation.code == "PLAY_REQUIRED":
+		var target := _recommended_discard_instance_id(battle)
+		return _execute_command(DiscardTileCommandScript.new(_next_command_id("battle.required_play"), target)) if not target.is_empty() else false
+	return _execute_command(EndTurnCommandScript.new(_next_command_id(command_prefix)))
 
 func _best_partial_candidate(candidates: Array):
 	var sorted := candidates.duplicate()
@@ -389,18 +436,22 @@ func _should_discard_excess_hand_tile(battle) -> bool:
 	var maximum_policy_hand_size := int(battle.recovery_state.normal_hand_baseline) + 1
 	return battle.zones.size(TileZoneScript.HAND) > maximum_policy_hand_size
 
-func _lowest_instance_id_in_hand(battle) -> String:
+func _recommended_discard_instance_id(battle) -> String:
 	if battle == null or battle.zones == null:
 		return ""
 	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
-	var selected_instance_id := ""
-	for tile in hand:
-		if tile == null:
-			continue
-		var candidate_id := str(tile.instance_id)
-		if selected_instance_id.is_empty() or candidate_id < selected_instance_id:
-			selected_instance_id = candidate_id
-	return selected_instance_id
+	var ready_candidates: Array = []
+	if battle.settlement_window != null and battle.settlement_window.has_capacity():
+		ready_candidates = battle.settlement_window.candidates()
+	var character_id := str(_domain.state.character_id) if _domain != null and _domain.state != null else ""
+	var registry = _domain.content_registry if _domain != null else null
+	var ranked: Array[Dictionary] = DiscardTileScorerScript.ranked_candidates(
+		hand,
+		character_id,
+		registry,
+		ready_candidates,
+	)
+	return str(ranked[0].get("instance_id", "")) if not ranked.is_empty() else ""
 
 func _next_complete_hand_store_target(battle, candidates: Array) -> String:
 	if battle == null or battle.zones == null:
@@ -481,6 +532,7 @@ func _step_reward() -> bool:
 	if draft == null or draft.options.is_empty():
 		return false
 	var selected_option = null
+	var selected_target_tile_id := ""
 	if _should_bank_gold_for_workshop() and str(_domain.state.phase) == RunPhaseScript.REWARD_CHOICE:
 		for option in draft.options:
 			if str(option.kind) == "SKIP":
@@ -490,15 +542,48 @@ func _step_reward() -> bool:
 		if selected_option != null:
 			break
 		if str(option.kind) != "SKIP":
+			var target_choice := _deterministic_reward_target(option)
+			if not bool(target_choice.get("available", true)):
+				continue
 			selected_option = option
+			selected_target_tile_id = str(target_choice.get("tile_id", ""))
 			break
 	if selected_option == null:
-		selected_option = draft.options[0]
+		for option in draft.options:
+			var target_choice := _deterministic_reward_target(option)
+			if not bool(target_choice.get("available", true)):
+				continue
+			selected_option = option
+			selected_target_tile_id = str(target_choice.get("tile_id", ""))
+			break
+	if selected_option == null:
+		return false
 	return _execute_command(ChooseRewardCommandScript.new(
 		_next_command_id("reward.choose"),
 		str(selected_option.option_id),
 		str(draft.draft_id),
+		"",
+		"",
+		false,
+		selected_target_tile_id,
 	))
+
+func _deterministic_reward_target(option) -> Dictionary:
+	if option == null or str(option.kind) != "MODIFIED_TILE" or str(option.metadata.get("target_mode", "")) != "CHOOSE_TYPE":
+		return {"available": true, "tile_id": ""}
+	if _domain == null or not _domain.has_method("reward_target_choices"):
+		return {"available": false, "tile_id": ""}
+	var response: Dictionary = _domain.reward_target_choices(str(option.option_id))
+	var choices: Array = response.get("choices", [])
+	if not bool(response.get("accepted", false)) or choices.is_empty():
+		return {"available": false, "tile_id": ""}
+	var tile_ids: Array[String] = []
+	for choice in choices:
+		var tile_id := str(choice.get("tile_id", "")) if choice is Dictionary else str(choice)
+		if not tile_id.is_empty() and not tile_ids.has(tile_id):
+			tile_ids.append(tile_id)
+	tile_ids.sort()
+	return {"available": not tile_ids.is_empty(), "tile_id": tile_ids[0] if not tile_ids.is_empty() else ""}
 
 func _step_event() -> bool:
 	var option_ids: Array[String] = _domain.state.event_state.legal_choice_ids()
@@ -532,7 +617,14 @@ func _execute_command(command) -> bool:
 		_command_rejected = true
 		var result_status := str(result.status) if result != null else "NO_RESULT"
 		var command_type := str(command.command_type()) if command.has_method("command_type") else "UNKNOWN_COMMAND"
-		_failure_detail = "%s was rejected (%s)." % [command_type, result_status]
+		var validation_code := str(result.validation.code) if result != null and result.validation != null else ""
+		var validation_message := str(result.validation.message) if result != null and result.validation != null else ""
+		_failure_detail = "%s was rejected (%s%s%s)." % [
+			command_type,
+			result_status,
+			": %s" % validation_code if not validation_code.is_empty() else "",
+			" — %s" % validation_message if not validation_message.is_empty() else "",
+		]
 		return false
 
 	var command_type := str(command.command_type()) if command.has_method("command_type") else "UNKNOWN_COMMAND"
@@ -627,11 +719,10 @@ func _build_attempt_record() -> Dictionary:
 	var strategy_rule := "Partial: settle the highest-ranked legal Partial Pattern; never choose Complete Hand."
 	match str(_attempt_case.get("policy_id", "")):
 		"Complete":
-			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it. Once per normal Draw, store the Hand tile with the fewest legal Partial Pattern candidates while Reserve has room; when Reserve is full, discard the lowest instance ID only if Hand exceeds its normal baseline plus one. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
+			strategy_rule = "Complete: choose a legal Complete Hand first; when none is available and a Draw Action and source remain, Draw if no manipulation allowance is open or after using it. Once per normal Draw, store the Hand tile with the fewest legal Partial Pattern candidates while Reserve has room; when Reserve is full, use the shared Discard scorer only if Hand exceeds its normal baseline plus one. When the budget or sources are exhausted, settle the highest-ranked legal Partial Pattern if one exists."
 		"Hybrid":
 			strategy_rule = "Hybrid: choose Complete Hand below half Pressure when available; otherwise prefer the highest-ranked legal Partial Pattern."
-	if str(_attempt_case.get("policy_id", "")) in ["Partial", "Hybrid"]:
-		strategy_rule += " After a Draw, discard the lowest instance ID when Hand exceeds the normal baseline plus one, before settlement candidate evaluation."
+	strategy_rule += " " + DISCARD_POLICY_DESCRIPTION
 	strategy_rule += " End Turn rather than request a Draw when both Draw Wall and Discard are empty, including during Recovery."
 	strategy_rule += " Route SERVICE through an authored Workshop node; use the first deterministic legal Modifier when affordable, banking a Normal Reward skip only when it will reach that price."
 	var policy_rule_version := COMPLETE_POLICY_RULE_VERSION if str(_attempt_case.get("policy_id", "")) == "Complete" else POLICY_RULE_VERSION

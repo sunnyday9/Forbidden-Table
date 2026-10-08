@@ -1,6 +1,6 @@
 # Mahjong Roguelike — Project Specification v1.0-draft
 
-> Status: Design grilling complete (Q1–Q140 locked)
+> Status: Design grilling complete (Q1–Q140 locked); starter, Hand, discard and reward rules updated by the owner on 2026-10-07 (RC6/RC7). See [RC7 rules](RC7_DISCARD_REWARD_RULES.md).
 > Engine target: Godot 4.x stable, exact minor version to be pinned at implementation kickoff
 > Launch platform: PC first; Mouse/Keyboard + Controller/Steam Deck navigation from the start
 > Genre: Single-player Roguelike deck/pool-builder where Mahjong is the construction language and combat is the output layer
@@ -122,7 +122,7 @@ Base Complete Hand:
 - **Standard:** 4 Groups + 1 Pair, where Group = Sequence | Triplet | Quad.
 - **Seven Pairs:** 7 distinct TileDefinition pairs.
 
-A Quad can increase physical tile count beyond the normal 14-tile shape. Therefore Complete Hand evaluation is structural and must never be coded as `hand.size() == 14`.
+A Quad contributes four physical tiles. Complete Hand evaluation remains structural, rather than a `hand.size() == 14` shortcut. The current player Hand is capped at 14 physical tiles, so interpretations requiring more than 14 cannot be assembled in Hand under the current rules.
 
 Seven Pairs rule: four identical tiles count as one pair by default, not two; Rule Breakers may override.
 
@@ -159,7 +159,12 @@ Domain concepts:
 
 The run uses a **personal Tile Pool**, not a full shared 136-tile wall. It is the player's buildable probability space.
 
-Early starter size around 50–60 was discussed but is **not locked**. Balance testing will decide initial sizes.
+The two basic Characters have fixed starter compositions:
+
+- **Sequence (`base.character.sequence`): 68 tiles.** Exactly two copies of each of the 34 traditional TileDefinitions: 1–9 Characters, Dots, and Bamboo, plus East, South, West, North, Red, Green, and White. This replaces the previous starter; it does not add to it.
+- **Triple/Reserve (`base.character.reserve`): 72 tiles.** The player chooses one numbered suit to exclude (Characters, Dots, or Bamboo). Remove that suit and all seven honors from the standard 136-tile composition. Each of the remaining two suits keeps four copies of every rank, 1–9. The suit choice is part of Character selection and is recorded with the Run.
+
+These are Run-owned TileInstances with distinct instance IDs. Later rewards and Workshop changes may alter the pool. The locked third Character retains its own starter composition.
 
 Run-level pool has:
 
@@ -177,6 +182,10 @@ Core zones:
 - Discard
 - Exhaust
 - Purged (logical removed-from-battle result; may not need a visible pile)
+
+Each fresh Battle starts with **11 tiles in Hand** from the shuffled Draw Wall before the first player action. Battle-entry Effect draws count toward those 11, then the opening deal fills the remaining places; automatic entry Effects that cannot fit are skipped as whole Effects. The opening deal does not spend a Draw Action, create normal-draw Pressure/Fatigue, or advance the enemy. Continuing an existing Battle restores its saved Hand and wall without another opening deal. A deliberately undersized test pool deals only the tiles available.
+
+**Hand has a hard maximum of 14 physical TileInstances at all times.** Normal draws, replacement/rebuild draws, Techniques, Effects, and zone transfers must respect it. A full Hand cannot spend a normal Draw Action to draw another tile; make space through a legal tile action first. Rejected transfers must preserve the original tiles and zones. Reserve remains a separate zone and does not count toward Hand's limit.
 
 ### 4.3 Zone semantics
 
@@ -213,6 +222,8 @@ Normal Draw Action structure:
 6. Draw Action End
 
 During Manipulation, the player may normally perform at most one Reserve operation per Draw Action.
+
+Normal discard has a separate one-use allowance per normal Draw; storing or swapping does not consume it. A full 14-tile Hand may discard before drawing, including at turn start. This capacity escape ends as soon as Hand falls below 14 and never grants Draw Actions or TP. No tile is silently discarded; completed Hands may be settled before discard. Optional hints use public Hand information and character-specific group connections.
 
 The player can End Turn early. Unused Draw Actions vanish by default and provide no free compensation unless a build explicitly reads them.
 
@@ -322,9 +333,10 @@ Base Reserve operation is part of a normal Draw Action's manipulation step.
 
 Supported base operations:
 
-- normal discard
 - store Hand tile into Reserve
 - atomic swap between Hand and Reserve
+
+Normal discard is a separate battle action and allowance, described in §5.1.
 
 Base Swap is strict atomic `Hand Tile A ↔ Reserve Tile B`.
 
@@ -870,17 +882,19 @@ Draft should consider:
 - Relics
 - copy limit
 
-But must preserve synergy / neutral / pivot choices rather than auto-completing the build.
+Weighting follows actual pool composition and build direction, with tied suit counts neutral. Ordinary Triple/Reserve acquisitions remain inside its two retained suits. Only explicitly labeled special pivot rewards may introduce its removed suit or honors; generic pivot context bias is not permission. Eligible Elite drafts may append one such offer to their three build options and Skip.
 
 Skip is always available, with small compensation possible.
 
 ### 17.2 Acquisition vs refinement
 
-Normal battles mainly provide acquisition:
+Normal battles provide acquisition or improvement of owned tiles:
 
 - Add Tile
 - Modified Tile
 - Skip
+
+New Modified Tile drafts let the player choose an eligible owned tile type and upgrade up to two deterministically selected physical copies, respecting per-instance modifier limits. A target choice executes immediately. Pool size does not grow. Fresh Triple/Reserve pools at the four-copy limit receive two distinct refinement choices and Skip instead of forced excluded-tile additions. Existing saved fixed-target rewards retain their single-copy semantics.
 
 Refinement primarily belongs to Workshop/special nodes:
 
@@ -910,6 +924,8 @@ Stable services, no random refresh:
 - Add/Replace Modifier
 - Duplicate
 - Special Refinement
+
+`REMOVE_PAIR` additionally removes two copies of a chosen owned tile type at twice the effective single-removal price, including discounts. It rejects atomically if two copies are unavailable or the resulting pool would be below 14. The preview shows the exact copies and their modifiers, price, and resulting pool size. Both attached modifier states are deleted with their tiles. This permanent service remains distinct from battle Discard. Batch transformation is deferred.
 
 Constrained by Gold, Tokens and service availability.
 
@@ -1571,7 +1587,7 @@ The project is on the right path when:
 
 The grilling deliberately avoided freezing reversible numeric balance. The following remain data-tunable:
 
-- starting Tile Pool size
+- starting Tile Pool sizes for Characters other than the two basic Characters (whose 68/72 compositions are fixed in §4.1)
 - exact MinimumPoolSize and BattleActiveFloor
 - Normal Hand Baseline / Recovery Baseline
 - base Draw Actions

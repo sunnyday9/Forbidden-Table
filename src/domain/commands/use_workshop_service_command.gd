@@ -2,6 +2,7 @@ class_name UseWorkshopServiceCommand
 extends "res://src/domain/commands/run_command.gd"
 
 const REMOVE := "REMOVE"
+const REMOVE_PAIR := "REMOVE_PAIR"
 const TRANSFORM := "TRANSFORM"
 const ADD_MODIFIER := "ADD_MODIFIER"
 const REPLACE_MODIFIER := "REPLACE_MODIFIER"

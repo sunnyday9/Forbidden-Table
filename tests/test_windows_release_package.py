@@ -1,8 +1,10 @@
 import hashlib
+from fnmatch import fnmatchcase
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -18,6 +20,7 @@ ENGINE_METADATA = {
     "game_version": "game.phase2.v1",
     "save_schema_versions": {"suspend_snapshot": 1, "meta_progress": 2},
     "replay_schema_version": 1,
+    "replay_game_version": "game.rules.rc8.v1",
 }
 
 
@@ -84,19 +87,65 @@ class WindowsReleasePackageTest(unittest.TestCase):
     def tearDown(self):
         self.temp_root.cleanup()
 
-    def _run_package(self, output_dir, *, git_status="", **extra_env):
+    def _run_package(self, output_dir, *, git_status="", project_root=ROOT, **extra_env):
         environment = dict(os.environ)
         environment.update({"GODOT_BIN": str(self.engine)})
         environment.update(self._fake_git_environment(git_status))
         environment.update(extra_env)
+        package_script = Path(project_root) / "scripts" / "package_windows_release.sh"
+        package_script = self._shell_path(package_script)
+        output_path = self._shell_path(output_dir)
+        bash = shutil.which("bash") or "bash"
+        if os.name == "nt":
+            environment["GODOT_BIN"] = self._shell_path(self.engine)
+            command = [
+                bash,
+                "-c",
+                'export PATH="$1:$PATH"; shift; exec "$@"',
+                "package-test",
+                self._shell_path(self.root / "fake-bin"),
+                package_script,
+                "--output-dir",
+                output_path,
+            ]
+        else:
+            command = [bash, package_script, "--output-dir", output_path]
         return subprocess.run(
-            ["bash", str(PACKAGE_SCRIPT), "--output-dir", str(output_dir)],
-            cwd=ROOT,
+            command,
+            cwd=project_root,
             env=environment,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
         )
+
+    def _shell_path(self, path):
+        if os.name != "nt":
+            return str(path)
+        cygpath = shutil.which("cygpath")
+        self.assertIsNotNone(cygpath, "native Windows package tests require Git Bash and cygpath on PATH")
+        result = subprocess.run(
+            [cygpath, "-u", str(path)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=10,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result.stdout.strip()
+
+    def _minimal_package_project(self, pinned_version_bytes):
+        project_root = self.root / "minimal-package-project"
+        scripts_dir = project_root / "scripts"
+        scripts_dir.mkdir(parents=True)
+        shutil.copy2(PACKAGE_SCRIPT, scripts_dir / PACKAGE_SCRIPT.name)
+        (scripts_dir / "GODOT_VERSION").write_bytes(pinned_version_bytes)
+        shutil.copytree(ROOT / "docs" / "release", project_root / "docs" / "release")
+        shutil.copytree(ROOT / "assets" / "ui", project_root / "assets" / "ui")
+        return project_root
 
     def _fake_git_environment(self, status):
         fake_bin = self.root / "fake-bin"
@@ -141,11 +190,18 @@ class WindowsReleasePackageTest(unittest.TestCase):
             git_mode.stdout.split() and git_mode.stdout.split()[0] == "100755",
             "the documented ./scripts/package_windows_release.sh command must be executable in a clean checkout",
         )
+        help_command = (
+            [shutil.which("bash") or "bash", self._shell_path(PACKAGE_SCRIPT), "--help"]
+            if os.name == "nt"
+            else [str(PACKAGE_SCRIPT), "--help"]
+        )
         help_result = subprocess.run(
-            [str(PACKAGE_SCRIPT), "--help"],
+            help_command,
             cwd=ROOT,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=10,
         )
         self.assertEqual(help_result.returncode, 0, help_result.stdout + help_result.stderr)
@@ -165,12 +221,42 @@ class WindowsReleasePackageTest(unittest.TestCase):
         with zipfile.ZipFile(archive) as package:
             self.assertEqual(
                 set(package.namelist()),
-                {"ForbiddenTable.exe", "ForbiddenTable.pck", "README.txt"},
+                {
+                    "ForbiddenTable.exe",
+                    "ForbiddenTable.pck",
+                    "README.txt",
+                    "RELEASE_NOTES.txt",
+                    "THIRD_PARTY_NOTICES.md",
+                    "licenses/Godot-LICENSE.txt",
+                    "licenses/Godot-COPYRIGHT.txt",
+                    "licenses/Noto-OFL.txt",
+                    "licenses/NotoSansSC-OFL.txt",
+                    "licenses/NotoSerifSC-OFL.txt",
+                    "licenses/Mahjong-tiles-LICENSE.txt",
+                    "licenses/Mahjong-tiles-ATTRIBUTION.md",
+                },
             )
             self.assertIsNone(package.testzip())
             readme = package.read("README.txt").decode("utf-8")
             self.assertIn("Extract", readme)
             self.assertIn("ForbiddenTable.exe", readme)
+            self.assertIn("1.0.0-rc.1", readme)
+            self.assertNotIn("@APPLICATION_VERSION@", readme)
+            for instruction in (
+                "EXPERIMENTAL WINDOWS MVP", "Windows 10 or Windows 11, x64",
+                "%APPDATA%\\Godot\\app_userdata\\Forbidden Table", "Play 1–3", "+3 Gold",
+                "Back up", "Fixed-seed simulation", "THIRD_PARTY_NOTICES.md",
+            ):
+                self.assertIn(instruction, readme)
+            notes = package.read("RELEASE_NOTES.txt").decode("utf-8")
+            self.assertIn("1.0.0-rc.1", notes)
+            self.assertNotIn("@APPLICATION_VERSION@", notes)
+            self.assertIn("Human two-Act Windows 10/11", notes)
+            for name in package.namelist():
+                if name.startswith("licenses/"):
+                    self.assertGreater(len(package.read(name)), 100, name)
+            self.assertEqual(package.read("licenses/Godot-LICENSE.txt"),
+                             (ROOT / "docs/release/licenses/Godot-LICENSE.txt").read_bytes())
 
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         checksum_path = Path(f"{archive}.sha256")
@@ -226,6 +312,28 @@ class WindowsReleasePackageTest(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Expected Godot 4.7.2.stable", result.stderr)
         self.assertFalse(output_dir.exists() and any(output_dir.iterdir()))
+
+    def test_crlf_pinned_engine_version_is_accepted_without_relaxing_version_match(self):
+        project_root = self._minimal_package_project(b"4.7.2\r\n")
+        output_dir = self.root / "crlf-pinned-version"
+
+        result = self._run_package(output_dir, project_root=project_root)
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        manifest = json.loads(
+            Path(f"{self._artifact(output_dir)}.build.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["engine_version"], "4.7.2.stable.official.test")
+
+        wrong_engine_dir = self.root / "crlf-wrong-engine"
+        wrong_engine = self._run_package(
+            wrong_engine_dir,
+            project_root=project_root,
+            GODOT_TEST_VERSION="4.7.1.stable.official.test",
+        )
+        self.assertNotEqual(wrong_engine.returncode, 0)
+        self.assertIn("Expected Godot 4.7.2.stable", wrong_engine.stderr)
+        self.assertFalse(wrong_engine_dir.exists() and any(wrong_engine_dir.iterdir()))
 
     def test_dirty_checkout_requires_an_explicit_local_smoke_override(self):
         output_dir = self.root / "dirty-checkout"
@@ -287,6 +395,25 @@ class WindowsReleasePackageTest(unittest.TestCase):
         self.assertIn("tests/fixtures/leaked_fixture.json", result.stderr)
         self.assertFalse(output_dir.exists() and any(output_dir.iterdir()))
 
+    def test_local_scratch_cache_and_dist_files_in_pck_are_rejected(self):
+        leaked_paths = (
+            ".scratch/native-review/private-capture.jpg",
+            ".cache/generated/build-index.json",
+            "dist/old-release.zip",
+            "docs/private-review.md",
+            "forbidden_table_spec/internal-review.md",
+        )
+        for index, leaked_path in enumerate(leaked_paths):
+            with self.subTest(leaked_path=leaked_path):
+                output_dir = self.root / f"local-artifact-in-pck-{index}"
+
+                result = self._run_package(output_dir, GODOT_PCK_CONTENT=leaked_path)
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("development-only resources or local artifacts", result.stderr)
+                self.assertIn(leaked_path, result.stderr)
+                self.assertFalse(output_dir.exists() and any(output_dir.iterdir()))
+
     def test_malformed_pck_fails_without_publishing_partial_artifacts(self):
         output_dir = self.root / "malformed-pck"
 
@@ -310,7 +437,7 @@ class WindowsReleasePackageTest(unittest.TestCase):
 
         result = self._run_package(
             output_dir,
-            GODOT_PCK_CONTENT="forbidden_table_spec/evidence.md",
+            GODOT_PCK_CONTENT="assets/ui/README.md",
             GODOT_PCK_BODY="This archived report refers to tests/leaked_test.gd.",
         )
 
@@ -341,7 +468,27 @@ class WindowsReleasePackageTest(unittest.TestCase):
             for path in directory.rglob("*")
             if path.is_file() and (path.suffix == ".gd" or (directory.name == "tests" and path.suffix == ".json"))
         }
-        self.assertEqual(excluded, expected)
+        expected_scripts = {path for path in expected if path.startswith("res://scripts/")}
+        actual_script_exclusions = {path for path in excluded if path.startswith("res://scripts/")}
+        self.assertTrue(actual_script_exclusions <= expected_scripts)
+
+        filter_match = re.search(r'^exclude_filter="([^\n]*)"$', preset, re.MULTILINE)
+        self.assertIsNotNone(filter_match, "Windows export preset must declare excluded path filters")
+        excluded_patterns = {pattern for pattern in filter_match.group(1).split(",") if pattern}
+        for local_artifact_pattern in (".scratch/*", ".cache/*", "dist/*"):
+            self.assertIn(local_artifact_pattern, excluded_patterns)
+
+        uncovered = {
+            path
+            for path in expected
+            if path not in excluded
+            and not any(fnmatchcase(path[6:], pattern) for pattern in excluded_patterns)
+        }
+        self.assertEqual(
+            uncovered,
+            set(),
+            "every test script and fixture must be excluded by an exact entry or an exclude_filter glob",
+        )
 
 
 if __name__ == "__main__":

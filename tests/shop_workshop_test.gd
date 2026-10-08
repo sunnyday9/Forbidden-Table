@@ -9,6 +9,8 @@ const AlphaActTwoCatalog = preload("res://src/content/catalogs/alpha_act_two_cat
 const AlphaScaleCatalog = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const DomainRngStreams = preload("res://src/infrastructure/rng/domain_rng_streams.gd")
+const ActiveEffectInstance = preload("res://src/domain/effects/active_effect_instance.gd")
+const DurationSpec = preload("res://src/domain/effects/duration_spec.gd")
 const RelicDefinition = preload("res://src/content/definitions/relic_definition.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
 const RunEconomy = preload("res://src/domain/run/run_economy.gd")
@@ -37,6 +39,8 @@ const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_
 const UseWorkshopServiceCommand = preload("res://src/domain/commands/use_workshop_service_command.gd")
 const WorkshopState = preload("res://src/domain/run/workshop_state.gd")
 
+const REMOVE_PAIR := "REMOVE_PAIR"
+
 const LEFT := "base.map_node.normal.left"
 const RIGHT := "base.map_node.normal.right"
 const INTRO := "base.map_node.intro"
@@ -49,6 +53,10 @@ func run() -> Array[String]:
 	test_shop_purchase_marks_sold_and_consumes_shared_gold(failures)
 	test_shop_refresh_replaces_only_unpurchased_slots(failures)
 	test_workshop_services_preserve_tile_identity_and_ownership(failures)
+	test_workshop_remove_pair_removes_two_matching_run_tiles(failures)
+	test_workshop_remove_pair_enforces_new_floor_without_changing_single_remove(failures)
+	test_workshop_remove_pair_requires_two_run_owned_copies_atomically(failures)
+	test_workshop_remove_pair_doubles_effective_remove_discount(failures)
 	test_workshop_add_and_replace_modifier_services_are_available(failures)
 	test_stage_four_modifiers_are_offered_and_workshop_rejections_are_atomic(failures)
 	test_workshop_presentation_actions_include_legal_inputs(failures)
@@ -194,6 +202,150 @@ func test_workshop_services_preserve_tile_identity_and_ownership(failures: Array
 	var exit = domain.execute(ExitWorkshopCommand.new("workshop.services.exit"))
 	assert_true(exit.accepted and domain.state.phase == RunPhase.MAP_CHOICE, "Workshop exit returns to Map Choice", failures)
 	assert_true(not domain.state.workshop_state.active and domain.state.workshop_state.completed, "Workshop exit checkpoint state is stable and completed", failures)
+
+func test_workshop_remove_pair_removes_two_matching_run_tiles(failures: Array[String]) -> void:
+	var domain := _workshop_domain("workshop.remove-pair", 1231, 16)
+	domain.state.gold = 200
+	var starting_tiles: Array = domain.state.tile_pool.tile_instances.duplicate()
+	var selected_tile = starting_tiles[0]
+	var matching_instance_ids: Array[String] = []
+	for tile in starting_tiles:
+		if tile.definition_id == selected_tile.definition_id:
+			matching_instance_ids.append(tile.instance_id)
+	matching_instance_ids.sort()
+	var expected_instance_ids: Array[String] = [selected_tile.instance_id]
+	for candidate_id in matching_instance_ids:
+		if candidate_id != selected_tile.instance_id:
+			expected_instance_ids.append(candidate_id)
+			break
+	expected_instance_ids.sort()
+	assert_true(expected_instance_ids.size() == 2, "the batch removal fixture has two physical copies of one type", failures)
+	if expected_instance_ids.size() != 2:
+		return
+	var sibling_instance_id := expected_instance_ids[0] if expected_instance_ids[1] == selected_tile.instance_id else expected_instance_ids[1]
+	domain.state.build_ownership.persistent_tile_modifier_state[selected_tile.instance_id] = ["base.modifier.flexible_identity"]
+	domain.state.build_ownership.persistent_tile_modifier_state[sibling_instance_id] = ["base.modifier.recycling"]
+	var gold_before: int = domain.state.gold
+	var definition_count_before := matching_instance_ids.size()
+	var enter = domain.execute(EnterWorkshopCommand.new("workshop.remove-pair.enter"))
+	assert_true(enter.accepted and enter.data.get("service_ids", []).has(REMOVE_PAIR), "Workshop entry advertises the distinct Remove Pair service", failures)
+	var pair_command := UseWorkshopServiceCommand.new("workshop.remove-pair.use", REMOVE_PAIR, selected_tile.instance_id)
+	var preview = pair_command.validate(domain)
+	assert_true(preview.is_valid() and preview.details.get("instance_ids", []) == expected_instance_ids and preview.details.get("pool_size_before", -1) == 16 and preview.details.get("pool_size_after", -1) == 14, "the authoritative preview exposes the exact pair and resulting Run-pool size without execution", failures)
+	var result = domain.execute(pair_command)
+	assert_true(result.accepted, "Remove Pair accepts a selected type with two Run-owned physical copies", failures)
+	if not result.accepted:
+		return
+	assert_true(domain.state.tile_pool.tile_instances.size() == 14, "Remove Pair keeps the configured 14-tile minimum", failures)
+	assert_true(result.data.get("instance_ids", []) == expected_instance_ids, "the service result identifies exactly the selected and deterministic same-type sibling IDs", failures)
+	assert_true(_tile_by_id(domain, selected_tile.instance_id) == null and _tile_by_id(domain, sibling_instance_id) == null, "Remove Pair deletes exactly those two physical TileInstances", failures)
+	var remaining_same_type := 0
+	for tile in domain.state.tile_pool.tile_instances:
+		if tile.definition_id == selected_tile.definition_id:
+			remaining_same_type += 1
+	assert_true(remaining_same_type == definition_count_before - 2, "Remove Pair reduces only the chosen tile type by two copies", failures)
+	assert_true(not domain.state.build_ownership.persistent_tile_modifier_state.has(selected_tile.instance_id) and not domain.state.build_ownership.persistent_tile_modifier_state.has(sibling_instance_id), "removing both tiles clears both persistent modifier records", failures)
+	assert_true(int(result.data.get("price", -1)) == domain.economy.workshop_remove_price * 2 and domain.state.gold == gold_before - domain.economy.workshop_remove_price * 2, "Remove Pair charges exactly twice the normal Remove price", failures)
+	var removed_event_ids: Array[String] = []
+	for event in result.events:
+		if event.event_type == "TileRemoved":
+			removed_event_ids.append(str(event.data.get("instance_id", "")))
+	removed_event_ids.sort()
+	assert_true(removed_event_ids == expected_instance_ids, "the accepted command emits one factual removal event for each removed ID", failures)
+	var service_event = null
+	for event in result.events:
+		if event.event_type == "WorkshopServiceUsed":
+			service_event = event
+			break
+	assert_true(service_event != null and service_event.data.get("instance_ids", []) == expected_instance_ids, "the Workshop service event records the exact batch of removed IDs", failures)
+	assert_true(domain.state.workshop_state.used_service_ids.has(REMOVE_PAIR) and not domain.state.workshop_state.used_service_ids.has(WorkshopState.REMOVE), "Remove Pair consumes only its own one-use service slot", failures)
+
+func test_workshop_remove_pair_enforces_new_floor_without_changing_single_remove(failures: Array[String]) -> void:
+	var domain := _workshop_domain("workshop.remove-pair.floor", 1232, 15)
+	domain.state.gold = 200
+	var target_id: String = domain.state.tile_pool.tile_instances[0].instance_id
+	var enter = domain.execute(EnterWorkshopCommand.new("workshop.remove-pair.floor.enter"))
+	assert_true(enter.accepted, "the 15-tile fixture enters the Workshop", failures)
+	if not enter.accepted:
+		return
+	var before_pair := domain.checkpoint()
+	var rng_before_pair := domain.rng_snapshot()
+	var pair_result = domain.execute(UseWorkshopServiceCommand.new("workshop.remove-pair.floor.pair", REMOVE_PAIR, target_id))
+	assert_true(not pair_result.accepted and pair_result.validation.code == "POOL_MINIMUM", "Remove Pair alone enforces its new 14-tile minimum", failures)
+	assert_true(domain.checkpoint() == before_pair and domain.rng_snapshot() == rng_before_pair, "a below-floor Remove Pair rejection leaves Run state and RNG unchanged", failures)
+	var remove_result = domain.execute(UseWorkshopServiceCommand.new("workshop.remove-pair.floor.single", UseWorkshopServiceCommand.REMOVE, target_id))
+	assert_true(remove_result.accepted and domain.state.tile_pool.tile_instances.size() == 14, "legacy single Remove still accepts a 15-tile pool and leaves 14", failures)
+	assert_true(domain.state.workshop_state.used_service_ids.has(UseWorkshopServiceCommand.REMOVE) and not domain.state.workshop_state.used_service_ids.has(REMOVE_PAIR), "single Remove retains its independent existing service slot", failures)
+	var mixed_scope_domain := _workshop_domain("workshop.remove-pair.run-floor", 1235, 16)
+	mixed_scope_domain.state.gold = 200
+	mixed_scope_domain.state.tile_pool.tile_instances[4].lifetime_scope = "BATTLE"
+	var mixed_target_id: String = mixed_scope_domain.state.tile_pool.tile_instances[0].instance_id
+	var mixed_enter = mixed_scope_domain.execute(EnterWorkshopCommand.new("workshop.remove-pair.run-floor.enter"))
+	assert_true(mixed_enter.accepted, "the mixed-scope fixture enters the Workshop", failures)
+	if mixed_enter.accepted:
+		var mixed_before := mixed_scope_domain.checkpoint()
+		var mixed_result = mixed_scope_domain.execute(UseWorkshopServiceCommand.new("workshop.remove-pair.run-floor.use", REMOVE_PAIR, mixed_target_id))
+		assert_true(not mixed_result.accepted and mixed_result.validation.code == "POOL_MINIMUM", "the 14-tile floor counts persistent Run tiles rather than unrelated temporary pool records", failures)
+		assert_true(mixed_scope_domain.checkpoint() == mixed_before, "mixed-scope floor rejection leaves the pool unchanged", failures)
+
+func test_workshop_remove_pair_requires_two_run_owned_copies_atomically(failures: Array[String]) -> void:
+	var domain := _workshop_domain("workshop.remove-pair.ownership", 1233, 16)
+	domain.state.gold = 200
+	var selected_tile = domain.state.tile_pool.tile_instances[0]
+	var changed_ownership := false
+	for tile in domain.state.tile_pool.tile_instances:
+		if tile.instance_id != selected_tile.instance_id and tile.definition_id == selected_tile.definition_id:
+			tile.lifetime_scope = "BATTLE"
+			changed_ownership = true
+	assert_true(changed_ownership, "the fixture has a matching copy that can be made non-persistent", failures)
+	var enter = domain.execute(EnterWorkshopCommand.new("workshop.remove-pair.ownership.enter"))
+	assert_true(enter.accepted, "the ownership fixture enters the Workshop", failures)
+	if not enter.accepted:
+		return
+	var before := domain.checkpoint()
+	var rng_before := domain.rng_snapshot()
+	var gold_before: int = domain.state.gold
+	var result = domain.execute(UseWorkshopServiceCommand.new("workshop.remove-pair.ownership.use", REMOVE_PAIR, selected_tile.instance_id))
+	assert_true(not result.accepted and result.validation.code == "NO_MATCHING_TILE_PAIR", "Remove Pair requires a second physical copy owned by the persistent Run pool", failures)
+	assert_true(domain.checkpoint() == before and domain.rng_snapshot() == rng_before and domain.state.gold == gold_before, "a missing eligible sibling leaves both Run state and RNG unchanged", failures)
+
+func test_workshop_remove_pair_doubles_effective_remove_discount(failures: Array[String]) -> void:
+	var domain := _workshop_domain("workshop.remove-pair.discount", 1234, 16)
+	domain.state.gold = 100
+	var target_id: String = domain.state.tile_pool.tile_instances[0].instance_id
+	var modifier := ActiveEffectInstance.new(
+		"run_modifier.workshop-kit-test",
+		DurationSpec.new(DurationSpec.RUN, 1),
+		"REPLACE",
+		"test.workshop-kit",
+		1,
+		-1,
+		-1,
+		"workshop-kit-test",
+		0,
+		{"modifier_id": "content.base.relic.workshop_kit", "workshop_price_discount": 1},
+	)
+	domain.state.active_effects[modifier.instance_id] = modifier
+	var enter = domain.execute(EnterWorkshopCommand.new("workshop.remove-pair.discount.enter"))
+	assert_true(enter.accepted, "the discounted pair fixture enters the Workshop", failures)
+	if not enter.accepted:
+		return
+	var gold_before: int = domain.state.gold
+	var result = domain.execute(UseWorkshopServiceCommand.new("workshop.remove-pair.discount.use", REMOVE_PAIR, target_id))
+	assert_true(result.accepted, "Remove Pair accepts a valid discounted purchase", failures)
+	if not result.accepted:
+		return
+	assert_true(int(result.data.get("base_price", -1)) == domain.economy.workshop_remove_price * 2, "Remove Pair doubles the configured single Remove base price", failures)
+	assert_true(int(result.data.get("price", -1)) == (domain.economy.workshop_remove_price - 1) * 2, "Remove Pair costs exactly twice the effective single Remove price after discount", failures)
+	assert_true(domain.state.gold == gold_before - int(result.data.get("price", 0)), "the discounted pair purchase consumes exactly its reported Gold price", failures)
+	var adjustments: Array = result.data.get("price_adjustments", [])
+	assert_true(adjustments.size() == 1 and int(adjustments[0].get("amount", 0)) == -2 and adjustments[0].get("modifier_id", "") == "content.base.relic.workshop_kit", "the pair result records the causal discount at twice the single-service amount", failures)
+	var service_event = null
+	for event in result.events:
+		if event.event_type == "WorkshopServiceUsed":
+			service_event = event
+			break
+	assert_true(service_event != null and service_event.data.get("price_adjustments", []) == adjustments and service_event.data.get("instance_ids", []).size() == 2, "the authoritative Workshop receipt includes doubled pricing and the exact two removed IDs", failures)
 
 func test_workshop_add_and_replace_modifier_services_are_available(failures: Array[String]) -> void:
 	var add_domain := _workshop_domain("workshop.modifier.add", 1205, 2)
@@ -604,6 +756,9 @@ func test_service_commands_serialize_stable_ids(failures: Array[String]) -> void
 	assert_true(use.to_dictionary()["command_type"] == "UseWorkshopService", "Workshop command has a stable type", failures)
 	assert_true(use.to_dictionary()["service_id"] == UseWorkshopServiceCommand.TRANSFORM, "Workshop command serializes the stable service ID", failures)
 	assert_true(use.to_dictionary()["instance_id"] == "run.tile.7" and use.to_dictionary()["value_id"] == "base.tile.bamboo.1", "Workshop command serializes stable Tile and content IDs", failures)
+	var remove_pair := UseWorkshopServiceCommand.new("ids.workshop.remove-pair", REMOVE_PAIR, "run.tile.selected")
+	assert_true(remove_pair.to_dictionary()["service_id"] == REMOVE_PAIR and remove_pair.to_dictionary()["instance_id"] == "run.tile.selected", "Remove Pair replays through its stable service and selected physical Tile IDs", failures)
+	assert_true(not remove_pair.to_dictionary().has("instance_ids"), "the sibling is resolved deterministically from authoritative pool state rather than a UI-provided second ID", failures)
 
 func test_shop_relics_respect_act_availability(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()

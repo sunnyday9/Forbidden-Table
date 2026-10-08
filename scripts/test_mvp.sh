@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Functional profile; the four simulation/corpus suites remain in test.sh.
+project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec bash "$project_root/scripts/test.sh" \
+  --content-registry \
+  --rng \
+  --tile-zones \
+  --draw-actions \
+  --patterns \
+  --complete-hands \
+  --settlements \
+  --scores \
+  --combat-conversion \
+  --settlement-turn \
+  --combat-state \
+  --battle-scene \
+  --stage0-exit-review \
+  --domain-commands \
+  --resolution-queue \
+  --effects \
+  --effect-lifecycle \
+  --reserve-integrity \
+  --complete-hand-settlement \
+  --yaku-progress \
+  --draw-resolver \
+  --intent-graph \
+  --replay \
+  --run-replay \
+  --phase-2-foundations \
+  --run-domain \
+  --map \
+  --battle-integration \
+  --boss-rule-breaker-reward \
+  --elite-reward \
+  --reward-economy \
+  --shop-workshop \
+  --events \
+  --contamination \
+  --content-catalog \
+  --persistence \
+  --presentation \
+  --onboarding \
+  --stage2-exit-review \
+  --run-scene \
+  --meta-progress \
+  --character-passive \
+  --run-summary \
+  --alpha-contract-effects \
+  --build-effects \
+  --stage4-content \
+  --stage4-localization \
+  --stage4-onboarding-flow \
+  --stage4-accessibility \
+  --stage45-ui \
+  --guided-sample \
+  --runner-dispatch \
+  --starting-rules \
+  --discard-rewards

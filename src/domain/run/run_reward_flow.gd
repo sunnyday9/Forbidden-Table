@@ -100,7 +100,7 @@ func create_draft(encounter_kind: String, encounter_id: String, previous_phase: 
 	events.append(_run_phase_event(previous_phase, state.phase))
 	return events
 
-func validate_choice(selected_draft_id: String, selected_option_id: String) -> RefCounted:
+func validate_choice(selected_draft_id: String, selected_option_id: String, selected_target_tile_id: String = "") -> RefCounted:
 	if state.phase == RunPhaseScript.ELITE_REWARD:
 		if state.reward_draft == null or state.reward_draft.draft_kind != RewardDraftSelectorScript.ELITE_BUILD:
 			return CommandValidationScript.new(false, "NO_REWARD_DRAFT", "There is no active Elite build reward draft.")
@@ -109,11 +109,18 @@ func validate_choice(selected_draft_id: String, selected_option_id: String) -> R
 		var elite_option = state.reward_draft.option_by_id(selected_option_id)
 		if elite_option == null:
 			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected Elite reward option is not in the active draft.")
+		if not selected_target_tile_id.is_empty():
+			return CommandValidationScript.new(false, "UNEXPECTED_REWARD_TARGET", "This Elite reward does not select an owned tile type.")
 		if elite_option.kind == RewardOptionScript.SKIP:
 			var expected_skip_gold := AlphaContractEffectsScript.elite_skip_gold(economy.elite_skip_gold, content_registry, state.contract_id)
 			var expected_skip_tokens := AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, state.contract_id)
 			if elite_option.content_id != RewardOptionScript.SKIP_CONTENT_ID or elite_option.gold_delta != expected_skip_gold or elite_option.refinement_token_delta != expected_skip_tokens:
 				return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "Elite Skip must grant only its configured Gold and Refinement Token compensation.")
+			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id})
+		if elite_option.kind == RewardOptionScript.ADD_TILE:
+			var pivot_validation := _validate_reward_option(elite_option, "", true)
+			if not pivot_validation.get("accepted", false):
+				return CommandValidationScript.new(false, pivot_validation.get("status", "INVALID_REWARD_OPTION"), pivot_validation.get("message", "The Elite pivot option is invalid."), pivot_validation.get("details", {}))
 			return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": selected_draft_id, "option_id": selected_option_id})
 		if elite_option.kind == RewardOptionScript.RELIC:
 			var relic = content_registry.resolve(elite_option.content_id)
@@ -139,6 +146,8 @@ func validate_choice(selected_draft_id: String, selected_option_id: String) -> R
 		if draft_id != state.reward_draft.draft_id:
 			return CommandValidationScript.new(false, "INVALID_REWARD_DRAFT", "The selected Boss reward draft is not active.")
 		var option = state.reward_draft.option_by_id(selected_option_id)
+		if not selected_target_tile_id.is_empty():
+			return CommandValidationScript.new(false, "UNEXPECTED_REWARD_TARGET", "A Boss reward does not select an owned tile type.")
 		if option == null or option.kind != RewardOptionScript.RULE_BREAKER:
 			return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected Rule Breaker is not in the active Boss draft.")
 		var definition = content_registry.resolve(option.content_id)
@@ -157,19 +166,29 @@ func validate_choice(selected_draft_id: String, selected_option_id: String) -> R
 	var option = state.reward_draft.option_by_id(selected_option_id)
 	if option == null:
 		return CommandValidationScript.new(false, "INVALID_REWARD_OPTION", "The selected reward option is not in the active draft.")
-	var option_validation := _validate_reward_option(option)
+	var option_validation := _validate_reward_option(option, selected_target_tile_id)
 	if not option_validation.get("accepted", false):
 		return CommandValidationScript.new(false, option_validation.get("status", "INVALID_REWARD_OPTION"), option_validation.get("message", "The selected reward option is invalid."), option_validation.get("details", {}))
-	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", {"draft_id": draft_id, "option_id": selected_option_id})
+	var validation_details := {"draft_id": draft_id, "option_id": selected_option_id}
+	for key in ["target_tile_id", "target_instance_ids"]:
+		if option_validation.has(key):
+			validation_details[key] = option_validation[key]
+	return CommandValidationScript.new(true, CommandValidationScript.VALID, "", validation_details)
 
-func execute_choice(selected_draft_id: String, selected_option_id: String) -> Dictionary:
+func execute_choice(selected_draft_id: String, selected_option_id: String, selected_target_tile_id: String = "") -> Dictionary:
 	if state.phase == RunPhaseScript.ELITE_REWARD:
 		var elite_draft = state.reward_draft
 		var option = elite_draft.option_by_id(selected_option_id)
 		var previous_phase: String = state.phase
 		var events: Array = []
 		var currency_transactions: Array = []
-		if option.kind == RewardOptionScript.RELIC:
+		var pivot_tile_instance_id := ""
+		if option.kind == RewardOptionScript.ADD_TILE:
+			var pivot_result := _add_reward_tile(option, true)
+			if not pivot_result.get("accepted", false):
+				return pivot_result
+			pivot_tile_instance_id = str(pivot_result.get("instance_id", ""))
+		elif option.kind == RewardOptionScript.RELIC:
 			state.build_ownership.owned_relic_ids.append(option.content_id)
 		elif option.kind == RewardOptionScript.RUN_TECHNIQUE:
 			state.build_ownership.run_technique_ids.append(option.content_id)
@@ -194,6 +213,10 @@ func execute_choice(selected_draft_id: String, selected_option_id: String) -> Di
 			"reward_phase": previous_phase,
 			"currency_transactions": currency_transactions.duplicate(true),
 		}
+		if not pivot_tile_instance_id.is_empty():
+			reward_data["tile_id"] = option.tile_id
+			reward_data["tile_instance_id"] = pivot_tile_instance_id
+			reward_data["special_pivot"] = true
 		state.reward_draft = null
 		state.phase = RunPhaseScript.MAP_CHOICE
 		reward_data["phase"] = state.phase
@@ -234,6 +257,9 @@ func execute_choice(selected_draft_id: String, selected_option_id: String) -> Di
 	var option = state.reward_draft.option_by_id(selected_option_id) if state.reward_draft != null else null
 	if option == null:
 		return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option is not in the active draft."}
+	var option_validation := _validate_reward_option(option, selected_target_tile_id)
+	if not option_validation.get("accepted", false):
+		return option_validation
 	var events: Array = []
 	var data: Dictionary = {
 		"draft_id": draft_id,
@@ -250,9 +276,12 @@ func execute_choice(selected_draft_id: String, selected_option_id: String) -> Di
 			return tile_instance_result
 		data["tile_instance_id"] = tile_instance_result["instance_id"]
 	elif option.kind == RewardOptionScript.MODIFIED_TILE:
-		var modifier_result := _apply_reward_modifier(option)
+		var modifier_result := _apply_reward_modifier(option, selected_target_tile_id)
 		if not modifier_result.get("accepted", false):
 			return modifier_result
+		data["target_tile_id"] = str(modifier_result.get("target_tile_id", option.tile_id))
+		data["target_instance_ids"] = modifier_result.get("target_instance_ids", []).duplicate()
+		data["target_count"] = data["target_instance_ids"].size()
 	elif option.kind == RewardOptionScript.SKIP:
 		var skip_transaction: Dictionary = economy.apply_source(state, RunEconomyScript.GOLD, option.gold_delta, RunEconomyScript.SOURCE_NORMAL_REWARD_SKIP)
 		if skip_transaction.is_empty():
@@ -277,13 +306,31 @@ func execute_choice(selected_draft_id: String, selected_option_id: String) -> Di
 		"data": data,
 	}
 
-func _validate_reward_option(option) -> Dictionary:
+func _validate_reward_option(option, selected_target_tile_id: String = "", allow_special_pivot: bool = false) -> Dictionary:
 	if option.kind == RewardOptionScript.SKIP:
+		if not selected_target_tile_id.is_empty():
+			return {"accepted": false, "status": "UNEXPECTED_REWARD_TARGET", "message": "Skip does not select an owned tile type."}
 		return {"accepted": true}
 	if option.kind == RewardOptionScript.ADD_TILE:
 		var tile_definition = content_registry.resolve(option.tile_id)
 		if not tile_definition is TileDefinitionScript:
 			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Add Tile content ID is not registered."}
+		if not selected_target_tile_id.is_empty():
+			return {"accepted": false, "status": "UNEXPECTED_REWARD_TARGET", "message": "Add Tile does not select an owned tile type."}
+		var is_special_pivot := bool(option.metadata.get("special_pivot", false))
+		if is_special_pivot:
+			var pivot_is_authorized: bool = allow_special_pivot \
+				and state.phase == RunPhaseScript.ELITE_REWARD \
+				and state.reward_draft != null \
+				and state.reward_draft.draft_kind == RewardDraftSelectorScript.ELITE_BUILD \
+				and str(state.character_id) == "base.character.reserve" \
+				and not str(state.excluded_suit).is_empty() \
+				and option.context_bias == RewardOptionScript.PIVOT \
+				and tile_definition.suit in [str(state.excluded_suit), "honors"]
+			if not pivot_is_authorized:
+				return {"accepted": false, "status": "PIVOT_PROVENANCE_REQUIRED", "message": "An excluded tile requires an explicit Elite Pivot reward."}
+		elif str(state.character_id) == "base.character.reserve" and not str(state.excluded_suit).is_empty() and tile_definition.suit in [str(state.excluded_suit), "honors"]:
+			return {"accepted": false, "status": "PIVOT_PROVENANCE_REQUIRED", "message": "An excluded tile requires an explicit Elite Pivot reward."}
 		var allowed_add_tile_suit := AlphaContractEffectsScript.normal_reward_add_tile_suit(content_registry, state.contract_id)
 		if not allowed_add_tile_suit.is_empty() and tile_definition.suit != allowed_add_tile_suit:
 			return {"accepted": false, "status": "CONTRACT_RESTRICTION", "message": "The selected Contract does not allow this Add Tile suit."}
@@ -291,21 +338,51 @@ func _validate_reward_option(option) -> Dictionary:
 			return {"accepted": false, "status": "COPY_LIMIT", "message": "Add Tile would exceed the TileDefinition copy limit."}
 		return {"accepted": true}
 	if option.kind == RewardOptionScript.MODIFIED_TILE:
-		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
-			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Modified Tile target content ID is not registered."}
 		var modifier = content_registry.resolve(option.modifier_id)
 		if not modifier is TileModifierDefinitionScript:
 			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Modified Tile modifier ID is not registered."}
+		if str(option.metadata.get("target_mode", "")) == "CHOOSE_TYPE":
+			return _targeted_modifier_validation(option, selected_target_tile_id, modifier)
+		if not selected_target_tile_id.is_empty():
+			return {"accepted": false, "status": "UNEXPECTED_REWARD_TARGET", "message": "This saved Modified Tile option has a fixed target."}
+		if not content_registry.resolve(option.tile_id) is TileDefinitionScript:
+			return {"accepted": false, "status": "INVALID_REWARD_CONTENT", "message": "The Modified Tile target content ID is not registered."}
 		if not tile_pool_editor.contains_instance(option.target_instance_id):
 			return {"accepted": false, "status": "INVALID_REWARD_TARGET", "message": "The Modified Tile target is not owned by the run."}
 		var modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(option.target_instance_id, [])
 		if modifiers.has(option.modifier_id) and modifiers.count(option.modifier_id) >= modifier.max_per_tile:
 			return {"accepted": false, "status": "MODIFIER_LIMIT_REACHED", "message": "The target TileInstance already has the maximum copies of this modifier."}
-		return {"accepted": true}
+		return {"accepted": true, "target_tile_id": option.tile_id, "target_instance_ids": [option.target_instance_id]}
 	return {"accepted": false, "status": "INVALID_REWARD_OPTION", "message": "The selected reward option has an unsupported kind."}
 
-func _add_reward_tile(option) -> Dictionary:
-	var validation := _validate_reward_option(option)
+func _targeted_modifier_validation(option, selected_target_tile_id: String, modifier) -> Dictionary:
+	var requested_limit: Variant = option.metadata.get("target_limit", 0)
+	if typeof(requested_limit) != TYPE_INT or int(requested_limit) < 1 or int(requested_limit) > 2:
+		return {"accepted": false, "status": "INVALID_REWARD_TARGET_LIMIT", "message": "A targeted reward may affect one or two copies."}
+	if selected_target_tile_id.is_empty():
+		return {"accepted": false, "status": "TARGET_TILE_TYPE_REQUIRED", "message": "Choose an owned tile type for this modifier."}
+	if not content_registry.resolve(selected_target_tile_id) is TileDefinitionScript:
+		return {"accepted": false, "status": "INVALID_REWARD_TARGET", "message": "The selected target type is not registered."}
+	var eligible_ids: Array[String] = []
+	var tile_instances: Array = state.tile_pool.tile_instances if state.tile_pool != null else []
+	for tile_instance in tile_instances:
+		if str(tile_instance.definition_id) != selected_target_tile_id:
+			continue
+		if str(tile_instance.ownership_scope) != "RUN" or str(tile_instance.lifetime_scope) != "RUN":
+			continue
+		var current_modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(str(tile_instance.instance_id), [])
+		if current_modifiers.count(option.modifier_id) < modifier.max_per_tile:
+			eligible_ids.append(str(tile_instance.instance_id))
+	eligible_ids.sort()
+	if eligible_ids.is_empty():
+		return {"accepted": false, "status": "INVALID_REWARD_TARGET", "message": "No owned copy of the selected type can receive this modifier."}
+	var selected_ids: Array[String] = []
+	for index in range(mini(int(requested_limit), eligible_ids.size())):
+		selected_ids.append(eligible_ids[index])
+	return {"accepted": true, "target_tile_id": selected_target_tile_id, "target_instance_ids": selected_ids}
+
+func _add_reward_tile(option, allow_special_pivot: bool = false) -> Dictionary:
+	var validation := _validate_reward_option(option, "", allow_special_pivot)
 	if not validation.get("accepted", false):
 		return validation
 	var tile_instance_result: Dictionary = tile_pool_editor.add_tile(option.tile_id)
@@ -313,11 +390,20 @@ func _add_reward_tile(option) -> Dictionary:
 		return {"accepted": false, "status": "REWARD_APPLICATION_REJECTED", "message": "The Add Tile could not be added to the Run Tile Pool."}
 	return {"accepted": true, "instance_id": tile_instance_result.instance_id}
 
-func _apply_reward_modifier(option) -> Dictionary:
-	var modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(option.target_instance_id, []).duplicate()
-	modifiers.append(option.modifier_id)
-	state.build_ownership.persistent_tile_modifier_state[option.target_instance_id] = modifiers
-	return {"accepted": true}
+func _apply_reward_modifier(option, selected_target_tile_id: String = "") -> Dictionary:
+	var validation := _validate_reward_option(option, selected_target_tile_id)
+	if not validation.get("accepted", false):
+		return validation
+	var target_instance_ids: Array = validation.get("target_instance_ids", [])
+	for instance_id in target_instance_ids:
+		var modifiers: Array = state.build_ownership.persistent_tile_modifier_state.get(str(instance_id), []).duplicate()
+		modifiers.append(option.modifier_id)
+		state.build_ownership.persistent_tile_modifier_state[str(instance_id)] = modifiers
+	return {
+		"accepted": true,
+		"target_tile_id": validation.get("target_tile_id", option.tile_id),
+		"target_instance_ids": target_instance_ids.duplicate(),
+	}
 
 func _record_run_milestone(milestone_id: String) -> void:
 	if not milestone_id.is_empty() and not state.milestones.has(milestone_id):
@@ -337,6 +423,38 @@ func _invalid_phase(expected_phase: String) -> RefCounted:
 		"The command is only legal during %s." % expected_phase,
 		{"expected_phase": expected_phase, "actual_phase": state.phase},
 	)
+
+func target_choices(selected_option_id: String) -> Dictionary:
+	if state.phase != RunPhaseScript.REWARD_CHOICE or state.reward_draft == null:
+		return {"accepted": false, "choices": []}
+	var option = state.reward_draft.option_by_id(selected_option_id)
+	if option == null or option.kind != RewardOptionScript.MODIFIED_TILE or str(option.metadata.get("target_mode", "")) != "CHOOSE_TYPE":
+		return {"accepted": false, "choices": []}
+	var modifier = content_registry.resolve(option.modifier_id)
+	if not modifier is TileModifierDefinitionScript:
+		return {"accepted": false, "choices": []}
+	var target_limit: Variant = option.metadata.get("target_limit", 0)
+	if typeof(target_limit) != TYPE_INT or int(target_limit) < 1 or int(target_limit) > 2:
+		return {"accepted": false, "choices": []}
+	var owned_tile_ids: Dictionary = {}
+	var tile_instances: Array = state.tile_pool.tile_instances if state.tile_pool != null else []
+	for tile_instance in tile_instances:
+		owned_tile_ids[str(tile_instance.definition_id)] = true
+	var ordered_tile_ids: Array = owned_tile_ids.keys()
+	ordered_tile_ids.sort()
+	var choices: Array[Dictionary] = []
+	for tile_id in ordered_tile_ids:
+		var target_validation := _targeted_modifier_validation(option, str(tile_id), modifier)
+		if not target_validation.get("accepted", false):
+			continue
+		choices.append({
+			"tile_id": str(tile_id),
+			"modifier_id": option.modifier_id,
+			"eligible_instance_ids": target_validation.target_instance_ids.duplicate(),
+			"count": target_validation.target_instance_ids.size(),
+			"target_limit": int(target_limit),
+		})
+	return {"accepted": not choices.is_empty(), "choices": choices}
 
 func _run_phase_event(previous_phase: String, next_phase: String):
 	return DomainEventScript.new(DomainEventScript.RUN_PHASE_CHANGED, {

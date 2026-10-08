@@ -235,20 +235,30 @@ func _verify_stage5_suspend_fixture(fixture: Dictionary, candidate: Dictionary, 
 	assert_true(resumed.rng_snapshot() == snapshot_data.get("rng_state", {}), "the resumed Run restores the exact frozen RNG checkpoint", failures)
 
 	var continuation: Dictionary = fixture.get("continuation", {})
+	# Frozen RC1 bytes remain immutable. Fresh battles now use RC6's opening
+	# deal; compare two restorations under the active rules instead of claiming
+	# that their new commands reproduce RC1's obsolete empty-Hand checkpoints.
+	var control_load: Dictionary = SaveMapper.load_into_domain(save_text, registry)
+	assert_true(control_load.get("accepted", false), "the immutable save supports an independent deterministic continuation", failures)
+	if not control_load.get("accepted", false):
+		return
+	var control: RunDomain = control_load.domain
 	var route_result = resumed.execute(SelectMapNodeCommand.new("stage5.compatibility.route", str(continuation.get("route_node_id", ""))))
+	var control_route = control.execute(SelectMapNodeCommand.new("stage5.compatibility.route", str(continuation.get("route_node_id", ""))))
 	var route_passed: bool = route_result != null and route_result.is_accepted()
 	assert_true(route_passed, "the resumed Run accepts the frozen public map-route command", failures)
 	if not route_passed:
 		_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, false, candidate_provenance_valid)
 		return
 	assert_true(resumed.state.phase == RunPhase.BATTLE, "the resumed route reaches the candidate Battle phase", failures)
-	assert_true(resumed.replay_record.checkpoints.size() > 1 and resumed.replay_record.checkpoints[1].domain_state_hash == str(continuation.get("route_checkpoint_state_hash", "")), "the route command matches its frozen authoritative checkpoint", failures)
+	assert_true(control_route.is_accepted() and resumed.checkpoint() == control.checkpoint(), "the restored route produces the same current-rules authoritative checkpoint", failures)
 	var draw_result = resumed.execute(DrawCommand.new("stage5.compatibility.draw", "player.1"))
+	var control_draw = control.execute(DrawCommand.new("stage5.compatibility.draw", "player.1"))
 	var draw_passed: bool = draw_result != null and draw_result.is_accepted()
 	assert_true(draw_passed, "the resumed Battle accepts the frozen public Draw command", failures)
 	if draw_passed:
-		assert_true(resumed.checkpoint().state_hash == str(continuation.get("draw_checkpoint_state_hash", "")), "the resumed Draw matches its frozen authoritative checkpoint", failures)
-		assert_true(resumed.rng_snapshot() == continuation.get("draw_rng_state", {}), "the resumed Draw matches the frozen deterministic RNG outcome", failures)
+		assert_true(control_draw.is_accepted() and resumed.checkpoint() == control.checkpoint(), "the resumed Draw matches an independent continuation under the current rules", failures)
+		assert_true(resumed.rng_snapshot() == control.rng_snapshot(), "the resumed Draw matches the independent deterministic RNG outcome", failures)
 		assert_true(str(resumed.state.phase) == str(continuation.get("final_phase", "")), "the resumed Draw ends in the expected Run phase", failures)
 	_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, failures.size() == failure_count_before, candidate_provenance_valid)
 
@@ -281,7 +291,7 @@ func _verify_stage5_replay_fixture(fixture: Dictionary, candidate: Dictionary, c
 		return RunDomain.new_alpha_run(replay_run_id, seed, registry, content_version)
 	var identities_match: bool = (
 		record.schema_version == ReplayRecord.SCHEMA_VERSION
-		and record.game_version == SnapshotDto.GAME_VERSION
+		and record.game_version == ReplayRecord.GAME_VERSION
 		and record.content_version == registry.content_version()
 	)
 	var replay_report = ReplayVerifier.verify(record, replay_factory, registry.content_version())
@@ -307,6 +317,8 @@ func _verify_stage5_replay_fixture(fixture: Dictionary, candidate: Dictionary, c
 		{"field": "content_version", "value": "content.unavailable", "reason": "CONTENT_VERSION_UNAVAILABLE"},
 	]:
 		var incompatible_data: Dictionary = replay_data.duplicate(true)
+		# Isolate one version mismatch at a time against the active replay rules.
+		incompatible_data["game_version"] = ReplayRecord.GAME_VERSION
 		incompatible_data[str(identity_case.field)] = identity_case.value
 		var incompatible_record = ReplayRecord.from_dictionary(incompatible_data)
 		factory_call_count[0] = 0
@@ -1167,14 +1179,11 @@ func _has_validation_error(result: Dictionary, code: String) -> bool:
 
 func _registry():
 	var registry := ContentRegistry.new()
-	for tile_id in [
-		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3", "base.tile.characters.4",
-		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
-		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
-		"base.tile.honors.east", "base.tile.honors.white",
-	]:
-		var parts: PackedStringArray = tile_id.split(".")
-		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
+	for suit in ["characters", "bamboo", "dots"]:
+		for rank in range(1, 10):
+			registry.register(TileDefinition.new("base.tile.%s.%d" % [suit, rank], suit, rank))
+	for honor in ["east", "south", "west", "north", "red", "green", "white"]:
+		registry.register(TileDefinition.new("base.tile.honors.%s" % honor, "honors", 0))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))

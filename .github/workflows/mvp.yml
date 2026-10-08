@@ -1,0 +1,54 @@
+name: MVP checks and Windows package
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mvp-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Install pinned editor and matching Windows templates
+        run: python3 scripts/install_ci_godot.py --templates
+      - name: Import project resources
+        run: |
+          timeout 180 "$GODOT_BIN" --headless --editor --path . --import
+          timeout 180 "$GODOT_BIN" --headless --editor --path . --import
+      - name: Localization and packaging/provenance tests
+        run: |
+          python3 scripts/validate_localization.py
+          python3 -m unittest discover -s tests -p 'test_*.py'
+      - name: Functional MVP validation
+        run: bash scripts/test_mvp.sh
+      - name: Build clean Windows package
+        run: bash scripts/package_windows_release.sh --output-dir dist
+      - name: Probe freshly extracted player PCK
+        run: |
+          python3 -c "from pathlib import Path; from zipfile import ZipFile; ZipFile(next(Path('dist').glob('*.zip'))).extractall('dist/isolated')"
+          probe="$PWD/scripts/release_smoke_probe.gd"
+          cd dist/isolated
+          export XDG_DATA_HOME="$RUNNER_TEMP/forbidden-table-smoke"
+          timeout 120 "$GODOT_BIN" --headless --main-pack ForbiddenTable.pck --script "$probe"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: forbidden-table-windows-mvp
+          path: |
+            dist/*.zip
+            dist/*.sha256
+            dist/*.build.json
+          if-no-files-found: error
+          retention-days: 14

@@ -275,8 +275,8 @@ func test_event_descriptors_filter_ineligible_choices_and_leave_saves(failures: 
 
 func test_onboarding_progress_is_independent_and_resettable(failures: Array[String]) -> void:
 	var progress := TutorialProgress.new()
-	progress.observe([_event(DomainEvent.TILE_DRAWN)])
-	progress.observe([_event(DomainEvent.TP_CHANGED)])
+	progress.observe([_event(DomainEvent.PATTERN_SETTLED)])
+	progress.observe([_event(DomainEvent.TECHNIQUE_USED)])
 	assert_true(progress.completed_step_ids == [TutorialProgress.DRAW_PATTERN_PARTIAL, TutorialProgress.TP_CORE_TECHNIQUE], "onboarding progresses in the ordered real-event sequence", failures)
 	var persisted := progress.to_dictionary()
 	assert_true(not persisted.has("assist_level") and not persisted.has("run_state"), "onboarding persistence is separate from Assist Level and RunState", failures)

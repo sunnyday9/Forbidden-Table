@@ -132,6 +132,8 @@ func _fixture(wall_count: int, normal_baseline: int, recovery_baseline: int, des
 	var pattern_evaluator := PatternEvaluator.new(registry)
 	var window := SettlementWindow.new(pattern_evaluator, zones, SettlementCapacity.new(2))
 	var state := CombatState.new(200, 50)
+	# Isolate settlement/recovery mechanics from the separately tested RC8 input gate.
+	state.turn_play_enabled = false
 	var turn := SettlementTurn.new(window, actions, zones, normal_baseline)
 	var score_resolver := MahjongScoreResolver.new()
 	var profile := CombatConversionProfile.new({

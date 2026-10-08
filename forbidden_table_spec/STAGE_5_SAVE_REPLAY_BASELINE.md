@@ -2,6 +2,8 @@
 
 **Status:** Immutable RC1 fixtures captured; focused compatibility checks pass against the RC2 source target. Cross-patch verification remains unverified until a later 1.0.x candidate exists.
 
+**RC6 rules update (2026-10-07):** [Starting tiles and Hand rules](RC6_STARTING_RULES.md) change fresh Character pools and battle opening draws. The RC1 fixture bytes and hashes below remain historical and immutable. Save restoration retains their original pool/state/RNG; new continuation commands are checked against an independent restoration under the active rules, rather than the old empty-Hand battle outcomes. RC6 replays use `game.rules.rc6.v1`; earlier replay identities report `GAME_VERSION_UNAVAILABLE` before running. The save envelope remains `game.phase2.v1`. This update supersedes the earlier claim of identical replay/continuation results on the RC6 target and establishes no public compatibility promise.
+
 ## Compatibility commitment
 
 The public support window starts at 1.0.0 and covers supported 1.0.x patch updates. Pre-1.0 distributed formats and save downgrades are unsupported. Compatibility after 1.0.x remains undecided.

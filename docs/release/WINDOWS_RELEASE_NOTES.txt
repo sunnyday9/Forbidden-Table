@@ -1,0 +1,34 @@
+FORBIDDEN TABLE — MVP PRERELEASE NOTES
+Version: @APPLICATION_VERSION@
+
+Player changes
+- Clearer Character/Contract choices, persistent battle guidance and readable action explanations.
+- Direct battle controls, reward receipts, localized feedback, modal containment and responsive layouts.
+- Sort Hand and free Hand ordering through drag or move controls.
+- Discard presents the number of discarded tiles without exposing all tile faces.
+- Each new battle requires playing 1–3 Hand tiles per turn before End Turn.
+  A sequence or triplet among the three played tiles grants +3 Gold once per turn.
+  Playing consumes no TP and draws no replacements; its shared three-tile allowance resets each turn.
+- Suspend/Resume and deterministic replay record the authoritative Hand-play actions and bonus state.
+- Existing saved battles preserve their earlier rules until the next new battle.
+
+Package
+- Portable Windows x64 EXE/PCK, launch instructions and third-party license notices.
+- Separate SHA-256 and build manifest identify the source commit, engine and save/replay rules.
+- Tests, developer scripts, private documentation and local evidence are excluded from the player PCK.
+
+Known limits
+- This is an experimental MVP prerelease, not a stable 1.0 compatibility baseline.
+- Full simulation/fixed-seed progression checks have unresolved failures; balance is not cleared.
+- Human two-Act Windows 10/11 gameplay and physical controller validation remain open.
+- Automated headless layout and package startup checks are not human playtesting.
+- Hand display order resets on restart. Some older rule-version replays are unavailable.
+- Back up pre-1.0 saves and settings; no general prerelease compatibility guarantee is made.
+- Public publication and the game's source license require a separate maintainer decision.
+
+简体中文
+本次改进了角色/契约选择、战斗引导、奖励反馈、布局及中英文本。
+新增手牌整理和自由排序；弃牌区只显示数量。
+每回合结束前须打出 1–3 张手牌，三张构成顺子或刻子时获得 +3 金币。
+打牌不耗 TP，也不会自动补牌。旧存档中的当前战斗保留原规则。
+这是实验性 MVP，完整模拟、平衡和 Windows 双幕人工体验验证仍未完成。

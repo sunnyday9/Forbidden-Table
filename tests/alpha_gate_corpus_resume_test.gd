@@ -11,11 +11,13 @@ const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot
 const MetaProgressSnapshotScript = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 const GnuTimeoutLocatorScript = preload("res://src/infrastructure/simulation/gnu_timeout_locator.gd")
+const CorpusCliScript = preload("res://scripts/run_alpha_gate_corpus.gd")
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_gnu_timeout_path_is_native_and_existing(failures)
 	test_windows_git_timeout_fallback(failures)
+	test_process_status_command_paths_are_canonicalized(failures)
 	test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures)
 	test_resume_rejects_an_unverified_repeat_claim(failures)
 	test_compact_resume_links_projection_and_summary_digest(failures)
@@ -31,6 +33,8 @@ func run() -> Array[String]:
 
 func test_gnu_timeout_path_is_native_and_existing(failures: Array[String]) -> void:
 	var path := GnuTimeoutLocatorScript.resolve_path()
+	var repeated_path := GnuTimeoutLocatorScript.resolve_path()
+	assert_true(repeated_path == path, "GNU timeout discovery remains stable across repeated resolution with an unchanged process environment", failures)
 	assert_true(not path.is_empty() and path.is_absolute_path() and FileAccess.file_exists(path), "GNU timeout resolves to an existing native executable path", failures)
 	if path.is_empty() or not FileAccess.file_exists(path):
 		return
@@ -69,6 +73,49 @@ func test_windows_git_timeout_fallback(failures: Array[String]) -> void:
 		gnu_timeout_check,
 	)
 	assert_true(incompatible_only_path.is_empty(), "Windows timeout discovery never accepts a candidate that fails GNU identity validation", failures)
+
+func test_process_status_command_paths_are_canonicalized(failures: Array[String]) -> void:
+	var timeout_path := GnuTimeoutLocatorScript.resolve_path()
+	var engine_path := OS.get_executable_path()
+	var project_path := ProjectSettings.globalize_path("res://")
+	var source_path := ProjectSettings.globalize_path("res://.godot/native_corpus_source.jsonl")
+	var manifest_path := ProjectSettings.globalize_path("res://.godot/native_corpus_manifest.json")
+	var expected: Array = [
+		timeout_path, "--signal=TERM", "--kill-after=30s", "270", engine_path,
+		"--headless", "--path", project_path, "--script", "res://scripts/run_alpha_gate_corpus.gd", "--",
+		"--full", "--gate", "stage4_beta", "--max-cases", "1",
+		"--output", source_path, "--manifest-output", manifest_path,
+		"--process-timeout-seconds", "270", "--process-timeout-enforced",
+	]
+	var observed: Array = expected.duplicate(true)
+	if OS.get_name() == "Windows":
+		observed[0] = timeout_path.to_upper().replace("/", "\\")
+		observed[4] = engine_path.replace("/", "\\")
+		observed[7] = project_path.replace("/", "\\")
+		observed[17] = source_path.to_upper().replace("/", "\\")
+		observed[19] = manifest_path.to_upper().replace("/", "\\")
+	assert_true(
+		CorpusCliScript._command_argv_matches(expected, observed),
+		"Windows executable and file paths match across separator, case, and trailing-separator normalization",
+		failures,
+	)
+	assert_true(
+		not CorpusCliScript._is_absolute_command_path("res://scripts/run_alpha_gate_corpus.gd"),
+		"Godot resource paths remain exact command arguments instead of being treated as filesystem paths",
+		failures,
+	)
+	var altered: Array = observed.duplicate(true)
+	altered[4] = str(altered[4]) + ".different"
+	assert_true(not CorpusCliScript._command_argv_matches(expected, altered), "resume rejects a changed engine executable path", failures)
+	altered = observed.duplicate(true)
+	altered[7] = str(altered[7]) + "different-project"
+	assert_true(not CorpusCliScript._command_argv_matches(expected, altered), "resume rejects a changed project path", failures)
+	altered = observed.duplicate(true)
+	altered[9] = "res://scripts/other_corpus.gd"
+	assert_true(not CorpusCliScript._command_argv_matches(expected, altered), "resume rejects a changed virtual script path", failures)
+	altered = observed.duplicate(true)
+	altered[3] = "271"
+	assert_true(not CorpusCliScript._command_argv_matches(expected, altered), "resume rejects a changed timeout scalar argument", failures)
 
 func test_stage4_beta_manifest_balances_all_character_contract_policy_strata(failures: Array[String]) -> void:
 	var character_ids: Array[String] = AlphaScaleCatalogScript.all_character_ids()

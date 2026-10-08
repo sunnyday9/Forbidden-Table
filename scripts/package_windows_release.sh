@@ -23,6 +23,7 @@ fail() {
 version_file="$PROJECT_ROOT/scripts/GODOT_VERSION"
 [[ -r "$version_file" ]] || fail "Pinned Godot version file is missing: $version_file"
 IFS= read -r PINNED_GODOT_VERSION < "$version_file"
+PINNED_GODOT_VERSION="${PINNED_GODOT_VERSION%$'\r'}"
 [[ "$PINNED_GODOT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
 	|| fail "Invalid pinned Godot version in $version_file: $PINNED_GODOT_VERSION"
 readonly PINNED_GODOT_VERSION
@@ -151,12 +152,13 @@ required = {
     "game_version",
     "save_schema_versions",
     "replay_schema_version",
+    "replay_game_version",
 }
 if required - metadata.keys():
     raise SystemExit("Release metadata is missing required identity fields.")
 if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", str(metadata["application_version"])):
     raise SystemExit("Project application version is not a safe release version.")
-if not metadata["content_version"] or not metadata["game_version"]:
+if not metadata["content_version"] or not metadata["game_version"] or not metadata["replay_game_version"]:
     raise SystemExit("Release metadata has an empty content or game identity.")
 if not isinstance(metadata["save_schema_versions"], dict) or not metadata["save_schema_versions"]:
     raise SystemExit("Release metadata has no save schema identities.")
@@ -231,9 +233,12 @@ for _ in range(file_count):
     cursor += 36  # Data offset, size, MD5, and flags.
     packaged_resources[path] = data_size
 
-development_paths = sorted(path for path in packaged_resources if path.startswith(("tests/", "scripts/")))
+development_paths = sorted(
+    path for path in packaged_resources
+    if path.startswith(("tests/", "scripts/", ".scratch/", ".cache/", "dist/", "docs/", "forbidden_table_spec/", ".codex-worktrees/", "graphify-out/", ".github/"))
+)
 if development_paths:
-    print("ERROR: Windows PCK contains development-only resources:", file=sys.stderr)
+    print("ERROR: Windows PCK contains development-only resources or local artifacts:", file=sys.stderr)
     for path in development_paths[:20]:
         print("  " + path, file=sys.stderr)
     raise SystemExit(1)
@@ -259,12 +264,57 @@ if missing_runtime_paths or not main_scene_exports:
     raise SystemExit("ERROR: Windows PCK is missing required main scene resources: " + ", ".join(missing))
 PY
 
-cat > "$export_dir/README.txt" <<EOF
-Forbidden Table ${project_version}
+python3 - \
+	"$PROJECT_ROOT/docs/release/WINDOWS_PACKAGE_README.txt" \
+	"$PROJECT_ROOT/docs/release/WINDOWS_RELEASE_NOTES.txt" \
+	"$export_dir/README.txt" \
+	"$export_dir/RELEASE_NOTES.txt" \
+	"$project_version" <<'PY'
+from pathlib import Path
+import re
+import sys
 
-Extract all files from this ZIP into one folder, then run ${EXECUTABLE_NAME}.
-This is a portable Windows x64 build; it does not require the Godot editor.
-EOF
+readme_template, notes_template, readme_output, notes_output, version = sys.argv[1:]
+placeholder = "@APPLICATION_VERSION@"
+for template_path, output_path in (
+    (readme_template, readme_output),
+    (notes_template, notes_output),
+):
+    source = Path(template_path).read_text(encoding="utf-8")
+    if source.count(placeholder) != 1:
+        raise SystemExit(f"Release material must contain one {placeholder} token: {template_path}")
+    rendered = source.replace(placeholder, version)
+    if re.search(r"@[A-Z0-9_]+@", rendered):
+        raise SystemExit(f"Release material has an unresolved placeholder: {template_path}")
+    with open(output_path, "w", encoding="utf-8", newline="\n") as stream:
+        stream.write(rendered)
+PY
+
+python3 - "$PROJECT_ROOT" "$export_dir" <<'PY'
+from pathlib import Path
+import shutil
+import sys
+root, export = map(Path, sys.argv[1:])
+materials = {
+    "THIRD_PARTY_NOTICES.md": "docs/release/THIRD_PARTY_NOTICES.md",
+    "licenses/Godot-LICENSE.txt": "docs/release/licenses/Godot-LICENSE.txt",
+    "licenses/Godot-COPYRIGHT.txt": "docs/release/licenses/Godot-COPYRIGHT.txt",
+    "licenses/Noto-OFL.txt": "assets/ui/fonts/OFL.txt",
+    "licenses/NotoSansSC-OFL.txt": "assets/ui/fonts/OFL-Sans.txt",
+    "licenses/NotoSerifSC-OFL.txt": "assets/ui/fonts/OFL-Serif.txt",
+    "licenses/Mahjong-tiles-LICENSE.txt": "assets/ui/tiles/chinese-tiles/LICENSE",
+    "licenses/Mahjong-tiles-ATTRIBUTION.md": "assets/ui/tiles/chinese-tiles/README.md",
+}
+if (root / "LICENSE").is_file():
+    materials["LICENSE.txt"] = "LICENSE"
+for name, source in materials.items():
+    path = root / source
+    if not path.is_file() or path.stat().st_size == 0:
+        raise SystemExit(f"Missing required release notice: {source}")
+    destination = export / name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(path, destination)
+PY
 
 archive_temp="$temp_dir/$archive_name"
 python3 - "$export_dir" "$archive_temp" <<'PY'
@@ -275,7 +325,7 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 source = Path(sys.argv[1])
 destination = Path(sys.argv[2])
 with ZipFile(destination, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
-    for name in ("ForbiddenTable.exe", "ForbiddenTable.pck", "README.txt"):
+    for name in sorted(path.relative_to(source).as_posix() for path in source.rglob("*") if path.is_file()):
         path = source / name
         info = ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
         info.create_system = 3

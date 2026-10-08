@@ -11,6 +11,7 @@ const ReserveActionResultScript = preload("res://src/domain/tiles/reserve_action
 const ReserveServiceScript = preload("res://src/domain/tiles/reserve_service.gd")
 const RecoveryStateScript = preload("res://src/domain/recovery/recovery_state.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
+const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const ContaminationServiceScript = preload("res://src/domain/tiles/contamination_service.gd")
@@ -159,6 +160,8 @@ func enemy_definition_ids() -> Array:
 func validate_draw() -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if zones == null or zones.remaining_hand_capacity() <= 0:
+		return CommandValidationScript.new(false, "HAND_CAPACITY_REACHED", "The Hand already contains the maximum of fourteen tiles.")
 	if combat_state.draw_actions_remaining() <= 0:
 		return CommandValidationScript.new(false, "DRAW_ACTION_BUDGET_EXHAUSTED", "No Draw Actions remain this turn.")
 	if tile_actions == null or draw_wall == null or not draw_wall.is_initialized():
@@ -171,13 +174,17 @@ func resolve_character_passive(passive_definition) -> Dictionary:
 	if combat_state.triggered_signature_passive_ids.has(passive_definition.content_id):
 		return {"accepted": false, "status": "CHARACTER_PASSIVE_ALREADY_TRIGGERED"}
 	var effect_context = EffectContextScript.new(combat_state, zones, draw_wall, reserve_service, contamination_service)
+	var effect_hand_demand := 0
 	var queue = combat_resolver.begin_queue(combat_state, 256, effect_context)
 	for effect in passive_definition.effects:
 		if effect == null or not effect.has_method("validate_in_context") or not effect.validate_in_context(effect_context).get("valid", false):
 			return {"accepted": false, "status": "CHARACTER_PASSIVE_EFFECT_REJECTED"}
+		effect_hand_demand += effect.hand_addition_demand(effect_context) if effect.has_method("hand_addition_demand") else 0
 		if not queue.enqueue_effect(effect):
 			queue.drain()
 			return {"accepted": false, "status": "CHARACTER_PASSIVE_QUEUE_REJECTED"}
+	if zones != null and effect_hand_demand > zones.remaining_hand_capacity():
+		return {"accepted": false, "status": "CHARACTER_PASSIVE_EFFECT_REJECTED", "reason": "HAND_CAPACITY_REACHED"}
 	queue.add_event(DomainEventScript.new(DomainEventScript.CHARACTER_PASSIVE_TRIGGERED, {
 		"passive_id": passive_definition.content_id,
 		"trigger_id": passive_definition.trigger_id,
@@ -218,6 +225,7 @@ func validate_use_technique(technique_id: String) -> RefCounted:
 	if combat_state.tp < definition.tp_cost:
 		return CommandValidationScript.new(false, "INSUFFICIENT_TP", "This Technique costs %d TP, but only %d TP is available." % [definition.tp_cost, combat_state.tp])
 	var effect_context = EffectContextScript.new(combat_state, zones, draw_wall, reserve_service, contamination_service)
+	var effect_hand_demand := 0
 	for effect in definition.effects:
 		var allowed_triggers: Array[String] = ["MANUAL"]
 		if definition.technique_kind == TechniqueDefinitionScript.SETTLEMENT:
@@ -227,6 +235,9 @@ func validate_use_technique(technique_id: String) -> RefCounted:
 		var effect_validation: Dictionary = effect.validate_in_context(effect_context)
 		if not bool(effect_validation.get("valid", false)):
 			return CommandValidationScript.new(false, "TECHNIQUE_EFFECT_REJECTED", "The Technique cannot resolve its typed effects.", effect_validation)
+		effect_hand_demand += effect.hand_addition_demand(effect_context) if effect.has_method("hand_addition_demand") else 0
+	if zones != null and effect_hand_demand > zones.remaining_hand_capacity():
+		return CommandValidationScript.new(false, "TECHNIQUE_EFFECT_REJECTED", "The Technique would exceed the fourteen-tile Hand limit.", {"reason": "HAND_CAPACITY_REACHED", "requested": effect_hand_demand, "remaining": zones.remaining_hand_capacity()})
 	return CommandValidationScript.new(true)
 
 func execute_use_technique(technique_id: String) -> Dictionary:
@@ -343,6 +354,7 @@ func execute_draw() -> Dictionary:
 	if draw_result.is_accepted():
 		combat_state.draw_actions_used_this_turn += 1
 		combat_state.tile_manipulation_used_this_draw = false
+		combat_state.discard_action_used_since_draw = false
 		if settlement_window != null:
 			settlement_window.open()
 			_refresh_settlement_window()
@@ -356,6 +368,8 @@ func execute_draw() -> Dictionary:
 func validate_end_turn() -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if combat_state.turn_play_enabled and combat_state.played_tile_ids_this_turn.is_empty() and zones.size(TileZoneScript.HAND) > 0:
+		return CommandValidationScript.new(false, "PLAY_REQUIRED", "Play 1 to 3 Hand tiles before ending the turn.")
 	return validate_enemy_intent()
 
 func validate_enemy_intent() -> RefCounted:
@@ -397,6 +411,8 @@ func execute_end_turn() -> Dictionary:
 	if intent_result.get("accepted", false):
 		combat_state.draw_actions_used_this_turn = 0
 		combat_state.core_technique_used_this_turn = false
+		combat_state.played_tile_ids_this_turn.clear()
+		combat_state.played_definition_ids_this_turn.clear()
 	return {
 		"accepted": true,
 		"status": "RECOVERY_ENDED" if recovery_ended else "TURN_ENDED",
@@ -445,19 +461,91 @@ func execute_swap_reserve_tiles(hand_instance_id: String, reserve_instance_id: S
 func validate_discard_tile(instance_id: String) -> RefCounted:
 	if combat_state == null or not combat_state.is_active():
 		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
-	var manipulation_validation := _validate_tile_manipulation_window()
-	if not manipulation_validation.is_valid():
-		return manipulation_validation
 	if tile_actions == null or zones == null or not zones.contains_in_zone(instance_id, TileZoneScript.HAND):
 		return CommandValidationScript.new(false, "INVALID_TILE", "The selected TileInstance is not in Hand.")
+	if combat_state.turn_play_enabled:
+		return validate_play_hand_tiles([instance_id])
+	var hand_is_full: bool = zones.size(TileZoneScript.HAND) >= TileZoneContainerScript.MAX_HAND_SIZE
+	if hand_is_full and combat_state.discard_action_used_since_draw:
+		return CommandValidationScript.new(false, "CAPACITY_DISCARD_ALREADY_USED", "A full-Hand Discard escape is available only once until a fresh Draw.")
+	if combat_state.draw_actions_used_this_turn <= 0:
+		if hand_is_full and not combat_state.discard_action_used_since_draw:
+			return CommandValidationScript.new(true)
+		return CommandValidationScript.new(false, "DRAW_ACTION_NOT_STARTED", "Draw a tile before a normal Discard.")
+	if combat_state.discard_action_used_since_draw:
+		return CommandValidationScript.new(false, "DISCARD_ALREADY_USED_SINCE_DRAW", "Only one normal Discard is available after each fresh Draw.")
 	return CommandValidationScript.new(true)
 
 func execute_discard_tile(instance_id: String) -> Dictionary:
+	if combat_state.turn_play_enabled:
+		return execute_play_hand_tiles([instance_id])
 	var result = tile_actions.discard(instance_id)
 	if result.is_accepted():
-		combat_state.tile_manipulation_used_this_draw = true
+		combat_state.discard_action_used_since_draw = true
 		_refresh_settlement_window()
 	return {"accepted": result.is_accepted(), "status": result.status, "events": result.events}
+
+func validate_play_hand_tiles(instance_ids: Array) -> RefCounted:
+	if combat_state == null or not combat_state.is_active():
+		return CommandValidationScript.new(false, "BATTLE_TERMINAL", "The battle is already over.")
+	if not combat_state.turn_play_enabled:
+		return CommandValidationScript.new(false, "LEGACY_TURN_RULE", "This saved battle uses its original Discard rule.")
+	if instance_ids.is_empty() or instance_ids.size() + combat_state.played_tile_ids_this_turn.size() > 3:
+		return CommandValidationScript.new(false, "PLAY_LIMIT", "Play at most 3 Hand tiles per turn.")
+	var seen: Dictionary = {}
+	for instance_id in instance_ids:
+		if not instance_id is String or seen.has(instance_id) or combat_state.played_tile_ids_this_turn.has(instance_id) or not zones.contains_in_zone(instance_id, TileZoneScript.HAND):
+			return CommandValidationScript.new(false, "INVALID_TILE", "Select distinct tiles currently in Hand.")
+		seen[instance_id] = true
+	return CommandValidationScript.new(true)
+
+func play_combo_type(additional_ids: Array = []) -> String:
+	var definition_ids: Array = combat_state.played_definition_ids_this_turn.duplicate()
+	for instance_id in additional_ids:
+		var tile = _hand_tile(str(instance_id))
+		if tile == null:
+			return ""
+		definition_ids.append(tile.definition_id)
+	if definition_ids.size() != 3:
+		return ""
+	if definition_ids[0] == definition_ids[1] and definition_ids[1] == definition_ids[2]:
+		return "Triplet"
+	var suit := ""
+	var ranks: Array[int] = []
+	for definition_id in definition_ids:
+		var definition = context.content_registry.resolve(str(definition_id)) if context != null and context.content_registry != null else null
+		if definition == null or str(definition.suit) == "honors":
+			return ""
+		if not suit.is_empty() and suit != str(definition.suit):
+			return ""
+		suit = str(definition.suit)
+		ranks.append(int(definition.rank))
+	ranks.sort()
+	return "Sequence" if ranks[1] == ranks[0] + 1 and ranks[2] == ranks[1] + 1 else ""
+
+func execute_play_hand_tiles(instance_ids: Array) -> Dictionary:
+	var validation = validate_play_hand_tiles(instance_ids)
+	if not validation.is_valid():
+		return {"accepted": false, "status": validation.code, "events": []}
+	var combo := play_combo_type(instance_ids)
+	var definitions: Array[String] = []
+	for instance_id in instance_ids:
+		definitions.append(str(_hand_tile(str(instance_id)).definition_id))
+	var events: Array = []
+	for index in instance_ids.size():
+		var result = tile_actions.discard(str(instance_ids[index]))
+		assert(result.is_accepted()) # Validated, distinct Hand tiles; transfer cannot fail.
+		events.append_array(result.events)
+		combat_state.played_tile_ids_this_turn.append(str(instance_ids[index]))
+		combat_state.played_definition_ids_this_turn.append(definitions[index])
+	_refresh_settlement_window()
+	return {"accepted": true, "status": "TILES_PLAYED", "events": events, "data": {"played_count": combat_state.played_tile_ids_this_turn.size(), "combo_type": combo, "gold_bonus": 3 if not combo.is_empty() else 0}}
+
+func _hand_tile(instance_id: String):
+	for tile in zones.contents(TileZoneScript.HAND):
+		if str(tile.instance_id) == instance_id:
+			return tile
+	return null
 
 func _validate_tile_manipulation_window() -> RefCounted:
 	if combat_state.draw_actions_used_this_turn <= 0:
@@ -532,7 +620,7 @@ func can_draw() -> bool:
 	var draw_sources_available: bool = draw_wall != null and draw_wall.size() > 0
 	if not draw_sources_available and zones != null:
 		draw_sources_available = zones.size(TileZoneScript.DISCARD) > 0
-	return combat_state != null and combat_state.is_active() and combat_state.draw_actions_remaining() > 0 and draw_sources_available
+	return combat_state != null and combat_state.is_active() and zones != null and zones.remaining_hand_capacity() > 0 and combat_state.draw_actions_remaining() > 0 and draw_sources_available
 
 func is_safe_reserve_candidate(instance_id: String) -> bool:
 	if zones == null or instance_id.is_empty():
@@ -566,6 +654,29 @@ func validate_complete_hand(interpretation_id: String) -> RefCounted:
 	if not effect_validation.is_valid():
 		return effect_validation
 	return CommandValidationScript.new(true)
+
+# Read-only baseline preview. Triggered tile/relic effects resolve on commitment.
+func preview_settlement(target_id: String, complete_hand: bool = false) -> Dictionary:
+	var subject = null
+	var consumed := 0
+	if complete_hand:
+		subject = _complete_hand_by_id(target_id)
+		if subject == null:
+			return {}
+		consumed = subject.tile_instances.size()
+	else:
+		for candidate in settlement_window.candidates():
+			if str(candidate.candidate_id) == target_id:
+				subject = preload("res://src/domain/mahjong/settlement/settled_pattern.gd").new(candidate.pattern_type, candidate.tile_instances)
+				consumed = candidate.tile_instances.size()
+				break
+		if subject == null:
+			return {}
+	var score = score_resolver.resolve_complete_hand(subject, hand_yaku_resolver, _yaku_state()) if complete_hand else score_resolver.resolve(subject, local_yaku_resolver, _yaku_state())
+	var profile = _complete_hand_conversion_profile if complete_hand else conversion_profile
+	var output = conversion_resolver.resolve(score, profile, combat_state.to_dictionary())
+	var requested: int = maxi(0, recovery_state.recovery_baseline - (zones.size(TileZoneScript.HAND) - consumed)) if complete_hand else settlement_turn.replacement_draw_request_after(consumed)
+	return {"consumed": consumed, "replacement_draws": mini(requested, draw_wall.contents().size()), "replacement_requested": requested, "score": score.total, "damage": output.damage, "stability": output.stability, "recovery": complete_hand}
 
 func execute_complete_hand(interpretation_id: String) -> Dictionary:
 	var transaction := _capture_build_effect_transaction()
@@ -805,6 +916,9 @@ func _resolve_single_enemy_reaction(queue, state, sequence_index: int, technique
 		var validation: Dictionary = effect.validate_in_context(effect_context)
 		if not bool(validation.get("valid", false)):
 			return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, str(validation.get("reason", "REACTION_EFFECT_UNAVAILABLE")), sequence_index)
+	var effect_hand_demand := _effect_list_hand_addition_demand(definition.effects, effect_context)
+	if zones != null and effect_hand_demand > zones.remaining_hand_capacity():
+		return _record_skipped_reaction(queue, technique_id, intent_id, action_type, trigger_id, trigger_label, "HAND_CAPACITY_REACHED", sequence_index)
 	var window_id := "reaction.intent.%d.%s" % [state.queue_index, technique_id]
 	var window := CombatReactionWindowScript.new(window_id, technique_id, true, true)
 	if not queue.open_reaction_window(window):
@@ -983,6 +1097,14 @@ func restore_checkpoint(snapshot: Dictionary) -> bool:
 	var combat_checkpoint = snapshot.get("combat_state", {})
 	if not tile_checkpoints is Array or not combat_checkpoint is Dictionary:
 		return false
+	var checkpoint_hand_count := 0
+	for tile_data in tile_checkpoints:
+		if not tile_data is Dictionary:
+			return false
+		if str(tile_data.get("zone", "")) == TileZoneScript.HAND:
+			checkpoint_hand_count += 1
+	if checkpoint_hand_count > TileZoneContainerScript.MAX_HAND_SIZE:
+		return false
 	if zones == null or not zones.has_method("clear"):
 		return false
 	var settled_instance_ids = snapshot.get("settlement", {}).get("settled_instance_ids", []) if snapshot.get("settlement", {}) is Dictionary else null
@@ -1062,6 +1184,24 @@ func _restore_combat_checkpoint(snapshot: Dictionary) -> bool:
 			combat_state.set(field, snapshot[field])
 	combat_state.reward_tax = maxi(0, int(snapshot.get("reward_tax", 0)))
 	combat_state.tile_manipulation_used_this_draw = bool(snapshot.get("tile_manipulation_used_this_draw", false))
+	combat_state.discard_action_used_since_draw = bool(snapshot.get("discard_action_used_since_draw", false))
+	combat_state.serialize_discard_action_field = snapshot.has("discard_action_used_since_draw")
+	if snapshot.has("turn_play_enabled") and not snapshot.turn_play_enabled is bool:
+		return false
+	combat_state.turn_play_enabled = bool(snapshot.get("turn_play_enabled", false))
+	if combat_state.turn_play_enabled and (not snapshot.has("played_tile_ids_this_turn") or not snapshot.has("played_definition_ids_this_turn")):
+		return false
+	combat_state.played_tile_ids_this_turn.clear()
+	combat_state.played_definition_ids_this_turn.clear()
+	var played_ids: Variant = snapshot.get("played_tile_ids_this_turn", [])
+	var played_definitions: Variant = snapshot.get("played_definition_ids_this_turn", [])
+	if not played_ids is Array or not played_definitions is Array or played_ids.size() != played_definitions.size() or played_ids.size() > 3:
+		return false
+	for index in played_ids.size():
+		if not played_ids[index] is String or not played_definitions[index] is String or str(played_ids[index]).is_empty() or str(played_definitions[index]).is_empty() or combat_state.played_tile_ids_this_turn.has(played_ids[index]):
+			return false
+		combat_state.played_tile_ids_this_turn.append(played_ids[index])
+		combat_state.played_definition_ids_this_turn.append(played_definitions[index])
 	combat_state.core_technique_used_this_turn = bool(snapshot.get("core_technique_used_this_turn", false))
 	var triggered_passives: Variant = snapshot.get("triggered_signature_passive_ids", [])
 	if not triggered_passives is Array:
@@ -1171,6 +1311,13 @@ func _tile_ids(tiles: Array) -> Array[String]:
 	for tile_instance in tiles:
 		ids.append(tile_instance.instance_id)
 	return ids
+
+func _effect_list_hand_addition_demand(effects: Array, effect_context) -> int:
+	var requested_hand_additions := 0
+	for effect in effects:
+		if effect != null and effect.has_method("hand_addition_demand"):
+			requested_hand_additions += int(effect.hand_addition_demand(effect_context))
+	return requested_hand_additions
 
 func _integrity_snapshot() -> Array:
 	var snapshot: Array = []

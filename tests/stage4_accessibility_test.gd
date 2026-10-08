@@ -94,8 +94,7 @@ func test_map_labels_fit_at_supported_scales(failures: Array[String]) -> void:
 	if scene.controller == null:
 		assert_true(false, "map scale geometry regression starts a Run", failures)
 	else:
-		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
-		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		_choose_sequence_and_contract(scene, failures)
 		await tree.process_frame
 		assert_true(str(scene.controller.domain.state.phase) == "MAP_CHOICE", "map scale geometry regression remains on the live map", failures)
 		for locale in ["en", "zh_CN"]:
@@ -166,10 +165,7 @@ func test_pseudo_localized_layout(failures: Array[String]) -> void:
 	if scene.controller == null:
 		assert_true(false, "pseudo-localized Stage 4 scene starts a Run", failures)
 	else:
-		var character_action := str(scene.controller.action_descriptors()[0].get("id", ""))
-		scene._on_action_pressed(character_action)
-		var contract_action := str(scene.controller.action_descriptors()[0].get("id", ""))
-		scene._on_action_pressed(contract_action)
+		_choose_sequence_and_contract(scene, failures)
 		var start_node := str(scene.controller.domain.map_definition.start_node_id)
 		scene._on_action_pressed("map:%s" % start_node)
 		await tree.process_frame
@@ -208,31 +204,83 @@ func test_virtual_overview_scroll_reachable(failures: Array[String]) -> void:
 	tree.root.add_child(scene)
 	await tree.process_frame
 	if scene.controller != null:
-		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
-		scene._on_action_pressed(str(scene.controller.action_descriptors()[0].get("id", "")))
+		_choose_sequence_and_contract(scene, failures)
 		scene._on_action_pressed("map:%s" % str(scene.controller.domain.map_definition.start_node_id))
 		await tree.process_frame
-		var scroll := find_named_node(scene, "RunOverviewScroll") as ScrollContainer
+		var scroll := find_named_node(scene, "PlayerGuidanceScroll") as ScrollContainer
 		assert_true(scroll != null and scroll.is_visible_in_tree() and scroll.focus_mode != Control.FOCUS_NONE, "Run guidance scroll has a visible keyboard/controller focus target", failures)
 		var battle_scroll := find_named_node(scene, "BattleViewportScroll") as ScrollContainer
 		assert_true(battle_scroll != null and battle_scroll.is_visible_in_tree() and battle_scroll.follow_focus, "Battle table and action choices share a visible focus-following viewport scroll", failures)
 		assert_true(battle_scroll != null and battle_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Battle viewport scroll disables horizontal overflow", failures)
 		if scroll != null:
 			_audit_text_bounds(scene, failures)
-			assert_true(scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page, "Run guidance is vertically scrollable at 960x540", failures)
+			var guidance_bar := scroll.get_v_scroll_bar()
+			assert_true(guidance_bar.max_value <= guidance_bar.page + 1.0, "measured Run guidance fits its inner viewport at 960x540", failures)
+			assert_true(scene._tutorial_prompt != null and scene._tutorial_prompt.visible and not scene._tutorial_prompt.text.is_empty(), "the short-window scroll fixture uses visible, localized tutorial guidance", failures)
+			var root_scroll := find_named_node(scene, "RunRootScroll") as ScrollContainer
+			tree.root.size = Vector2i(960, 240)
+			await tree.process_frame
+			await tree.process_frame
+			var root_bar: VScrollBar = root_scroll.get_v_scroll_bar() if root_scroll != null else null
+			assert_true(root_bar != null and root_bar.max_value > root_bar.page, "short Run window has real page overflow for mapped scrolling", failures)
+			guidance_bar = scroll.get_v_scroll_bar()
+			assert_true(guidance_bar.max_value <= guidance_bar.page + 1.0, "measured Run guidance remains within its own viewport in a short window", failures)
+			if root_scroll != null:
+				root_scroll.scroll_vertical = 0
 			for use_controller in [false, true]:
 				for step in scene.find_children("*", "Control", true, false).size() + 1:
 					if scene.get_viewport().gui_get_focus_owner() == scroll:
 						break
 					_push_virtual_focus(scene, 1, use_controller)
 				assert_true(scene.get_viewport().gui_get_focus_owner() == scroll, "Tab/shoulder reaches Run guidance scroll", failures)
-				scroll.scroll_vertical = 0
+				if root_scroll != null:
+					root_scroll.scroll_vertical = 0
 				_push_virtual_direction(scene, 1, use_controller)
-				assert_true(scroll.scroll_vertical > 0, "mapped Down scrolls Run guidance", failures)
+				assert_true(root_scroll != null and root_scroll.scroll_vertical > 0, "mapped Down scrolls the overflowing Run page while guidance fits", failures)
 				_push_virtual_direction(scene, -1, use_controller)
-				assert_true(scroll.scroll_vertical == 0, "mapped Up returns Run guidance to its beginning", failures)
+				assert_true(root_scroll != null and root_scroll.scroll_vertical == 0, "mapped Up returns the overflowing Run page to its beginning", failures)
 				_push_virtual_focus(scene, 1, use_controller)
 				assert_true(scene.get_viewport().gui_get_focus_owner() != scroll, "Tab/shoulder leaves Run guidance scroll", failures)
+			tree.root.size = Vector2i(360, 240)
+			for layout_frame in 8:
+				await tree.process_frame
+			guidance_bar = scroll.get_v_scroll_bar()
+			assert_true(scroll.size.y <= tree.root.size.y * 0.45 + 1.0, "narrow guidance keeps a bounded readable viewport", failures)
+			# Normal guidance now grows with measured content and uses the outer
+			# page scroll. Independently create a genuinely clipped inner viewport
+			# to retain the keyboard/controller routing regression for that case.
+			# This is a test-only allocation fixture, not normal game geometry.
+			var clipped_fixture := ScrollContainer.new()
+			clipped_fixture.name = "OverflowGuidanceInputFixture"
+			clipped_fixture.position = Vector2(8, 8)
+			clipped_fixture.size = Vector2(200, 96)
+			clipped_fixture.focus_mode = Control.FOCUS_ALL
+			clipped_fixture.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+			var fixture_content := Control.new()
+			fixture_content.custom_minimum_size = Vector2(180, 600)
+			clipped_fixture.add_child(fixture_content)
+			scene.add_child(clipped_fixture)
+			scene._guidance_scroll = clipped_fixture
+			scroll = clipped_fixture
+			await tree.process_frame
+			await tree.process_frame
+			guidance_bar = scroll.get_v_scroll_bar()
+			assert_true(guidance_bar.max_value > guidance_bar.page, "clipped guidance fixture provides a real inner-scroll range (viewport=%s minimum=%s content=%s range=%s/%s)" % [scroll.size, scroll.custom_minimum_size, scene._overview_content.get_combined_minimum_size(), guidance_bar.max_value, guidance_bar.page], failures)
+			for use_controller in [false, true]:
+				for step in scene.find_children("*", "Control", true, false).size() + 1:
+					if scene.get_viewport().gui_get_focus_owner() == scroll:
+						break
+					_push_virtual_focus(scene, 1, use_controller)
+				assert_true(scene.get_viewport().gui_get_focus_owner() == scroll, "Tab/shoulder reaches narrow Run guidance scroll", failures)
+				if root_scroll != null:
+					root_scroll.scroll_vertical = 0
+				scroll.scroll_vertical = 0
+				_push_virtual_direction(scene, 1, use_controller)
+				assert_true(scroll.scroll_vertical > 0, "mapped Down uses the inner guidance range when it overflows", failures)
+				_push_virtual_direction(scene, -1, use_controller)
+				assert_true(scroll.scroll_vertical == 0, "mapped Up returns overflowing inner guidance to its beginning", failures)
+				_push_virtual_focus(scene, 1, use_controller)
+				assert_true(scene.get_viewport().gui_get_focus_owner() != scroll, "Tab/shoulder leaves narrow Run guidance scroll", failures)
 	else:
 		assert_true(false, "scroll regression starts a Run", failures)
 	tree.root.remove_child(scene)
@@ -256,8 +304,7 @@ func test_virtual_action_details_track_control_focus(failures: Array[String]) ->
 		_clear_test_file(profile_path)
 		_clear_test_file(suspend_path)
 		return
-	var character_id := str(scene.controller.action_descriptors()[0].get("id", ""))
-	scene._on_action_pressed(character_id)
+	_choose_sequence(scene, failures)
 	await tree.process_frame
 	var descriptors: Array = scene.controller.action_descriptors()
 	assert_true(descriptors.size() > 1, "Contract Select offers multiple focusable detailed choices", failures)
@@ -279,6 +326,18 @@ func test_virtual_action_details_track_control_focus(failures: Array[String]) ->
 	scene.free()
 	_clear_test_file(profile_path)
 	_clear_test_file(suspend_path)
+
+
+func _choose_sequence(scene, failures: Array[String]) -> void:
+	press_action(scene, "character:base.character.sequence", RunPhase.CONTRACT_SELECT, failures)
+
+func _choose_sequence_and_contract(scene, failures: Array[String]) -> void:
+	_choose_sequence(scene, failures)
+	var contract_actions: Array = scene.controller.action_descriptors().filter(func(action): return str(action.get("kind", "")) == "CONTRACT")
+	assert_true(not contract_actions.is_empty(), "Sequence leaves a real Contract action for the fixture", failures)
+	if contract_actions.is_empty():
+		return
+	press_action(scene, str(contract_actions[0].get("id", "")), RunPhase.MAP_CHOICE, failures)
 
 func assert_actions_visible_and_enabled(scene, kind: String, expected_ids: Array, failures: Array[String]) -> void:
 	super.assert_actions_visible_and_enabled(scene, kind, expected_ids, failures)
@@ -329,7 +388,7 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 		descriptors_by_id[action_id] = action
 		var button: Button = find_action_button(scene, action_id)
 		if phase == "RUN_SUMMARY" and action_id == "run.summary.acknowledge":
-			button = find_named_node(scene, "CommitSelectedButton") as Button
+			button = find_named_node(scene, "FinishRunButton") as Button
 		var unavailable_offer := false
 		if kind == "SHOP_OFFER":
 			var offer_validation = scene.controller.domain.validate_buy_shop_offer(str(action.get("entry_id", "")), str(action.get("target_id", "")))
@@ -350,6 +409,8 @@ func _audit_screen(scene, failures: Array[String]) -> void:
 				continue
 			var action_id := str(action_button.get_meta("run_action_id", ""))
 			var live_action: Dictionary = descriptors_by_id.get(action_id, {})
+			if action_id == "battle.play_selection":
+				live_action = scene.controller.hand_play_action_descriptor(scene._battle_view.selected_tile_ids())
 			assert_true(not action_id.is_empty() and not live_action.is_empty(), "visible Battle action button %s projects a current authoritative descriptor" % action_id, failures)
 			if live_action.is_empty():
 				continue
@@ -409,7 +470,7 @@ func _audit_suspend_choice(scene, failures: Array[String]) -> void:
 
 func _audit_focus(scene, phase: String, failures: Array[String]) -> void:
 	if phase == "RUN_SUMMARY":
-		var finish_button: Button = find_named_node(scene, "CommitSelectedButton")
+		var finish_button: Button = find_named_node(scene, "FinishRunButton")
 		assert_true(finish_button != null and finish_button.is_visible_in_tree() and not finish_button.disabled and finish_button.has_focus(), "Run Summary presents visible focus on Finish Run", failures)
 		return
 	var focus_owner := scene.get_viewport().gui_get_focus_owner() as Control
@@ -496,7 +557,12 @@ func _audit_selected_action_details(scene, phase: String, descriptors: Array, fa
 	if should_show_detail:
 		assert_true(detail.is_visible_in_tree() and detail.text == expected_detail, "%s action detail text follows its keyboard/controller-focused action" % phase, failures)
 	if phase == "CONTRACT_SELECT":
-		assert_true(detail.text.contains("Risk:") and detail.text.contains("Reward:") and detail.text.contains("Build bias:") and detail.text.contains("Yaku signal:"), "Contract Select visibly wraps the full Risk, Reward, Build bias, and Yaku signal details", failures)
+		var contract_details: Dictionary = expected_action.get("details", {}) if expected_action.get("details", {}) is Dictionary else {}
+		var required_fields := ["risk_summary", "reward_summary", "build_bias_summary", "yaku_signal_summary"]
+		var has_all_contract_fields := true
+		for field in required_fields:
+			has_all_contract_fields = has_all_contract_fields and contract_details.has(field) and not str(contract_details.get(field, "")).is_empty()
+		assert_true(has_all_contract_fields and detail.text.split("\n", false).size() >= 5, "Contract Select visibly wraps the full Risk, Reward, Build bias, and Yaku signal details in the active locale", failures)
 
 func _audit_presentation_modes(scene, baseline_text: Array[String], phase: String, failures: Array[String]) -> void:
 	if phase == "RUN_SUMMARY":
@@ -506,6 +572,8 @@ func _audit_presentation_modes(scene, baseline_text: Array[String], phase: Strin
 	for mode in PresentationState.MODES:
 		assert_true(scene.controller.set_mode(str(mode)), "%s accepts %s presentation mode" % [phase, str(mode)], failures)
 		var mode_text := _visible_text(scene)
+		if mode_text != baseline_text:
+			print("STAGE4_MODE_CUE_DIFF " + JSON.stringify({"phase": phase, "mode": str(mode), "removed": baseline_text.filter(func(value): return not mode_text.has(value)), "added": mode_text.filter(func(value): return not baseline_text.has(value))}))
 		assert_true(mode_text == baseline_text, "%s retains the same visible critical cues in %s mode" % [phase, str(mode)], failures)
 		_checked_mode_cue_states += 1
 	scene.controller.set_mode(original_mode)

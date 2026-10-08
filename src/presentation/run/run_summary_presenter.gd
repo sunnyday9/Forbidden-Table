@@ -71,7 +71,21 @@ static func _tile_pool_text(records: Variant) -> String:
 			var tile_id := str(record.get("definition_id", ""))
 			if not tile_id.is_empty():
 				counts[tile_id] = int(counts.get(tile_id, 0)) + 1
-	return _counts_text(counts)
+	# Full starter pools contain up to 34 definitions. Group numbered ranks by
+	# suit so their exact composition remains readable in the end-of-run page.
+	var lines: Array[String] = []
+	for suit in ["characters", "dots", "bamboo"]:
+		var ranks: Array[String] = []
+		for rank in range(1, 10):
+			var tile_id := "base.tile.%s.%d" % [suit, rank]
+			if counts.has(tile_id):
+				ranks.append("%d×%d" % [rank, int(counts[tile_id])])
+				counts.erase(tile_id)
+		if not ranks.is_empty():
+			lines.append("%s: %s" % [LocalizationCatalogScript.word_text(suit.to_upper()), " · ".join(ranks)])
+	if not counts.is_empty():
+		lines.append(_counts_text(counts))
+	return "\n".join(lines)
 
 static func _counts_text(counts: Variant) -> String:
 	if not counts is Dictionary or counts.is_empty():

@@ -42,6 +42,11 @@ var stability: int
 var draw_capacity: int
 var draw_actions_used_this_turn: int
 var tile_manipulation_used_this_draw: bool
+var discard_action_used_since_draw: bool
+var serialize_discard_action_field := true
+var turn_play_enabled := true
+var played_tile_ids_this_turn: Array[String] = []
+var played_definition_ids_this_turn: Array[String] = []
 var core_technique_used_this_turn: bool
 var settlement_capacity: int
 var reserve_capacity: int
@@ -98,6 +103,7 @@ func _init(
 	draw_capacity = maxi(0, initial_draw_capacity)
 	draw_actions_used_this_turn = 0
 	tile_manipulation_used_this_draw = false
+	discard_action_used_since_draw = false
 	core_technique_used_this_turn = false
 	settlement_capacity = maxi(0, initial_settlement_capacity)
 	reserve_capacity = maxi(0, initial_reserve_capacity)
@@ -195,6 +201,7 @@ func public_battle_state() -> Dictionary:
 		"draw_capacity": draw_capacity,
 		"draw_actions_used_this_turn": draw_actions_used_this_turn,
 		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"discard_action_used_since_draw": discard_action_used_since_draw,
 		"core_technique_used_this_turn": core_technique_used_this_turn,
 		"draw_actions_remaining": draw_actions_remaining(),
 		"settlement_capacity": settlement_capacity,
@@ -209,7 +216,7 @@ func public_battle_state() -> Dictionary:
 	}
 
 func to_dictionary() -> Dictionary:
-	return {
+	var data := {
 		"enemy_hp": enemy_hp,
 		"enemy_max_hp": enemy_max_hp,
 		"pressure": pressure,
@@ -239,6 +246,7 @@ func to_dictionary() -> Dictionary:
 		"draw_capacity": draw_capacity,
 		"draw_actions_used_this_turn": draw_actions_used_this_turn,
 		"tile_manipulation_used_this_draw": tile_manipulation_used_this_draw,
+		"discard_action_used_since_draw": discard_action_used_since_draw,
 		"core_technique_used_this_turn": core_technique_used_this_turn,
 		"settlement_capacity": settlement_capacity,
 		"reserve_capacity": reserve_capacity,
@@ -248,6 +256,13 @@ func to_dictionary() -> Dictionary:
 		"battle_end_cleanup_done": battle_end_cleanup_done,
 		"contamination": _contamination_snapshot(),
 	}
+	if not serialize_discard_action_field and not discard_action_used_since_draw:
+		data.erase("discard_action_used_since_draw")
+	if turn_play_enabled:
+		data["turn_play_enabled"] = true
+		data["played_tile_ids_this_turn"] = played_tile_ids_this_turn.duplicate()
+		data["played_definition_ids_this_turn"] = played_definition_ids_this_turn.duplicate()
+	return data
 
 func set_contamination_service(service) -> void:
 	contamination_service = service

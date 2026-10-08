@@ -28,6 +28,9 @@ func validate(context, _targets: Dictionary) -> String:
 		return "RESERVE_CAPACITY_REACHED"
 	return ""
 
+func hand_addition_demand(_context, _targets: Dictionary) -> int:
+	return 1 if target_zone == TileZoneScript.HAND and source_zone != TileZoneScript.HAND else 0
+
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
 	var moved: bool = context.zones.transfer(instance_id, source_zone, target_zone)
 	if not moved:

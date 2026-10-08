@@ -292,7 +292,7 @@ static func _yaku_definitions() -> Array:
 
 static func _relic_definitions() -> Array:
 	var configurations := [
-		["DrawTile", 1, false],
+		["ModifyReserveCapacity", 1, false],
 		["GainTP", 1, false],
 		["GainTP", 2, false],
 		["GainTP", 1, false],

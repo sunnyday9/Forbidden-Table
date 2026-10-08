@@ -3,6 +3,7 @@ extends RefCounted
 const EnemyArenaScript = preload("res://src/presentation/ui/enemy_arena.gd")
 const LocalizationScript = preload("res://src/presentation/localization/localization.gd")
 const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.gd")
+const WIDE_COMPACT_HEIGHT_BUDGET := 250.0
 
 var _failures: Array[String] = []
 
@@ -166,11 +167,20 @@ func run() -> Array[String]:
 		await tree.process_frame
 		var wide_minimum_height := arena.get_combined_minimum_size().y
 		wide_minimum_heights[int(reference_scale * 100.0)] = wide_minimum_height
+		var compact_height_budget: float = WIDE_COMPACT_HEIGHT_BUDGET * reference_scale
 		_check(
-			wide_minimum_height <= 176.0 * reference_scale + 1.0,
-			"wide strip stays compact with its receipt slot at %d%% (allocated %s, combined minimum %s)"
-			% [int(reference_scale * 100.0), str(arena.size), str(arena.get_combined_minimum_size())]
+			wide_minimum_height <= compact_height_budget + 1.0,
+			"wide strip stays within its scaled 250px compact height budget with a receipt slot at %d%% (allocated %s, combined minimum %s, budget %.1f)"
+			% [int(reference_scale * 100.0), str(arena.size), str(arena.get_combined_minimum_size()), compact_height_budget]
 		)
+		var confrontation := arena.find_child("ConfrontationRow", true, false) as BoxContainer
+		var opponent_strip := arena.find_child("OpponentStrip", true, false) as BoxContainer
+		var status_rail := arena.find_child("PlayerBattleStatus", true, false) as BoxContainer
+		_check(
+			confrontation != null and not confrontation.vertical and opponent_strip != null and not opponent_strip.vertical and status_rail != null and not status_rail.vertical,
+			"wide strip keeps opponent and player status in compact horizontal rows at %d%%" % int(reference_scale * 100.0)
+		)
+		_check_scaled_readout_roles(arena, reference_scale)
 		if is_equal_approx(reference_scale, 1.0):
 			var reference_avatar := arena.find_child("EnemyAvatar", true, false) as Control
 			_check(reference_avatar.custom_minimum_size == Vector2(88.0, 64.0), "the 100% wide strip uses an 88 × 64 portrait")
@@ -278,6 +288,35 @@ func _status_signature(arena: Control) -> String:
 		str(arena.find_child("EnemyHealthBar", true, false).value),
 		str(arena.find_child("PlayerPressureBar", true, false).value),
 	]
+
+
+func _check_scaled_readout_roles(arena: Control, ui_scale: float) -> void:
+	var roles := {
+		"EnemyName": "heading",
+		"BattleEnemyHP": "caption",
+		"BattleIntentType": "body",
+		"BattleIntentDetail": "secondary",
+		"IntentTiming": "caption",
+		"PlayerPressureValue": "secondary",
+		"PlayerStabilityValue": "secondary",
+		"DrawWallCount": "secondary",
+		"RecentAction": "secondary",
+	}
+	for path in roles:
+		var label := arena.find_child(str(path), true, false) as Label
+		_check(label != null, "wide arena renders the %s readout" % path)
+		if label == null:
+			continue
+		var expected_size := ForbiddenThemeScript.font_size_for(str(roles[path]), ui_scale)
+		_check(
+			label.get_theme_font_size("font_size") == expected_size,
+			"wide arena %s uses the scaled %s font role at %d%%" % [path, roles[path], int(ui_scale * 100.0)]
+		)
+		var rendered_height := float(label.get_line_count() * label.get_line_height())
+		_check(
+			rendered_height <= label.size.y + 2.0,
+			"wide arena %s allocates enough height for its rendered lines at %d%% (%.1f / %.1f)" % [path, int(ui_scale * 100.0), rendered_height, label.size.y]
+		)
 
 
 func _child_fits(arena: Control, path: String) -> bool:

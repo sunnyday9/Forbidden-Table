@@ -28,6 +28,7 @@ func _emit_release_metadata() -> void:
 		"application_version": str(ProjectSettings.get_setting("application/config/version", "unknown")),
 		"content_version": registry.content_version(),
 		"game_version": SnapshotDtoScript.GAME_VERSION,
+		"replay_game_version": ReplayRecordScript.GAME_VERSION,
 		"save_schema_versions": {
 			"suspend_snapshot": SnapshotDtoScript.SCHEMA_VERSION,
 			"meta_progress": MetaProgressSnapshotScript.CURRENT_SCHEMA_VERSION,

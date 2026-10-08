@@ -21,6 +21,7 @@ var act_index: int
 var act_count: int
 var phase: String
 var character_id: String
+var excluded_suit: String
 var contract_id: String
 var map_state: RunMapState
 var tile_pool: RunTilePoolState
@@ -60,6 +61,7 @@ func _init(
 	act_count = initial_act_count
 	phase = RunPhaseScript.CHARACTER_SELECT
 	character_id = ""
+	excluded_suit = ""
 	contract_id = ""
 	map_state = RunMapStateScript.new()
 	tile_pool = initial_tile_pool if initial_tile_pool != null and initial_tile_pool is RunTilePoolStateScript else RunTilePoolStateScript.new()
@@ -112,6 +114,8 @@ func to_dictionary() -> Dictionary:
 	}
 	if run_started_at_unix_seconds > 0:
 		result["run_started_at_unix_seconds"] = run_started_at_unix_seconds
+	if not excluded_suit.is_empty():
+		result["excluded_suit"] = excluded_suit
 	if not pattern_counts.is_empty():
 		result["pattern_counts"] = pattern_counts.duplicate(true)
 	if not yaku_counts.is_empty():

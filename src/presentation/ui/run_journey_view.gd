@@ -2,12 +2,13 @@ class_name RunJourneyView
 extends Control
 
 signal selection_changed(action_id: String)
-signal action_committed(action_id: String)
+signal action_activated(action_id: String)
 signal focus_changed(action_id: String)
-signal confirmation_changed(opened: bool)
+signal content_minimum_changed
 
 const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.gd")
 const MotionFeedbackScript = preload("res://src/presentation/ui/motion_feedback.gd")
+const PlayerActionTextScript = preload("res://src/presentation/ui/player_action_text.gd")
 const RunMapViewScript = preload("res://src/presentation/ui/run_map_view.gd")
 const TileFaceButtonScript = preload("res://src/presentation/ui/tile_face_button.gd")
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
@@ -15,6 +16,40 @@ const CharacterDefinitionScript = preload("res://src/content/definitions/charact
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const AlphaActTwoCatalogScript = preload("res://src/content/catalogs/alpha_act_two_catalog.gd")
 const AlphaScaleCatalogScript = preload("res://src/content/catalogs/alpha_scale_catalog.gd")
+
+class RewardKindIcon extends Control:
+	var kind := ""
+	var accent := Color.WHITE
+	var secondary := Color.WHITE
+
+	func configure(initial_kind: String, primary_color: Color, secondary_color: Color, ui_scale: float) -> void:
+		kind = initial_kind
+		accent = primary_color
+		secondary = secondary_color
+		custom_minimum_size = Vector2(44.0, 44.0) * ui_scale
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		queue_redraw()
+
+	func _draw() -> void:
+		var center := size * 0.5
+		var radius := minf(size.x, size.y) * 0.34
+		match kind:
+			"RELIC":
+				var diamond := PackedVector2Array([center + Vector2(0.0, -radius), center + Vector2(radius * 0.72, 0.0), center + Vector2(0.0, radius), center + Vector2(-radius * 0.72, 0.0)])
+				draw_colored_polygon(diamond, accent)
+				draw_circle(center, radius * 0.16, secondary)
+			"RUN_TECHNIQUE":
+				var bolt := PackedVector2Array([center + Vector2(radius * 0.1, -radius), center + Vector2(-radius * 0.52, radius * 0.05), center + Vector2(-radius * 0.08, radius * 0.05), center + Vector2(-radius * 0.24, radius), center + Vector2(radius * 0.56, -radius * 0.08), center + Vector2(radius * 0.12, -radius * 0.08)])
+				draw_colored_polygon(bolt, accent)
+			"RULE_BREAKER":
+				draw_arc(center, radius, 0.28, TAU - 0.28, 32, accent, maxf(2.0, size.x * 0.055), true)
+				draw_line(center + Vector2(-radius * 0.64, radius * 0.55), center + Vector2(radius * 0.65, -radius * 0.58), secondary, maxf(2.0, size.x * 0.07), true)
+			"SKIP":
+				draw_circle(center, radius, accent)
+				draw_arc(center, radius * 0.62, 0.0, TAU, 32, secondary, maxf(1.5, size.x * 0.045), true)
+			_:
+				draw_rect(Rect2(center - Vector2(radius * 0.62, radius * 0.82), Vector2(radius * 1.24, radius * 1.64)), accent, false, maxf(2.0, size.x * 0.05), true)
+				draw_circle(center, radius * 0.2, secondary)
 
 const PORTRAIT_TEXTURE_PATH := "res://assets/ui/art/character-triptych.png"
 const COMPACT_LAYOUT_BREAKPOINT := 840.0
@@ -50,8 +85,6 @@ const ACT_TWO_ADDITIONAL_EVENT_CHOICE_LABEL_KEYS := [
 
 var selected_action_id := ""
 var focused_action_id := ""
-var is_confirmation_open := false
-var _pending_confirmation_action_id := ""
 var _controller
 var _state
 var _actions: Array = []
@@ -71,12 +104,10 @@ var _content_scroll: ScrollContainer
 var _content_root: VBoxContainer
 var _responsive_layouts: Array[BoxContainer] = []
 var _responsive_grids: Array[Dictionary] = []
+var _content_width_limit := 0.0
 var _is_compact_layout := false
+var _map_travel_button: Button
 var _details_value: Label
-var _modal_card: PanelContainer
-var _confirmation_scrim: ColorRect
-var _modal_heading: Label
-var _modal_copy: Label
 var _event_choice_details: Label
 var _last_preview_animation_id := ""
 var _motion_feedback: MotionFeedback
@@ -110,7 +141,6 @@ func set_presentation_preferences(locale: String = "en", ui_scale: float = 1.0, 
 	_reduced_motion = reduced_motion
 	theme = ForbiddenThemeScript.create_theme(_locale, _ui_scale)
 	_update_responsive_layouts()
-	_position_confirmation_card()
 	if _motion_feedback != null:
 		_motion_feedback.configure(_presentation_mode, _reduced_motion)
 
@@ -136,7 +166,6 @@ func render(controller, descriptors: Array = [], preferred_focus_id: String = ""
 			_actions_by_id[str(action.get("id", ""))] = action
 	var phase := str(_state.phase)
 	if prior_phase != phase:
-		_close_confirmation(false)
 		selected_action_id = ""
 		_last_reward_ids.clear()
 		_last_preview_animation_id = ""
@@ -149,17 +178,16 @@ func render(controller, descriptors: Array = [], preferred_focus_id: String = ""
 		focused_action_id = preferred_focus_id
 	if not _actions_by_id.has(focused_action_id):
 		focused_action_id = str(_controller.snapshot().get("focused_action_id", ""))
+	if phase == RunPhaseScript.MAP_CHOICE:
+		for entry_action in _actions:
+			if str(entry_action.get("kind", "")) in ["ENTER_EVENT", "ENTER_SHOP", "ENTER_WORKSHOP"]:
+				focused_action_id = str(entry_action.id)
+				break
 	if not _actions_by_id.has(focused_action_id) and not _actions.is_empty():
 		focused_action_id = str(_actions[0].get("id", ""))
 	_update_details(_preview_action())
 	_build_phase_content()
 	_update_choice_styles()
-	if is_confirmation_open:
-		var pending_action: Dictionary = _actions_by_id.get(_pending_confirmation_action_id, {})
-		if pending_action.is_empty():
-			_close_confirmation(false)
-		else:
-			_refresh_confirmation_copy(pending_action)
 	if phase == RunPhaseScript.WORKSHOP:
 		var preview := _preview_action()
 		var preview_id := str(preview.get("id", ""))
@@ -176,38 +204,19 @@ func focused_action() -> Dictionary:
 	return _actions_by_id.get(focused_action_id, {}).duplicate(true)
 
 
-func commit_selected() -> void:
-	if is_confirmation_open:
-		var confirmed_id := _pending_confirmation_action_id
-		_close_confirmation(false)
-		if not confirmed_id.is_empty():
-			action_committed.emit(confirmed_id)
-		return
-	if selected_action_id.is_empty() or not _actions_by_id.has(selected_action_id):
-		return
-	var action: Dictionary = _actions_by_id[selected_action_id]
-	var kind := str(action.get("kind", ""))
-	if kind in ["SHOP_OFFER", "WORKSHOP_SERVICE"]:
-		_open_confirmation(action)
-		return
-	action_committed.emit(selected_action_id)
-
-
-func clear_committed_selection() -> void:
+func clear_selection() -> void:
 	_clear_selection()
+	_update_map_travel_button()
 
 
 func cancel_local_state() -> bool:
-	if is_confirmation_open:
-		_close_confirmation(true)
-		return true
 	if not selected_action_id.is_empty():
 		var previous := selected_action_id
 		selected_action_id = ""
-		_pending_confirmation_action_id = ""
 		_update_choice_styles()
 		_update_details(_preview_action())
 		selection_changed.emit("")
+		_update_map_travel_button()
 		var previous_button := action_button(previous)
 		if previous_button != null and previous_button.is_inside_tree():
 			previous_button.grab_focus()
@@ -223,18 +232,24 @@ func action_button(action_id: String) -> Button:
 	return null
 
 
-func confirmation_action_id() -> String:
-	return _pending_confirmation_action_id if is_confirmation_open else ""
-
-
-func confirmation_commit_label() -> String:
-	if not is_confirmation_open:
-		return ""
-	return LocalizationCatalogScript.text("UI_RUN_JOURNEY_0017") if str(_actions_by_id.get(_pending_confirmation_action_id, {}).get("kind", "")) == "WORKSHOP_SERVICE" else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0016")
-
-
 func main_scroll() -> ScrollContainer:
 	return _content_scroll
+
+
+func set_content_width_limit(width: float) -> void:
+	var normalized := maxf(0.0, width)
+	if is_equal_approx(_content_width_limit, normalized):
+		return
+	_content_width_limit = normalized
+	_update_responsive_layouts()
+	_update_character_choice_labels()
+	call_deferred("_update_responsive_layouts")
+
+
+func character_content_minimum_height() -> float:
+	if _content_root == null:
+		return 0.0
+	return _content_root.get_combined_minimum_size().y
 
 
 func details_label() -> Label:
@@ -261,40 +276,6 @@ func _build_shell() -> void:
 	_content_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_content_root.add_theme_constant_override("separation", 8)
 	_content_scroll.add_child(_content_root)
-	_build_confirmation_card()
-
-
-func _build_confirmation_card() -> void:
-	_confirmation_scrim = ColorRect.new()
-	_confirmation_scrim.name = "ConfirmationScrim"
-	_confirmation_scrim.color = Color(0.015, 0.055, 0.043, 0.82)
-	_confirmation_scrim.visible = false
-	_confirmation_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
-	_confirmation_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_confirmation_scrim.z_index = 9
-	add_child(_confirmation_scrim)
-	_modal_card = PanelContainer.new()
-	_modal_card.name = "RunChoiceConfirmation"
-	_modal_card.visible = false
-	_modal_card.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-	_modal_card.custom_minimum_size = Vector2(450.0, 0.0)
-	_modal_card.z_index = 10
-	_modal_card.mouse_filter = Control.MOUSE_FILTER_STOP
-	ForbiddenThemeScript.style_panel(_modal_card, "paper", true)
-	add_child(_modal_card)
-	var layout := VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 12)
-	_modal_card.add_child(layout)
-	_modal_heading = Label.new()
-	_modal_heading.name = "ConfirmationHeading"
-	_modal_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	layout.add_child(_modal_heading)
-	_modal_copy = Label.new()
-	_modal_copy.name = "ConfirmationDetails"
-	_modal_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_modal_copy.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	layout.add_child(_modal_copy)
-	_position_confirmation_card()
 
 
 func _clear_content() -> void:
@@ -320,7 +301,8 @@ func _build_phase_content() -> void:
 		RunPhaseScript.MAP_CHOICE:
 			_build_map()
 		RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD, RunPhaseScript.BOSS_REWARD:
-			_build_action_browser(_actions, _title_for_phase(phase), false, true)
+			var picking_target := not _actions.is_empty() and str(_actions[0].get("kind", "")) == "REWARD_TARGET"
+			_build_action_browser(_actions, LocalizationCatalogScript.text("UI_RC7_REWARD_TARGET_PROMPT") if picking_target else _title_for_phase(phase), false, true)
 		RunPhaseScript.EVENT:
 			_build_event()
 		RunPhaseScript.SHOP:
@@ -332,9 +314,13 @@ func _build_phase_content() -> void:
 	_apply_theme_to_content()
 	_update_responsive_layouts()
 	call_deferred("_update_responsive_layouts")
+	call_deferred("_emit_content_minimum_changed")
 
 
 func _build_character_choices() -> void:
+	if _actions.any(func(action): return str(action.get("kind", "")) == "CHARACTER_SUIT"):
+		_build_character_suit_choices()
+		return
 	var roster: Array = []
 	for definition in _controller.domain.content_registry.enumerate():
 		if definition != null and definition.get_script() == CharacterDefinitionScript:
@@ -343,7 +329,7 @@ func _build_character_choices() -> void:
 	var cards_center := CenterContainer.new()
 	cards_center.name = "CharacterCardsCenter"
 	cards_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cards_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cards_center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_content_root.add_child(cards_center)
 	var grid := GridContainer.new()
 	grid.name = "CharacterCards"
@@ -376,19 +362,18 @@ func _build_character_choices() -> void:
 		var name := Label.new()
 		name.text = _pretty_id_value(str(definition.content_id))
 		name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		ForbiddenThemeScript.title(name, _locale)
-		name.add_theme_font_size_override("font_size", roundi(24.0 * _ui_scale))
+		_style_label(name, "heading")
 		stack.add_child(name)
 		var traits := Label.new()
 		traits.name = "CharacterFacts"
 		traits.text = _character_facts(definition)
 		traits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		traits.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		traits.add_theme_font_size_override("font_size", roundi(14.0 * _ui_scale))
+		_style_label(traits, "secondary")
 		stack.add_child(traits)
 		var choose := Button.new()
 		choose.name = "InspectCharacterButton"
-		choose.text = _action_label_text(action) if is_available else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0022")
+		choose.text = _character_action_button_label(action) if is_available else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0022")
 		choose.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		choose.disabled = not is_available
 		choose.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -400,9 +385,48 @@ func _build_character_choices() -> void:
 		var state_label := Label.new()
 		state_label.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0009") if is_available else _character_lock_reason()
 		state_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		state_label.add_theme_font_size_override("font_size", roundi(14.0 * _ui_scale))
+		_style_label(state_label, "caption")
 		state_label.modulate = ForbiddenThemeScript.color("muted")
 		stack.add_child(state_label)
+
+
+func _build_character_suit_choices() -> void:
+	var panel := _new_surface("CharacterSuitChoicePanel", "raised")
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	_content_root.add_child(panel)
+	var stack := VBoxContainer.new()
+	stack.name = "CharacterSuitChoiceContent"
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 12)
+	panel.add_child(stack)
+	var heading := Label.new()
+	heading.name = "CharacterSuitChoiceHeading"
+	heading.text = LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_PROMPT")
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_label(heading, "heading")
+	stack.add_child(heading)
+	var guidance := Label.new()
+	guidance.name = "CharacterSuitChoiceGuidance"
+	guidance.text = LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_GUIDANCE")
+	guidance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	guidance.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_label(guidance, "secondary")
+	stack.add_child(guidance)
+	var choices := GridContainer.new()
+	choices.name = "CharacterSuitChoices"
+	choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	choices.add_theme_constant_override("h_separation", 8)
+	choices.add_theme_constant_override("v_separation", 8)
+	_register_responsive_grid(choices, 184.0, 3, 1.0)
+	stack.add_child(choices)
+	for action in _actions:
+		if str(action.get("kind", "")) == "CHARACTER_SUIT":
+			_add_choice_button(choices, action, "suit")
+	for action in _actions:
+		if str(action.get("kind", "")) == "CHARACTER_SUIT_BACK":
+			_add_choice_button(stack, action)
 
 
 func _portrait_texture(character_id: String) -> Texture2D:
@@ -422,14 +446,27 @@ func _portrait_texture(character_id: String) -> Texture2D:
 
 func _character_facts(definition) -> String:
 	var lines: Array[String] = []
-	var bias: Array = definition.starting_tile_pool_bias
-	var bias_labels: Array[String] = []
-	for tile_id in bias:
-		bias_labels.append(_pretty_id_value(str(tile_id)))
-	lines.append(_pretty_id_value(str(bias[0])) if bias.size() == 1 else ", ".join(bias_labels))
-	for content_id in [str(definition.starting_relic_id), str(definition.core_technique_id), str(definition.signature_passive_id)]:
-		if not content_id.is_empty():
-			lines.append(_pretty_id_value(content_id))
+	var character_id := str(definition.content_id)
+	if character_id == "base.character.reserve":
+		lines.append(LocalizationCatalogScript.text("UI_RUN_CHARACTER_POOL_RESERVE"))
+	elif character_id == "base.character.sequence":
+		lines.append(LocalizationCatalogScript.text("UI_RUN_CHARACTER_POOL_SEQUENCE"))
+	else:
+		var bias: Array = definition.starting_tile_pool_bias
+		var bias_labels: Array[String] = []
+		for tile_id in bias:
+			bias_labels.append(_pretty_id_value(str(tile_id)))
+		if not bias_labels.is_empty():
+			lines.append(LocalizationCatalogScript.format("UI_RUN_CHARACTER_FACT_TILE_BIAS", [", ".join(bias_labels)]))
+	var relic_id := str(definition.starting_relic_id)
+	if not relic_id.is_empty():
+		lines.append(LocalizationCatalogScript.format("UI_RUN_CHARACTER_FACT_RELIC", [_pretty_id_value(relic_id)]))
+	var technique_id := str(definition.core_technique_id)
+	if not technique_id.is_empty():
+		lines.append(LocalizationCatalogScript.format("UI_RUN_CHARACTER_FACT_TECHNIQUE", [_pretty_id_value(technique_id)]))
+	var passive_id := str(definition.signature_passive_id)
+	if not passive_id.is_empty():
+		lines.append(LocalizationCatalogScript.format("UI_RUN_CHARACTER_FACT_PASSIVE", [_pretty_id_value(passive_id)]))
 	return "\n".join(lines)
 
 
@@ -458,6 +495,17 @@ func _build_map() -> void:
 	detail_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(detail_panel)
 	_details_value = detail_panel.find_child("SelectedActionDetails", true, false) as Label
+	_map_travel_button = Button.new()
+	_map_travel_button.name = "MapTravelButton"
+	_map_travel_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_map_travel_button.custom_minimum_size.y = 48.0 * _ui_scale
+	ForbiddenThemeScript.style_button(_map_travel_button, true)
+	_map_travel_button.pressed.connect(func():
+		if not selected_action_id.is_empty():
+			action_activated.emit(selected_action_id)
+	)
+	detail_panel.get_child(0).add_child(_map_travel_button)
+	_update_map_travel_button()
 	var state_facts := Label.new()
 	state_facts.name = "RunMapFacts"
 	state_facts.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -476,17 +524,7 @@ func _map_run_facts() -> String:
 	for node_id in map_state.ordered_path:
 		var visible_payload: String = map_state.visible_payload_id(str(node_id))
 		path_labels.append(_pretty_id_value(visible_payload) if not visible_payload.is_empty() else _pretty_id_value(str(map_state.node_kinds.get(node_id, "MAP"))))
-	var lines := [
-		LocalizationCatalogScript.template("UI_RUN_SCENE_0056") % [
-			_state.run_id,
-			_pretty_id_value(str(_state.character_id)),
-			_pretty_id_value(str(_state.contract_id)),
-			_state.gold,
-			_state.refinement_tokens,
-			_pretty_id_value(str(map_state.current_node_id)),
-		],
-		LocalizationCatalogScript.template("UI_RUN_SCENE_0076") % [_state.tile_pool.tile_instances.size(), _tile_pool_names()],
-	]
+	var lines := [LocalizationCatalogScript.format("UI_PLAYER_MAP_FACTS", [_state.gold, _state.refinement_tokens, _state.tile_pool.tile_instances.size()])]
 	if not path_labels.is_empty():
 		lines.append(" → ".join(path_labels))
 	return "\n\n".join(lines)
@@ -520,7 +558,7 @@ func _build_event() -> void:
 	event_title.text = _pretty_id_value(str(event_state.event_id))
 	event_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	event_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ForbiddenThemeScript.title(event_title, _locale)
+	_style_label(event_title, "title")
 	detail_panel.get_child(0).add_child(event_title)
 	_event_choice_details = Label.new()
 	_event_choice_details.name = "EventRiskRewardDetails"
@@ -579,6 +617,13 @@ func _build_shop() -> void:
 			offer_card_stack.add_theme_constant_override("separation", 4)
 			offer_card.add_child(offer_card_stack)
 			var offer_button := _add_choice_button(offer_card_stack, action, "", not available)
+			var effect_label := Label.new()
+			effect_label.name = "ShopOfferEffect"
+			effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			var effect_summary := "\n".join(PackedStringArray(PlayerActionTextScript.shop_offer_effect_lines(_controller.domain.content_registry, action.get("details", {}))))
+			effect_label.text = effect_summary
+			_style_label(effect_label, "secondary")
+			offer_card_stack.add_child(effect_label)
 			if not available:
 				var status_label := Label.new()
 				status_label.name = "ShopOfferStatus"
@@ -591,14 +636,7 @@ func _build_shop() -> void:
 	var shop_summary := Label.new()
 	shop_summary.name = "ShopAvailabilitySummary"
 	shop_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	shop_summary.text = LocalizationCatalogScript.template("UI_RUN_SCENE_0056") % [
-		_state.run_id,
-		_pretty_id_value(str(_state.character_id)),
-		_pretty_id_value(str(_state.contract_id)),
-		_state.gold,
-		_state.refinement_tokens,
-		_pretty_id_value(str(_state.map_state.current_node_id)),
-	]
+	shop_summary.text = LocalizationCatalogScript.format("UI_PLAYER_MAP_FACTS", [_state.gold, _state.refinement_tokens, _state.tile_pool.tile_instances.size()])
 	offer_stack.add_child(shop_summary)
 	for action in _actions:
 		if str(action.get("kind", "")) in ["SHOP_REFRESH", "SHOP_EXIT"]:
@@ -619,6 +657,8 @@ func _build_shop() -> void:
 
 func _shop_offer_available(action: Dictionary) -> bool:
 	var details: Dictionary = action.get("details", {})
+	if not PlayerActionTextScript.shop_offer_has_effect(details):
+		return false
 	if str(details.get("status", "AVAILABLE")) != "AVAILABLE":
 		return false
 	var validation = _controller.domain.validate_buy_shop_offer(str(action.get("entry_id", "")), str(action.get("target_id", "")))
@@ -629,6 +669,8 @@ func _shop_offer_status_text(action: Dictionary) -> String:
 	var details: Dictionary = action.get("details", {})
 	if str(details.get("status", "AVAILABLE")) == "SOLD":
 		return LocalizationCatalogScript.text("UI_RUN_JOURNEY_0024")
+	if not PlayerActionTextScript.shop_offer_has_effect(details):
+		return LocalizationCatalogScript.text("UI_PLAYER_SHOP_UNAVAILABLE")
 	var price := int(details.get("price", 0))
 	if int(_state.gold) < price:
 		return LocalizationCatalogScript.format("UI_RUN_JOURNEY_0025", [price, int(_state.gold)])
@@ -646,10 +688,22 @@ func _build_workshop() -> void:
 	action_stack.name = "WorkshopChoiceList"
 	action_stack.add_theme_constant_override("separation", 8)
 	action_panel.add_child(action_stack)
+	var pair_grid: GridContainer = null
+	if not _actions.is_empty() and str(_actions[0].get("service_id", "")) == "REMOVE_PAIR" and str(_actions[0].get("kind", "")) == "WORKSHOP_SERVICE":
+		pair_grid = GridContainer.new()
+		pair_grid.name = "WorkshopRemovalTypes"
+		pair_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pair_grid.add_theme_constant_override("h_separation", 8)
+		pair_grid.add_theme_constant_override("v_separation", 8)
+		_register_responsive_grid(pair_grid, 224.0, 3, 0.58)
+		action_stack.add_child(pair_grid)
 	var service_id := ""
 	for action in _actions:
 		if str(action.get("kind", "")) in ["WORKSHOP_SELECT_SERVICE", "WORKSHOP_SELECT_TARGET", "WORKSHOP_SERVICE"]:
 			service_id = str(action.get("service_id", service_id))
+			if str(action.get("kind", "")) == "WORKSHOP_SERVICE" and service_id == "REMOVE_PAIR":
+				_build_pair_removal_card(pair_grid if pair_grid != null else action_stack, action)
+				continue
 			var is_target := str(action.get("kind", "")) == "WORKSHOP_SELECT_TARGET"
 			_add_choice_button(action_stack, action, "tile" if is_target else "", false)
 	for action in _actions:
@@ -684,6 +738,32 @@ func _workshop_step_details(service_id: String) -> String:
 	return "%s\n\n%s" % [label, LocalizationCatalogScript.text("UI_RUN_JOURNEY_0033")]
 
 
+func _build_pair_removal_card(parent: Control, action: Dictionary) -> void:
+	var card := _new_surface("WorkshopPair_%s" % str(action.id).replace(":", "_").replace(".", "_"), "lacquer")
+	parent.add_child(card)
+	var stack := VBoxContainer.new()
+	card.add_child(stack)
+	var faces := HBoxContainer.new()
+	faces.name = "WorkshopRemovalCopies"
+	stack.add_child(faces)
+	var details: Dictionary = action.get("details", {})
+	for tile in details.get("affected_tiles", []):
+		var annotations: Array[String] = []
+		for modifier_id in tile.get("modifier_ids", []):
+			annotations.append(_pretty_id_value(str(modifier_id)))
+		var face := _add_reward_tile_face(faces, action, str(tile.tile_id), annotations)
+		face.tile_copy_label = str(tile.get("copy_label", ""))
+		face.accessibility_name = "%s · %s" % [face.tile_copy_label, _workshop_before_after(action)]
+		face.tooltip_text = face.accessibility_name
+	var preview := Label.new()
+	preview.name = "WorkshopRemovalPreview"
+	preview.text = _workshop_before_after(action)
+	preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_style_label(preview, "secondary")
+	stack.add_child(preview)
+	_add_choice_button(stack, action)
+
+
 func _workshop_has_result_action() -> bool:
 	for action in _actions:
 		if str(action.get("kind", "")) == "WORKSHOP_SERVICE":
@@ -699,6 +779,8 @@ func _workshop_before_after(action: Dictionary) -> String:
 	var price := int(details.get("price", 0))
 	var is_refinement_token := str(action.get("service_id", "")) == "REFINEMENT_TOKEN"
 	var result := ""
+	if str(action.get("service_id", "")) == "REMOVE_PAIR":
+		return LocalizationCatalogScript.format("UI_RC7_REMOVE_PAIR_PREVIEW", [before, int(details.get("pool_size_before", 0)), int(details.get("pool_size_after", 0)), price])
 	if is_refinement_token:
 		result = LocalizationCatalogScript.format("UI_RUN_SCENE_0156", [before])
 	else:
@@ -730,12 +812,18 @@ func _build_action_browser(actions: Array, title: String, include_back: bool, as
 		choice_stack.add_child(card_grid)
 	for action in actions:
 		var kind := str(action.get("kind", ""))
+		if kind == "REWARD_TARGET_BACK":
+			_add_choice_button(choice_stack, action)
+			continue
 		if include_back and kind in ["WORKSHOP_BACK", "SHOP_EXIT"]:
 			continue
 		if kind == "WORKSHOP_BACK" or kind == "SHOP_EXIT":
 			continue
+		if as_reward:
+			_build_reward_card(card_grid, action)
+			continue
 		var target_panel: Control = card_grid if as_reward else choice_stack
-		_add_choice_button(target_panel, action, "reward" if as_reward else "")
+		_add_choice_button(target_panel, action)
 	if actions.is_empty():
 		var empty := Label.new()
 		empty.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0027")
@@ -750,7 +838,7 @@ func _build_action_browser(actions: Array, title: String, include_back: bool, as
 	heading.name = "DecisionHeading"
 	heading.text = title
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ForbiddenThemeScript.title(heading, _locale)
+	_style_label(heading, "title")
 	detail_panel.get_child(0).add_child(heading)
 	_update_details(_preview_action())
 	if as_reward:
@@ -761,6 +849,199 @@ func _build_action_browser(actions: Array, title: String, include_back: bool, as
 		if identities != _last_reward_ids:
 			_last_reward_ids = identities
 			call_deferred("_play_reward_reveal")
+
+
+func _build_reward_card(parent: Control, action: Dictionary) -> void:
+	var details: Dictionary = action.get("details", {}) if action.get("details", {}) is Dictionary else {}
+	var reward_kind := str(details.get("kind", ""))
+	var action_id := str(action.get("id", ""))
+	var safe_action_id := action_id.replace(":", "_").replace(".", "_")
+	var card := _new_surface("RewardCard_%s" % safe_action_id, "lacquer")
+	card.custom_minimum_size = Vector2(0.0, 176.0 * _ui_scale)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ForbiddenThemeScript.style_panel(card, "lacquer", action_id == selected_action_id)
+	parent.add_child(card)
+	var stack := VBoxContainer.new()
+	stack.name = "RewardCardContent"
+	stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	stack.add_theme_constant_override("separation", 6)
+	card.add_child(stack)
+
+	var header := HBoxContainer.new()
+	header.name = "RewardCardHeader"
+	header.add_theme_constant_override("separation", 8)
+	stack.add_child(header)
+	var icon := RewardKindIcon.new()
+	icon.name = "RewardCategoryIcon"
+	icon.configure(reward_kind, ForbiddenThemeScript.color("brass"), ForbiddenThemeScript.color("focus"), _ui_scale)
+	header.add_child(icon)
+	var heading_stack := VBoxContainer.new()
+	heading_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	heading_stack.add_theme_constant_override("separation", 2)
+	header.add_child(heading_stack)
+	var category := Label.new()
+	category.name = "RewardCategoryLabel"
+	var metadata: Dictionary = details.get("metadata", {})
+	category.text = LocalizationCatalogScript.text("UI_RC7_SPECIAL_PIVOT") if bool(metadata.get("special_pivot", false)) else _reward_kind_label(reward_kind)
+	category.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_style_label(category, "caption")
+	category.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
+	heading_stack.add_child(category)
+	var title := Label.new()
+	title.name = "RewardTitle"
+	title.text = _reward_title(action, details)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_label(title, "heading")
+	heading_stack.add_child(title)
+
+	if reward_kind in ["ADD_TILE", "MODIFIED_TILE"] and not str(details.get("tile_id", details.get("content_id", ""))).is_empty() and not (str(metadata.get("target_mode", "")) == "CHOOSE_TYPE" and str(details.get("tile_id", "")).is_empty()):
+		var visual_row := HBoxContainer.new()
+		visual_row.name = "RewardTileVisualRow"
+		visual_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		visual_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		stack.add_child(visual_row)
+		var tile_id := str(details.get("tile_id", details.get("content_id", "")))
+		var annotations: Array[String] = []
+		if reward_kind == "MODIFIED_TILE":
+			var modifier_id := str(details.get("modifier_id", ""))
+			if not modifier_id.is_empty():
+				annotations.append(LocalizationCatalogScript.content_text(modifier_id))
+		var face := _add_reward_tile_face(visual_row, action, tile_id, annotations)
+		if reward_kind == "MODIFIED_TILE":
+			var arrow := Label.new()
+			arrow.name = "RewardModifierBadge"
+			arrow.text = _pretty_id_value(str(details.get("modifier_id", "")))
+			arrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			arrow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_style_label(arrow, "secondary")
+			visual_row.add_child(arrow)
+			arrow.mouse_filter = Control.MOUSE_FILTER_STOP
+			arrow.gui_input.connect(func(event):
+				if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+					_on_choice_selected(str(action.get("id", "")))
+					arrow.accept_event()
+			)
+		face.tooltip_text = _reward_effect_preview(action, details)
+	else:
+		var choose_button := _add_choice_button(stack, action)
+		choose_button.name = "RewardChoiceButton"
+		choose_button.custom_minimum_size.y = maxf(52.0, 52.0 * _ui_scale)
+
+	var effect := Label.new()
+	effect.name = "RewardEffectPreview"
+	effect.text = _reward_effect_preview(action, details)
+	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	effect.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_style_label(effect, "secondary")
+	stack.add_child(effect)
+
+
+func _add_reward_tile_face(parent: Control, action: Dictionary, tile_id: String, annotations: Array[String]) -> TileFaceButton:
+	var action_id := str(action.get("id", ""))
+	var face := TileFaceButtonScript.new()
+	face.name = "RewardTileFace"
+	face.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	face.focus_mode = Control.FOCUS_ALL
+	var tile_name := _pretty_id_value(tile_id)
+	var effect_hint := _reward_effect_preview(action, action.get("details", {}))
+	face.configure({
+		"definition_id": tile_id,
+		"instance_id": "",
+		"copy_label": "%s · %s" % [tile_name, effect_hint],
+		"annotations": annotations,
+		"status_marker": "+" if not annotations.is_empty() else "",
+	}, action_id == selected_action_id, true)
+	face.name = "RewardTileFace"
+	face.custom_minimum_size = Vector2(72.0, 96.0) * _ui_scale
+	face.set_meta("run_action_id", action_id)
+	face.tooltip_text = effect_hint
+	face.accessibility_name = "%s · %s" % [tile_name, effect_hint]
+	ForbiddenThemeScript.style_button(face, false, action_id == selected_action_id)
+	parent.add_child(face)
+	face.pressed.connect(_on_choice_selected.bind(action_id))
+	face.focus_entered.connect(_on_choice_focused.bind(action_id))
+	face.mouse_entered.connect(_on_choice_hovered.bind(action_id))
+	face.button_down.connect(_on_button_down.bind(face))
+	face.button_up.connect(_on_button_up.bind(face))
+	return face
+
+
+func _reward_kind_label(reward_kind: String) -> String:
+	var key := "UI_RUN_REWARD_KIND_TILE"
+	match reward_kind:
+		"MODIFIED_TILE": key = "UI_RUN_REWARD_KIND_MODIFIED_TILE"
+		"SKIP": key = "UI_RUN_REWARD_KIND_SKIP"
+		"RELIC": key = "UI_RUN_REWARD_KIND_RELIC"
+		"RUN_TECHNIQUE": key = "UI_RUN_REWARD_KIND_TECHNIQUE"
+		"RULE_BREAKER": key = "UI_RUN_REWARD_KIND_RULE_BREAKER"
+	return LocalizationCatalogScript.text(key)
+
+
+func _reward_title(action: Dictionary, details: Dictionary) -> String:
+	var reward_kind := str(details.get("kind", ""))
+	if reward_kind == "SKIP":
+		return LocalizationCatalogScript.text("UI_RUN_REWARD_KIND_SKIP")
+	var content_id := str(details.get("content_id", action.get("content_id", "")))
+	if reward_kind == "MODIFIED_TILE":
+		var metadata: Dictionary = details.get("metadata", {})
+		if str(metadata.get("target_mode", "")) == "CHOOSE_TYPE" and str(details.get("tile_id", "")).is_empty():
+			return _pretty_id_value(str(details.get("modifier_id", content_id)))
+		content_id = str(details.get("tile_id", content_id))
+	if content_id.is_empty():
+		return _action_label_text(action)
+	return _pretty_id_value(content_id)
+
+
+func _reward_effect_preview(action: Dictionary, details: Dictionary) -> String:
+	if str(action.get("service_id", "")) == "REMOVE_PAIR":
+		return _workshop_before_after(action)
+	var reward_kind := str(details.get("kind", ""))
+	if reward_kind == "MODIFIED_TILE" and not bool(details.get("effect_summary_rendering", false)):
+		var nested := details.duplicate(true)
+		nested["effect_summary_rendering"] = true
+		var description := _reward_effect_preview(action, nested)
+		var effects := _definition_effect_lines(str(details.get("modifier_id", "")))
+		return description + ("\n" + "\n".join(PackedStringArray(effects)) if not effects.is_empty() else "")
+	match reward_kind:
+		"ADD_TILE":
+			var metadata: Dictionary = details.get("metadata", {})
+			if bool(metadata.get("special_pivot", false)):
+				return LocalizationCatalogScript.text("UI_RC7_PIVOT_EFFECT")
+			return LocalizationCatalogScript.text("UI_RUN_REWARD_EFFECT_ADD_TILE")
+		"MODIFIED_TILE":
+			var metadata: Dictionary = details.get("metadata", {})
+			if str(metadata.get("target_mode", "")) == "CHOOSE_TYPE":
+				if str(details.get("tile_id", "")).is_empty():
+					return LocalizationCatalogScript.format("UI_RC7_REWARD_UPGRADE_PROMPT", [int(metadata.get("target_limit", 2))])
+				return LocalizationCatalogScript.format("UI_RC7_REWARD_TARGET_EFFECT", [_pretty_id_value(str(details.get("tile_id", ""))), int(details.get("target_count", 1)), _pretty_id_value(str(details.get("modifier_id", "")))])
+			return LocalizationCatalogScript.format("UI_RUN_REWARD_EFFECT_MODIFIER_TO_TILE", [
+				_pretty_id_value(str(details.get("tile_id", ""))),
+				_pretty_id_value(str(details.get("modifier_id", ""))),
+			])
+		"SKIP":
+			return _currency_change_preview(int(details.get("gold_delta", 0)), int(details.get("refinement_token_delta", 0)))
+		"RELIC", "RUN_TECHNIQUE", "RULE_BREAKER":
+			var lines: Array[String] = [LocalizationCatalogScript.text("UI_RUN_REWARD_EFFECT_ACQUIRE")]
+			lines.append_array(_definition_effect_lines(str(details.get("content_id", action.get("content_id", "")))))
+			return "\n".join(lines)
+	return _action_tooltip_text(action)
+
+
+func _currency_change_preview(gold_delta: int, token_delta: int) -> String:
+	var lines: Array[String] = []
+	if gold_delta != 0:
+		lines.append(_amount_change(LocalizationCatalogScript.word_text("GOLD"), gold_delta))
+	if token_delta != 0:
+		lines.append(_amount_change(LocalizationCatalogScript.word_text("REFINEMENT_TOKENS"), token_delta))
+	return "\n".join(lines) if not lines.is_empty() else LocalizationCatalogScript.text("UI_RUN_REWARD_EFFECT_ACQUIRE")
+
+
+func _definition_effect_lines(content_id: String) -> Array[String]:
+	return PlayerActionTextScript.definition_effect_lines(_controller.domain.content_registry, content_id) if _controller != null else []
+
+func _amount_change(label: String, amount: int) -> String:
+	return PlayerActionTextScript._amount_change(label, amount)
 
 
 func _build_event_action_list() -> void:
@@ -842,7 +1123,6 @@ func _is_compact_width(width: float) -> bool:
 func _on_layout_resized() -> void:
 	_update_responsive_layouts()
 	call_deferred("_update_responsive_layouts")
-	_position_confirmation_card()
 
 
 func _update_responsive_layouts() -> void:
@@ -869,6 +1149,8 @@ func _update_responsive_grid(grid: GridContainer) -> void:
 		if available_width <= 0.0:
 			var fallback_fraction := 1.0 if _is_compact_width(size.x) else float(entry.get("fallback_width_fraction", 1.0))
 			available_width = size.x * fallback_fraction
+		if _content_width_limit > 0.0:
+			available_width = minf(available_width, _content_width_limit)
 		var gap := float(grid.get_theme_constant("h_separation")) if grid.has_theme_constant("h_separation") else 8.0
 		var cell_width := maxf(1.0, float(entry.get("minimum_cell_width", 220.0)) * _ui_scale)
 		var columns := clampi(floori((available_width + gap) / (cell_width + gap)), 1, int(entry.get("maximum_columns", 1)))
@@ -880,23 +1162,12 @@ func _update_responsive_grid(grid: GridContainer) -> void:
 			if child is Control:
 				(child as Control).custom_minimum_size.x = fitted_cell_width
 		grid.queue_sort()
+		call_deferred("_emit_content_minimum_changed")
 		return
 
 
-func _position_confirmation_card() -> void:
-	if _modal_card == null:
-		return
-	var available_width := size.x - 32.0 if size.x > 0.0 else 450.0 * _ui_scale
-	var card_width := maxf(1.0, minf(450.0 * _ui_scale, available_width))
-	_modal_card.custom_minimum_size.x = card_width
-	_modal_card.position.x = -card_width * 0.5
-	call_deferred("_center_confirmation_card")
-
-
-func _center_confirmation_card() -> void:
-	if _modal_card == null or not is_instance_valid(_modal_card):
-		return
-	_modal_card.position.y = -_modal_card.size.y * 0.5
+func _emit_content_minimum_changed() -> void:
+	content_minimum_changed.emit()
 
 
 func _new_surface(panel_name: String, surface: String) -> PanelContainer:
@@ -921,7 +1192,7 @@ func _add_choice_button(parent: Control, action: Dictionary, presentation: Strin
 		button = Button.new()
 		button.text = _action_label_text(action)
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.custom_minimum_size.y = (76.0 if presentation == "reward" else 52.0) * _ui_scale
+		button.custom_minimum_size.y = (76.0 if presentation == "reward" else (68.0 if presentation == "suit" else 52.0)) * _ui_scale
 	button.name = "RunAction_%s" % action_id.replace(":", "_").replace(".", "_")
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.disabled = disabled
@@ -969,6 +1240,8 @@ func _update_choice_styles() -> void:
 
 
 func _preview_action() -> Dictionary:
+	if _state != null and str(_state.phase) == RunPhaseScript.MAP_CHOICE and _actions_by_id.has(selected_action_id):
+		return _actions_by_id[selected_action_id]
 	if _actions_by_id.has(focused_action_id):
 		return _actions_by_id[focused_action_id]
 	if _actions_by_id.has(selected_action_id):
@@ -987,6 +1260,8 @@ func _update_details(action: Dictionary) -> void:
 func _action_detail_text(action: Dictionary) -> String:
 	if action.is_empty():
 		return LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013")
+	if str(action.get("kind", "")) in ["CHARACTER_SUIT", "CHARACTER_SUIT_BACK"]:
+		return _action_label_text(action)
 	if str(action.get("kind", "")) == "EVENT_OPTION":
 		return _event_detail_for_action(action)
 	if _action_details.is_valid():
@@ -997,11 +1272,42 @@ func _action_detail_text(action: Dictionary) -> String:
 
 
 func _action_label_text(action: Dictionary) -> String:
+	if str(action.get("kind", "")) == "CHARACTER_SUIT":
+		return _character_suit_label(str(action.get("excluded_suit", "")))
+	if str(action.get("kind", "")) == "CHARACTER_SUIT_BACK":
+		return LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_BACK")
 	if str(action.get("kind", "")) == "EVENT_OPTION":
 		var choice = _state.event_state.choice_by_id(str(action.get("target_id", ""))) if _state != null and _state.event_state != null else null
 		if choice is Dictionary:
 			return _event_choice_label(action, choice)
 	return str(_action_label.call(action)) if _action_label.is_valid() else str(action.get("id", ""))
+
+
+func _character_suit_label(excluded_suit: String) -> String:
+	match excluded_suit:
+		"characters": return LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_LABEL_CHARACTERS")
+		"dots": return LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_LABEL_DOTS")
+		"bamboo": return LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_LABEL_BAMBOO")
+		_: return LocalizationCatalogScript.word_text("UNAVAILABLE")
+
+
+func _character_action_button_label(action: Dictionary) -> String:
+	var label := _action_label_text(action)
+	if _content_width_limit <= 0.0 or _content_width_limit >= 520.0 * _ui_scale:
+		return label
+	var separator := label.find("—")
+	return label.substr(0, separator).strip_edges() if separator >= 0 else label
+
+
+func _update_character_choice_labels() -> void:
+	if _state == null or str(_state.phase) != RunPhaseScript.CHARACTER_SELECT:
+		return
+	for node in find_children("InspectCharacterButton", "Button", true, false):
+		var button := node as Button
+		if button == null:
+			continue
+		var action: Dictionary = _actions_by_id.get(str(button.get_meta("run_action_id", "")), {})
+		button.text = _character_action_button_label(action)
 
 
 func _event_choice_label(action: Dictionary, choice: Dictionary) -> String:
@@ -1023,6 +1329,8 @@ func _event_choice_label(action: Dictionary, choice: Dictionary) -> String:
 
 
 func _action_tooltip_text(action: Dictionary) -> String:
+	if str(action.get("kind", "")) in ["CHARACTER_SUIT", "CHARACTER_SUIT_BACK"]:
+		return _action_label_text(action)
 	return str(_action_tooltip.call(action)) if _action_tooltip.is_valid() else _action_label_text(action)
 
 
@@ -1045,16 +1353,32 @@ func _on_choice_selected(action_id: String) -> void:
 	_update_choice_styles()
 	_update_details(_actions_by_id[action_id])
 	selection_changed.emit(action_id)
-	# A choice click only selects and reveals its details; the separate commit rail owns commands.
+	if str(_actions_by_id[action_id].get("kind", "")) == "MAP_NODE":
+		_update_map_travel_button()
+		if _map_travel_button != null:
+			_map_travel_button.grab_focus()
+		return
+	# Journey tile faces represent one Workshop target choice. Battle hand tiles use
+	# BattleView's separate multiselect path; every Journey choice activates here.
+	action_activated.emit(action_id)
 
+
+func _update_map_travel_button() -> void:
+	if _map_travel_button == null or not is_instance_valid(_map_travel_button):
+		return
+	var action: Dictionary = _actions_by_id.get(selected_action_id, {})
+	_map_travel_button.disabled = str(action.get("kind", "")) != "MAP_NODE"
+	_map_travel_button.text = LocalizationCatalogScript.text("UI_PLAYER_MAP_CHOOSE") if _map_travel_button.disabled else LocalizationCatalogScript.format("UI_PLAYER_MAP_TRAVEL", [_action_label_text(action)])
 
 func _on_choice_focused(action_id: String) -> void:
 	focused_action_id = action_id
-	_update_details(_actions_by_id.get(action_id, {}))
+	_update_details(_preview_action())
 	focus_changed.emit(action_id)
 
 
 func _on_choice_hovered(action_id: String) -> void:
+	if _state != null and str(_state.phase) == RunPhaseScript.MAP_CHOICE and not selected_action_id.is_empty():
+		return
 	_update_details(_actions_by_id.get(action_id, {}))
 
 
@@ -1068,43 +1392,8 @@ func _on_button_up(button: Button) -> void:
 		_motion_feedback.play_property(button, ^"scale", button.scale, Vector2.ONE, 0.12)
 
 
-func _open_confirmation(action: Dictionary) -> void:
-	_pending_confirmation_action_id = str(action.get("id", ""))
-	is_confirmation_open = not _pending_confirmation_action_id.is_empty()
-	if not is_confirmation_open:
-		return
-	_refresh_confirmation_copy(action)
-	_position_confirmation_card()
-	_confirmation_scrim.visible = true
-	_modal_card.visible = true
-	confirmation_changed.emit(true)
-
-
-func _refresh_confirmation_copy(action: Dictionary) -> void:
-	var kind := str(action.get("kind", ""))
-	_modal_heading.text = LocalizationCatalogScript.text("UI_RUN_JOURNEY_0017") if kind == "WORKSHOP_SERVICE" else LocalizationCatalogScript.text("UI_RUN_JOURNEY_0016")
-	_modal_copy.text = _action_detail_text(action)
-
-
-func _close_confirmation(return_focus: bool) -> void:
-	if not is_confirmation_open and (_modal_card == null or not _modal_card.visible):
-		return
-	is_confirmation_open = false
-	_pending_confirmation_action_id = ""
-	if _confirmation_scrim != null:
-		_confirmation_scrim.visible = false
-	if _modal_card != null:
-		_modal_card.visible = false
-	confirmation_changed.emit(false)
-	if return_focus:
-		var selected_button := action_button(selected_action_id)
-		if selected_button != null and selected_button.is_inside_tree():
-			selected_button.grab_focus()
-
-
 func _clear_selection() -> void:
 	selected_action_id = ""
-	_pending_confirmation_action_id = ""
 	_update_choice_styles()
 	selection_changed.emit("")
 
@@ -1136,9 +1425,17 @@ func _apply_theme_to_content() -> void:
 		var button := node as Button
 		var action_id := str(button.get_meta("run_action_id", ""))
 		if action_id.is_empty():
-			ForbiddenThemeScript.style_button(button, button.name == "CommitSelectedButton")
+			ForbiddenThemeScript.style_button(button)
 	for panel in find_children("*", "PanelContainer", true, false):
 		var surface := "lacquer"
 		if str(panel.name).contains("Details") or str(panel.name).contains("Outcome"):
 			surface = "paper"
 		ForbiddenThemeScript.style_panel(panel as Control, surface)
+
+
+func _style_label(label: Label, role: String) -> void:
+	ForbiddenThemeScript.style_label(label, role, _locale)
+	# Many journey labels are styled before they are parented, so ForbiddenTheme
+	# cannot discover this view's scale metadata yet. Apply the configured role size
+	# explicitly so they match labels created after the responsive theme is attached.
+	label.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for(role, _ui_scale))

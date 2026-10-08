@@ -21,7 +21,11 @@ func run() -> Array[String]:
 func test_theme_roles_and_shared_styles(failures: Array[String]) -> void:
 	var theme := ForbiddenTheme.create_theme("en", 1.25)
 	assert_true(theme != null and theme.default_font != null, "English theme loads its licensed regular font", failures)
-	assert_true(theme.default_font_size == 20, "125% theme scales the base type size", failures)
+	assert_true(
+		theme.default_font_size == ForbiddenTheme.font_size_for("body", 1.25),
+		"125% theme scales the 20px body role to 25px",
+		failures,
+	)
 	assert_true(theme.get_meta("forbidden_table_ui_scale") == 1.25, "theme publishes its scale to descendant controls", failures)
 	assert_true(ForbiddenTheme.color("brass") == Color("#E7B65A"), "theme exposes the approved brass token", failures)
 
@@ -42,7 +46,11 @@ func test_theme_roles_and_shared_styles(failures: Array[String]) -> void:
 	themed_root.add_child(button)
 	ForbiddenTheme.style_button(button, true)
 	assert_true(button.custom_minimum_size.y >= 55.0, "125% buttons retain the 44 px hit height after scaling", failures)
-	assert_true(button.get_theme_font_size("font_size") == 20, "button helper inherits scale from an ancestor theme", failures)
+	assert_true(
+		button.get_theme_font_size("font_size") == ForbiddenTheme.font_size_for("button", 1.25),
+		"button helper applies the scaled 20px button role from its ancestor theme",
+		failures,
+	)
 	var button_font := button.get_theme_font("font")
 	for glyph in ["简", "体", "中", "文"]:
 		assert_true(button_font != null and button_font.has_char(glyph.unicode_at(0)), "English settings font covers the Chinese autonym glyph %s" % glyph, failures)

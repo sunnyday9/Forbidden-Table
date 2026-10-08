@@ -52,7 +52,8 @@ func test_sample_uses_an_isolated_one_act_controller(failures: Array[String]) ->
 	assert_true(sample_registry != registry_result.registry and practice_enemy != null and practice_enemy.max_hp == 60 and int(practice_enemy.battle_values.get("pressure_limit", 0)) == 60, "the sample gets its own forgiving practice encounter", failures)
 	assert_true(action_encounter != null and action_enemy != null and action_enemy.max_hp == 1 and int(action_enemy.battle_values.get("pressure_limit", 0)) == 999, "the second practice encounter leaves room to learn before the guided battle ends", failures)
 	assert_true(session.step_descriptors().size() >= 12, "the guided sequence covers onboarding, core battle actions, and the service stops", failures)
-	assert_true(not session.highlighted_action_ids(session.controller.action_descriptors()).is_empty(), "the current instruction can emphasize an available Character action", failures)
+	var highlighted_character_actions: Array[String] = session.highlighted_action_ids(session.controller.action_descriptors())
+	assert_true(highlighted_character_actions == ["character:base.character.sequence"], "the current instruction emphasizes the direct one-press Sequence choice", failures)
 
 func test_sample_map_is_a_short_reachable_slice(failures: Array[String]) -> void:
 	var map = GuidedSampleMapCatalogScript.definition()
@@ -68,7 +69,7 @@ func test_sample_replay_reconstructs_its_authored_map(failures: Array[String]) -
 	if session == null:
 		return
 	var attempts := 0
-	while session.current_step_id != GuidedSampleSessionScript.STEP_INTENT and attempts < 4:
+	while session.current_step_id != GuidedSampleSessionScript.STEP_DRAW and attempts < 4:
 		attempts += 1
 		var highlighted: Array[String] = session.highlighted_action_ids(session.controller.action_descriptors())
 		if highlighted.is_empty():
@@ -78,7 +79,7 @@ func test_sample_replay_reconstructs_its_authored_map(failures: Array[String]) -
 		if result == null or not result.accepted:
 			assert_true(false, "the sample accepts each action before its first Battle", failures)
 			return
-	assert_true(session.current_step_id == GuidedSampleSessionScript.STEP_INTENT, "the sample reaches its first Battle through Character, Contract, and map Commands", failures)
+	assert_true(session.current_step_id == GuidedSampleSessionScript.STEP_DRAW, "the sample reaches its first Battle through Character, Contract, and map Commands", failures)
 	var replay_report = session.controller.domain.verify_replay()
 	assert_true(replay_report.is_match(), "accepted Guided Sample actions replay with the authored sample map (%s: %s)" % [replay_report.status, replay_report.reason], failures)
 
@@ -87,12 +88,12 @@ func test_only_accepted_instructed_actions_advance_the_sample(failures: Array[St
 	if session == null:
 		return
 	var character_action: Dictionary = _first_action(session.controller.action_descriptors(), "CHARACTER")
-	assert_true(not character_action.is_empty(), "the sample presents real Character actions", failures)
+	assert_true(str(character_action.get("target_id", "")) == "base.character.sequence", "the sample instructs the direct Sequence Character action", failures)
 	var rejected = session.controller.submit(ChooseCharacterCommandScript.new("sample.invalid.character", "missing.character"))
 	assert_true(not rejected.accepted, "an invalid Character choice is rejected by the normal Run command rules", failures)
 	assert_true(session.current_step_id == GuidedSampleSessionScript.STEP_CHARACTER, "a rejected or loosely related change cannot complete Character selection", failures)
 	var accepted = session.controller.submit(ChooseCharacterCommandScript.new("sample.character", str(character_action.get("target_id", ""))))
-	assert_true(accepted.accepted, "the instructed Character choice is an accepted Run command (%s)" % str(accepted.validation.code), failures)
+	assert_true(accepted.accepted and session.controller.domain.state.character_id == "base.character.sequence", "the instructed Sequence choice is an accepted Run command (%s)" % str(accepted.validation.code), failures)
 	assert_true(session.current_step_id == GuidedSampleSessionScript.STEP_CONTRACT, "only that accepted Character command advances to Contract selection", failures)
 	var contract_action: Dictionary = _first_action(session.controller.action_descriptors(), "CONTRACT")
 	var contract_result = session.controller.submit(ChooseContractCommandScript.new("sample.contract", str(contract_action.get("target_id", ""))))
@@ -325,7 +326,7 @@ func test_real_actions_can_complete_the_full_sample_sequence(failures: Array[Str
 		else:
 			var expected_kinds: Array = session.current_step().get("action_kinds", [])
 			var is_step_action: bool = expected_kinds.has(str(selected_action.get("kind", "")))
-			var is_fallback_action: bool = GuidedSampleSessionScript.BATTLE_SETUP_FALLBACK_STEPS.has(step_id) and str(selected_action.get("kind", "")) in ["DRAW", "END_TURN"]
+			var is_fallback_action: bool = GuidedSampleSessionScript.BATTLE_SETUP_FALLBACK_STEPS.has(step_id) and str(selected_action.get("kind", "")) in ["DRAW", "END_TURN", "DISCARD"]
 			var allowed_preparation: bool = (is_step_action or is_fallback_action) and session.current_step_id == step_id
 			assert_true(allowed_preparation, "a preparatory Battle action can help form the guided action but cannot skip that step", failures)
 	var remaining_battle = session.controller.domain.current_battle
@@ -379,15 +380,22 @@ func test_run_scene_entry_restart_skip_and_cancel_preserve_campaign(failures: Ar
 	var first_sample_controller = scene.controller
 	var character_action: Dictionary = _first_action(scene.controller.action_descriptors(), "CHARACTER")
 	var character_button: Button = scene._journey_view.action_button(str(character_action.get("id", ""))) as Button
-	assert_true(character_button != null, "the isolated sample shows its normal Character choice button", failures)
+	assert_true(str(character_action.get("target_id", "")) == "base.character.sequence" and character_button != null, "the isolated sample shows its direct Sequence choice button", failures)
 	assert_true(character_button != null and bool(character_button.get_meta("guided_sample_emphasis", false)), "the instructed action is visually emphasized", failures)
 	if character_button != null:
+		var command_count: int = first_sample_controller.domain.replay_record.commands.size()
 		character_button.grab_focus()
 		_send_key(scene, KEY_ENTER)
-		assert_true(str(scene._journey_view.selected_action().get("id", "")) == str(character_action.get("id", "")), "keyboard accept selects the instructed Character action", failures)
-		scene._commit_selected_button.grab_focus()
-		_send_joypad_button(scene, JOY_BUTTON_A)
-	assert_true(first_sample_controller.domain.state.character_id != "", "a player action changes the sample domain", failures)
+		assert_true(first_sample_controller.domain.state.character_id == "base.character.sequence" and first_sample_controller.domain.state.phase == RunPhaseScript.CONTRACT_SELECT and first_sample_controller.domain.replay_record.commands.size() == command_count + 1, "one keyboard accept executes the instructed Sequence choice and advances directly to Contract", failures)
+		assert_true(first_sample_controller.action_descriptors().filter(func(action): return str(action.get("kind", "")) == "CHARACTER_SUIT").is_empty(), "Sequence does not open the Reserve suit picker in the sample", failures)
+		var contract_action: Dictionary = _first_action(scene.controller.action_descriptors(), "CONTRACT")
+		var contract_button: Button = scene._journey_view.action_button(str(contract_action.get("id", "")))
+		assert_true(contract_button != null and not contract_button.disabled, "the sample exposes the next Contract choice directly", failures)
+		if contract_button != null and not contract_button.disabled:
+			contract_button.grab_focus()
+			_send_joypad_button(scene, JOY_BUTTON_A)
+			assert_true(first_sample_controller.domain.state.contract_id != "" and first_sample_controller.domain.replay_record.commands.size() == command_count + 2, "controller A executes the Contract choice exactly once", failures)
+	assert_true(first_sample_controller.domain.state.character_id == "base.character.sequence", "the Sequence action changes the sample domain", failures)
 	assert_true(campaign_controller.domain.state.phase == campaign_phase_before and campaign_controller.domain.state.character_id == "", "sample choices leave the suspended campaign controller unchanged", failures)
 	assert_true(scene.meta_progress_coordinator.state.to_dictionary() == campaign_profile_before, "sample choices do not alter campaign unlocks", failures)
 	assert_true(_file_snapshot(suspend_path) == suspend_before and _file_snapshot(profile_path) == profile_before, "sample choices do not write campaign saves or profile files", failures)
@@ -445,6 +453,10 @@ func _new_session(failures: Array[String]):
 	return session
 
 func _first_action(actions: Array, kind: String) -> Dictionary:
+	if kind == "CHARACTER":
+		for action in actions:
+			if str(action.get("target_id", "")) == "base.character.sequence":
+				return action
 	for action in actions:
 		if action is Dictionary and str(action.get("kind", "")) == kind:
 			return action
