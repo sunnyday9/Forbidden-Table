@@ -253,7 +253,8 @@ class WindowsReleasePackageTest(unittest.TestCase):
             notes = package.read("RELEASE_NOTES.txt").decode("utf-8")
             self.assertIn("1.0.0-rc.1", notes)
             self.assertNotIn("@APPLICATION_VERSION@", notes)
-            self.assertIn("Human two-Act Windows 10/11", notes)
+            self.assertIn("maintainer reports completing human two-Act validation", notes)
+            self.assertIn("platform-specific and physical controller coverage are not established", notes)
             for name in package.namelist():
                 if name.startswith("licenses/"):
                     self.assertGreater(len(package.read(name)), 100, name)
