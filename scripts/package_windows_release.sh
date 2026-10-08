@@ -235,7 +235,7 @@ for _ in range(file_count):
 
 development_paths = sorted(
     path for path in packaged_resources
-    if path.startswith(("tests/", "scripts/", ".scratch/", ".cache/", "dist/", "docs/", "forbidden_table_spec/", ".codex-worktrees/", "graphify-out/", ".github/"))
+    if path.startswith(("tests/", "scripts/", ".scratch/", ".cache/", "dist/", "evidence/", "docs/", "forbidden_table_spec/", ".codex-worktrees/", "graphify-out/", ".github/"))
 )
 if development_paths:
     print("ERROR: Windows PCK contains development-only resources or local artifacts:", file=sys.stderr)

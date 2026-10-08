@@ -405,6 +405,7 @@ class WindowsReleasePackageTest(unittest.TestCase):
             ".scratch/native-review/private-capture.jpg",
             ".cache/generated/build-index.json",
             "dist/old-release.zip",
+            "evidence/private-player.json",
             "docs/private-review.md",
             "forbidden_table_spec/internal-review.md",
         )
@@ -480,7 +481,7 @@ class WindowsReleasePackageTest(unittest.TestCase):
         filter_match = re.search(r'^exclude_filter="([^\n]*)"$', preset, re.MULTILINE)
         self.assertIsNotNone(filter_match, "Windows export preset must declare excluded path filters")
         excluded_patterns = {pattern for pattern in filter_match.group(1).split(",") if pattern}
-        for local_artifact_pattern in (".scratch/*", ".cache/*", "dist/*"):
+        for local_artifact_pattern in (".scratch/*", ".cache/*", "dist/*", "evidence/*"):
             self.assertIn(local_artifact_pattern, excluded_patterns)
 
         uncovered = {
