@@ -12,6 +12,9 @@ func validate(_context, _targets: Dictionary) -> String:
 func apply(_context, _targets: Dictionary, _sequence_index: int, _effect_id: String) -> Array:
 	return []
 
+func hand_addition_demand(_context, _targets: Dictionary) -> int:
+	return 0
+
 func to_dictionary() -> Dictionary:
 	return {"operation_id": operation_id}
 

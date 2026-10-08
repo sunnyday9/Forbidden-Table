@@ -235,14 +235,11 @@ func test_terminal_summary_acknowledgment_is_authoritative(failures: Array[Strin
 
 func _registry():
 	var registry := ContentRegistry.new()
-	for tile_id in [
-		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3",
-		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
-		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
-		"base.tile.honors.east", "base.tile.honors.white",
-	]:
-		var parts: PackedStringArray = tile_id.split(".")
-		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
+	for suit in ["characters", "bamboo", "dots"]:
+		for rank in range(1, 10):
+			registry.register(TileDefinition.new("base.tile.%s.%d" % [suit, rank], suit, rank))
+	for honor in ["east", "south", "west", "north", "red", "green", "white"]:
+		registry.register(TileDefinition.new("base.tile.honors.%s" % honor, "honors", 0))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))

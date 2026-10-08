@@ -31,6 +31,8 @@ const MetaProgressSnapshot = preload("res://src/infrastructure/persistence/meta_
 const MetaProgressStore = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 const RunRecord = preload("res://src/infrastructure/persistence/run_record.gd")
 const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
+const ReplayVerifier = preload("res://src/infrastructure/replay/replay_verifier.gd")
+const SnapshotDto = preload("res://src/infrastructure/persistence/snapshot_dto.gd")
 const MigrationPipeline = preload("res://src/infrastructure/persistence/migration_pipeline.gd")
 const ContentVersionMigration = preload("res://src/infrastructure/persistence/content_version_migration.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
@@ -53,6 +55,7 @@ const Phase2V1BossRewardSuspendSnapshotFixture = preload("res://tests/fixtures/p
 func run() -> Array[String]:
 	var failures: Array[String] = []
 	test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures)
+	test_stage5_100_compatibility_baseline_is_frozen_and_continuable(failures)
 	test_suspend_snapshot_has_explicit_v1_envelope_and_round_trips(failures)
 	test_run_record_and_meta_progress_are_distinct_records(failures)
 	test_load_reconstructs_without_mutating_a_live_domain(failures)
@@ -135,6 +138,235 @@ func test_stage4_beta_compatibility_manifest_and_frozen_fixtures(failures: Array
 			var canonical_lf_text := _canonical_lf_bytes(fixture_text).get_string_from_utf8()
 			var simulated_windows_text := canonical_lf_text.replace("\n", "\r\n")
 			assert_true(_sha256(_canonical_lf_bytes(simulated_windows_text)) == actual_hash, "%s has the same fixture hash after simulated Windows CRLF checkout conversion" % fixture_path, failures)
+
+func test_stage5_100_compatibility_baseline_is_frozen_and_continuable(failures: Array[String]) -> void:
+	var manifest_path := "res://tests/fixtures/stage5_compatibility_manifest.json"
+	var manifest_file := FileAccess.open(manifest_path, FileAccess.READ)
+	assert_true(manifest_file != null, "the Stage 5 1.0 compatibility manifest is available", failures)
+	if manifest_file == null:
+		return
+	var manifest_text := manifest_file.get_as_text()
+	manifest_file.close()
+	var manifest_parse := JsonIntegerCodec.parse(manifest_text)
+	assert_true(manifest_parse.get("accepted", false), "the Stage 5 compatibility manifest parses", failures)
+	if not manifest_parse.get("accepted", false) or not manifest_parse.get("data") is Dictionary:
+		return
+	var manifest: Dictionary = manifest_parse.data
+	var support: Dictionary = manifest.get("support", {})
+	assert_true(support.get("starts_at", "") == "1.0.0", "public compatibility begins at 1.0.0", failures)
+	assert_true(support.get("patch_line", "") == "1.0.x", "the compatibility window covers 1.0.x patches", failures)
+	assert_true(support.get("pre_1_0", "") == "unsupported", "pre-1.0 formats are outside the compatibility promise", failures)
+	assert_true(support.get("downgrades", "") == "unsupported", "save downgrades are outside the compatibility promise", failures)
+	assert_true(support.get("1_1_plus", "") == "undecided", "1.1+ compatibility remains undecided", failures)
+
+	var candidate: Dictionary = manifest.get("baseline_candidate", {})
+	var candidate_provenance_failures_before := failures.size()
+	assert_true(str(candidate.get("application_version", "")).begins_with("1.0.0-rc."), "the baseline records the frozen private 1.0.0 release candidate", failures)
+	assert_true(candidate.get("public_baseline_version", "") == support.get("starts_at", ""), "the candidate fixtures are assigned to the agreed first public format", failures)
+	assert_true(candidate.get("application_version", "") == "1.0.0-rc.1", "the immutable fixtures are pinned to the RC1 source candidate", failures)
+	assert_true(candidate.get("source_commit", "") == "05b183e6825ccfa8c7674c493644bba2f3840e99", "the baseline records the exact clean RC1 source commit", failures)
+	assert_true(not bool(candidate.get("source_dirty", true)), "the frozen candidate was built from a clean source commit", failures)
+	assert_true(candidate.get("artifact_sha256", "") == "1c24a36d807866cd73533c9f17ab45860e2acdc945f6033b064518e32ecb1e1d", "the baseline records the hash-identified RC1 Windows package", failures)
+	var candidate_provenance_valid := failures.size() == candidate_provenance_failures_before
+
+	var registry := ContentRegistry.new()
+	Phase2Catalog.register_all(registry)
+	AlphaActTwoCatalog.register_all(registry)
+	AlphaScaleCatalog.register_all(registry)
+
+	var target_version := str(ProjectSettings.get_setting("application/config/version", ""))
+	assert_true(target_version.begins_with("1.0."), "the compatibility gate runs against a 1.0.x candidate target", failures)
+	var fixtures: Array = manifest.get("fixtures", [])
+	assert_true(fixtures.size() >= 2, "the frozen baseline contains SuspendSnapshot and ReplayRecord fixtures", failures)
+	if fixtures.size() < 2:
+		return
+	var save_fixture_count := 0
+	var replay_fixture_count := 0
+	for fixture_value in fixtures:
+		if not fixture_value is Dictionary:
+			assert_true(false, "each Stage 5 compatibility fixture entry is a dictionary", failures)
+			continue
+		var fixture: Dictionary = fixture_value
+		if fixture.get("record", "") == "SuspendSnapshot":
+			save_fixture_count += 1
+			_verify_stage5_suspend_fixture(fixture, candidate, candidate_provenance_valid, registry, target_version, failures)
+		elif fixture.get("record", "") == "ReplayRecord":
+			replay_fixture_count += 1
+			_verify_stage5_replay_fixture(fixture, candidate, candidate_provenance_valid, registry, target_version, failures)
+		else:
+			assert_true(false, "the manifest names only supported SuspendSnapshot and ReplayRecord fixtures", failures)
+	assert_true(save_fixture_count > 0, "at least one immutable SuspendSnapshot fixture is exercised", failures)
+	assert_true(replay_fixture_count > 0, "at least one immutable ReplayRecord fixture is exercised", failures)
+
+func _verify_stage5_suspend_fixture(fixture: Dictionary, candidate: Dictionary, candidate_provenance_valid: bool, registry, target_version: String, failures: Array[String]) -> void:
+	var failure_count_before := failures.size()
+	var save_path := "res://%s" % str(fixture.get("path", ""))
+	var save_text := _read_stage5_fixture(save_path, str(fixture.get("sha256_lf_canonical", "")), failures)
+	if save_text.is_empty():
+		_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, false, candidate_provenance_valid)
+		return
+	var parsed := JsonIntegerCodec.parse(save_text)
+	assert_true(parsed.get("accepted", false) and parsed.get("data") is Dictionary, "%s parses as a SuspendSnapshot" % save_path, failures)
+	if not parsed.get("accepted", false) or not parsed.get("data") is Dictionary:
+		_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, false, candidate_provenance_valid)
+		return
+	var snapshot_data: Dictionary = parsed.data
+	assert_true(int(snapshot_data.get("schema_version", -1)) == int(fixture.get("schema_version", -2)), "%s keeps its frozen save schema identity" % save_path, failures)
+	assert_true(str(snapshot_data.get("game_version", "")) == str(fixture.get("game_version", "")), "%s keeps its frozen game identity" % save_path, failures)
+	assert_true(str(snapshot_data.get("content_version", "")) == str(fixture.get("content_version", "")), "%s keeps its frozen content identity" % save_path, failures)
+	_assert_stage5_fixture_game_content_identity(fixture, candidate, save_path, failures)
+	var save_schemas: Dictionary = candidate.get("save_schema_versions", {})
+	assert_true(int(fixture.get("schema_version", -1)) == int(save_schemas.get("suspend_snapshot", -2)), "%s schema matches the frozen candidate manifest" % save_path, failures)
+
+	var load_result: Dictionary = SaveMapper.load_into_domain(save_text, registry)
+	assert_true(load_result.get("accepted", false), "source=%s/SuspendSnapshot@%d loads into target=%s (%s: %s)" % [
+		candidate.get("application_version", ""),
+		int(fixture.get("schema_version", -1)),
+		target_version,
+		load_result.get("code", ""),
+		load_result.get("errors", []),
+	], failures)
+	if not load_result.get("accepted", false):
+		_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, false, candidate_provenance_valid)
+		return
+	var resumed: RunDomain = load_result.domain
+	var expected_state_hash := str(fixture.get("checkpoint_state_hash", ""))
+	assert_true(resumed.checkpoint().state_hash == expected_state_hash, "the resumed Run matches its frozen authoritative checkpoint hash", failures)
+	assert_true(resumed.rng_snapshot() == snapshot_data.get("rng_state", {}), "the resumed Run restores the exact frozen RNG checkpoint", failures)
+
+	var continuation: Dictionary = fixture.get("continuation", {})
+	# Frozen RC1 bytes remain immutable. Fresh battles now use RC6's opening
+	# deal; compare two restorations under the active rules instead of claiming
+	# that their new commands reproduce RC1's obsolete empty-Hand checkpoints.
+	var control_load: Dictionary = SaveMapper.load_into_domain(save_text, registry)
+	assert_true(control_load.get("accepted", false), "the immutable save supports an independent deterministic continuation", failures)
+	if not control_load.get("accepted", false):
+		return
+	var control: RunDomain = control_load.domain
+	var route_result = resumed.execute(SelectMapNodeCommand.new("stage5.compatibility.route", str(continuation.get("route_node_id", ""))))
+	var control_route = control.execute(SelectMapNodeCommand.new("stage5.compatibility.route", str(continuation.get("route_node_id", ""))))
+	var route_passed: bool = route_result != null and route_result.is_accepted()
+	assert_true(route_passed, "the resumed Run accepts the frozen public map-route command", failures)
+	if not route_passed:
+		_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, false, candidate_provenance_valid)
+		return
+	assert_true(resumed.state.phase == RunPhase.BATTLE, "the resumed route reaches the candidate Battle phase", failures)
+	assert_true(control_route.is_accepted() and resumed.checkpoint() == control.checkpoint(), "the restored route produces the same current-rules authoritative checkpoint", failures)
+	var draw_result = resumed.execute(DrawCommand.new("stage5.compatibility.draw", "player.1"))
+	var control_draw = control.execute(DrawCommand.new("stage5.compatibility.draw", "player.1"))
+	var draw_passed: bool = draw_result != null and draw_result.is_accepted()
+	assert_true(draw_passed, "the resumed Battle accepts the frozen public Draw command", failures)
+	if draw_passed:
+		assert_true(control_draw.is_accepted() and resumed.checkpoint() == control.checkpoint(), "the resumed Draw matches an independent continuation under the current rules", failures)
+		assert_true(resumed.rng_snapshot() == control.rng_snapshot(), "the resumed Draw matches the independent deterministic RNG outcome", failures)
+		assert_true(str(resumed.state.phase) == str(continuation.get("final_phase", "")), "the resumed Draw ends in the expected Run phase", failures)
+	_print_stage5_fixture_result("SuspendSnapshot", candidate, fixture, target_version, failures.size() == failure_count_before, candidate_provenance_valid)
+
+func _verify_stage5_replay_fixture(fixture: Dictionary, candidate: Dictionary, candidate_provenance_valid: bool, registry, target_version: String, failures: Array[String]) -> void:
+	var failure_count_before := failures.size()
+	var replay_path := "res://%s" % str(fixture.get("path", ""))
+	var replay_text := _read_stage5_fixture(replay_path, str(fixture.get("sha256_lf_canonical", "")), failures)
+	if replay_text.is_empty():
+		_print_stage5_fixture_result("ReplayRecord", candidate, fixture, target_version, false, candidate_provenance_valid, "NOT_RUN:FIXTURE_UNAVAILABLE")
+		return
+	var replay_parse := JsonIntegerCodec.parse(replay_text)
+	assert_true(replay_parse.get("accepted", false) and replay_parse.get("data") is Dictionary, "%s parses with exact integer values" % replay_path, failures)
+	if not replay_parse.get("accepted", false) or not replay_parse.get("data") is Dictionary:
+		_print_stage5_fixture_result("ReplayRecord", candidate, fixture, target_version, false, candidate_provenance_valid, "NOT_RUN:FIXTURE_PARSE_FAILED")
+		return
+	var replay_data: Dictionary = replay_parse.data
+	var record = ReplayRecord.from_dictionary(replay_data)
+	assert_true(int(record.schema_version) == int(fixture.get("schema_version", -1)), "%s keeps its frozen replay schema identity" % replay_path, failures)
+	assert_true(str(record.game_version) == str(fixture.get("game_version", "")), "%s keeps its frozen game identity" % replay_path, failures)
+	assert_true(str(record.content_version) == str(fixture.get("content_version", "")), "%s keeps its frozen content identity" % replay_path, failures)
+	_assert_stage5_fixture_game_content_identity(fixture, candidate, replay_path, failures)
+	assert_true(int(fixture.get("schema_version", -1)) == int(candidate.get("replay_schema_version", -2)), "%s schema matches the frozen candidate manifest" % replay_path, failures)
+	assert_true(record.commands.size() == int(fixture.get("command_count", -1)), "%s keeps the frozen replay command count" % replay_path, failures)
+	assert_true(str(record.terminal_outcome) == str(fixture.get("terminal_outcome", "")), "%s keeps the frozen terminal outcome" % replay_path, failures)
+
+	var replay_run_id := str(fixture.get("run_id", ""))
+	var factory_call_count := [0]
+	var replay_factory := func(seed: int, content_version: String):
+		factory_call_count[0] = int(factory_call_count[0]) + 1
+		return RunDomain.new_alpha_run(replay_run_id, seed, registry, content_version)
+	var identities_match: bool = (
+		record.schema_version == ReplayRecord.SCHEMA_VERSION
+		and record.game_version == ReplayRecord.GAME_VERSION
+		and record.content_version == registry.content_version()
+	)
+	var replay_report = ReplayVerifier.verify(record, replay_factory, registry.content_version())
+	if identities_match:
+		assert_true(replay_report.is_match(), "source=%s/ReplayRecord@%d reproduces every authoritative checkpoint on target=%s (%s)" % [
+			candidate.get("application_version", ""),
+			record.schema_version,
+			target_version,
+			replay_report.reason,
+		], failures)
+		assert_true(int(factory_call_count[0]) > 0, "matching replay identities run deterministic checkpoint verification", failures)
+	else:
+		assert_true(replay_report.is_unavailable(), "source=%s/ReplayRecord@%d reports unavailable on target=%s when identities differ" % [
+			candidate.get("application_version", ""),
+			record.schema_version,
+			target_version,
+		], failures)
+		assert_true(int(factory_call_count[0]) == 0, "an identity-mismatched fixture never starts deterministic replay", failures)
+
+	for identity_case in [
+		{"field": "schema_version", "value": int(record.schema_version) + 1, "reason": "REPLAY_SCHEMA_VERSION_UNAVAILABLE"},
+		{"field": "game_version", "value": "game.unavailable", "reason": "GAME_VERSION_UNAVAILABLE"},
+		{"field": "content_version", "value": "content.unavailable", "reason": "CONTENT_VERSION_UNAVAILABLE"},
+	]:
+		var incompatible_data: Dictionary = replay_data.duplicate(true)
+		# Isolate one version mismatch at a time against the active replay rules.
+		incompatible_data["game_version"] = ReplayRecord.GAME_VERSION
+		incompatible_data[str(identity_case.field)] = identity_case.value
+		var incompatible_record = ReplayRecord.from_dictionary(incompatible_data)
+		factory_call_count[0] = 0
+		var unavailable_report = ReplayVerifier.verify(incompatible_record, replay_factory, registry.content_version())
+		assert_true(unavailable_report.is_unavailable() and unavailable_report.reason == str(identity_case.reason), "replay identity mismatch for %s is reported unavailable" % identity_case.field, failures)
+		assert_true(int(factory_call_count[0]) == 0, "replay identity mismatch for %s does not call the verifier factory" % identity_case.field, failures)
+
+	var missing_schema_data: Dictionary = replay_data.duplicate(true)
+	missing_schema_data.erase("schema_version")
+	var missing_schema_record = ReplayRecord.from_dictionary(missing_schema_data)
+	factory_call_count[0] = 0
+	var missing_schema_report = ReplayVerifier.verify(missing_schema_record, replay_factory, registry.content_version())
+	assert_true(missing_schema_report.is_unavailable() and missing_schema_report.reason == "REPLAY_SCHEMA_VERSION_UNAVAILABLE", "missing replay schema identity reports unavailable", failures)
+	assert_true(int(factory_call_count[0]) == 0, "missing replay schema identity never starts verification", failures)
+	var verifier_result := "MATCH" if replay_report.is_match() else "UNAVAILABLE:%s" % replay_report.reason if replay_report.is_unavailable() else "DIVERGED:%s" % replay_report.reason if replay_report.is_diverged() else "UNKNOWN:%s" % replay_report.status
+	_print_stage5_fixture_result("ReplayRecord", candidate, fixture, target_version, failures.size() == failure_count_before, candidate_provenance_valid, verifier_result)
+
+func _assert_stage5_fixture_game_content_identity(fixture: Dictionary, candidate: Dictionary, fixture_path: String, failures: Array[String]) -> void:
+	assert_true(str(fixture.get("game_version", "")) == str(candidate.get("game_version", "")), "%s identifies the baseline candidate game format" % fixture_path, failures)
+	assert_true(str(fixture.get("content_version", "")) == str(candidate.get("content_version", "")), "%s identifies the baseline candidate content format" % fixture_path, failures)
+
+func _print_stage5_fixture_result(record_type: String, candidate: Dictionary, fixture: Dictionary, target_version: String, passed: bool, candidate_provenance_valid: bool, verifier_result: String = "") -> void:
+	var outcome := "PASS" if passed else "FAIL"
+	if not candidate_provenance_valid:
+		outcome = "FAIL"
+	var verifier_text := " verifier=%s" % verifier_result if not verifier_result.is_empty() else ""
+	print("S5.3 compatibility: source=%s/%s@%d game=%s content=%s -> target=%s result=%s%s" % [
+		candidate.get("application_version", ""),
+		record_type,
+		int(fixture.get("schema_version", -1)),
+		fixture.get("game_version", ""),
+		fixture.get("content_version", ""),
+		target_version,
+		outcome,
+		verifier_text,
+	])
+
+func _read_stage5_fixture(path: String, expected_sha256: String, failures: Array[String]) -> String:
+	var fixture_file := FileAccess.open(path, FileAccess.READ)
+	assert_true(fixture_file != null, "%s remains available as an immutable Stage 5 source fixture" % path, failures)
+	if fixture_file == null:
+		return ""
+	var fixture_bytes := fixture_file.get_buffer(fixture_file.get_length())
+	fixture_file.close()
+	var fixture_text := fixture_bytes.get_string_from_utf8()
+	var actual_sha256 := _sha256(_canonical_lf_bytes(fixture_text))
+	assert_true(actual_sha256 == expected_sha256 and not expected_sha256.is_empty(), "%s matches its pinned canonical-LF SHA-256" % path, failures)
+	return fixture_text
 
 func _canonical_lf_bytes(fixture_text: String) -> PackedByteArray:
 	return fixture_text.replace("\r\n", "\n").to_utf8_buffer()
@@ -947,14 +1179,11 @@ func _has_validation_error(result: Dictionary, code: String) -> bool:
 
 func _registry():
 	var registry := ContentRegistry.new()
-	for tile_id in [
-		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3", "base.tile.characters.4",
-		"base.tile.bamboo.4", "base.tile.bamboo.5", "base.tile.bamboo.6",
-		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
-		"base.tile.honors.east", "base.tile.honors.white",
-	]:
-		var parts: PackedStringArray = tile_id.split(".")
-		registry.register(TileDefinition.new(tile_id, parts[2], int(parts[3])))
+	for suit in ["characters", "bamboo", "dots"]:
+		for rank in range(1, 10):
+			registry.register(TileDefinition.new("base.tile.%s.%d" % [suit, rank], suit, rank))
+	for honor in ["east", "south", "west", "north", "red", "green", "white"]:
+		registry.register(TileDefinition.new("base.tile.honors.%s" % honor, "honors", 0))
 	registry.register(RelicDefinition.new("base.relic.open_hand"))
 	registry.register(TechniqueDefinition.new("base.technique.core.sequence_line", TechniqueDefinition.CORE, 1))
 	registry.register(ContentDefinition.new("base.passive.sequence"))

@@ -1,8 +1,10 @@
 class_name RunPresentationController
 extends RefCounted
+const PlayerActionTextScript = preload("res://src/presentation/ui/player_action_text.gd")
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 
 signal presentation_changed
+signal command_processed(command, result)
 
 const RunDomainScript = preload("res://src/domain/run/run_domain.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
@@ -20,6 +22,7 @@ const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pat
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
+const PlayHandTilesCommandScript = preload("res://src/domain/commands/play_hand_tiles_command.gd")
 const SwapReserveTileCommandScript = preload("res://src/domain/commands/swap_reserve_tile_command.gd")
 const UseTechniqueCommandScript = preload("res://src/domain/commands/use_technique_command.gd")
 const ChooseRewardCommandScript = preload("res://src/domain/commands/choose_reward_command.gd")
@@ -44,12 +47,15 @@ const YakuEvaluatorScript = preload("res://src/domain/mahjong/yaku/yaku_evaluato
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 
 const ACTION_PREFIX_CHARACTER := "character:"
+const ACTION_PREFIX_CHARACTER_SUIT := "character_suit:"
 const ACTION_PREFIX_CONTRACT := "contract:"
 const ACTION_PREFIX_MAP := "map:"
 const ACTION_PREFIX_REWARD := "reward:"
 const ACTION_PREFIX_SHOP_BUY := "shop:buy:"
 const ACTION_PREFIX_WORKSHOP := "workshop:"
 const ACTION_PREFIX_EVENT := "event:"
+const RESERVE_CHARACTER_ID := "base.character.reserve"
+const CHARACTER_SUIT_IDS := ["characters", "dots", "bamboo"]
 
 var domain
 var state
@@ -60,6 +66,8 @@ var save_coordinator
 var _command_sequence := 0
 var _selected_workshop_service_id := ""
 var _selected_workshop_instance_id := ""
+var _pending_character_suit_choice_id := ""
+var _selected_reward_option_id := ""
 var _last_feedback_events: Array = []
 var _last_localized_event_feedback := ""
 var _event_feedback_is_current := false
@@ -81,6 +89,10 @@ func _init(run_domain, initial_tutorial_progress = null, initial_meta_progress_c
 
 func submit(command):
 	var result = domain.execute(command)
+	if result != null and result.accepted and command is ChooseRewardCommandScript:
+		_selected_reward_option_id = ""
+	if result != null and result.accepted and command is ChooseCharacterCommandScript:
+		_pending_character_suit_choice_id = ""
 	if result != null and result.accepted and command is UseWorkshopServiceCommandScript:
 		_selected_workshop_service_id = ""
 		_selected_workshop_instance_id = ""
@@ -123,6 +135,7 @@ func submit(command):
 		elif str(save_result.get("code", "")) not in ["UNSUPPORTED_CHECKPOINT", "UNSTABLE_CHECKPOINT"]:
 			suspend_feedback_key = "UI_RUN_CONTROLLER_0005"
 			suspend_feedback_args = [str(save_result.get("code", "SUSPEND_SAVE_FAILED"))]
+	command_processed.emit(command, result)
 	_refresh(events)
 	if unlock_result.get("changed", false) and unlock_result.get("persisted", false):
 		_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0006"))
@@ -144,7 +157,7 @@ func _suspend_boundary_for(command) -> String:
 		return "ENEMY_INTENT_COMPLETE"
 	if command is SettlePatternCommandScript or command is SettleCompleteHandCommandScript:
 		return "SETTLEMENT_COMPLETE"
-	if command is StoreTileCommandScript or command is DiscardTileCommandScript or command is SwapReserveTileCommandScript or command is UseTechniqueCommandScript:
+	if command is StoreTileCommandScript or command is DiscardTileCommandScript or command is PlayHandTilesCommandScript or command is SwapReserveTileCommandScript or command is UseTechniqueCommandScript:
 		return "BATTLE_ACTION"
 	if command is EnterShopCommandScript or command is BuyShopOfferCommandScript or command is RefreshShopCommandScript or command is ExitShopCommandScript:
 		return "SHOP"
@@ -180,7 +193,25 @@ func confirm(command_or_action = null):
 		return _rejected_presentation_input(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0009"))
 	var action := _find_action(action_id)
 	if not action.is_empty():
+		if str(action.get("kind", "")) == "SHOP_OFFER" and bool(action.get("disabled", false)):
+			return _rejected_presentation_input(LocalizationCatalogScript.text("UI_PLAYER_SHOP_UNAVAILABLE"))
 		match action.get("kind", ""):
+			"REWARD", "ELITE_REWARD":
+				var details: Dictionary = action.get("details", {})
+				var metadata: Dictionary = details.get("metadata", {})
+				if str(metadata.get("target_mode", "")) == "CHOOSE_TYPE":
+					_selected_reward_option_id = str(action.get("target_id", ""))
+					return _presentation_selection_result(LocalizationCatalogScript.text("UI_RC7_REWARD_TARGET_PROMPT"))
+			"REWARD_TARGET_BACK":
+				_selected_reward_option_id = ""
+				return _presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
+			"CHARACTER":
+				if str(action.get("target_id", "")) == RESERVE_CHARACTER_ID:
+					_pending_character_suit_choice_id = RESERVE_CHARACTER_ID
+					return _presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_CHARACTER_SUIT_PROMPT"))
+			"CHARACTER_SUIT_BACK":
+				_pending_character_suit_choice_id = ""
+				return _presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
 			"WORKSHOP_SELECT_SERVICE":
 				_selected_workshop_service_id = str(action.get("service_id", ""))
 				_selected_workshop_instance_id = ""
@@ -196,12 +227,26 @@ func confirm(command_or_action = null):
 	return submit(command)
 
 func cancel() -> bool:
+	if not _selected_reward_option_id.is_empty():
+		_selected_reward_option_id = ""
+		_presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
+		return true
+	if not _pending_character_suit_choice_id.is_empty():
+		_pending_character_suit_choice_id = ""
+		_presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
+		return true
 	state.clear_details()
 	_set_feedback(LocalizationCatalogScript.text("UI_RUN_CONTROLLER_0073"))
 	presentation_changed.emit()
 	return true
 
 func back():
+	if not _selected_reward_option_id.is_empty():
+		_selected_reward_option_id = ""
+		return _presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
+	if not _pending_character_suit_choice_id.is_empty():
+		_pending_character_suit_choice_id = ""
+		return _presentation_selection_result(LocalizationCatalogScript.text("UI_RUN_JOURNEY_0013"))
 	if state.phase == RunPhaseScript.SHOP:
 		return submit(ExitShopCommandScript.new(_next_command_id("shop.back")))
 	if state.phase == RunPhaseScript.WORKSHOP:
@@ -342,6 +387,8 @@ func technique_inspection_descriptors() -> Array:
 func _refresh(events: Array) -> void:
 	var previous_focus: String = state.focused_action_id()
 	var next_phase := str(domain.state.phase)
+	if next_phase not in [RunPhaseScript.REWARD_CHOICE, RunPhaseScript.ELITE_REWARD]:
+		_selected_reward_option_id = ""
 	if state.phase == RunPhaseScript.WORKSHOP and next_phase != RunPhaseScript.WORKSHOP:
 		_selected_workshop_service_id = ""
 		_selected_workshop_instance_id = ""
@@ -397,16 +444,33 @@ func _action_ids() -> Array:
 	return ids
 
 func _character_actions() -> Array:
+	if not _pending_character_suit_choice_id.is_empty():
+		return _character_suit_actions()
 	return _typed_content_actions(CharacterDefinitionScript, ACTION_PREFIX_CHARACTER, "CHARACTER")
+
+func _character_suit_actions() -> Array:
+	var actions: Array = []
+	for suit_id in CHARACTER_SUIT_IDS:
+		actions.append({
+			"id": ACTION_PREFIX_CHARACTER_SUIT + suit_id,
+			"kind": "CHARACTER_SUIT",
+			"target_id": suit_id,
+			"character_id": _pending_character_suit_choice_id,
+			"excluded_suit": suit_id,
+			"details": {"character_id": _pending_character_suit_choice_id, "excluded_suit": suit_id},
+		})
+	actions.append({"id": "character_suit:back", "kind": "CHARACTER_SUIT_BACK"})
+	return actions
 
 func _contract_actions() -> Array:
 	return _typed_content_actions(ContractDefinitionScript, ACTION_PREFIX_CONTRACT, "CONTRACT")
 
 func _typed_content_actions(definition_script: Script, prefix: String, kind: String) -> Array:
 	var actions: Array = []
+	var unlock_policy = meta_progress_coordinator.state if meta_progress_coordinator != null else domain.unlock_policy
 	for definition in domain.content_registry.enumerate():
 		if definition.get_script() == definition_script:
-			if meta_progress_coordinator != null and not meta_progress_coordinator.is_unlocked(kind, definition.content_id):
+			if unlock_policy != null and not unlock_policy.is_unlocked(kind, definition.content_id):
 				continue
 			var details := {"content_id": definition.content_id}
 			if definition is ContractDefinitionScript:
@@ -546,9 +610,17 @@ func _map_actions() -> Array:
 	return actions
 
 func _battle_actions() -> Array:
+	var can_draw: bool = domain.current_battle != null and domain.current_battle.can_draw()
+	var draw_action := {"id": "battle.draw", "kind": "DRAW", "enabled": can_draw}
+	if domain.current_battle != null and not can_draw and domain.current_battle.zones.remaining_hand_capacity() <= 0:
+		draw_action["disabled_reason"] = "HAND_CAPACITY_REACHED"
+	var end_validation = domain.current_battle.validate_end_turn() if domain.current_battle != null else null
+	var end_action := {"id": "battle.end_turn", "kind": "END_TURN", "enabled": end_validation != null and end_validation.is_valid()}
+	if end_validation != null and not end_validation.is_valid():
+		end_action["disabled_reason"] = LocalizationCatalogScript.text("UI_RC8_PLAY_REQUIRED") if end_validation.code == "PLAY_REQUIRED" else LocalizationCatalogScript.word_text("UNAVAILABLE")
 	var actions: Array = [
-		{"id": "battle.draw", "kind": "DRAW"},
-		{"id": "battle.end_turn", "kind": "END_TURN"},
+		draw_action,
+		end_action,
 	]
 	if domain.current_battle == null:
 		return actions
@@ -578,13 +650,14 @@ func _battle_actions() -> Array:
 			})
 	var combat_state = domain.current_battle.combat_state
 	var can_manipulate_tiles: bool = combat_state.draw_actions_used_this_turn > 0 and not combat_state.tile_manipulation_used_this_draw
+	for tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
+		if domain.current_battle.validate_discard_tile(str(tile.instance_id)).is_valid():
+			actions.append({"id": "battle.discard:" + str(tile.instance_id), "kind": "DISCARD", "target_id": str(tile.instance_id), "details": {"tile_id": tile.definition_id, "instance_id": tile.instance_id}})
 	if can_manipulate_tiles:
 		for tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
 			var tile_details := {"tile_id": tile.definition_id, "instance_id": tile.instance_id}
 			if domain.current_battle.validate_store_tile(str(tile.instance_id)).is_valid():
 				actions.append({"id": "battle.store:" + str(tile.instance_id), "kind": "RESERVE", "target_id": str(tile.instance_id), "details": tile_details.duplicate(true)})
-			if domain.current_battle.validate_discard_tile(str(tile.instance_id)).is_valid():
-				actions.append({"id": "battle.discard:" + str(tile.instance_id), "kind": "DISCARD", "target_id": str(tile.instance_id), "details": tile_details.duplicate(true)})
 		for hand_tile in domain.current_battle.zones.contents(TileZoneScript.HAND):
 			for reserve_tile in domain.current_battle.zones.contents(TileZoneScript.RESERVE):
 				if not domain.current_battle.validate_swap_reserve_tiles(str(hand_tile.instance_id), str(reserve_tile.instance_id)).is_valid():
@@ -616,6 +689,14 @@ func _battle_actions() -> Array:
 			details["interpretation_count"] = int(interpretation_counts[indexed_hand_type])
 			actions.append({"id": "battle.complete:" + str(interpretation.interpretation_id), "kind": "COMPLETE_HAND", "target_id": str(interpretation.interpretation_id), "details": details})
 	return actions
+
+func hand_play_action_descriptor(instance_ids: Array) -> Dictionary:
+	if domain == null or domain.current_battle == null or instance_ids.size() < 2 or not domain.current_battle.validate_play_hand_tiles(instance_ids).is_valid():
+		return {}
+	return {"id": "battle.play_selection", "kind": "PLAY_HAND", "details": {"instance_ids": instance_ids.duplicate()}}
+
+func play_hand_tiles(instance_ids: Array):
+	return submit(PlayHandTilesCommandScript.new(_next_command_id("presentation.play_hand"), instance_ids))
 
 func _battle_technique_actions(battle) -> Array:
 	var actions: Array = []
@@ -666,6 +747,17 @@ func _owned_technique_ids(battle) -> Array[String]:
 
 func _reward_actions() -> Array:
 	var actions: Array = []
+	if not _selected_reward_option_id.is_empty() and domain.state.reward_draft != null:
+		var option = domain.state.reward_draft.option_by_id(_selected_reward_option_id)
+		if option != null:
+			var response: Dictionary = domain.reward_target_choices(option.option_id)
+			for choice in response.get("choices", []):
+				var details: Dictionary = option.to_dictionary()
+				details.merge(choice, true)
+				details["target_count"] = mini(int(choice.get("target_limit", 2)), choice.get("eligible_instance_ids", []).size())
+				actions.append({"id": "reward:target:%s:%s" % [option.option_id, choice.tile_id], "kind": "REWARD_TARGET", "target_id": option.option_id, "target_tile_id": choice.tile_id, "draft_id": domain.state.reward_draft.draft_id, "details": details})
+			actions.append({"id": "reward:target:back", "kind": "REWARD_TARGET_BACK"})
+			return actions
 	if domain.state.phase == RunPhaseScript.REWARD_CHOICE and domain.state.reward_draft != null:
 		for option in domain.state.reward_draft.options:
 			actions.append({"id": ACTION_PREFIX_REWARD + option.option_id, "kind": "REWARD", "target_id": option.option_id, "draft_id": domain.state.reward_draft.draft_id, "details": option.to_dictionary()})
@@ -692,7 +784,8 @@ func _reward_actions() -> Array:
 func _shop_actions() -> Array:
 	var actions: Array = []
 	for offer in domain.state.shop_state.offers:
-		actions.append({"id": ACTION_PREFIX_SHOP_BUY + offer.offer_id, "kind": "SHOP_OFFER", "target_id": offer.offer_id, "entry_id": domain.state.shop_state.entry_id, "details": offer.to_dictionary()})
+		var details: Dictionary = offer.to_dictionary()
+		actions.append({"id": ACTION_PREFIX_SHOP_BUY + offer.offer_id, "kind": "SHOP_OFFER", "target_id": offer.offer_id, "entry_id": domain.state.shop_state.entry_id, "details": details, "enabled": PlayerActionTextScript.shop_offer_has_effect(details), "disabled": not PlayerActionTextScript.shop_offer_has_effect(details)})
 	if domain.state.shop_state.refreshes_remaining > 0:
 		actions.append({"id": "shop.refresh", "kind": "SHOP_REFRESH", "entry_id": domain.state.shop_state.entry_id})
 	actions.append({"id": "shop.back", "kind": "SHOP_EXIT"})
@@ -718,7 +811,12 @@ func _workshop_actions() -> Array:
 				if _workshop_target_has_legal_choice(_selected_workshop_service_id, tile_instance):
 					_append_workshop_target_choice(actions, _selected_workshop_service_id, tile_instance)
 		else:
+			var seen_types: Dictionary = {}
 			for tile_instance in domain.state.tile_pool.tile_instances:
+				if _selected_workshop_service_id == "REMOVE_PAIR":
+					if seen_types.has(tile_instance.definition_id) or not _workshop_action_is_valid(_selected_workshop_service_id, tile_instance.instance_id):
+						continue
+					seen_types[tile_instance.definition_id] = true
 				_append_workshop_command_action(actions, _selected_workshop_service_id, tile_instance)
 		_append_workshop_back_action(actions)
 		return actions
@@ -848,6 +946,13 @@ func _workshop_details(service_id: String, tile_instance, value_id: String = "",
 	}
 	if validation != null:
 		result["price"] = int(validation.details.get("price", 0))
+		if service_id == "REMOVE_PAIR":
+			result.merge(validation.details, true)
+			result["affected_tiles"] = []
+			for instance_id in validation.details.get("instance_ids", []):
+				var affected = _workshop_tile_instance(str(instance_id))
+				if affected != null:
+					result.affected_tiles.append({"tile_id": affected.definition_id, "instance_id": affected.instance_id, "copy_label": battle_tile_copy_label(affected.instance_id), "modifier_ids": domain.state.build_ownership.persistent_tile_modifier_state.get(affected.instance_id, []).duplicate()})
 	return result
 
 func _append_workshop_back_action(actions: Array) -> void:
@@ -860,6 +965,9 @@ func _workshop_tile_instance(instance_id: String):
 	return null
 
 func _workshop_selection_result(message: String) -> Dictionary:
+	return _presentation_selection_result(message)
+
+func _presentation_selection_result(message: String) -> Dictionary:
 	_set_feedback(message)
 	_refresh([])
 	return {"accepted": true, "status": "PRESENTATION_SELECTION", "events": []}
@@ -894,7 +1002,9 @@ func _command_for_action(action_id: String):
 	var command_id := _next_command_id("presentation.%s" % action_id.replace(":", "."))
 	var target_id := str(action.get("target_id", ""))
 	match action.get("kind", ""):
+		"REWARD_TARGET": return ChooseRewardCommandScript.new(command_id, target_id, str(action.get("draft_id", "")), "", "", false, str(action.get("target_tile_id", "")))
 		"CHARACTER": return ChooseCharacterCommandScript.new(command_id, target_id)
+		"CHARACTER_SUIT": return ChooseCharacterCommandScript.new(command_id, str(action.get("character_id", "")), "", "", false, str(action.get("excluded_suit", "")))
 		"CONTRACT": return ChooseContractCommandScript.new(command_id, target_id)
 		"MAP_NODE": return SelectMapNodeCommandScript.new(command_id, target_id)
 		"DRAW": return DrawCommandScript.new(command_id)

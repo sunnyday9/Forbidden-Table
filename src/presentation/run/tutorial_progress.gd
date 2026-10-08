@@ -71,9 +71,9 @@ static func from_dictionary(data: Dictionary):
 func _event_completes_current_step(event_type: String) -> bool:
 	match current_step_id:
 		DRAW_PATTERN_PARTIAL:
-			return event_type in [DomainEventScript.TILE_DRAWN, DomainEventScript.PATTERN_SETTLED]
+			return event_type == DomainEventScript.PATTERN_SETTLED
 		TP_CORE_TECHNIQUE:
-			return event_type == DomainEventScript.TP_CHANGED
+			return event_type == DomainEventScript.TECHNIQUE_USED
 		RESERVE_INTEGRITY:
 			return event_type in [DomainEventScript.RESERVE_STORED, DomainEventScript.RESERVE_SWAPPED, DomainEventScript.INTEGRITY_CHANGED]
 		YAKU_COMPLETE_HAND:

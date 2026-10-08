@@ -8,6 +8,7 @@ const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pat
 const SettleCompleteHandCommandScript = preload("res://src/domain/commands/settle_complete_hand_command.gd")
 const StoreTileCommandScript = preload("res://src/domain/commands/store_tile_command.gd")
 const DiscardTileCommandScript = preload("res://src/domain/commands/discard_tile_command.gd")
+const PlayHandTilesCommandScript = preload("res://src/domain/commands/play_hand_tiles_command.gd")
 const UseTechniqueCommandScript = preload("res://src/domain/commands/use_technique_command.gd")
 const SwapReserveTileCommandScript = preload("res://src/domain/commands/swap_reserve_tile_command.gd")
 const ChooseCharacterCommandScript = preload("res://src/domain/commands/choose_character_command.gd")
@@ -67,6 +68,8 @@ static func from_record(record):
 				record.target_id,
 				record.preview,
 			)
+		"PlayHandTiles":
+			return PlayHandTilesCommandScript.new(record.command_id, payload.get("instance_ids", []), record.actor_id, record.target_id, record.preview)
 		"UseTechnique":
 			return UseTechniqueCommandScript.new(
 				record.command_id,
@@ -85,13 +88,13 @@ static func from_record(record):
 				record.preview,
 			)
 		"ChooseCharacter":
-			return ChooseCharacterCommandScript.new(record.command_id, str(payload.get("character_id", "")), record.actor_id, record.target_id, record.preview)
+			return ChooseCharacterCommandScript.new(record.command_id, str(payload.get("character_id", "")), record.actor_id, record.target_id, record.preview, str(payload.get("excluded_suit", "")))
 		"ChooseContract":
 			return ChooseContractCommandScript.new(record.command_id, str(payload.get("contract_id", "")), record.actor_id, record.target_id, record.preview)
 		"SelectMapNode":
 			return SelectMapNodeCommandScript.new(record.command_id, str(payload.get("node_id", "")), record.actor_id, record.target_id, record.preview)
 		"ChooseReward":
-			return ChooseRewardCommandScript.new(record.command_id, str(payload.get("option_id", "")), str(payload.get("draft_id", "")), record.actor_id, record.target_id, record.preview)
+			return ChooseRewardCommandScript.new(record.command_id, str(payload.get("option_id", "")), str(payload.get("draft_id", "")), record.actor_id, record.target_id, record.preview, str(payload.get("target_tile_id", "")))
 		"BuyShopOffer":
 			return BuyShopOfferCommandScript.new(record.command_id, str(payload.get("offer_id", "")), str(payload.get("entry_id", "")), record.actor_id, record.target_id, record.preview)
 		"RefreshShop":

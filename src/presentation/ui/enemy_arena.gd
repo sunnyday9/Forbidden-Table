@@ -356,16 +356,15 @@ func _apply_panel_surface(panel: PanelContainer, surface: String, horizontal_pad
 
 
 func _update_label_theme() -> void:
-	var wide := _available_layout_width() >= 1200.0
-	_style_label(_enemy_name_label, 20.0 if wide else 16.0, "text", true)
-	_style_label(_hp_label, 11.0 if wide else 9.0, "muted")
-	_style_label(_intent_label, 16.0 if wide else 11.0, "brass", true)
-	_style_label(_intent_detail, 14.0 if wide else 10.0, "text")
-	_style_label(_intent_timing, 12.0 if wide else 9.0, "focus", true)
-	_style_label(_pressure_label, 12.0 if wide else 9.5, "text", true)
-	_style_label(_stability_value, 12.0 if wide else 9.5, "focus", true)
-	_style_label(_wall_count, 12.0 if wide else 9.5, "text", true)
-	_style_label(_recent_action_label, 12.0 if wide else 9.5, "success")
+	_style_label(_enemy_name_label, "heading", "text", true)
+	_style_label(_hp_label, "caption", "muted")
+	_style_label(_intent_label, "body", "brass", true)
+	_style_label(_intent_detail, "secondary", "text")
+	_style_label(_intent_timing, "caption", "focus", true)
+	_style_label(_pressure_label, "secondary", "text", true)
+	_style_label(_stability_value, "secondary", "focus", true)
+	_style_label(_wall_count, "secondary", "text", true)
+	_style_label(_recent_action_label, "secondary", "success")
 
 	_apply_bar_style(_enemy_health_bar, "error", 4.0)
 	_apply_bar_style(_pressure_bar, "brass", 4.0)
@@ -380,10 +379,10 @@ func _update_label_theme() -> void:
 	_recent_action_scroll.get_v_scroll_bar().mouse_filter = Control.MOUSE_FILTER_STOP
 
 
-func _style_label(label: Label, base_size: float, color_token: String, medium: bool = false) -> void:
+func _style_label(label: Label, role: String, color_token: String, medium: bool = false) -> void:
 	if label == null:
 		return
-	label.add_theme_font_size_override("font_size", roundi(base_size * _ui_scale))
+	label.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for(role, _ui_scale))
 	label.add_theme_color_override("font_color", ForbiddenThemeScript.color(color_token))
 	var font: Font = theme.get_font("font", "Button" if medium else "Label")
 	if font != null:

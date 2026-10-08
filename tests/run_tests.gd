@@ -53,6 +53,7 @@ const Stage4LocalizationTest = preload("res://tests/stage4_localization_test.gd"
 const Stage4OnboardingFlowTest = preload("res://tests/stage4_onboarding_flow_test.gd")
 const Stage4AccessibilityTest = preload("res://tests/stage4_accessibility_test.gd")
 const Stage45UiTest = preload("res://tests/stage45_ui_test.gd")
+const GuidedSampleTest = preload("res://tests/guided_sample_test.gd")
 const TestSuiteDispatch = preload("res://tests/test_suite_dispatch.gd")
 const TestRunnerDispatchTest = preload("res://tests/test_runner_dispatch_test.gd")
 
@@ -63,7 +64,10 @@ func _run_tests() -> void:
 	# Test presentation is independent of the player's saved preferences/system locale.
 	TranslationServer.set_locale("en")
 	var test_preferences = root.get_node_or_null("PresentationPrefs")
+	var isolated_preferences_path := "user://test_runner_preferences_%s_%s.cfg" % [OS.get_process_id(), Time.get_ticks_usec()]
 	if test_preferences != null:
+		# UI tests may exercise Apply. Keep those writes away from the player's file.
+		test_preferences.config_path = isolated_preferences_path
 		test_preferences.locale = "en"
 		test_preferences.ui_scale = 1.0
 		test_preferences.presentation_mode = "NORMAL"
@@ -125,15 +129,35 @@ func _run_tests() -> void:
 	var stage4_onboarding_flow_only := "--stage4-onboarding-flow" in test_arguments
 	var stage4_accessibility_only := "--stage4-accessibility" in test_arguments
 	var stage45_ui_only := "--stage45-ui" in test_arguments
+	var guided_sample_only := "--guided-sample" in test_arguments
 	var runner_dispatch_only := "--runner-dispatch" in test_arguments
+	var starting_rules_only := "--starting-rules" in test_arguments
+	var discard_rewards_only := "--discard-rewards" in test_arguments
 	var focused_test_requested := (
+		starting_rules_only or discard_rewards_only or
 		content_registry_only or rng_only or tile_zones_only or draw_actions_only or patterns_only
 		or complete_hands_only or settlements_only or scores_only or combat_conversion_only
 		or settlement_turn_only or combat_state_only or battle_scene_only or stage0_exit_review_only
-		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_simulation_coverage_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or stage4_localization_only or stage4_onboarding_flow_only or stage4_accessibility_only or stage45_ui_only or runner_dispatch_only
+		or domain_commands_only or resolution_queue_only or effects_only or lifecycle_only or reserve_integrity_only or complete_hand_settlement_only or yaku_progress_only or draw_resolver_only or intent_graph_only or replay_only or run_replay_only or phase_2_foundations_only or run_domain_only or map_only or battle_integration_only or boss_rule_breaker_reward_only or elite_reward_only or reward_economy_only or shop_workshop_only or events_only or contamination_only or content_catalog_only or persistence_only or presentation_only or onboarding_only or stage2_exit_review_only or alpha_simulation_only or alpha_simulation_coverage_only or alpha_fixed_benchmark_only or alpha_gate_corpus_resume_only or run_scene_only or meta_progress_only or character_passive_only or run_summary_only or alpha_contract_effects_only or build_effects_only or stage4_content_only or stage4_localization_only or stage4_onboarding_flow_only or stage4_accessibility_only or stage45_ui_only or guided_sample_only or runner_dispatch_only
 	)
 	var selected_suite_ids := TestSuiteDispatch.select_suite_ids(test_arguments, focused_test_requested)
 	var failures: Array[String] = []
+	if discard_rewards_only or not focused_test_requested:
+		for rules_suite in ["res://tests/discard_capacity_rules_test.gd", "res://tests/discard_tile_scorer_test.gd", "res://tests/rc7_reward_rules_regression_test.gd", "res://tests/rc7_reward_ui_regression_test.gd"]:
+			var rules_script: Script = load(rules_suite) as Script
+			if rules_script == null or not rules_script.can_instantiate():
+				failures.append("Discard/reward rules suite failed to load: " + rules_suite)
+			else:
+				failures.append_array(await rules_script.new().run())
+		print("RC7_DISCARD_REWARDS_REPORT modules=4 failures=%d" % failures.size())
+	if starting_rules_only or not focused_test_requested:
+		for rules_suite in ["res://tests/starting_pool_rules_regression_test.gd", "res://tests/starting_hand_limit_regression_test.gd", "res://tests/rc6_starting_hand_rules_test.gd"]:
+			var rules_script: Script = load(rules_suite) as Script
+			if rules_script == null or not rules_script.can_instantiate():
+				failures.append("Starting rules suite failed to load: " + rules_suite)
+			else:
+				failures.append_array(await rules_script.new().run())
+		print("RC6_STARTING_RULES_REPORT modules=3 failures=%d" % failures.size())
 	if not focused_test_requested or runner_dispatch_only:
 		failures.append_array(TestRunnerDispatchTest.new().run())
 	if not focused_test_requested:
@@ -254,9 +278,18 @@ func _run_tests() -> void:
 
 	if selected_suite_ids.has("stage45-ui"):
 		failures.append_array(await Stage45UiTest.new().run())
+	if selected_suite_ids.has("guided-sample"):
+		failures.append_array(await GuidedSampleTest.new().run())
+
+	if FileAccess.file_exists(isolated_preferences_path):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(isolated_preferences_path))
 
 	if failures.is_empty():
-		if content_registry_only:
+		if starting_rules_only:
+			print("PASS: RC6 starting pool and Hand rules")
+		elif discard_rewards_only:
+			print("PASS: RC7 discard, reward and UI rules")
+		elif content_registry_only:
 			print("PASS: content registry tests")
 		elif rng_only:
 			print("PASS: RNG stream tests")
@@ -344,6 +377,8 @@ func _run_tests() -> void:
 			print("PASS: Stage 4 scripted onboarding and two-Act Run UX flow")
 		elif stage45_ui_only:
 			print("PASS: Stage 4.5 UI, bilingual preferences, Run journey, and Battle tests")
+		elif guided_sample_only:
+			print("PASS: isolated Guided Sample lifecycle, action-gating, and persistence tests")
 		elif stage4_accessibility_only:
 			print("PASS: Stage 4 scripted accessibility checklist")
 		elif persistence_only:

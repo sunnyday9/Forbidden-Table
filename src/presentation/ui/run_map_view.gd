@@ -117,7 +117,7 @@ func _add_map_node(node_id: String) -> void:
 	var visible_payload: String = _map_state.visible_payload_id(node_id)
 	var primary := str(_pretty_words.call(str(definition.node_kind))) if _pretty_words.is_valid() else str(definition.node_kind)
 	if not visible_payload.is_empty() and _pretty_id.is_valid():
-		primary = str(_pretty_id.call(visible_payload))
+		primary += " · " + str(_pretty_id.call(visible_payload))
 	var status := _node_status(node_id, action)
 	var status_for_tooltip := _node_status_for_tooltip(node_id, action)
 	button.text = ""
@@ -138,7 +138,7 @@ func _add_map_node(node_id: String) -> void:
 	map_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	map_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	map_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	map_label.add_theme_font_size_override("font_size", roundi(14.0 * _ui_scale))
+	map_label.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("body", _ui_scale))
 	button.add_child(map_label)
 	button.accessibility_name = "%s, %s" % [primary, status_for_tooltip]
 	_node_controls[node_id] = button

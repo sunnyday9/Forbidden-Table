@@ -1,6 +1,27 @@
 class_name TileFaceButton
 extends Button
 
+signal hand_reorder_requested(source_instance_id: String, target_instance_id: String, after: bool)
+var hand_order_owner_id := 0
+
+func _get_drag_data(_at_position: Vector2):
+	if hand_order_owner_id == 0:
+		return null
+	var preview := TextureRect.new()
+	preview.texture = face_rect.texture
+	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	preview.custom_minimum_size = Vector2(63.0, 96.0)
+	set_drag_preview(preview)
+	return {"kind": "hand_tile_order", "owner": hand_order_owner_id, "instance_id": tile_instance_id}
+
+func _can_drop_data(_at_position: Vector2, data) -> bool:
+	return hand_order_owner_id != 0 and data is Dictionary and str(data.get("kind", "")) == "hand_tile_order" and int(data.get("owner", 0)) == hand_order_owner_id and str(data.get("instance_id", "")) != tile_instance_id
+
+func _drop_data(at_position: Vector2, data) -> void:
+	if _can_drop_data(at_position, data):
+		hand_reorder_requested.emit(str(data.instance_id), tile_instance_id, at_position.x > size.x * 0.5)
+
 const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.gd")
 
 const MIN_HIT_WIDTH := 44.0
@@ -21,6 +42,8 @@ var selected_outline: Panel
 var focus_outline: Panel
 var status_marker: String = ""
 var status_badge: Label
+var _configured_base_height := SMALL_HEIGHT
+var _status_badge_face_offset := -TILE_INSET
 static var _outline_cache: Dictionary = {}
 
 
@@ -57,6 +80,7 @@ func configure(tile: Dictionary, is_selected: bool = false, large: bool = false)
 		maxf(MIN_HIT_WIDTH, LARGE_WIDTH if large else MIN_HIT_WIDTH),
 		LARGE_HEIGHT if large else SMALL_HEIGHT,
 	)
+	_configured_base_height = custom_minimum_size.y
 	name = "TileFaceButton" if tile_instance_id.is_empty() else "Tile_%s" % tile_instance_id
 	set_meta("tile_definition_id", tile_definition_id)
 	set_meta("tile_instance_id", tile_instance_id)
@@ -67,10 +91,7 @@ func configure(tile: Dictionary, is_selected: bool = false, large: bool = false)
 	status_badge.text = status_marker
 	status_badge.visible = not status_marker.is_empty()
 	status_badge.tooltip_text = tooltip_text
-	# Reserve a separate strip for marks; never paint over the Mahjong face.
-	if status_badge.visible:
-		custom_minimum_size.y += 18.0
-	face_rect.offset_bottom = -21.0 if status_badge.visible else -TILE_INSET
+	_refresh_status_badge_layout()
 	_refresh_visual_state()
 
 
@@ -133,18 +154,31 @@ func _ensure_visual_children() -> void:
 		status_badge.offset_right = -TILE_INSET
 		status_badge.offset_top = -21.0
 		status_badge.offset_bottom = -TILE_INSET
-		# This mark scales with the fixed tile art; the full inspector uses UI scale.
-		status_badge.add_theme_font_size_override("font_size", 12)
 		status_badge.add_theme_color_override("font_color", ForbiddenThemeScript.color("text"))
 		status_badge.visible = false
 		add_child(status_badge)
+	_refresh_status_badge_layout()
+
+
+func _refresh_status_badge_layout() -> void:
+	if status_badge == null:
+		return
+	var ui_scale := ForbiddenThemeScript.ui_scale_for(self)
+	var font_size := ForbiddenThemeScript.font_size_for("caption", ui_scale)
+	status_badge.add_theme_font_size_override("font_size", font_size)
+	var strip_height := float(font_size) + 6.0 * ui_scale
+	status_badge.offset_top = -(strip_height + TILE_INSET)
+	status_badge.offset_bottom = -TILE_INSET
+	_status_badge_face_offset = -(strip_height + TILE_INSET) if status_badge.visible else -TILE_INSET
+	custom_minimum_size.y = _configured_base_height + (strip_height if status_badge.visible else 0.0)
+	face_rect.offset_bottom = _status_badge_face_offset
 
 
 func _refresh_visual_state() -> void:
 	if face_rect != null and selection_lift:
 		var lift := 6.0 if selected else 0.0
 		face_rect.offset_top = TILE_INSET + 6.0 - lift
-		face_rect.offset_bottom = (-21.0 if status_badge.visible else -TILE_INSET) - lift
+		face_rect.offset_bottom = _status_badge_face_offset - lift
 	if selected_outline != null:
 		selected_outline.visible = selected
 	if focus_outline != null:

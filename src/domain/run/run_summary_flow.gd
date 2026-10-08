@@ -7,7 +7,7 @@ const DomainEventScript = preload("res://src/domain/events/domain_event.gd")
 const LifecycleResolverScript = preload("res://src/domain/effects/lifecycle_resolver.gd")
 const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 
-const DETAIL_KEYS := ["act_index", "encounter_id", "gold", "reward_option_id", "rule_breaker_id"]
+const DETAIL_KEYS := ["act_index", "encounter_id", "gold", "reward_option_id", "rule_breaker_id", "defeat_context"]
 
 var state
 var content_registry
@@ -33,6 +33,8 @@ func enter(outcome: String, reason: String = "", summary_data: Dictionary = {}) 
 			continue
 		complete_summary_data[key] = summary_data[key].duplicate(true) if summary_data[key] is Dictionary or summary_data[key] is Array else summary_data[key]
 	state.terminal_summary.summary_data = complete_summary_data
+	var event_summary_data := complete_summary_data.duplicate(true)
+	event_summary_data.erase("defeat_context")
 	state.phase = RunPhaseScript.RUN_SUMMARY
 	var lifecycle := LifecycleResolverScript.new()
 	var events := lifecycle.advance(state, LifecycleResolverScript.ACT)
@@ -42,7 +44,7 @@ func enter(outcome: String, reason: String = "", summary_data: Dictionary = {}) 
 			"run_id": state.run_id,
 			"outcome": outcome,
 			"reason": reason,
-			"summary_data": complete_summary_data.duplicate(true),
+			"summary_data": event_summary_data,
 		}),
 		_run_phase_event(previous_phase, state.phase),
 	])

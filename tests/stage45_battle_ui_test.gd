@@ -18,12 +18,10 @@ const RunSceneScript = preload("res://scenes/run/run_scene.gd")
 const TileFaceButtonScript = preload("res://src/presentation/ui/tile_face_button.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
-const YakuProgressTextScript = preload("res://src/presentation/ui/yaku_progress_text.gd")
 
 
 func run() -> Array[String]:
 	var failures: Array[String] = []
-	test_yaku_progress_text_contract(failures)
 	var tree := Engine.get_main_loop() as SceneTree
 	assert_true(tree != null, "Battle UI test runs inside SceneTree", failures)
 	if tree == null:
@@ -31,43 +29,40 @@ func run() -> Array[String]:
 	var controller: Object = _battle_controller("stage45.battle-ui", failures)
 	if controller == null:
 		return failures
+	var original_window_size := tree.root.size
+	tree.root.size = Vector2i(960, 540)
 	_prepare_review_finding_fixtures(controller, failures)
-	var label_callable := func(action: Dictionary) -> String: return str(action.get("id", ""))
-	var tooltip_callable := func(action: Dictionary) -> String: return str(action.get("kind", ""))
-	var details_callable := func(action: Dictionary) -> String: return str(action.get("target_id", ""))
+	var label_provider := RunSceneScript.new()
+	label_provider.controller = controller
+	var label_callable := Callable(label_provider, "_action_label")
+	var tooltip_callable := Callable(label_provider, "_action_tooltip")
+	var details_callable := Callable(label_provider, "_action_details_text")
 	var view := BattleViewScript.new()
 	view.set_external_preferences_owner()
 	view.configure(controller, label_callable, tooltip_callable, details_callable)
 	tree.root.add_child(view)
+	view.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	view.size = Vector2(960.0, 540.0)
 	await tree.process_frame
 	view.render()
 	await tree.process_frame
-	await test_wide_viewport_places_table_and_actions_side_by_side(view, tree, failures)
+	await test_play_controls_stay_above_hand_at_compact_viewport(view, controller, tree, failures)
 	await test_critical_battle_rails_stay_pinned_while_table_scrolls(view, tree, failures)
 
 	assert_true(controller.domain.state.phase == RunPhaseScript.BATTLE, "BattleView is attached to the live Run battle", failures)
 	var initial_draw_button := view.action_button("battle.draw")
 	var action_panel := view.find_child("BattleActions", true, false) as Control
+	var target_action_width := minf(200.0 * float(view.get("_ui_scale")), maxf(148.0 * float(view.get("_ui_scale")), (view.size.x - 16.0 * float(view.get("_ui_scale"))) * 0.34))
 	assert_true(
-		initial_draw_button != null and initial_draw_button.size.x >= 200.0,
-		"Battle action choices retain a readable width (button=%s, action_panel=%s)" % [str(initial_draw_button.size if initial_draw_button != null else Vector2.ZERO), str(action_panel.size if action_panel != null else Vector2.ZERO)],
+		initial_draw_button != null and initial_draw_button.size.x >= target_action_width - 1.0,
+		"Battle action choices use the responsive target width at the current viewport (minimum=%.1f, button=%s, action_panel=%s)" % [target_action_width, str(initial_draw_button.size if initial_draw_button != null else Vector2.ZERO), str(action_panel.size if action_panel != null else Vector2.ZERO)],
 		failures,
 	)
 	assert_true(view.find_child("BattleEnemyHP", true, false) != null, "enemy HP is rendered as an explicit battle fact", failures)
 	assert_true(view.find_child("BattleIntentType", true, false) != null, "typed enemy Intent is rendered", failures)
 	assert_true(view.find_child("BattleResources", true, false) != null, "battle resources are rendered", failures)
-	assert_true(view.find_child("BattleYakuProgress", true, false) != null, "Battle exposes detailed Yaku progress alongside its aggregate count", failures)
-	var local_yaku_progress := view.find_child("YakuLocalProgress_prototype_yaku_sequence_path", true, false) as Label
-	var local_yaku_name := view.find_child("YakuName_prototype_yaku_sequence_path", true, false) as Label
-	var hand_yaku_progress := view.find_child("YakuHandProgress_base_yaku_bamboo_concentration", true, false) as Label
-	assert_true(local_yaku_progress != null, "Yaku progress distinguishes Local Settlement progress", failures)
-	assert_true(local_yaku_progress != null and local_yaku_progress.text == "1/3", "Local Yaku shows formal Hand-only progress", failures)
-	assert_true(local_yaku_name != null and local_yaku_name.text == LocalizationCatalogScript.content_text("prototype.yaku.sequence_path") and local_yaku_name.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART, "full Yaku names remain available without hover through visible wrapping", failures)
-	assert_true(hand_yaku_progress != null, "Yaku progress distinguishes formal Hand progress", failures)
-	assert_true(hand_yaku_progress != null and hand_yaku_progress.text == "3/9", "Hand Yaku reports its formal progress value", failures)
-	var reserve_yaku_potential := view.find_child("YakuReservePotential_prototype_yaku_sequence_path", true, false) as Label
-	assert_true(reserve_yaku_potential != null and reserve_yaku_potential.visible, "Yaku progress shows Reserve potential separately from formal Hand progress", failures)
-	assert_true(reserve_yaku_potential != null and reserve_yaku_potential.text.contains("2/3"), "Reserve Yaku cue shows the distinct potential progress value", failures)
+	assert_true(view.find_child("BattleYakuProgress", true, false) == null, "Battle keeps detailed Yaku rows out of the central play surface", failures)
+	assert_true(view.find_child("YakuLocalGroup", true, false) == null and view.find_child("YakuHandGroup", true, false) == null, "Battle does not render separate Local or Hand Yaku lists", failures)
 	assert_true(view.find_child("BattleHandHeading", true, false) != null, "the current Hand is rendered", failures)
 	assert_true(view.find_child("BattleUnavailableTechnique_base_technique_settlement_focus", true, false) != null, "an owned Technique with unavailable timing remains visible for inspection", failures)
 	var unavailable_technique_reason := view.find_child("BattleTechniqueReason_base_technique_settlement_focus", true, false) as Label
@@ -186,8 +181,7 @@ func run() -> Array[String]:
 		view.render()
 	)
 	if draw_button != null:
-		draw_button.emit_signal("pressed")
-	view.commit_button().emit_signal("pressed")
+		await _press_button_with_key(tree, draw_button, KEY_ENTER)
 	assert_true(requested_ids == ["battle.draw"], "the root Draw action submits exactly one selected battle command", failures)
 	assert_true(root_render_count[0] == 1, "the root renders BattleView once after Draw (count=%d)" % root_render_count[0], failures)
 	assert_true(controller.domain.state.phase == RunPhaseScript.BATTLE, "the accepted Draw keeps the actual Run in Battle", failures)
@@ -218,50 +212,38 @@ func run() -> Array[String]:
 	var action_choice := view.action_button(str(reserve_action.get("id", "")))
 	assert_true(action_choice != null, "the physical tile's Reserve choice is actionable", failures)
 	if action_choice != null:
-		action_choice.emit_signal("pressed")
-		assert_true(view.selected_action_id == str(reserve_action.get("id", "")), "selecting a choice records presentation selection", failures)
-		assert_true(not view.commit_button().disabled, "selected legal choice enables the explicit commit button", failures)
-		assert_true(controller.domain.checkpoint() == checkpoint_before_selection, "selecting a choice does not mutate RunDomain", failures)
 		assert_true(str(action_choice.get_meta("run_action_id", "")) == str(reserve_action.get("id", "")), "choice controls expose the original action id", failures)
-
-	assert_true(view.cancel(), "Back cancels a pending action selection", failures)
-	assert_true(view.selected_action_id.is_empty() and view.commit_button().disabled, "cancelling clears selection without committing", failures)
-	assert_true(controller.domain.checkpoint() == checkpoint_before_selection, "cancelling selection preserves the authoritative checkpoint", failures)
-
-	view.tile_button(instance_id).pressed.emit()
-	action_choice = view.action_button(str(reserve_action.id))
-	if action_choice != null:
 		action_choice.emit_signal("pressed")
-	var selected_action_id := str(reserve_action.get("id", ""))
-	var pending_checkpoint: Dictionary = controller.domain.checkpoint()
-	var pending_replay: Dictionary = controller.domain.rng_snapshot()
-	TranslationServer.set_locale("zh_CN")
-	assert_true(view.set_presentation_preferences("zh_CN", 1.25, "FAST", false, false), "changed locale, scale, and presentation mode update presentation settings", failures)
-	view.render()
-	assert_true(view.selected_action_id == selected_action_id, "locale and scale refresh preserve the pending selection", failures)
-	var chinese_local_yaku_heading := view.find_child("YakuLocalHeading", true, false) as Label
-	assert_true(chinese_local_yaku_heading != null and chinese_local_yaku_heading.text == "局部结算", "the Local Settlement scope label uses the precise Chinese wording", failures)
-	assert_true(controller.domain.checkpoint() == pending_checkpoint, "locale and scale refresh preserve the authoritative checkpoint", failures)
-	assert_true(controller.domain.rng_snapshot() == pending_replay, "locale and scale refresh preserve authoritative RNG state", failures)
-	assert_true(view.set_presentation_preferences("en", 1.5, "INSTANT", true, false), "mode and reduced-motion settings apply", failures)
-	view.render()
-	assert_true(view.selected_action_id == selected_action_id, "mode and reduced-motion refresh preserve the pending selection", failures)
-	assert_true(controller.domain.checkpoint() == pending_checkpoint, "mode and reduced-motion refresh preserve the authoritative checkpoint", failures)
-
-	assert_true(str(view.commit_button().get_meta("run_commit_action_id", "")) == selected_action_id, "commit rail carries the selected stable action id", failures)
-	view.commit_button().emit_signal("pressed")
-	assert_true(requested_ids == ["battle.draw", selected_action_id], "each explicit commit emits exactly one action request", failures)
-	assert_true(root_render_count[0] == 2, "the root renders BattleView once after the tile command (count=%d)" % root_render_count[0], failures)
+	assert_true(requested_ids == ["battle.draw", str(reserve_action.get("id", ""))], "one Reserve action press immediately submits exactly once", failures)
+	assert_true(view.selected_action_id.is_empty(), "direct action activation leaves no pending action selection", failures)
+	assert_true(view.commit_button() != null and not view.commit_button().is_visible_in_tree(), "Battle exposes no visible second Commit step", failures)
+	assert_true(controller.domain.checkpoint() != checkpoint_before_selection, "the accepted Reserve action mutates RunDomain immediately", failures)
+	assert_true(root_render_count[0] == 2, "the root renders BattleView once after the Reserve action (count=%d)" % root_render_count[0], failures)
 	var reserve_ids: Array = controller.domain.current_battle.zones.contents(TileZoneScript.RESERVE).map(func(tile): return str(tile.instance_id))
-	assert_true(reserve_ids.has(instance_id), "accepted commit moves the exact selected copy into Reserve", failures)
+	assert_true(reserve_ids.has(instance_id), "one action press moves the exact selected copy into Reserve", failures)
 	var reserved_face := view.tile_button(instance_id)
 	var reserved_tile = view._find_tile(instance_id)
 	assert_true(reserved_face != null and reserved_face.status_badge != null and reserved_face.status_badge.visible, "integrity status has a visible badge outside the Reserve tile face", failures)
 	assert_true(reserved_tile != null and reserved_face != null and reserved_face.status_marker == str(reserved_tile.integrity), "the Reserve badge exposes current integrity numerically", failures)
-	assert_true(not controller.domain.current_battle.zones.contents(TileZoneScript.HAND).any(func(tile): return str(tile.instance_id) == instance_id), "accepted commit removes that copy from Hand", failures)
-	assert_true(view.selected_action_id.is_empty(), "accepted Domain transition clears the stale action selection", failures)
+	assert_true(not controller.domain.current_battle.zones.contents(TileZoneScript.HAND).any(func(tile): return str(tile.instance_id) == instance_id), "accepted Reserve action removes that copy from Hand", failures)
+	var post_reserve_checkpoint: Dictionary = controller.domain.checkpoint()
+	var post_reserve_replay: Dictionary = controller.domain.rng_snapshot()
+	TranslationServer.set_locale("zh_CN")
+	assert_true(view.set_presentation_preferences("zh_CN", 1.25, "FAST", false, false), "changed locale, scale, and presentation mode update presentation settings", failures)
+	view.render()
+	assert_true(view.selected_action_id.is_empty(), "locale and scale refresh leave no staged action", failures)
+	assert_true(view.find_child("YakuLocalHeading", true, false) == null and view.find_child("YakuHandHeading", true, false) == null, "language and scale refresh do not restore the removed Yaku lists", failures)
+	assert_true(controller.domain.checkpoint() == post_reserve_checkpoint, "locale and scale refresh preserve the authoritative checkpoint", failures)
+	assert_true(controller.domain.rng_snapshot() == post_reserve_replay, "locale and scale refresh preserve authoritative RNG state", failures)
+	assert_true(view.set_presentation_preferences("en", 1.5, "INSTANT", true, false), "mode and reduced-motion settings apply", failures)
+	view.render()
+	assert_true(view.selected_action_id.is_empty(), "mode and reduced-motion refresh leave no staged action", failures)
+	assert_true(controller.domain.checkpoint() == post_reserve_checkpoint, "mode and reduced-motion refresh preserve the authoritative checkpoint", failures)
 
 	var geometry_battle = controller.domain.current_battle
+	if not geometry_battle.validate_end_turn().is_valid():
+		var geometry_play = controller.play_hand_tiles([str(geometry_battle.zones.contents(TileZoneScript.HAND)[0].instance_id)])
+		assert_true(geometry_play.accepted, "layout fixture plays a tile before End Turn", failures)
 	var end_turn_result = controller.confirm("battle.end_turn")
 	assert_true(end_turn_result != null and end_turn_result.accepted, "layout fixture advances to a fresh Draw", failures)
 	_replace_test_hand(geometry_battle, [
@@ -296,8 +278,8 @@ func run() -> Array[String]:
 	await tree.process_frame
 	var complete_button := view.action_button(complete_action_id)
 	assert_true(not complete_action_id.is_empty() and complete_button != null, "the long Complete Hand fixture exposes a selectable action", failures)
-	var stale_discard_tiles: Array = geometry_battle.zones.contents(TileZoneScript.DISCARD)
-	var stale_tile_button: TileFaceButton = view.tile_button(str(stale_discard_tiles[0].instance_id)) if not stale_discard_tiles.is_empty() else null
+	var stale_reserve_tiles: Array = geometry_battle.zones.contents(TileZoneScript.RESERVE)
+	var stale_tile_button: TileFaceButton = view.tile_button(str(stale_reserve_tiles[0].instance_id)) if not stale_reserve_tiles.is_empty() else null
 	assert_true(stale_tile_button != null, "focus-race fixture exposes a physical tile in the action-panel zones", failures)
 	if stale_tile_button != null:
 		stale_tile_button.grab_focus()
@@ -310,34 +292,46 @@ func run() -> Array[String]:
 	assert_true(complete_button != null, "render rebuilds the focused Complete Hand action control", failures)
 	if complete_button != null:
 		complete_button.grab_focus()
-		complete_button.emit_signal("pressed")
 		await tree.process_frame
 		await tree.process_frame
 		await tree.process_frame
 		var focus_scroll := view.find_child("BattleChoiceScroll", true, false) as ScrollContainer
-		assert_true(focus_scroll != null and focus_scroll.get_global_rect().intersects(complete_button.get_global_rect()), "new Complete Hand focus scrolls into view after layout, despite selection revision changes", failures)
+		var debug_action_panel := view.find_child("BattleActions", true, false) as Control
+		var debug_actions_body := view.find_child("BattleActionsContent", true, false) as Control
+		var debug_decision_row := view.find_child("BattleDecisionSurface", true, false) as Control
+		assert_true(focus_scroll != null and focus_scroll.get_global_rect().intersects(complete_button.get_global_rect()), "new Complete Hand focus scrolls into view after layout, despite selection revision changes (view=%s row=%s panel=%s body=%s scroll=%s button=%s focus=%s)" % [str(view.get_global_rect()), str(debug_decision_row.get_global_rect() if debug_decision_row != null else Rect2()), str(debug_action_panel.get_global_rect() if debug_action_panel != null else Rect2()), str(debug_actions_body.get_global_rect() if debug_actions_body != null else Rect2()), str(focus_scroll.get_global_rect() if focus_scroll != null else Rect2()), str(complete_button.get_global_rect()), str(tree.root.gui_get_focus_owner())], failures)
 		var race_inspection := view.find_child("BattleInspectionValue", true, false) as Label
+		var expected_inspection := str(details_callable.call(complete_action))
 		assert_true(tree.root.gui_get_focus_owner() == complete_button, "a deferred old-tile restore cannot steal newer Complete Hand focus", failures)
-		assert_true(view.selected_action_id == complete_action_id and str(view.commit_button().get_meta("run_commit_action_id", "")) == complete_action_id, "the pending Complete Hand choice and commit target survive deferred restoration", failures)
-		assert_true(race_inspection != null and race_inspection.text == str(complete_action.get("target_id", "")), "the inspector stays on the newly focused Complete Hand choice", failures)
-		assert_true(controller.domain.checkpoint() == race_checkpoint and controller.domain.replay_record.commands.size() == race_command_count, "focus restoration and pending selection issue no Run command before Commit", failures)
+		assert_true(view.selected_action_id.is_empty() and not view.commit_button().is_visible_in_tree(), "focusing Complete Hand inspects it without creating a staged or commit action", failures)
+		assert_true(race_inspection != null and race_inspection.text == expected_inspection, "the inspector stays on the newly focused Complete Hand choice using the production localized details", failures)
+		assert_true(controller.domain.checkpoint() == race_checkpoint and controller.domain.replay_record.commands.size() == race_command_count, "focus restoration and inspection issue no Run command", failures)
+	view.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	view.position = Vector2.ZERO
+	view.size = Vector2(960.0, 540.0)
+	await tree.process_frame
+	await tree.process_frame
 	var wide_action_count := 0
+	target_action_width = minf(200.0 * float(view.get("_ui_scale")), maxf(148.0 * float(view.get("_ui_scale")), (view.size.x - 16.0 * float(view.get("_ui_scale"))) * 0.34))
 	for action in controller.action_descriptors():
 		var button := view.action_button(str(action.get("id", "")))
 		if button == null:
 			continue
 		wide_action_count += 1
-		assert_true(button.size.x >= 200.0, "every action kind retains a readable choice width (%s: %s)" % [str(action.get("kind", "")), str(button.size)], failures)
+		assert_true(button.size.x >= target_action_width - 1.0, "every action kind retains its responsive target width (%s: %s, minimum=%.1f)" % [str(action.get("kind", "")), str(button.size), target_action_width], failures)
+		_assert_localized_action_text_fits(button, str(action.get("id", "")), failures)
 	assert_true(wide_action_count >= 3, "turn actions and the chosen complete hand are covered by width checks (%d controls)" % wide_action_count, failures)
+	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	await tree.process_frame
 	assert_true(view.selected_tile_ids().size() == 14, "Complete Hand action requires the selected full physical Hand", failures)
 	var empty_zone_labels := view.find_children("EmptyZone", "Label", true, false)
 	assert_true(not empty_zone_labels.is_empty(), "the layout fixture includes empty-zone guidance", failures)
 	for empty_zone in empty_zone_labels:
 		assert_true((empty_zone as Label).size.x >= 140.0 and not (empty_zone.get_parent() is HFlowContainer), "empty-zone copy wraps in the zone VBox rather than at a one-pixel HFlow width (%s parent=%s size=%s)" % [empty_zone.name, empty_zone.get_parent().get_class(), str((empty_zone as Label).size)], failures)
 	if complete_button != null:
-		view.commit_button().emit_signal("pressed")
-		assert_true(requested_ids.size() == 3 and requested_ids.back() == complete_action_id, "the focused Complete Hand choice submits only after explicit Commit", failures)
-		assert_true(controller.domain.replay_record.commands.size() == race_command_count + 1, "explicit Complete Hand Commit adds exactly one Run command", failures)
+		complete_button.emit_signal("pressed")
+		assert_true(requested_ids.size() == 3 and requested_ids.back() == complete_action_id, "one Complete Hand action press immediately submits exactly once", failures)
+		assert_true(controller.domain.replay_record.commands.size() == race_command_count + 1, "one Complete Hand press adds exactly one Run command", failures)
 
 	var embedded := BattleSceneScript.instantiate()
 	embedded.configure_run(controller, label_callable, tooltip_callable, details_callable)
@@ -348,41 +342,71 @@ func run() -> Array[String]:
 	embedded.queue_free()
 	view.queue_free()
 	await tree.process_frame
+	label_provider.free()
 	TranslationServer.set_locale("en")
+	tree.root.size = original_window_size
 	return failures
 
 
-func test_yaku_progress_text_contract(failures: Array[String]) -> void:
-	assert_true(YakuProgressTextScript.format([], "IN_PROGRESS") == "0", "Yaku progress with no display token uses the neutral fallback", failures)
-	assert_true(YakuProgressTextScript.format(["1"], "IN_PROGRESS") == "0", "Yaku progress without a fraction does not expose an internal stage token", failures)
-	assert_true(YakuProgressTextScript.format(["1/3"], "IN_PROGRESS") == "1/3", "Yaku progress displays the final localized fraction token", failures)
-	assert_true(YakuProgressTextScript.format(["3/3"], "COMPLETE") == "✓", "completed Yaku progress uses the completion mark", failures)
-
-
-func test_wide_viewport_places_table_and_actions_side_by_side(view: Control, tree: SceneTree, failures: Array[String]) -> void:
+func test_play_controls_stay_above_hand_at_compact_viewport(view: Control, controller: Object, tree: SceneTree, failures: Array[String]) -> void:
 	view.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	view.position = Vector2.ZERO
 	view.size = Vector2(960.0, 540.0)
 	await tree.process_frame
 	await tree.process_frame
-	var table := view.find_child("BattleBoardSurface", true, false) as Control
+	var board := view.find_child("BattleBoardSurface", true, false) as Control
 	var action_panel := view.find_child("BattleActions", true, false) as Control
-	var table_rect := table.get_global_rect() if table != null else Rect2()
+	var hand_surface := view.find_child("BattleHandSurface", true, false) as Control
+	var board_rect := board.get_global_rect() if board != null else Rect2()
 	var action_rect := action_panel.get_global_rect() if action_panel != null else Rect2()
-	var side_by_side := (
-		table != null and action_panel != null
-		and table_rect.position.x < action_rect.position.x
-		and table_rect.end.x <= action_rect.position.x + 2.0
-		and table_rect.position.y < action_rect.end.y
-		and table_rect.end.y > action_rect.position.y
-		and table_rect.size.x > action_rect.size.x
+	var hand_rect := hand_surface.get_global_rect() if hand_surface != null else Rect2()
+	var vertical_stack := (
+		board != null and action_panel != null and hand_surface != null
+		and board_rect.position.y < action_rect.position.y
+		and action_rect.end.y <= hand_rect.position.y + 2.0
+		and absf(action_rect.position.x - hand_rect.position.x) <= 2.0
+		and absf(action_rect.size.x - hand_rect.size.x) <= 2.0
 	)
 	assert_true(
-		side_by_side,
-		"960x540 viewport places the wider Battle tile area beside BattleActions (table=%s, actions=%s)" % [str(table_rect), str(action_rect)],
+		vertical_stack,
+		"960x540 viewport places BattleActions directly above the full-width pinned Hand (board=%s, actions=%s, hand=%s)" % [str(board_rect), str(action_rect), str(hand_rect)],
 		failures,
 	)
 	view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	await tree.process_frame
+
+
+func _assert_localized_action_text_fits(button: Button, action_id: String, failures: Array[String]) -> void:
+	var font := button.get_theme_font("font")
+	var font_size := button.get_theme_font_size("font_size")
+	var style := button.get_theme_stylebox("normal")
+	var horizontal_insets := style.get_content_margin(SIDE_LEFT) + style.get_content_margin(SIDE_RIGHT)
+	var vertical_insets := style.get_content_margin(SIDE_TOP) + style.get_content_margin(SIDE_BOTTOM)
+	var text_width := maxf(1.0, button.size.x - horizontal_insets)
+	var text_height := maxf(1.0, button.size.y - vertical_insets)
+	var measured := font.get_multiline_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, text_width, font_size)
+	assert_true(button.text.strip_edges() != "", "localized Battle action %s has visible copy" % action_id, failures)
+	assert_true(button.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART, "localized Battle action %s wraps at word boundaries" % action_id, failures)
+	assert_true(
+		measured.x <= text_width + 1.0 and measured.y <= text_height + 1.0,
+		"localized Battle action copy fits its compact button enclosure (%s text=%s size=%s available=%.1fx%.1f measured=%s font=%d)" % [action_id, button.text, str(button.size), text_width, text_height, str(measured), font_size],
+		failures,
+	)
+
+
+func _press_button_with_key(tree: SceneTree, button: BaseButton, keycode: Key) -> void:
+	button.grab_focus()
+	await tree.process_frame
+	var press := InputEventKey.new()
+	press.keycode = keycode
+	press.physical_keycode = keycode
+	press.pressed = true
+	tree.root.push_input(press)
+	await tree.process_frame
+	var release := InputEventKey.new()
+	release.keycode = keycode
+	release.physical_keycode = keycode
+	tree.root.push_input(release)
 	await tree.process_frame
 
 
@@ -398,10 +422,11 @@ func test_critical_battle_rails_stay_pinned_while_table_scrolls(view: Control, t
 	var receipt_scroll := view.find_child("BattleCriticalReceiptScroll", true, false) as ScrollContainer
 	var commit_button := view.find_child("CommitSelectedButton", true, false) as Control
 	var view_rect := view.get_global_rect()
-	assert_true(table_scroll != null and enemy_intent != null and receipt != null and receipt_scroll != null and commit_button != null, "pinned battle intent, receipt, table scroll, and commit rail are present", failures)
+	assert_true(table_scroll != null and enemy_intent != null and receipt != null and receipt_scroll != null and commit_button != null, "pinned battle intent and receipt, table scroll, and hidden legacy Commit control are present", failures)
 	if table_scroll == null or enemy_intent == null or receipt == null or receipt_scroll == null or commit_button == null:
 		return
-	assert_true(not table_scroll.is_ancestor_of(enemy_intent) and not table_scroll.is_ancestor_of(receipt) and not table_scroll.is_ancestor_of(commit_button), "critical Battle context and commit controls sit outside the scrollable table", failures)
+	assert_true(not commit_button.is_visible_in_tree(), "Battle has no visible extra Commit step", failures)
+	assert_true(not table_scroll.is_ancestor_of(enemy_intent) and not table_scroll.is_ancestor_of(receipt), "critical Battle context sits outside the scrollable table", failures)
 	var previous_receipt_text := receipt.text
 	var previous_receipt_visible := receipt.visible
 	var previous_scroll_visible := receipt_scroll.visible
@@ -413,7 +438,6 @@ func test_critical_battle_rails_stay_pinned_while_table_scrolls(view: Control, t
 	await tree.process_frame
 	var intent_before := enemy_intent.get_global_rect()
 	var receipt_before := receipt_scroll.get_global_rect()
-	var commit_before := commit_button.get_global_rect()
 	var scrollbar := table_scroll.get_v_scroll_bar()
 	var maximum_scroll := int(maxf(0.0, scrollbar.max_value - scrollbar.page))
 	assert_true(maximum_scroll > 0, "the table has independently scrollable decision content at 960x540", failures)
@@ -422,8 +446,7 @@ func test_critical_battle_rails_stay_pinned_while_table_scrolls(view: Control, t
 	await tree.process_frame
 	assert_true(enemy_intent.get_global_rect().is_equal_approx(intent_before), "enemy intent stays pinned while the table scrolls", failures)
 	assert_true(receipt_scroll.get_global_rect().is_equal_approx(receipt_before), "critical settlement receipt stays pinned while the table scrolls", failures)
-	assert_true(commit_button.get_global_rect().is_equal_approx(commit_before), "the only Battle commit control stays pinned while the table scrolls", failures)
-	assert_true(commit_before.position.y >= view_rect.position.y and commit_before.end.y <= view_rect.end.y, "pinned commit control stays inside the visible Battle window", failures)
+	assert_true(not commit_button.is_visible_in_tree(), "table scrolling never reveals a second Commit step", failures)
 	assert_true(intent_before.position.y >= view_rect.position.y and intent_before.end.y <= view_rect.end.y, "pinned enemy intent stays inside the visible Battle window", failures)
 	receipt.text = previous_receipt_text
 	receipt.visible = previous_receipt_visible

@@ -1,6 +1,13 @@
 .godot/
 .cache/
 *.uid
+/dist/
+/.scratch/
+/.codex-worktrees/
+/evidence/
+/graphify-out/
+__pycache__/
+*.py[cod]
 
 # Godot generates locale resources from the checked-in CSV catalogs.
 localization/*.translation

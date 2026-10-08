@@ -1,11 +1,17 @@
 import os
 from pathlib import Path
 import subprocess
+import shutil
 import tempfile
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+def shell_path(path):
+    if os.name != "nt":
+        return str(path)
+    return subprocess.check_output(["cygpath", "-u", str(path)], text=True, encoding="utf-8").strip()
 
 
 class TestWrapperTest(unittest.TestCase):
@@ -26,15 +32,17 @@ class TestWrapperTest(unittest.TestCase):
             )
             engine.chmod(0o755)
             return subprocess.run(
-                ["bash", str(ROOT / "scripts" / "test.sh")],
+                [shutil.which("bash") or "bash", shell_path(ROOT / "scripts" / "test.sh")],
                 env=dict(
                     os.environ,
-                    GODOT_BIN=str(engine),
-                    GODOT_TEST_OUTPUT=str(fixture / "output.txt"),
+                    GODOT_BIN=shell_path(engine),
+                    GODOT_TEST_OUTPUT=shell_path(fixture / "output.txt"),
                     GODOT_TEST_STATUS=str(engine_status),
                 ),
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=20,
             )
 

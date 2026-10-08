@@ -171,6 +171,8 @@ func test_bounded_reward_receipt_footer(failures: Array[String]) -> void:
 		await tree.process_frame
 		for action in scene.controller.action_descriptors():
 			if str(action.kind) == kind:
+				if kind == "CHARACTER" and str(action.get("target_id", "")) != "base.character.sequence":
+					continue
 				_check(scene.controller.confirm(str(action.id)).accepted, "Receipt fixture enters its battle", failures)
 				break
 	await tree.process_frame
@@ -186,11 +188,14 @@ func test_bounded_reward_receipt_footer(failures: Array[String]) -> void:
 		for frame in range(5):
 			await tree.process_frame
 		var rail := scene.find_child("RunActionRail", true, false) as Control
-		var commit := scene._commit_selected_button as Control
+		var back := scene._back_button as Control
 		var scroll := scene.find_child("RunFeedbackScroll", true, false) as ScrollContainer
 		_check(scene._feedback_value.text == receipt, "Long terminal receipt retains all facts at scale %s" % scale, failures)
 		_check(rail.size.y <= 72.0 * scale, "Long terminal receipt keeps its action rail bounded at scale %s (height=%s)" % [scale, rail.size.y], failures)
-		_check(commit.visible and rail.visible and commit.get_global_rect().end.y <= 540.5, "Reward commit control remains in the viewport at scale %s (rect=%s visible=%s scene=%s page=%s root=%s phase=%s)" % [scale, commit.get_global_rect(), commit.is_visible_in_tree(), scene.size, scene._page.size, tree.root.get_visible_rect(), scene.controller.domain.state.phase], failures)
+		_check(back.is_visible_in_tree() and rail.visible and back.get_global_rect().end.y <= 540.5, "Reward navigation remains in the viewport at scale %s (rect=%s visible=%s scene=%s page=%s root=%s phase=%s)" % [scale, back.get_global_rect(), back.is_visible_in_tree(), scene.size, scene._page.size, tree.root.get_visible_rect(), scene.controller.domain.state.phase], failures)
+		var is_summary: bool = str(scene.controller.domain.state.phase) == "RUN_SUMMARY"
+		var legacy_commit := scene.find_child("CommitSelectedButton", true, false) as Control
+		_check((legacy_commit == null or not legacy_commit.is_visible_in_tree()) and scene._summary_acknowledge_button.is_visible_in_tree() == is_summary, "Post-Battle navigation has no visible extra confirmation; Finish Run is visible only on its summary", failures)
 		_check(scroll != null, "Long terminal receipts have a scrollable reading area", failures)
 		if scroll != null:
 			var wheel := InputEventMouseButton.new()

@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Forbidden Table"
-config/version="stage3-alpha-playable-1"
+config/version="1.0.0-mvp.1"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 run/main_scene="res://scenes/run/run_scene.tscn"
 
@@ -18,6 +18,8 @@ PresentationPrefs="*res://src/presentation/localization/presentation_preferences
 
 window/size/viewport_width=960
 window/size/viewport_height=540
+window/size/window_width_override=1280
+window/size/window_height_override=800
 
 [internationalization]
 

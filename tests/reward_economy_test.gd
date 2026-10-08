@@ -218,13 +218,21 @@ func test_modified_tile_selection_updates_persistent_modifier_state(failures: Ar
 	var domain := _victorious_domain("reward.modified-tile")
 	var draft = domain.state.reward_draft
 	var modified_tile = _find_option(draft, RewardOption.MODIFIED_TILE)
-	assert_true(modified_tile != null, "a run with a Tile Pool and modifier content can draft Modified Tile", failures)
+	assert_true(modified_tile != null and modified_tile.metadata.get("target_mode", "") == "CHOOSE_TYPE", "a run with a Tile Pool and modifier content can draft a target-type Modified Tile", failures)
 	if modified_tile == null:
 		return
-	var result = domain.execute(ChooseRewardCommand.new("reward.modified-tile.choose", modified_tile.option_id, draft.draft_id))
+	var target_choices: Dictionary = domain.reward_target_choices(modified_tile.option_id)
+	assert_true(bool(target_choices.get("accepted", false)) and not target_choices.get("choices", []).is_empty(), "the targeted modifier exposes an owned tile type", failures)
+	if target_choices.get("choices", []).is_empty():
+		return
+	var target_tile_id := str(target_choices.choices[0].tile_id)
+	var expected_targets: Array = target_choices.choices[0].eligible_instance_ids.duplicate()
+	var result = domain.execute(ChooseRewardCommand.new("reward.modified-tile.choose", modified_tile.option_id, draft.draft_id, "", "", false, target_tile_id))
 
 	assert_true(result.accepted, "Modified Tile is accepted during Reward Choice", failures)
-	assert_true(domain.state.build_ownership.persistent_tile_modifier_state.get(modified_tile.target_instance_id, []).has(modified_tile.modifier_id), "Modified Tile records the stable modifier ID on the target instance", failures)
+	assert_true(result.data.get("target_instance_ids", []) == expected_targets, "Modified Tile records the exact affected physical instances in result data", failures)
+	for target_instance_id in expected_targets:
+		assert_true(domain.state.build_ownership.persistent_tile_modifier_state.get(target_instance_id, []).has(modified_tile.modifier_id), "Modified Tile records the stable modifier ID on every selected target instance", failures)
 	assert_true(domain.state.phase == RunPhase.MAP_CHOICE, "accepted Modified Tile returns the run to Map Choice", failures)
 
 func test_invalid_selection_is_atomic(failures: Array[String]) -> void:

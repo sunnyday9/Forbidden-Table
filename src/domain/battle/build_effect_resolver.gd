@@ -7,7 +7,6 @@ const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectContextScript = preload("res://src/domain/effects/effect_context.gd")
 const EffectResolutionResultScript = preload("res://src/domain/effects/effect_resolution_result.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
-const GainTPOperationScript = preload("res://src/domain/effects/operations/gain_tp_operation.gd")
 const ActiveEffectInstanceScript = preload("res://src/domain/effects/active_effect_instance.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
@@ -17,9 +16,8 @@ const TechniqueDefinitionScript = preload("res://src/content/definitions/techniq
 const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const RunModifierEffectResolverScript = preload("res://src/domain/run/run_modifier_effect_resolver.gd")
-
-const RULE_MEMORY_RELIC_ID := "base.relic.rule_memory"
-const RULE_MEMORY_MODIFIER_ID := "content.base.relic.rule_memory"
+const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
+const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 
 var _content_registry
 var _run_modifier_effect_resolver
@@ -28,7 +26,7 @@ func _init(content_registry = null) -> void:
 	_content_registry = content_registry
 	_run_modifier_effect_resolver = RunModifierEffectResolverScript.new()
 
-func resolve_battle_entry(run_state, battle) -> Dictionary:
+func resolve_battle_entry(run_state, battle, hand_capacity_limit: int = TileZoneContainerScript.MAX_HAND_SIZE) -> Dictionary:
 	if run_state == null or battle == null or battle.combat_state == null:
 		return {"accepted": false, "reason": "MISSING_BATTLE_CONTEXT", "events": []}
 	var context = _context_for_battle(run_state, battle)
@@ -43,18 +41,9 @@ func resolve_battle_entry(run_state, battle) -> Dictionary:
 	))
 	effects.append_array(_owned_passive_technique_effects(run_state.build_ownership.run_technique_ids))
 	effects.append_array(_run_modifier_effect_resolver.battle_entry_effects(run_state))
-	var rule_memory_amount := _rule_memory_entry_amount(run_state, effects)
-	if rule_memory_amount > 0:
-		effects.append(EffectScript.new(
-			"run_modifier.%s" % RULE_MEMORY_MODIFIER_ID,
-			EffectTriggerScript.new(EffectTriggerScript.MANUAL),
-			[],
-			[],
-			[GainTPOperationScript.new(rule_memory_amount)],
-		))
 	if effects.is_empty():
 		return {"accepted": true, "events": []}
-	var selection := _select_valid_effects(effects, context)
+	var selection := _select_valid_effects(effects, context, hand_capacity_limit)
 	if not selection.get("accepted", false):
 		return {"accepted": false, "reason": str(selection.get("reason", "BUILD_EFFECT_REJECTED")), "effect_id": str(selection.get("effect_id", "")), "events": []}
 	effects = selection.get("effects", [])
@@ -172,18 +161,32 @@ func _owned_passive_technique_effects(content_ids: Array) -> Array:
 				effects.append(effect)
 	return effects
 
-func _select_valid_effects(effects: Array, context) -> Dictionary:
+func _select_valid_effects(effects: Array, context, hand_capacity_limit: int = TileZoneContainerScript.MAX_HAND_SIZE) -> Dictionary:
 	var selected: Array = []
+	var selected_hand_demand := 0
+	var hand_capacity_remaining: int = 0
+	if context != null and context.zones != null and context.zones.has_method("remaining_hand_capacity"):
+		var hard_capacity_remaining: int = int(context.zones.remaining_hand_capacity())
+		var opening_limit: int = clampi(hand_capacity_limit, 0, TileZoneContainerScript.MAX_HAND_SIZE)
+		var opening_capacity_remaining: int = maxi(0, opening_limit - int(context.zones.size(TileZoneScript.HAND)))
+		hand_capacity_remaining = mini(hard_capacity_remaining, opening_capacity_remaining)
 	for effect in effects:
 		if not effect.has_method("validate_in_context"):
 			return {"accepted": false, "effect_id": "", "reason": "INVALID_BUILD_EFFECT"}
 		var validation: Dictionary = effect.validate_in_context(context)
 		if bool(validation.get("valid", false)):
+			var demand := int(effect.hand_addition_demand(context)) if effect.has_method("hand_addition_demand") else 0
+			if demand > hand_capacity_remaining - selected_hand_demand:
+				continue
 			selected.append(effect)
+			selected_hand_demand += demand
 			continue
-		if str(validation.get("reason", "")) == "NO_PURGE_TARGET":
+		if str(validation.get("reason", "")) in ["NO_PURGE_TARGET", "HAND_CAPACITY_REACHED"]:
 			continue
 		return {"accepted": false, "effect_id": str(effect.effect_id), "reason": str(validation.get("reason", "BUILD_EFFECT_REJECTED"))}
+	var capacity_check := _validate_hand_addition_demand(selected, context)
+	if not capacity_check.get("accepted", false):
+		return capacity_check
 	return {"accepted": true, "effects": selected}
 
 func _select_valid_scoped_effects(base_context, instance_ids: Array) -> Dictionary:
@@ -218,7 +221,28 @@ func _select_valid_scoped_effects(base_context, instance_ids: Array) -> Dictiona
 						continue
 					return {"accepted": false, "effect_id": str(effect.effect_id), "reason": str(validation.get("reason", "BUILD_EFFECT_REJECTED"))}
 				entries.append({"instance_id": str(instance_id), "effect": effect, "context": scoped_context})
+	var requested_hand_additions := 0
+	for entry in entries:
+		var effect = entry.get("effect")
+		var scoped_context = entry.get("context")
+		if effect != null and effect.has_method("hand_addition_demand"):
+			requested_hand_additions += int(effect.hand_addition_demand(scoped_context))
+	var zones = base_context.zones
+	if zones != null and zones.has_method("remaining_hand_capacity") and requested_hand_additions > zones.remaining_hand_capacity():
+		return {"accepted": false, "reason": "HAND_CAPACITY_REACHED", "requested": requested_hand_additions, "remaining": zones.remaining_hand_capacity()}
 	return {"accepted": true, "entries": entries}
+
+func _validate_hand_addition_demand(effects: Array, context) -> Dictionary:
+	if context == null or context.zones == null or not context.zones.has_method("remaining_hand_capacity"):
+		return {"accepted": true}
+	var requested_hand_additions := 0
+	for effect in effects:
+		if effect != null and effect.has_method("hand_addition_demand"):
+			requested_hand_additions += int(effect.hand_addition_demand(context))
+	var remaining: int = context.zones.remaining_hand_capacity()
+	if requested_hand_additions > remaining:
+		return {"accepted": false, "reason": "HAND_CAPACITY_REACHED", "requested": requested_hand_additions, "remaining": remaining}
+	return {"accepted": true}
 
 func _first_non_optional_rejection(effect_results: Array) -> Dictionary:
 	for effect_result in effect_results:
@@ -257,18 +281,6 @@ func _is_manual_or_settlement_effect(effect) -> bool:
 		EffectTriggerScript.MANUAL,
 		EffectTriggerScript.SETTLEMENT,
 	]
-
-func _rule_memory_entry_amount(run_state, effects: Array) -> int:
-	for effect in effects:
-		if effect == null or not effect.get("operations") is Array:
-			continue
-		for operation in effect.operations:
-			if operation != null and str(operation.get("operation_id")) == "ApplyRunModifier" and str(operation.get("modifier_id")) == RULE_MEMORY_MODIFIER_ID:
-				return maxi(0, int(operation.get("modifier_value")))
-	var active_modifier = run_state.active_modifier(RULE_MEMORY_MODIFIER_ID) if run_state != null and run_state.has_method("active_modifier") else null
-	if active_modifier != null:
-		return maxi(0, int(active_modifier.runtime_parameters.get("value", 0)))
-	return 0
 
 func _context_for_battle(run_state, battle):
 	return EffectContextScript.new(

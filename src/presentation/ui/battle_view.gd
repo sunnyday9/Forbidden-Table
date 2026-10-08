@@ -3,7 +3,9 @@ extends Control
 
 signal action_requested(action_id: String)
 signal focus_requested(action_id: String)
+signal hand_play_requested(instance_ids: Array)
 
+const PlayerActionTextScript = preload("res://src/presentation/ui/player_action_text.gd")
 const ForbiddenThemeScript = preload("res://src/presentation/ui/forbidden_theme.gd")
 const TileFaceButtonScript = preload("res://src/presentation/ui/tile_face_button.gd")
 const TableBackdropScript = preload("res://src/presentation/ui/table_backdrop.gd")
@@ -14,7 +16,21 @@ const BattleCueProjectionScript = preload("res://src/presentation/ui/battle_cue_
 const LocalizationCatalogScript = preload("res://src/presentation/localization/localization.gd")
 const TileSelectionScript = preload("res://src/presentation/ui/battle_tile_selection.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
-const YakuProgressTextScript = preload("res://src/presentation/ui/yaku_progress_text.gd")
+const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
+const DiscardScorerScript = preload("res://src/domain/tiles/discard_tile_scorer.gd")
+const DISCARD_RATIONALE_KEYS := {
+	"unmatched": "UI_RC7_DISCARD_HINT_ISOLATED",
+	"unknown_definition": "UI_RC7_DISCARD_HINT_ISOLATED",
+	"ready_group": "UI_RC7_DISCARD_HINT_READY",
+	"honor_pair": "UI_RC7_DISCARD_HINT_PAIR",
+	"reserve_pair": "UI_RC7_DISCARD_HINT_PAIR",
+	"matching_group": "UI_RC7_DISCARD_HINT_GROUP",
+	"sequence_connector": "UI_RC7_DISCARD_HINT_CONNECTOR",
+}
+
+var _show_discard_hint := false
+var _hand_order: Array[String] = []
+var _hand_order_battle_key := ""
 
 const INTENT_LABEL_KEYS := {
 	"PRESSURE": "WORD_PRESSURE",
@@ -70,6 +86,7 @@ var _focus_revision := 0
 var _render_generation := 0
 
 var _enemy_arena: EnemyArenaScript
+var _resource_rail: PanelContainer
 var _battle_feedback: BattleFeedbackLayerScript
 var _battle_event_revision := -1
 var _last_battle_events: Array = []
@@ -84,12 +101,14 @@ var _feedback_layout_generation := 0
 var _backdrop: TableBackdrop
 var _motion_feedback: MotionFeedback
 var _shell: Control
+var _top_scroll: ScrollContainer
 var _top_strip: VBoxContainer
 var _decision_row: BoxContainer
 var _board_surface: VBoxContainer
 var _board_scroll: ScrollContainer
 var _board_body: VBoxContainer
 var _hand_surface: VBoxContainer
+var _hand_scroll: ScrollContainer
 var _actions_body: VBoxContainer
 var _action_panel: PanelContainer
 var _action_scroll: ScrollContainer
@@ -196,6 +215,7 @@ func render() -> void:
 		_clear_children(_board_body)
 		_clear_children(_hand_surface)
 		_clear_children(_action_scroll_list)
+		_clear_resource_rail()
 		_commit_summary.text = LocalizationCatalogScript.text("UI_BATTLE_VIEW_0022")
 		_commit_button.disabled = true
 		return
@@ -351,11 +371,18 @@ func _build_shell() -> void:
 	_shell.name = "BattleViewShell"
 	_shell.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_child(_shell)
+	_top_scroll = ScrollContainer.new()
+	_top_scroll.name = "BattleCriticalScroll"
+	_top_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_top_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_top_scroll.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_top_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_shell.add_child(_top_scroll)
 	_top_strip = VBoxContainer.new()
 	_top_strip.name = "BattleCriticalStrip"
-	_top_strip.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_top_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_top_strip.add_theme_constant_override("separation", 4)
-	_shell.add_child(_top_strip)
+	_top_scroll.add_child(_top_strip)
 	_receipt_scroll = ScrollContainer.new()
 	_receipt_scroll.name = "BattleCriticalReceiptScroll"
 	_receipt_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -374,6 +401,10 @@ func _build_shell() -> void:
 	_enemy_arena.name = "BattleEnemyIntentBanner"
 	_enemy_arena.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_top_strip.add_child(_enemy_arena)
+	_enemy_arena.minimum_size_changed.connect(_queue_table_layout)
+	_enemy_arena.resized.connect(_queue_table_layout)
+	_top_strip.minimum_size_changed.connect(_queue_table_layout)
+	_top_strip.resized.connect(_queue_table_layout)
 	_battle_feedback = BattleFeedbackLayerScript.new()
 	_battle_feedback.name = "BattleFeedbackLayer"
 	_battle_feedback.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -390,6 +421,7 @@ func _build_shell() -> void:
 	_board_surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board_surface.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_decision_row.add_child(_board_surface)
+	_decision_row.vertical = true
 	_board_scroll = ScrollContainer.new()
 	_board_scroll.name = "BattleViewportScroll"
 	_board_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -409,15 +441,21 @@ func _build_shell() -> void:
 	_hand_surface.name = "BattleHandSurface"
 	_hand_surface.add_theme_constant_override("separation", 0)
 	_hand_surface.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_board_surface.add_child(_hand_surface)
+	_hand_surface.size_flags_vertical = Control.SIZE_FILL
+	_board_surface.resized.connect(_queue_table_layout)
+	_hand_surface.resized.connect(_queue_table_layout)
+	_hand_surface.minimum_size_changed.connect(_queue_table_layout)
 	_action_panel = PanelContainer.new()
 	_action_panel.name = "BattleActions"
-	_action_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action_panel.size_flags_vertical = Control.SIZE_FILL
 	_style_compact_panel(_action_panel, "lacquer")
 	_decision_row.add_child(_action_panel)
+	_decision_row.add_child(_hand_surface)
 	_actions_body = VBoxContainer.new()
 	_actions_body.name = "BattleActionsContent"
 	_actions_body.add_theme_constant_override("separation", 4)
+	_actions_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_action_panel.add_child(_actions_body)
 	_action_scroll = ScrollContainer.new()
 	_action_scroll.name = "BattleChoiceScroll"
@@ -467,10 +505,12 @@ func _build_shell() -> void:
 	_commit_button.disabled = true
 	_commit_button.set_meta("run_commit_action_id", "")
 	_commit_button.set_meta("run_choice_button", false)
+	_commit_button.visible = false
 	ForbiddenThemeScript.style_button(_commit_button, true)
 	_compact_commit_button()
 	_commit_button.pressed.connect(_on_commit_pressed)
 	_commit_row.add_child(_commit_button)
+	_commit_panel.visible = false
 	resized.connect(_queue_table_layout)
 	_queue_table_layout()
 	_update_inspection()
@@ -516,6 +556,7 @@ func _refresh_backdrop() -> void:
 func _rebuild_board(battle) -> void:
 	_clear_children(_board_body)
 	_clear_children(_hand_surface)
+	_clear_resource_rail()
 	_tiles_by_id.clear()
 	if battle == null or battle.combat_state == null or battle.zones == null:
 		_add_empty_message(_board_body, LocalizationCatalogScript.text("UI_BATTLE_VIEW_0022"))
@@ -526,8 +567,7 @@ func _rebuild_board(battle) -> void:
 	var state = _controller.domain.state
 
 	_add_enemy_banner(_board_body, battle, combat)
-	_add_resource_rail(_board_body, battle, combat, state)
-	_add_yaku_progress_panel(_board_body, _controller.battle_yaku_progress_descriptors())
+	_add_resource_rail(_top_strip, battle, combat, state)
 	var table := PanelContainer.new()
 	table.name = "BattleTable"
 	table.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -548,7 +588,7 @@ func _rebuild_board(battle) -> void:
 	wall.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	wall.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wall.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wall.add_theme_font_size_override("font_size", roundi(22.0 * _ui_scale))
+	wall.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("body", _ui_scale))
 	wall.add_theme_color_override("font_color", ForbiddenThemeScript.color("muted"))
 	felt.add_child(wall)
 	_add_hand_tray(_hand_surface, battle)
@@ -568,6 +608,10 @@ func _rebuild_action_panel(_battle) -> void:
 			_visible_action_ids[str(action.id)] = true
 			_add_action_button(controls, action)
 	var matches: Array = _tile_selection.matching_actions(_actions)
+	var play_action: Dictionary = _controller.hand_play_action_descriptor(selected_tile_ids())
+	if not play_action.is_empty():
+		matches.append(play_action)
+		_actions_by_id[str(play_action.id)] = play_action
 	_selection_hint = Label.new()
 	_selection_hint.name = "BattleSelectionHint"
 	_selection_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -576,7 +620,16 @@ func _rebuild_action_panel(_battle) -> void:
 	_action_scroll_list.add_child(_selection_hint)
 	var count := selected_tile_ids().size()
 	_selection_hint.text = LocalizationCatalogScript.text("UI_BATTLE_TABLE_SELECT") if count == 0 else LocalizationCatalogScript.format("UI_BATTLE_TABLE_SELECTED", [count])
-	if count > 0 and matches.is_empty():
+	var selected_settlement_candidate = _matching_settlement_candidate(_battle, selected_tile_ids())
+	if selected_settlement_candidate != null and _battle.settlement_window.is_open():
+		var capacity = _battle.settlement_window.settlement_capacity()
+		_selection_hint.text += " · " + LocalizationCatalogScript.format("UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_REMAINING", [capacity.remaining, capacity.maximum])
+	var blocked_settlement_action := _blocked_settlement_action(_battle, selected_tile_ids())
+	if count > 0 and not blocked_settlement_action.is_empty():
+		_selection_hint.text += " · " + str(blocked_settlement_action.get("disabled_reason", ""))
+	elif count > 0 and _selection_is_pair(_battle, selected_tile_ids()):
+		_selection_hint.text += " · " + LocalizationCatalogScript.text("UI_BATTLE_TABLE_PAIR_INCOMPLETE")
+	elif count > 0 and matches.is_empty():
 		_selection_hint.text += " · " + LocalizationCatalogScript.text("UI_BATTLE_TABLE_NO_MATCH")
 	_context_choices = HFlowContainer.new()
 	_context_choices.name = "BattleSelectionActions"
@@ -587,7 +640,26 @@ func _rebuild_action_panel(_battle) -> void:
 	for action in matches:
 		_visible_action_ids[str(action.id)] = true
 		_add_action_button(_context_choices, action)
+	if not blocked_settlement_action.is_empty():
+		var blocked_action_id := str(blocked_settlement_action.get("id", ""))
+		_visible_action_ids[blocked_action_id] = true
+		_actions_by_id[blocked_action_id] = blocked_settlement_action
+		_add_action_button(_context_choices, blocked_settlement_action)
 	_action_scroll_list.add_child(controls)
+	var advice := Button.new()
+	advice.name = "DiscardAdviceButton"
+	advice.text = LocalizationCatalogScript.text("UI_RC7_DISCARD_ADVICE_HIDE" if _show_discard_hint else "UI_RC7_DISCARD_ADVICE_SHOW")
+	advice.tooltip_text = LocalizationCatalogScript.text("UI_RC8_PLAY_RULE" if _battle != null and _battle.combat_state.turn_play_enabled else "UI_RC7_DISCARD_RULE")
+	advice.custom_minimum_size = Vector2(120.0, 44.0)
+	ForbiddenThemeScript.style_button(advice)
+	advice.pressed.connect(func():
+		_show_discard_hint = not _show_discard_hint
+		_rebuild_action_panel(_current_battle())
+		_queue_table_layout()
+	)
+	controls.add_child(advice)
+	if _show_discard_hint:
+		_add_discard_hint(_battle)
 	var select_hand := Button.new()
 	select_hand.name = "SelectHandButton"
 	select_hand.text = LocalizationCatalogScript.text("UI_BATTLE_TABLE_ALL")
@@ -605,11 +677,130 @@ func _rebuild_action_panel(_battle) -> void:
 	ForbiddenThemeScript.style_button(clear_selection)
 	clear_selection.pressed.connect(_on_clear_tiles)
 	controls.add_child(clear_selection)
+	for control_spec in [{"name": "SortHandButton", "key": "UI_RC8_SORT_HAND", "callback": _sort_hand}, {"name": "MoveHandLeftButton", "key": "UI_RC8_MOVE_LEFT", "callback": _move_focused_hand_tile.bind(-1)}, {"name": "MoveHandRightButton", "key": "UI_RC8_MOVE_RIGHT", "callback": _move_focused_hand_tile.bind(1)}]:
+		var order_button := Button.new()
+		order_button.name = str(control_spec.name)
+		order_button.text = LocalizationCatalogScript.text(str(control_spec.key))
+		order_button.tooltip_text = LocalizationCatalogScript.text("UI_RC8_HAND_ORDER_HINT")
+		order_button.custom_minimum_size.y = 44.0 * _ui_scale
+		ForbiddenThemeScript.style_button(order_button)
+		order_button.pressed.connect(control_spec.callback)
+		controls.add_child(order_button)
+	if _battle != null and _battle.combat_state.turn_play_enabled:
+		var play_progress := Label.new()
+		play_progress.name = "TurnPlayProgress"
+		play_progress.text = LocalizationCatalogScript.format("UI_RC8_PLAY_PROGRESS", [_battle.combat_state.played_tile_ids_this_turn.size()])
+		play_progress.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		play_progress.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_apply_secondary_label(play_progress)
+		_action_scroll_list.add_child(play_progress)
 	_add_unavailable_technique_inspections(_action_scroll_list)
 	if not _visible_action_ids.has(selected_action_id):
 		selected_action_id = ""
 	_update_action_styles()
 	_queue_table_layout()
+
+
+func _add_discard_hint(battle) -> void:
+	if battle == null or battle.zones == null or _controller == null:
+		return
+	var ready: Array = battle.settlement_window.candidates() if battle.settlement_window != null else []
+	var ranked := DiscardScorerScript.ranked_candidates(battle.zones.contents(TileZoneScript.HAND), str(_controller.domain.state.character_id), _controller.domain.content_registry, ready)
+	for candidate in ranked:
+		var instance_id := str(candidate.get("instance_id", ""))
+		if not battle.validate_discard_tile(instance_id).is_valid():
+			continue
+		var hint := Label.new()
+		hint.name = "BattleDiscardAdvice"
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var rationale_key := str(DISCARD_RATIONALE_KEYS.get(str(candidate.get("rationale_key", "")), "UI_RC7_DISCARD_HINT_ISOLATED"))
+		hint.text = LocalizationCatalogScript.format("UI_RC7_DISCARD_HINT", [_controller.battle_tile_copy_label(instance_id), LocalizationCatalogScript.text(rationale_key)])
+		hint.tooltip_text = LocalizationCatalogScript.text("UI_RC8_PLAY_RULE" if battle.combat_state.turn_play_enabled else "UI_RC7_DISCARD_RULE")
+		_apply_secondary_label(hint, true)
+		_action_scroll_list.add_child(hint)
+		return
+func _blocked_settlement_action(battle, selected_ids: Array[String]) -> Dictionary:
+	if battle == null or battle.settlement_window == null or selected_ids.is_empty():
+		return {}
+	var window = battle.settlement_window
+	var candidate = _matching_settlement_candidate(battle, selected_ids)
+	if candidate == null:
+		return {}
+	var reason := ""
+	if not window.is_open():
+		reason = LocalizationCatalogScript.text("UI_BATTLE_TABLE_WINDOW_CLOSED")
+	elif not window.has_capacity():
+		var capacity = window.settlement_capacity()
+		reason = LocalizationCatalogScript.format("UI_BATTLE_TABLE_SETTLEMENT_CAPACITY_EXHAUSTED", [capacity.spent, capacity.maximum])
+	else:
+		return {}
+	var candidate_ids := _instance_ids(candidate.tile_instances)
+	var candidate_id := str(candidate.candidate_id)
+	return {
+		"id": "battle.settle:" + candidate_id,
+		"kind": "PARTIAL_SETTLEMENT",
+		"target_id": candidate_id,
+		"details": {
+			"candidate_id": candidate_id,
+			"pattern_type": str(candidate.pattern_type),
+			"instance_ids": candidate_ids,
+		},
+		"enabled": false,
+		"disabled": true,
+		"disabled_reason": reason,
+		"reason": reason,
+	}
+
+
+func _matching_settlement_candidate(battle, selected_ids: Array[String]):
+	if battle == null or battle.zones == null or battle.settlement_window == null or selected_ids.is_empty():
+		return null
+	var hand_ids := _instance_ids(battle.zones.contents(TileZoneScript.HAND))
+	if not _same_instance_set(selected_ids, _intersection(selected_ids, hand_ids)):
+		return null
+	for candidate in battle.settlement_window.candidates():
+		if _same_instance_set(_instance_ids(candidate.tile_instances), selected_ids):
+			return candidate
+	return null
+
+
+func _selection_is_pair(battle, selected_ids: Array[String]) -> bool:
+	if battle == null or battle.zones == null or selected_ids.size() != 2:
+		return false
+	var definition_ids: Array[String] = []
+	for tile in battle.zones.contents(TileZoneScript.HAND):
+		if selected_ids.has(str(tile.instance_id)):
+			definition_ids.append(str(tile.definition_id))
+	return definition_ids.size() == 2 and definition_ids[0] == definition_ids[1]
+
+
+func _same_instance_set(first: Array, second: Array) -> bool:
+	if first.is_empty() or first.size() != second.size():
+		return false
+	var first_ids: Dictionary = {}
+	for value in first:
+		var instance_id := str(value)
+		if instance_id.is_empty() or first_ids.has(instance_id):
+			return false
+		first_ids[instance_id] = true
+	for value in second:
+		var instance_id := str(value)
+		if not first_ids.has(instance_id):
+			return false
+		first_ids.erase(instance_id)
+	return first_ids.is_empty()
+
+
+func _intersection(first: Array, second: Array) -> Array[String]:
+	var second_ids: Dictionary = {}
+	for value in second:
+		second_ids[str(value)] = true
+	var result: Array[String] = []
+	for value in first:
+		if second_ids.has(str(value)):
+			result.append(str(value))
+	return result
 
 
 func _on_select_hand() -> void:
@@ -768,6 +959,7 @@ func _add_resource_rail(parent: Control, battle, combat, run_state) -> void:
 	panel.name = "BattleResources"
 	_style_compact_panel(panel, "lacquer")
 	parent.add_child(panel)
+	_resource_rail = panel
 	var stack := VBoxContainer.new()
 	stack.add_theme_constant_override("separation", 3)
 	panel.add_child(stack)
@@ -804,93 +996,14 @@ func _add_resource_rail(parent: Control, battle, combat, run_state) -> void:
 	stack.add_child(recovery_label)
 
 
-func _add_yaku_progress_panel(parent: Control, descriptors: Array) -> void:
-	var panel := PanelContainer.new()
-	panel.name = "BattleYakuProgress"
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_style_compact_panel(panel, "raised")
-	parent.add_child(panel)
-	var scopes := HFlowContainer.new()
-	scopes.name = "BattleYakuProgressScopes"
-	scopes.add_theme_constant_override("h_separation", 8)
-	scopes.add_theme_constant_override("v_separation", 4)
-	scopes.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.add_child(scopes)
-	_add_yaku_scope_group(scopes, descriptors, "LOCAL_SETTLEMENT")
-	_add_yaku_scope_group(scopes, descriptors, "COMPLETE_HAND")
-
-
-func _add_yaku_scope_group(parent: Control, descriptors: Array, scope: String) -> void:
-	var is_local := scope == "LOCAL_SETTLEMENT"
-	var group := VBoxContainer.new()
-	group.name = "YakuLocalGroup" if is_local else "YakuHandGroup"
-	group.custom_minimum_size.x = 220.0 * _ui_scale
-	group.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	group.add_theme_constant_override("separation", 2)
-	parent.add_child(group)
-	var heading := Label.new()
-	heading.name = "YakuLocalHeading" if is_local else "YakuHandHeading"
-	heading.text = LocalizationCatalogScript.word_text("LOCAL" if is_local else "HAND")
-	_apply_secondary_label(heading, true)
-	group.add_child(heading)
-	var visible_count := 0
-	for descriptor in descriptors:
-		if not descriptor is Dictionary:
-			continue
-		var definition_scope := str(descriptor.get("scope", ""))
-		var belongs_to_scope := definition_scope == "BOTH" or definition_scope == scope
-		if not belongs_to_scope:
-			continue
-		var current_score := float(descriptor.get("normalized_score", 0.0))
-		var potential: Dictionary = descriptor.get("reserve_potential", {}) if descriptor.get("reserve_potential", {}) is Dictionary else {}
-		var potential_score := float(potential.get("normalized_score", current_score))
-		if current_score <= 0.0 and potential_score <= 0.0:
-			continue
-		visible_count += 1
-		_add_yaku_progress_row(group, descriptor, potential, is_local)
-	if visible_count == 0:
-		var empty := Label.new()
-		empty.name = "YakuProgressEmpty"
-		empty.text = LocalizationCatalogScript.word_text("NONE")
-		_apply_secondary_label(empty)
-		group.add_child(empty)
-
-
-func _add_yaku_progress_row(parent: Control, descriptor: Dictionary, potential: Dictionary, is_local: bool) -> void:
-	var yaku_id := str(descriptor.get("id", ""))
-	var safe_id := yaku_id.replace(".", "_")
-	var row := HBoxContainer.new()
-	row.name = ("YakuLocalRow_" if is_local else "YakuHandRow_") + safe_id
-	row.add_theme_constant_override("separation", 4)
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	parent.add_child(row)
-	var name_label := Label.new()
-	name_label.name = "YakuName_" + safe_id
-	name_label.text = LocalizationCatalogScript.content_text(yaku_id)
-	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	name_label.tooltip_text = name_label.text
-	_apply_secondary_label(name_label)
-	row.add_child(name_label)
-	var progress_label := Label.new()
-	progress_label.name = ("YakuLocalProgress_" if is_local else "YakuHandProgress_") + safe_id
-	progress_label.text = YakuProgressTextScript.format(descriptor.get("display_tokens", []), str(descriptor.get("stage", "")))
-	_apply_secondary_label(progress_label, true)
-	row.add_child(progress_label)
-	var current_score := float(descriptor.get("normalized_score", 0.0))
-	var potential_score := float(potential.get("normalized_score", current_score))
-	var reserve_label := Label.new()
-	reserve_label.name = "YakuReservePotential_" + safe_id
-	reserve_label.visible = not potential.is_empty() and potential_score > current_score
-	if reserve_label.visible:
-		reserve_label.text = LocalizationCatalogScript.format("UI_BATTLE_VIEW_0066", [
-			LocalizationCatalogScript.word_text("POTENTIAL"),
-			LocalizationCatalogScript.word_text("RESERVE"),
-			YakuProgressTextScript.format(potential.get("display_tokens", []), str(potential.get("stage", ""))),
-		])
-		reserve_label.add_theme_color_override("font_color", ForbiddenThemeScript.color("brass"))
-		reserve_label.add_theme_font_size_override("font_size", roundi(12.0 * _ui_scale))
-	row.add_child(reserve_label)
+func _clear_resource_rail() -> void:
+	if _resource_rail == null or not is_instance_valid(_resource_rail):
+		_resource_rail = null
+		return
+	if _resource_rail.get_parent() != null:
+		_resource_rail.get_parent().remove_child(_resource_rail)
+	_resource_rail.queue_free()
+	_resource_rail = null
 
 
 func _add_known_zones(parent: Control, battle) -> void:
@@ -923,6 +1036,8 @@ func _add_zone_inspection(parent: Control, battle, zone: String, heading_key: St
 		heading.text = LocalizationCatalogScript.format("UI_BATTLE_VIEW_0006", [zone_label, tiles.size()])
 	_apply_secondary_label(heading, true)
 	stack.add_child(heading)
+	if zone == TileZoneScript.DISCARD:
+		return
 	if tiles.is_empty():
 		var empty := Label.new()
 		empty.name = "EmptyZone"
@@ -954,23 +1069,44 @@ func _add_hand_tray(parent: Control, battle) -> void:
 	stack.add_theme_constant_override("separation", 2)
 	tray.add_child(stack)
 	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
+	var battle_key := str(_controller.domain.state.run_id) + "|" + str(battle.encounter_id)
+	if battle_key != _hand_order_battle_key:
+		_hand_order.clear()
+		_hand_order_battle_key = battle_key
+	var hand_ids := _instance_ids(hand)
+	_hand_order = _hand_order.filter(func(instance_id): return hand_ids.has(instance_id))
+	for instance_id in hand_ids:
+		if not _hand_order.has(instance_id):
+			_hand_order.append(instance_id)
+	hand.sort_custom(func(left, right): return _hand_order.find(str(left.instance_id)) < _hand_order.find(str(right.instance_id)))
 	var heading := Label.new()
 	heading.name = "BattleHandHeading"
-	heading.text = LocalizationCatalogScript.format("UI_BATTLE_VIEW_0006", [LocalizationCatalogScript.word_text("HAND"), hand.size()])
+	heading.text = LocalizationCatalogScript.format("UI_BATTLE_HAND_CAP", [hand.size()])
+	heading.tooltip_text = LocalizationCatalogScript.text("UI_BATTLE_HAND_LIMIT_HINT")
 	_apply_secondary_label(heading, true)
 	stack.add_child(heading)
-	var hand_row := HFlowContainer.new()
+	_hand_scroll = ScrollContainer.new()
+	_hand_scroll.name = "BattleHandScroll"
+	_hand_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_hand_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_hand_scroll.follow_focus = true
+	_hand_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hand_scroll.size_flags_vertical = Control.SIZE_FILL
+	stack.add_child(_hand_scroll)
+	var hand_row := HBoxContainer.new()
 	hand_row.name = "BattleHandTiles"
-	hand_row.alignment = FlowContainer.ALIGNMENT_CENTER
-	hand_row.add_theme_constant_override("h_separation", 3)
-	hand_row.add_theme_constant_override("v_separation", 6)
+	hand_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hand_row.add_theme_constant_override("separation", roundi(3.0 * _ui_scale))
 	hand_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hand_row.resized.connect(_queue_table_layout)
 	for tile in hand:
 		var button := _add_tile_face(hand_row, tile)
 		button.set_meta("battle_hand_tile", true)
+		button.hand_order_owner_id = get_instance_id()
+		button.hand_reorder_requested.connect(_reorder_hand_tile)
 		button.selection_lift = true
 		button.set_selected(button.selected)
-	stack.add_child(hand_row)
+	_hand_scroll.add_child(hand_row)
 	if hand.is_empty():
 		_add_empty_message(stack, LocalizationCatalogScript.text("UI_BATTLE_VIEW_0029"))
 	var next_hand_ids := _instance_ids(hand)
@@ -1007,7 +1143,7 @@ func _record_receipt_cues(battle) -> void:
 	var event_types: Array = snapshot.get("last_domain_event_types", [])
 	var relevant_events: Array[String] = []
 	for event_type in event_types:
-		if str(event_type) in ["CompleteHandSettled", "BossPhaseChanged", "BattleWon"]:
+		if str(event_type) in ["CompleteHandSettled", "BossPhaseChanged", "BattleWon", "GoldChanged"]:
 			relevant_events.append(str(event_type))
 	if relevant_events.is_empty():
 		return
@@ -1024,8 +1160,25 @@ func _record_receipt_cues(battle) -> void:
 		_last_boss_phase_count = int(battle.combat_state.boss_phase_count)
 	for event_type in event_types:
 		match str(event_type):
+			"GoldChanged":
+				for raw_event in snapshot.get("battle_events", []):
+					var data: Dictionary = raw_event.get("data", {})
+					if str(raw_event.get("event_type", "")) == "GoldChanged" and str(data.get("source_id", "")) == "HAND_PLAY_COMBO":
+						_receipt_cues.append({"key": "UI_RC8_COMBO_RECEIPT", "values": [int(data.get("amount", 0))]})
 			"CompleteHandSettled":
 				_receipt_cues.append({"key": "UI_BATTLE_VIEW_0046", "values": []})
+				var has_score := false
+				var score := 0
+				var damage := 0
+				for raw_event in snapshot.get("battle_events", []):
+					var data: Dictionary = raw_event.get("data", {})
+					if str(raw_event.get("event_type", "")) == "CompleteHandSettled":
+						score = int(data.get("score", 0))
+						has_score = data.has("score")
+					if str(raw_event.get("event_type", "")) == "EnemyHPChanged":
+						damage += int(data.get("amount", 0))
+				if has_score:
+					_receipt_cues.append({"key": "UI_PLAYER_WIN_RECEIPT", "values": [score, damage]})
 			"BossPhaseChanged":
 				var phase_index := _last_boss_phase_index
 				var phase_count := _last_boss_phase_count
@@ -1059,21 +1212,44 @@ func _add_action_button(parent: Control, action: Dictionary) -> Button:
 	var button := Button.new()
 	button.name = "BattleAction_%s" % action_id.replace(":", "_").replace(".", "_")
 	button.text = _action_label_text(action)
+	var kind := str(action.get("kind", ""))
+	var battle = _controller.domain.current_battle if _controller != null else null
+	if kind in ["PARTIAL_SETTLEMENT", "COMPLETE_HAND"] and battle != null:
+		var preview: Dictionary = battle.preview_settlement(str(action.get("target_id", "")), kind == "COMPLETE_HAND")
+		if not preview.is_empty():
+			button.text += "\n" + LocalizationCatalogScript.format("UI_PLAYER_COMMIT_PREVIEW", [preview.damage, preview.replacement_draws])
+	if kind == "TECHNIQUE":
+		var effects := PlayerActionTextScript.definition_effect_lines(_controller.domain.content_registry, str(action.get("target_id", "")))
+		if not effects.is_empty():
+			button.text += "\n" + " · ".join(PackedStringArray(effects))
+	var lethal_amount := PlayerActionTextScript.lethal_intent_amount(battle) if kind == "END_TURN" else 0
+	if kind in ["PLAY_HAND", "DISCARD"] and battle != null and battle.combat_state.turn_play_enabled:
+		var play_ids: Array = action.get("details", {}).get("instance_ids", []) if kind == "PLAY_HAND" else [str(action.get("target_id", ""))]
+		if not battle.play_combo_type(play_ids).is_empty():
+			button.text += "\n" + LocalizationCatalogScript.text("UI_RC8_COMBO_PREVIEW")
+	if lethal_amount > 0:
+		button.text += "\n" + LocalizationCatalogScript.format("UI_PLAYER_LETHAL_INTENT", [lethal_amount])
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.custom_minimum_size = Vector2(200.0, 44.0 * _ui_scale)
 	button.set_meta("run_action_id", action_id)
 	button.set_meta("run_choice_button", true)
-	button.tooltip_text = _action_tooltip_text(action)
+	button.tooltip_text = _action_details_text(action)
 	var enabled := bool(action.get("enabled", true)) and not bool(action.get("disabled", false))
 	button.disabled = not enabled
 	if not enabled:
 		var reason := str(action.get("disabled_reason", action.get("reason", LocalizationCatalogScript.word_text("UNAVAILABLE"))))
+		if reason == "HAND_CAPACITY_REACHED":
+			var hand_count: int = battle.zones.size(TileZoneScript.HAND) if battle != null and battle.zones != null else TileZoneContainerScript.MAX_HAND_SIZE
+			reason = LocalizationCatalogScript.format("UI_BATTLE_HAND_CAP_REACHED", [hand_count])
 		button.tooltip_text = LocalizationCatalogScript.format("UI_BATTLE_VIEW_0028", [button.text, reason])
 	ForbiddenThemeScript.style_button(button, false, action_id == selected_action_id)
+	if lethal_amount > 0:
+		for color_role in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+			button.add_theme_color_override(color_role, ForbiddenThemeScript.color("error"))
 	parent.add_child(button)
 	button.focus_entered.connect(_on_action_focused.bind(action_id))
-	button.pressed.connect(_on_action_selected.bind(action_id))
+	button.pressed.connect(_on_action_activated.bind(action_id))
 	button.mouse_entered.connect(_on_action_hovered.bind(action_id))
 	return button
 
@@ -1183,7 +1359,7 @@ func _update_inspection() -> void:
 	_inspection_value.text = _action_details_text(action) if not action.is_empty() else LocalizationCatalogScript.text("UI_BATTLE_VIEW_0024")
 
 
-func _on_action_selected(action_id: String) -> void:
+func _on_action_activated(action_id: String) -> void:
 	if not _visible_action_ids.has(action_id) or not _actions_by_id.has(action_id):
 		return
 	var action: Dictionary = _actions_by_id[action_id]
@@ -1192,11 +1368,64 @@ func _on_action_selected(action_id: String) -> void:
 	_focus_revision += 1
 	focused_action_id = action_id
 	_focused_tile_instance_id = ""
-	selected_action_id = action_id
+	selected_action_id = ""
 	_update_action_styles()
 	_update_commit_rail()
 	_update_inspection()
-	_queue_current_focus_visibility()
+	if str(action.get("kind", "")) == "PLAY_HAND":
+		hand_play_requested.emit(action.get("details", {}).get("instance_ids", []))
+	else:
+		action_requested.emit(action_id)
+
+func _sort_hand() -> void:
+	var battle = _current_battle()
+	if battle == null:
+		return
+	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
+	var suit_order := {"characters": 0, "dots": 1, "bamboo": 2, "honors": 3}
+	var honor_order := {"east": 0, "south": 1, "west": 2, "north": 3, "red": 4, "green": 5, "white": 6}
+	hand.sort_custom(func(left, right):
+		var a = _controller.domain.content_registry.resolve(str(left.definition_id))
+		var b = _controller.domain.content_registry.resolve(str(right.definition_id))
+		var a_suit: int = suit_order.get(str(a.suit), 4)
+		var b_suit: int = suit_order.get(str(b.suit), 4)
+		if a_suit != b_suit: return a_suit < b_suit
+		if int(a.rank) != int(b.rank): return int(a.rank) < int(b.rank)
+		if a_suit == 3 and str(left.definition_id) != str(right.definition_id):
+			var a_honor: int = honor_order.get(str(left.definition_id).get_slice(".", 3), 7)
+			var b_honor: int = honor_order.get(str(right.definition_id).get_slice(".", 3), 7)
+			if a_honor != b_honor: return a_honor < b_honor
+			return str(left.definition_id) < str(right.definition_id)
+		return str(left.instance_id) < str(right.instance_id)
+	)
+	_hand_order = _instance_ids(hand)
+	_apply_hand_order()
+
+func _reorder_hand_tile(source_id: String, target_id: String, after: bool = false) -> void:
+	if source_id == target_id or not _hand_order.has(source_id) or not _hand_order.has(target_id):
+		return
+	_hand_order.erase(source_id)
+	_hand_order.insert(_hand_order.find(target_id) + (1 if after else 0), source_id)
+	_apply_hand_order()
+
+func _move_focused_hand_tile(direction: int) -> void:
+	var source_id := _focused_tile_instance_id
+	if not _hand_order.has(source_id) and not selected_tile_ids().is_empty():
+		source_id = selected_tile_ids()[0]
+	var index := _hand_order.find(source_id)
+	if index < 0 or index + direction < 0 or index + direction >= _hand_order.size():
+		return
+	_reorder_hand_tile(source_id, _hand_order[index + direction], direction > 0)
+
+func _apply_hand_order() -> void:
+	var row = find_child("BattleHandTiles", true, false)
+	if row == null:
+		return
+	for index in _hand_order.size():
+		var button := _tile_button(_hand_order[index])
+		if button != null and button.get_parent() == row:
+			row.move_child(button, index)
+	_queue_table_layout()
 
 
 func _on_action_focused(action_id: String) -> void:
@@ -1290,8 +1519,28 @@ func _scroll_current_focus_visible() -> void:
 	var ancestor := focus_target.get_parent()
 	while ancestor != null and is_ancestor_of(ancestor):
 		if ancestor is ScrollContainer:
-			(ancestor as ScrollContainer).ensure_control_visible(focus_target)
+			var scroll := ancestor as ScrollContainer
+			if focus_target.size.y > scroll.get_global_rect().size.y:
+				_reveal_oversized_focus_in_scroll(scroll, focus_target)
+			else:
+				scroll.ensure_control_visible(focus_target)
 		ancestor = ancestor.get_parent()
+
+
+func _reveal_oversized_focus_in_scroll(scroll: ScrollContainer, focus_target: Control) -> void:
+	if scroll == null or focus_target == null:
+		return
+	var scrollbar := scroll.get_v_scroll_bar()
+	var maximum := maxf(0.0, scrollbar.max_value - scrollbar.page)
+	if maximum <= 1.0:
+		return
+	var viewport_rect := scroll.get_global_rect()
+	var viewport := get_viewport()
+	if viewport != null:
+		viewport_rect = viewport_rect.intersection(Rect2(Vector2.ZERO, viewport.get_visible_rect().size))
+	var center_delta := focus_target.get_global_rect().get_center().y - viewport_rect.get_center().y
+	if not is_zero_approx(center_delta):
+		scroll.scroll_vertical = roundi(clampf(float(scroll.scroll_vertical) + center_delta, 0.0, maximum))
 
 
 func _current_battle():
@@ -1414,6 +1663,8 @@ func _append_unique_context(contexts: Array[String], context: String) -> void:
 
 
 func _action_details_text(action: Dictionary) -> String:
+	if str(action.get("kind", "")) == "PLAY_HAND":
+		return LocalizationCatalogScript.text("UI_RC8_PLAY_RULE")
 	if _action_details.is_valid():
 		var result: Variant = _action_details.call(action)
 		if result is Dictionary:
@@ -1428,6 +1679,8 @@ func _action_details_text(action: Dictionary) -> String:
 
 
 func _action_label_text(action: Dictionary) -> String:
+	if str(action.get("kind", "")) == "PLAY_HAND":
+		return LocalizationCatalogScript.format("UI_RC8_PLAY_SELECTED", [action.get("details", {}).get("instance_ids", []).size()])
 	if _action_label.is_valid():
 		var label := str(_action_label.call(action))
 		if not label.is_empty():
@@ -1481,12 +1734,12 @@ func _word_text_or_fallback(value: String) -> String:
 
 
 func _apply_body_label(label: Label, emphasis: bool = false) -> void:
-	label.add_theme_font_size_override("font_size", roundi((18.0 if emphasis else 16.0) * _ui_scale))
+	label.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("heading" if emphasis else "body", _ui_scale))
 	label.add_theme_color_override("font_color", ForbiddenThemeScript.color("text"))
 
 
 func _apply_secondary_label(label: Label, emphasis: bool = false) -> void:
-	label.add_theme_font_size_override("font_size", roundi((16.0 if emphasis else 14.0) * _ui_scale))
+	label.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("body" if emphasis else "secondary", _ui_scale))
 	label.add_theme_color_override("font_color", ForbiddenThemeScript.color("muted"))
 
 
@@ -1776,44 +2029,54 @@ func _apply_table_layout() -> void:
 	_layout_pending = false
 	if not is_inside_tree() or _decision_row == null:
 		return
-	var available_width := maxf(180.0, size.x - 20.0)
-	var wide_layout := available_width >= 760.0 * _ui_scale
+	var available_width := maxf(180.0, size.x - 16.0 * _ui_scale)
 	var receipt_height := 26.0 * _ui_scale if _receipt_scroll.visible else 0.0
 	_receipt_scroll.custom_minimum_size.y = receipt_height
-	var arena_height := maxf(_enemy_arena.custom_minimum_size.y, _enemy_arena.get_combined_minimum_size().y)
-	var top_height := arena_height + receipt_height + (4.0 * _ui_scale if receipt_height > 0.0 else 0.0)
-	var commit_height := maxf(54.0 * _ui_scale, _commit_panel.get_combined_minimum_size().y)
+	var commit_height := 0.0
 	var shell_height := _shell.size.y
-	var available_top_height := maxf(72.0 * _ui_scale, shell_height - commit_height - 22.0 * _ui_scale)
-	top_height = minf(top_height, available_top_height)
-	_top_strip.offset_left = 0.0
-	_top_strip.offset_top = 0.0
-	_top_strip.offset_right = 0.0
-	_top_strip.offset_bottom = top_height
+	var action_bar_height := clampf(shell_height * 0.23, 112.0 * _ui_scale, 190.0 * _ui_scale)
+	var hand_minimum_height := maxf(_hand_surface.custom_minimum_size.y, _hand_surface.get_combined_minimum_size().y)
+	var board_minimum_height := maxf(64.0 * _ui_scale, minf(110.0 * _ui_scale, shell_height * 0.16))
+	var bottom_reserve := action_bar_height + hand_minimum_height + board_minimum_height + 20.0 * _ui_scale
+	var available_top_height := maxf(48.0 * _ui_scale, shell_height - bottom_reserve)
+	var top_content_height := maxf(_top_strip.custom_minimum_size.y, _top_strip.get_combined_minimum_size().y)
+	var top_height := minf(top_content_height, available_top_height)
+	_top_scroll.offset_left = 0.0
+	_top_scroll.offset_top = 0.0
+	_top_scroll.offset_right = 0.0
+	_top_scroll.offset_bottom = top_height
 	_decision_row.offset_left = 0.0
 	_decision_row.offset_top = top_height + 5.0 * _ui_scale
 	_decision_row.offset_right = 0.0
-	_decision_row.offset_bottom = -(commit_height + 5.0 * _ui_scale)
+	_decision_row.offset_bottom = -4.0 * _ui_scale
 	_commit_panel.offset_left = 0.0
 	_commit_panel.offset_right = 0.0
 	_commit_panel.offset_top = -commit_height
 	_commit_panel.offset_bottom = 0.0
-	_decision_row.vertical = not wide_layout
-	_action_panel.custom_minimum_size.x = clampf(300.0 * _ui_scale, 240.0, minf(360.0 * _ui_scale, available_width * 0.42)) if wide_layout else 0.0
-	_action_panel.size_flags_horizontal = Control.SIZE_FILL if wide_layout else Control.SIZE_EXPAND_FILL
-	_action_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL if wide_layout else Control.SIZE_FILL
+	_decision_row.vertical = true
+	_action_panel.custom_minimum_size = Vector2(0.0, action_bar_height)
+	_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_action_panel.size_flags_vertical = Control.SIZE_FILL
+	_hand_surface.size_flags_vertical = Control.SIZE_FILL
 	_board_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_board_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_action_scroll.custom_minimum_size.y = 0.0
+	var inspection_scroll := find_child("BattleInspectionScroll", true, false) as ScrollContainer
+	if inspection_scroll != null:
+		inspection_scroll.custom_minimum_size.y = 30.0 * _ui_scale
 	var board_width := _board_surface.size.x if _board_surface.size.x > 0.0 else available_width
-	var hand := find_child("BattleHandTiles", true, false) as HFlowContainer
+	var hand := find_child("BattleHandTiles", true, false) as HBoxContainer
 	if hand != null:
 		var count := maxi(1, hand.get_child_count())
-		var tile_cap := clampf(size.y * 0.12, 52.0, 96.0) * _ui_scale
-		var tile_width := clampf((board_width - (count - 1) * 3.0) / count, 44.0, tile_cap)
+		var tile_cap := clampf(size.y * 0.12, 52.0 * _ui_scale, 96.0 * _ui_scale)
+		var hand_width := _hand_scroll.size.x if _hand_scroll.size.x > 0.0 else board_width
+		var hand_separation := float(hand.get_theme_constant("separation"))
+		var tile_width := clampf((hand_width - (count - 1) * hand_separation) / count, 44.0 * _ui_scale, tile_cap)
 		for tile in hand.get_children():
 			if tile is TileFaceButton:
-				tile.custom_minimum_size = Vector2(tile_width, tile_width * 1.5 + (18.0 if tile.status_badge.visible else 0.0))
+				var tile_size := Vector2(tile_width, tile_width * 1.5 + (18.0 if tile.status_badge.visible else 0.0))
+				if not tile.custom_minimum_size.is_equal_approx(tile_size):
+					tile.custom_minimum_size = tile_size
 	var table := find_child("BattleTable", true, false) as Control
 	if table != null:
 		table.custom_minimum_size.y = clampf(size.y * 0.12, 48.0, 110.0)
@@ -1824,4 +2087,4 @@ func _apply_table_layout() -> void:
 	_commit_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if _commit_row.vertical else Control.SIZE_FILL
 	for node in find_children("*", "Button", true, false):
 		if node.has_meta("run_action_id"):
-			node.custom_minimum_size.x = minf(200.0 * _ui_scale, maxf(120.0, _action_panel.size.x - 16.0))
+			node.custom_minimum_size.x = minf(200.0 * _ui_scale, maxf(148.0 * _ui_scale, available_width * 0.34))

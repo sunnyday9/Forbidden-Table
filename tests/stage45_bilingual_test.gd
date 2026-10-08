@@ -1,6 +1,8 @@
 class_name Stage45BilingualTest
 extends RefCounted
 
+const PlayHandTilesCommandScript = preload("res://src/domain/commands/play_hand_tiles_command.gd")
+
 class RejectingSuspendStore extends RefCounted:
 	func write_snapshot(_snapshot) -> Dictionary:
 		return {"accepted": false, "code": "TEST_WRITE_FAILED"}
@@ -155,6 +157,11 @@ func _test_cross_locale_content_and_resume(failures: Array[String]) -> void:
 		var original_draw = english_domain.execute(draw_command)
 		var resumed_draw = resumed_domain.execute(draw_command)
 		assert_true(original_draw.accepted and resumed_draw.accepted, "the same future Draw is accepted before and after cross-locale resume", failures)
+		var hand: Array = english_domain.current_battle.zones.contents("Hand")
+		var play_command = PlayHandTilesCommandScript.new("stage45.cross_locale.play", [str(hand[0].instance_id)])
+		var original_play = english_domain.execute(play_command)
+		var resumed_play = resumed_domain.execute(play_command)
+		assert_true(original_play.accepted and resumed_play.accepted, "the same required Hand play is accepted before and after cross-locale resume", failures)
 		var original_end_turn = english_domain.execute(end_turn_command)
 		var resumed_end_turn = resumed_domain.execute(end_turn_command)
 		assert_true(original_end_turn.accepted and resumed_end_turn.accepted, "the same future End Turn is accepted before and after cross-locale resume", failures)

@@ -21,6 +21,7 @@ const PatternEvaluatorScript = preload("res://src/domain/mahjong/pattern/pattern
 const SettlementCapacityScript = preload("res://src/domain/mahjong/settlement/settlement_capacity.gd")
 const SettlementTurnScript = preload("res://src/domain/mahjong/settlement/settlement_turn.gd")
 const SettlementWindowScript = preload("res://src/domain/mahjong/settlement/settlement_window.gd")
+const YakuEvaluatorScript = preload("res://src/domain/mahjong/yaku/yaku_evaluator.gd")
 const TileActionServiceScript = preload("res://src/domain/tiles/tile_action_service.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 const TileOriginScript = preload("res://src/domain/tiles/tile_origin.gd")
@@ -28,6 +29,9 @@ const TileLifetimeScript = preload("res://src/domain/tiles/tile_lifetime.gd")
 const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const CompleteHandEvaluatorScript = preload("res://src/domain/mahjong/complete_hand/complete_hand_evaluator.gd")
+
+const INITIAL_HAND_SIZE := 11
+const MAX_OPENING_TILE_ORDER_SIZE := 14
 
 var content_registry
 var last_error: Dictionary
@@ -110,6 +114,19 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	if not draw_wall.initialize():
 		last_error = _error("DRAW_WALL_INIT_FAILED", "The BattleDomain Draw Wall could not be initialized.")
 		return null
+	if run_state.current_battle_snapshot == null:
+		var opening_orders_value: Variant = values.get("opening_tile_orders", null)
+		if opening_orders_value != null:
+			var opening_order_result := _apply_opening_tile_orders(draw_wall, opening_orders_value)
+			if not opening_order_result.get("accepted", false):
+				if not rng_before_creation.is_empty() and domain_rng_streams.has_method("restore"):
+					domain_rng_streams.restore(rng_before_creation)
+				last_error = _error(
+					str(opening_order_result.get("status", "OPENING_TILE_ORDER_INVALID")),
+					"The encounter opening tile order is malformed or cannot be satisfied by its Draw Wall.",
+					{"variant_index": int(opening_order_result.get("variant_index", -1))},
+				)
+				return null
 	var tile_actions := TileActionServiceScript.new(draw_wall, zones)
 	var state := CombatStateScript.new(
 		primary_enemy.max_hp,
@@ -133,6 +150,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	var settlement_context := EffectContextScript.new(state, zones, draw_wall, tile_actions.reserve_service, null, run_state)
 	var build_effect_resolver := BuildEffectResolverScript.new(content_registry)
 	var settlement_turn := SettlementTurnScript.new(settlement_window, tile_actions, zones, int(values.get("normal_hand_baseline", 13)), null, settlement_context, build_effect_resolver)
+	var local_yaku_resolver = YakuEvaluatorScript.new(content_registry) if bool(values.get("local_yaku_enabled", false)) else null
 	var domain := BattleDomainScript.new(
 		zones,
 		draw_wall,
@@ -154,7 +172,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 		int(values.get("normal_hand_baseline", 13)),
 		int(values.get("recovery_baseline", 10)),
 		TileZoneScript.DISCARD,
-		null,
+		local_yaku_resolver,
 		domain_rng_streams,
 	)
 	domain.encounter_id = encounter_id
@@ -166,7 +184,7 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 	domain.build_effect_resolver = build_effect_resolver
 	context.run_state = run_state
 	if run_state.current_battle_snapshot == null:
-		var entry_effects: Dictionary = build_effect_resolver.resolve_battle_entry(run_state, domain)
+		var entry_effects: Dictionary = build_effect_resolver.resolve_battle_entry(run_state, domain, INITIAL_HAND_SIZE)
 		if not entry_effects.get("accepted", false):
 			if not rng_before_creation.is_empty() and domain_rng_streams.has_method("restore"):
 				domain_rng_streams.restore(rng_before_creation)
@@ -177,6 +195,13 @@ func create(run_state, encounter_id: String, domain_rng_streams, expected_kind: 
 			)
 			return null
 		domain.battle_start_effect_events = entry_effects.get("events", []).duplicate()
+		var opening_deal_count: int = mini(maxi(0, INITIAL_HAND_SIZE - zones.size(TileZoneScript.HAND)), draw_wall.size())
+		for _tile_index in range(opening_deal_count):
+			if draw_wall.draw_one() == null:
+				if not rng_before_creation.is_empty() and domain_rng_streams.has_method("restore"):
+					domain_rng_streams.restore(rng_before_creation)
+				last_error = _error("INITIAL_HAND_DEAL_FAILED", "The BattleDomain opening Hand could not be dealt from the Draw Wall.")
+				return null
 	return domain
 
 func create_battle(run_state, encounter_id: String, domain_rng_streams, expected_kind: String = ""):
@@ -190,6 +215,25 @@ func _tile_pool_snapshot(run_state) -> Array:
 		records.append(record.to_dictionary())
 	records.sort_custom(func(left, right): return left["instance_id"] < right["instance_id"])
 	return records
+
+func _apply_opening_tile_orders(draw_wall, opening_orders_value: Variant) -> Dictionary:
+	if not opening_orders_value is Array or opening_orders_value.is_empty():
+		return {"accepted": false, "status": "OPENING_TILE_ORDER_INVALID", "variant_index": -1}
+	var validated_orders: Array[Array] = []
+	for variant_index in range(opening_orders_value.size()):
+		var opening_order: Variant = opening_orders_value[variant_index]
+		if not opening_order is Array or opening_order.size() != MAX_OPENING_TILE_ORDER_SIZE:
+			return {"accepted": false, "status": "OPENING_TILE_ORDER_INVALID", "variant_index": variant_index}
+		var typed_order: Array[String] = []
+		for definition_id in opening_order:
+			if typeof(definition_id) != TYPE_STRING or str(definition_id).is_empty():
+				return {"accepted": false, "status": "OPENING_TILE_ORDER_INVALID", "variant_index": variant_index}
+			typed_order.append(str(definition_id))
+		validated_orders.append(typed_order)
+	for variant_index in range(validated_orders.size()):
+		if draw_wall.reorder_opening_tiles(validated_orders[variant_index]):
+			return {"accepted": true, "variant_index": variant_index}
+	return {"accepted": false, "status": "OPENING_TILE_ORDER_UNAVAILABLE", "variant_index": -1}
 
 func _error(status: String, message: String, details: Dictionary = {}) -> Dictionary:
 	return {"accepted": false, "status": status, "message": message, "details": details.duplicate(true)}

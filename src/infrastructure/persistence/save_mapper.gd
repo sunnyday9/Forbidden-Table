@@ -185,6 +185,7 @@ static func _state_from_dictionary(data: Dictionary, envelope: Dictionary):
 	state.act_index = int(data.get("act_index", 1))
 	state.act_count = int(data.get("act_count", 1))
 	state.character_id = str(data.get("character_id", ""))
+	state.excluded_suit = str(data.get("excluded_suit", ""))
 	state.contract_id = str(data.get("contract_id", ""))
 	state.gold = int(data.get("gold", 0))
 	state.refinement_tokens = int(data.get("refinement_tokens", 0))

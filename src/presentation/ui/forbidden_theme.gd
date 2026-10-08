@@ -9,6 +9,15 @@ const SC_SANS_MEDIUM := "res://assets/ui/fonts/NotoSansSC-Medium.otf"
 const SC_SERIF_REGULAR := "res://assets/ui/fonts/NotoSerifSC-Regular.otf"
 const TILE_DIR := "res://assets/ui/tiles/chinese-tiles/"
 
+const FONT_ROLE_BASE_SIZES := {
+	"title": 36,
+	"heading": 26,
+	"body": 20,
+	"button": 20,
+	"secondary": 18,
+	"caption": 16,
+}
+
 const PALETTE := {
 	"table": Color("#0E1916"),
 	"lacquer": Color("#112820"),
@@ -50,19 +59,19 @@ static func create_theme(locale: String = "en", ui_scale: float = 1.0) -> Theme:
 
 	var theme := Theme.new()
 	theme.default_font = _font_for(normalized_locale, "sans_regular")
-	theme.default_font_size = roundi(16.0 * scale)
+	theme.default_font_size = font_size_for("body", scale)
 	theme.set_meta("forbidden_table_locale", normalized_locale)
 	theme.set_meta("forbidden_table_ui_scale", scale)
 
 	var regular_font: Font = _font_for(normalized_locale, "sans_regular")
 	var medium_font: Font = _font_for(normalized_locale, "sans_medium")
 	theme.set_font("font", "Label", regular_font)
-	theme.set_font_size("font_size", "Label", roundi(16.0 * scale))
+	theme.set_font_size("font_size", "Label", font_size_for("body", scale))
 	theme.set_color("font_color", "Label", color("text"))
 	theme.set_color("font_shadow_color", "Label", Color(0.0, 0.0, 0.0, 0.55))
 
 	theme.set_font("font", "Button", medium_font)
-	theme.set_font_size("font_size", "Button", roundi(16.0 * scale))
+	theme.set_font_size("font_size", "Button", font_size_for("button", scale))
 	theme.set_color("font_color", "Button", color("text"))
 	theme.set_color("font_hover_color", "Button", color("text"))
 	theme.set_color("font_pressed_color", "Button", color("text"))
@@ -77,7 +86,7 @@ static func create_theme(locale: String = "en", ui_scale: float = 1.0) -> Theme:
 	theme.set_stylebox("panel", "Panel", _panel_stylebox("lacquer", false, scale))
 	theme.set_color("default_color", "RichTextLabel", color("text"))
 	theme.set_font("normal_font", "RichTextLabel", regular_font)
-	theme.set_font_size("normal_font_size", "RichTextLabel", roundi(16.0 * scale))
+	theme.set_font_size("normal_font_size", "RichTextLabel", font_size_for("body", scale))
 
 	_theme_cache[cache_key] = theme
 	return theme
@@ -88,6 +97,27 @@ static func style_panel(panel: Control, surface: String = "lacquer", selected: b
 		return
 	var scale := _scale_for(panel)
 	panel.add_theme_stylebox_override("panel", _panel_stylebox(surface, selected, scale))
+
+
+static func font_size_for(role: String, ui_scale: float = 1.0) -> int:
+	var normalized_role := role.strip_edges().to_lower()
+	var base_size := int(FONT_ROLE_BASE_SIZES.get(normalized_role, FONT_ROLE_BASE_SIZES.body))
+	return roundi(float(base_size) * _normalize_scale(ui_scale))
+
+
+static func ui_scale_for(control: Control) -> float:
+	return _scale_for(control)
+
+
+static func style_label(label: Label, role: String = "body", locale: String = "") -> void:
+	if label == null:
+		return
+	var normalized_role := role.strip_edges().to_lower()
+	var normalized_locale := _normalize_locale(locale) if not locale.is_empty() else _locale_for(label)
+	var font_role := "serif_regular" if normalized_role in ["title", "heading"] else "sans_regular"
+	label.add_theme_font_override("font", _font_for(normalized_locale, font_role))
+	label.add_theme_font_size_override("font_size", font_size_for(normalized_role, _scale_for(label)))
+	label.add_theme_color_override("font_color", color("text"))
 
 
 static func style_button(button: Button, primary: bool = false, selected: bool = false) -> void:
@@ -104,7 +134,7 @@ static func style_button(button: Button, primary: bool = false, selected: bool =
 	button.add_theme_stylebox_override("disabled", _button_stylebox(primary, selected, "disabled", scale))
 	button.add_theme_stylebox_override("focus", _focus_stylebox(scale))
 	button.add_theme_font_override("font", _font_for(locale, "sans_medium"))
-	button.add_theme_font_size_override("font_size", roundi(16.0 * scale))
+	button.add_theme_font_size_override("font_size", font_size_for("button", scale))
 	button.add_theme_color_override("font_color", color("ink") if primary else color("text"))
 	button.add_theme_color_override("font_hover_color", color("ink") if primary else color("text"))
 	button.add_theme_color_override("font_pressed_color", color("ink") if primary else color("text"))
@@ -112,13 +142,11 @@ static func style_button(button: Button, primary: bool = false, selected: bool =
 
 
 static func title(label: Label, locale: String = "en") -> void:
-	if label == null:
-		return
-	var normalized_locale := _normalize_locale(locale)
-	var scale := _scale_for(label)
-	label.add_theme_font_override("font", _font_for(normalized_locale, "serif_regular"))
-	label.add_theme_font_size_override("font_size", roundi(32.0 * scale))
-	label.add_theme_color_override("font_color", color("text"))
+	style_label(label, "title", locale)
+
+
+static func heading(label: Label, locale: String = "en") -> void:
+	style_label(label, "heading", locale)
 
 
 static func tile_texture(definition_id: String) -> Texture2D:
@@ -128,7 +156,7 @@ static func tile_texture(definition_id: String) -> Texture2D:
 	if face_file.is_empty():
 		return null
 	var path := TILE_DIR + face_file
-	if not FileAccess.file_exists(path):
+	if not ResourceLoader.exists(path, "Texture2D"):
 		return null
 	var texture := load(path) as Texture2D
 	if texture != null:

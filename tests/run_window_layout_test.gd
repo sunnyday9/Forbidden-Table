@@ -1,6 +1,7 @@
 extends RefCounted
 
 const RunSceneScript = preload("res://scenes/run/run_scene.tscn")
+const RunPhaseScript = preload("res://src/domain/run/run_phase.gd")
 const MetaProgressCoordinatorScript = preload("res://src/presentation/run/meta_progress_coordinator.gd")
 const MetaProgressStoreScript = preload("res://src/infrastructure/persistence/meta_progress_store.gd")
 
@@ -53,12 +54,54 @@ func run() -> Array[String]:
 		)
 
 	if is_instance_valid(_run_scene):
+		await _assert_non_character_wide_layout(tree)
 		_run_scene.queue_free()
 		await tree.process_frame
 	tree.root.size = original_window_size
 	_remove_user_file(_suspend_path)
 	_remove_user_file(_profile_path)
 	return _failures
+
+
+func _assert_non_character_wide_layout(tree: SceneTree) -> void:
+	if _run_scene == null or _run_scene.controller == null:
+		_failures.append("non-Character wide layout fixture has an active Run controller")
+		return
+	var character_action_id := ""
+	for action in _run_scene.controller.action_descriptors():
+		var action_id := str(action.get("id", ""))
+		if action_id == "character:base.character.sequence":
+			character_action_id = action_id
+			break
+	_assert(not character_action_id.is_empty(), "non-Character wide layout fixture starts with a real Character action")
+	if character_action_id.is_empty():
+		return
+	_run_scene._on_action_pressed(character_action_id)
+	for _frame in 4:
+		await tree.process_frame
+	var phase := str(_run_scene.controller.domain.state.phase)
+	_assert(phase == RunPhaseScript.CONTRACT_SELECT, "wide layout fixture transitions through Character into Contract")
+	if phase != RunPhaseScript.CONTRACT_SELECT:
+		return
+	tree.root.size = Vector2i(1920, 1080)
+	for _frame in 4:
+		await tree.process_frame
+	var viewport_rect := Rect2(Vector2.ZERO, Vector2(1920, 1080))
+	var stage: Control = _run_scene.find_child("RunJourneyStage", true, false) as Control
+	var root_scroll: ScrollContainer = _run_scene.find_child("RunRootScroll", true, false) as ScrollContainer
+	_assert(stage != null and root_scroll != null, "Contract wide layout retains the Run stage and page scroll")
+	if stage == null or root_scroll == null:
+		return
+	var stage_rect := stage.get_global_rect()
+	var root_scroll_rect := root_scroll.get_global_rect()
+	_assert(
+		stage_rect.size.x >= viewport_rect.size.x - 80.0,
+		"Contract phase returns to full-width stage layout (stage=%s, viewport=%s)" % [str(stage_rect), str(viewport_rect)]
+	)
+	_assert(
+		stage_rect.end.y >= root_scroll_rect.end.y - 20.0,
+		"Contract phase stage fills the wide page to its bottom inset (stage=%s, scroll=%s)" % [str(stage_rect), str(root_scroll_rect)]
+	)
 
 
 func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide_fill: bool, expect_vertical_scroll: bool) -> void:
@@ -72,6 +115,7 @@ func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide
 	var root_scroll: ScrollContainer = _run_scene.find_child("RunRootScroll", true, false) as ScrollContainer
 	_assert(root_scroll != null, "%s: page content has an outer RunRootScroll" % case_name)
 	if root_scroll != null:
+		_assert_inside_horizontal_bounds(root_scroll, viewport_rect, "%s RunRootScroll" % case_name)
 		_assert(root_scroll.follow_focus, "%s: outer page scroll follows focused controls" % case_name)
 		_assert(
 			root_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
@@ -128,17 +172,17 @@ func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide
 		)
 	if footer is BoxContainer and not (footer as BoxContainer).vertical:
 		var back_action: Control = _run_scene.find_child("BackButton", true, false) as Control
-		var commit_action: Control = _run_scene._commit_selected_button as Control
-		if back_action != null and commit_action != null and back_action.visible and commit_action.visible:
+		var finish_action: Control = _run_scene._summary_acknowledge_button as Control
+		if back_action != null and finish_action != null and back_action.visible and finish_action.visible:
 			_assert(
-				absf(back_action.get_global_rect().position.y - commit_action.get_global_rect().position.y) <= 1.0,
+				absf(back_action.get_global_rect().position.y - finish_action.get_global_rect().position.y) <= 1.0,
 				"%s: wide action buttons stay on one row instead of growing the pinned rail" % case_name
 			)
 
-	for control_name in ["GameTitle", "RunPhaseLabel", "SettingsButton", "NewRunButton", "BackButton", "CommitSelectedButton"]:
+	for control_name in ["GameTitle", "RunPhaseLabel", "SettingsButton", "NewRunButton", "BackButton", "FinishRunButton"]:
 		var control: Control
-		if control_name == "CommitSelectedButton":
-			control = _run_scene._commit_selected_button as Control
+		if control_name == "FinishRunButton":
+			control = _run_scene._summary_acknowledge_button as Control
 		else:
 			control = _run_scene.find_child(control_name, true, false) as Control
 		_assert(control != null, "%s: %s keeps its public control name" % [case_name, control_name])
@@ -146,7 +190,7 @@ func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide
 			continue
 		if control.is_visible_in_tree():
 			_assert_inside_horizontal_bounds(control, viewport_rect, "%s %s" % [case_name, control_name])
-		if control.is_visible_in_tree() and control_name in ["BackButton", "CommitSelectedButton"]:
+		if control.is_visible_in_tree() and control_name in ["BackButton", "FinishRunButton"]:
 			_assert_inside_vertical_bounds(control, viewport_rect, "%s %s" % [case_name, control_name])
 		if control is Button and control.is_visible_in_tree() and not expect_vertical_scroll:
 			_assert(
@@ -177,13 +221,19 @@ func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide
 
 	var stage: Control = _run_scene.find_child("RunJourneyStage", true, false) as Control
 	_assert(stage != null, "%s: RunJourneyStage remains available by its existing name" % case_name)
+	var is_character_selection := _run_scene.controller != null and str(_run_scene.controller.domain.state.phase) == RunPhaseScript.CHARACTER_SELECT
+	var stage_rect := stage.get_global_rect() if stage != null else Rect2()
 	if stage != null and expect_wide_fill:
-		_assert(
-			stage.size.x >= viewport_rect.size.x - 80.0,
-			"%s: stage uses the wide Window instead of a fixed-width letterbox" % case_name
-		)
-		if case_name in ["1440x960", "1920x1080"] and root_scroll != null:
-			var stage_rect := stage.get_global_rect()
+		if is_character_selection:
+			var width_limit := 1500.0 * float(_run_scene._applied_preferences.get("ui_scale", 1.0))
+			_assert(stage_rect.size.x <= width_limit + 4.0, "%s: Character stage remains within the centered composition width %.1fpx" % [case_name, width_limit])
+			_assert(absf(stage_rect.get_center().x - viewport_rect.get_center().x) <= 8.0, "%s: Character stage centers in the wide Window" % case_name)
+		else:
+			_assert(
+				stage.size.x >= viewport_rect.size.x - 80.0,
+				"%s: non-Character stage uses the wide Window instead of a fixed-width letterbox" % case_name
+			)
+		if not is_character_selection and case_name in ["1440x960", "1920x1080"] and root_scroll != null:
 			var root_scroll_rect := root_scroll.get_global_rect()
 			_assert(
 				stage_rect.end.y >= root_scroll_rect.end.y - 20.0,
@@ -196,7 +246,7 @@ func _assert_layout_case(case_name: String, viewport_size: Vector2i, expect_wide
 		)
 
 	_assert_root_anchored_overlay("PreferencesOverlay", case_name, viewport_rect)
-	_assert_root_anchored_overlay("NewRunConfirmation", case_name, viewport_rect)
+	_assert(_run_scene.find_child("NewRunConfirmation", true, false) == null, "%s: New Run has no extra confirmation overlay" % case_name)
 
 
 func _assert_root_anchored_overlay(overlay_name: String, case_name: String, expected_rect: Rect2) -> void:

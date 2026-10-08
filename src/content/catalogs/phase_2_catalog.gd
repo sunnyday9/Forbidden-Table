@@ -9,16 +9,13 @@ const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
 const DurationSpecScript = preload("res://src/domain/effects/duration_spec.gd")
 const StackPolicyScript = preload("res://src/domain/effects/stack_policy.gd")
+const EffectOperationFactoryScript = preload("res://src/domain/effects/effect_operation_factory.gd")
 const ApplyRunModifierOperationScript = preload("res://src/domain/effects/operations/apply_run_modifier_operation.gd")
 const DealDamageOperationScript = preload("res://src/domain/effects/operations/deal_damage_operation.gd")
 const DrawTileOperationScript = preload("res://src/domain/effects/operations/draw_tile_operation.gd")
-const GainPressureOperationScript = preload("res://src/domain/effects/operations/gain_pressure_operation.gd")
 const GainStabilityOperationScript = preload("res://src/domain/effects/operations/gain_stability_operation.gd")
-const GainTPOperationScript = preload("res://src/domain/effects/operations/gain_tp_operation.gd")
 const ModifyDrawCapacityOperationScript = preload("res://src/domain/effects/operations/modify_draw_capacity_operation.gd")
-const ModifyReserveCapacityOperationScript = preload("res://src/domain/effects/operations/modify_reserve_capacity_operation.gd")
 const ModifyRunCurrencyOperationScript = preload("res://src/domain/effects/operations/modify_run_currency_operation.gd")
-const ModifySettlementCapacityOperationScript = preload("res://src/domain/effects/operations/modify_settlement_capacity_operation.gd")
 const PurgeContaminationOperationScript = preload("res://src/domain/effects/operations/purge_contamination_operation.gd")
 const DrawSourceScript = preload("res://src/domain/tiles/draw_source.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
@@ -165,41 +162,35 @@ static func pool_membership() -> Dictionary:
 		WORKSHOP_POOL_ID: _sorted_ids(MODIFIER_IDS),
 	}
 
-static func typed_effect(effect_id: String, operation_kind: String, amount: int = 1):
-	var operation = null
-	match operation_kind:
-		"ApplyRunModifier":
-			operation = ApplyRunModifierOperationScript.new(
-				effect_id,
-				amount,
-				DurationSpecScript.new(DurationSpecScript.RUN, 1),
-				StackPolicyScript.REPLACE,
-				effect_id,
-			)
-		"DealDamage":
-			operation = DealDamageOperationScript.new(amount)
-		"DrawTile":
-			operation = DrawTileOperationScript.new(DrawSourceScript.EFFECT)
-		"GainPressure":
-			operation = GainPressureOperationScript.new(amount)
-		"GainStability":
-			operation = GainStabilityOperationScript.new(amount)
-		"GainTP":
-			operation = GainTPOperationScript.new(amount)
-		"ModifyDrawCapacity":
-			operation = ModifyDrawCapacityOperationScript.new(amount)
-		"ModifyReserveCapacity":
-			operation = ModifyReserveCapacityOperationScript.new(amount)
-		"ModifyRunCurrency":
-			operation = ModifyRunCurrencyOperationScript.new(RunEconomyScript.GOLD, amount, effect_id)
-		"ModifyRefinementTokens":
-			operation = ModifyRunCurrencyOperationScript.new(RunEconomyScript.REFINEMENT_TOKENS, amount, effect_id)
-		"ModifySettlementCapacity":
-			operation = ModifySettlementCapacityOperationScript.new(amount)
-		"PurgeContamination":
-			operation = PurgeContaminationOperationScript.new("")
-		_:
-			return null
+static func typed_effect(effect_id: String, operation_kind: String, amount: int = 1, operation_parameters: Dictionary = {}):
+	var operation = EffectOperationFactoryScript.create_shared_amount_operation(operation_kind, amount)
+	if operation == null:
+		match operation_kind:
+			"ApplyRunModifier":
+				operation = ApplyRunModifierOperationScript.new(
+					effect_id,
+					amount,
+					DurationSpecScript.new(DurationSpecScript.RUN, 1),
+					StackPolicyScript.REPLACE,
+					effect_id,
+					operation_parameters,
+				)
+			"DealDamage":
+				operation = DealDamageOperationScript.new(amount)
+			"DrawTile":
+				operation = DrawTileOperationScript.new(DrawSourceScript.EFFECT)
+			"GainStability":
+				operation = GainStabilityOperationScript.new(amount)
+			"ModifyDrawCapacity":
+				operation = ModifyDrawCapacityOperationScript.new(amount)
+			"ModifyRunCurrency":
+				operation = ModifyRunCurrencyOperationScript.new(RunEconomyScript.GOLD, amount, effect_id)
+			"ModifyRefinementTokens":
+				operation = ModifyRunCurrencyOperationScript.new(RunEconomyScript.REFINEMENT_TOKENS, amount, effect_id)
+			"PurgeContamination":
+				operation = PurgeContaminationOperationScript.new("")
+			_:
+				return null
 	return EffectScript.new(
 		effect_id,
 		EffectTriggerScript.new(EffectTriggerScript.MANUAL),
@@ -301,7 +292,7 @@ static func _yaku_definitions() -> Array:
 
 static func _relic_definitions() -> Array:
 	var configurations := [
-		["DrawTile", 1, false],
+		["ModifyReserveCapacity", 1, false],
 		["GainTP", 1, false],
 		["GainTP", 2, false],
 		["GainTP", 1, false],
@@ -314,18 +305,22 @@ static func _relic_definitions() -> Array:
 		["GainTP", 1, false],
 		["ModifyRunCurrency", 2, false],
 		["ModifyRunCurrency", 1, false],
-		["ApplyRunModifier", 1, false],
+		["ApplyRunModifier", 1, false, {"workshop_price_discount": 1}],
 		["ModifyRunCurrency", 3, false],
 		["GainStability", 2, false],
 		["PurgeContamination", 1, false],
-		["ApplyRunModifier", 1, false],
+		["ApplyRunModifier", 1, false, {}, [typed_effect("run_modifier.content.base.relic.rule_memory", "GainTP", 1)]],
 	]
 	var result: Array = []
 	for index in RELIC_IDS.size():
 		var configuration: Array = configurations[index]
+		var operation_parameters: Dictionary = configuration[3] if configuration.size() > 3 and configuration[3] is Dictionary else {}
+		var relic_effects: Array = [typed_effect("content.%s" % RELIC_IDS[index], configuration[0], configuration[1], operation_parameters)]
+		if configuration.size() > 4 and configuration[4] is Array:
+			relic_effects.append_array(configuration[4])
 		result.append(RelicDefinitionScript.new(
 			RELIC_IDS[index],
-			[typed_effect("content.%s" % RELIC_IDS[index], configuration[0], configuration[1])],
+			relic_effects,
 			configuration[2],
 		))
 	return result
@@ -520,7 +515,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0030"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[1], [
-			{"choice_id": "accept", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0024"), "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1)]},
+			{"choice_id": "accept", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0024"), "effects": [typed_effect("event.risk_bargain.accept", "ApplyRunModifier", 1, {"battle_entry_operations": [{"operation_id": "GainPressure", "amount": 1}], "battle_victory_gold": 2})]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0031"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[2], [
@@ -532,7 +527,7 @@ static func _event_definitions() -> Array:
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0033"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[4], [
-			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0027"), "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1)]},
+			{"choice_id": "carry_clause", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_0027"), "effects": [typed_effect("event.contract_clause.apply", "ApplyRunModifier", 1, {"battle_entry_operations": [{"operation_id": "ModifySettlementCapacity", "amount": 1}]})]},
 			{"choice_id": "leave", "label": ContentTextCatalogScript.canonical_text("CONTENT_PHASE2_LABEL_0034"), "is_skip": true, "effects": []},
 		]),
 		EventDefinitionScript.new(EVENT_IDS[5], [

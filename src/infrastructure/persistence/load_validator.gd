@@ -10,9 +10,15 @@ const RewardOptionScript = preload("res://src/domain/run/reward_option.gd")
 const RelicDefinitionScript = preload("res://src/content/definitions/relic_definition.gd")
 const RuleBreakerDefinitionScript = preload("res://src/content/definitions/rule_breaker_definition.gd")
 const TechniqueDefinitionScript = preload("res://src/content/definitions/technique_definition.gd")
+const TileDefinitionScript = preload("res://src/content/definitions/tile_definition.gd")
+const TileModifierDefinitionScript = preload("res://src/content/definitions/tile_modifier_definition.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
 const AlphaContractEffectsScript = preload("res://src/domain/run/alpha_contract_effects.gd")
 const DeterministicSerializerScript = preload("res://src/infrastructure/serialization/deterministic_serializer.gd")
+const TileZoneContainerScript = preload("res://src/domain/tiles/tile_zone_container.gd")
+
+const RESERVE_CHARACTER_ID := "base.character.reserve"
+const RESERVE_SUIT_IDS := ["characters", "dots", "bamboo"]
 
 func validate(data: Dictionary, content_registry = null) -> Dictionary:
 	var errors: Array = []
@@ -51,6 +57,11 @@ func validate(data: Dictionary, content_registry = null) -> Dictionary:
 		var metadata = data.get("checkpoint_metadata", {})
 		var deterministic_state: Dictionary = state.duplicate(true)
 		deterministic_state.erase("run_started_at_unix_seconds")
+		var terminal_summary = deterministic_state.get("terminal_summary", {})
+		if terminal_summary is Dictionary:
+			var summary_data = terminal_summary.get("summary_data", {})
+			if summary_data is Dictionary:
+				summary_data.erase("defeat_context")
 		if metadata is Dictionary and metadata.has("state_hash") and str(metadata["state_hash"]) != DeterministicSerializerScript.hash(deterministic_state):
 			errors.append({"code": "STATE_HASH_MISMATCH"})
 	return {"accepted": errors.is_empty(), "errors": errors}
@@ -109,10 +120,23 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 	var battle_snapshot = state.get("current_battle_snapshot", {})
 	if not battle_snapshot is Dictionary:
 		errors.append({"code": "INVALID_BATTLE_SNAPSHOT"})
+	elif battle_snapshot.get("zones", {}) is Dictionary:
+		var saved_hand: Variant = battle_snapshot.get("zones", {}).get("Hand", [])
+		if saved_hand is Array and saved_hand.size() > TileZoneContainerScript.MAX_HAND_SIZE:
+			errors.append({"code": "HAND_LIMIT_EXCEEDED", "count": saved_hand.size(), "maximum": TileZoneContainerScript.MAX_HAND_SIZE})
 	for id_field in ["character_id", "contract_id"]:
 		var identifier := str(state.get(id_field, ""))
 		if not identifier.is_empty():
 			_require_content(content_registry, identifier, errors, "INVALID_CONTENT_ID")
+	if state.has("excluded_suit"):
+		var excluded_suit_value: Variant = state.get("excluded_suit")
+		if typeof(excluded_suit_value) != TYPE_STRING:
+			errors.append({"code": "INVALID_EXCLUDED_SUIT"})
+		elif not str(excluded_suit_value).is_empty():
+			if str(excluded_suit_value) not in RESERVE_SUIT_IDS:
+				errors.append({"code": "INVALID_EXCLUDED_SUIT", "excluded_suit": excluded_suit_value})
+			elif str(state.get("character_id", "")) != RESERVE_CHARACTER_ID:
+				errors.append({"code": "EXCLUDED_SUIT_NOT_APPLICABLE", "character_id": state.get("character_id", "")})
 	var build = state.get("build_ownership", {})
 	if not build is Dictionary:
 		errors.append({"code": "INVALID_BUILD_STATE"})
@@ -136,7 +160,8 @@ func _validate_state(state: Dictionary, content_registry, errors: Array) -> void
 		if content_registry != null and not content_registry.resolve(rule_breaker_id) is RuleBreakerDefinitionScript:
 			errors.append({"code": "INVALID_RULE_BREAKER_CONTENT", "content_id": rule_breaker_id})
 	_validate_boss_reward_draft(state.get("reward_draft", {}), phase, acquired_rule_breakers, content_registry, errors)
-	_validate_elite_reward_draft(state.get("reward_draft", {}), phase, owned_relic_ids, run_technique_ids, content_registry, str(state.get("contract_id", "")), errors)
+	_validate_elite_reward_draft(state.get("reward_draft", {}), phase, owned_relic_ids, run_technique_ids, content_registry, str(state.get("contract_id", "")), str(state.get("character_id", "")), str(state.get("excluded_suit", "")), tile_pool, errors)
+	_validate_normal_reward_draft(state.get("reward_draft", {}), phase, content_registry, errors)
 	for instance_id in build.get("persistent_tile_modifier_state", {}).keys():
 		if not tile_ids.has(str(instance_id)):
 			errors.append({"code": "INVALID_MODIFIER_TARGET", "instance_id": str(instance_id)})
@@ -174,7 +199,7 @@ func _validate_boss_reward_draft(draft, phase: String, acquired_ids: Dictionary,
 		elif not content_registry.resolve(content_id) is RuleBreakerDefinitionScript:
 			errors.append({"code": "INVALID_BOSS_REWARD_CONTENT", "content_id": content_id})
 
-func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, owned_technique_ids: Array, content_registry, contract_id: String, errors: Array) -> void:
+func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, owned_technique_ids: Array, content_registry, contract_id: String, character_id: String, excluded_suit: String, tile_pool: Dictionary, errors: Array) -> void:
 	if phase != RunPhaseScript.ELITE_REWARD:
 		if draft is Dictionary and str(draft.get("draft_kind", "")) == "ELITE_BUILD":
 			errors.append({"code": "ELITE_REWARD_PHASE_MISMATCH"})
@@ -185,7 +210,7 @@ func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, 
 	if str(draft.get("draft_kind", "")) != "ELITE_BUILD" or str(draft.get("encounter_kind", "")) != "ELITE" or str(draft.get("draft_id", "")).is_empty():
 		errors.append({"code": "INVALID_ELITE_REWARD_DRAFT"})
 	var options = draft.get("options", [])
-	if not options is Array or options.size() != 4:
+	if not options is Array or options.size() not in [4, 5]:
 		errors.append({"code": "INVALID_ELITE_REWARD_CHOICES"})
 		return
 	var option_ids: Dictionary = {}
@@ -193,6 +218,12 @@ func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, 
 	var relic_count := 0
 	var technique_count := 0
 	var skip_count := 0
+	var pivot_count := 0
+	var owned_tile_counts: Dictionary = {}
+	for tile in tile_pool.get("tile_instances", []):
+		if tile is Dictionary:
+			var owned_definition_id := str(tile.get("definition_id", ""))
+			owned_tile_counts[owned_definition_id] = int(owned_tile_counts.get(owned_definition_id, 0)) + 1
 	for option in options:
 		if not option is Dictionary:
 			errors.append({"code": "INVALID_ELITE_REWARD_OPTION"})
@@ -234,10 +265,62 @@ func _validate_elite_reward_draft(draft, phase: String, owned_relic_ids: Array, 
 				var expected_tokens := AlphaContractEffectsScript.refinement_tokens_on_elite_skip(content_registry, contract_id)
 				if content_id != RewardOptionScript.SKIP_CONTENT_ID or int(option.get("gold_delta", -1)) != expected_gold or int(option.get("refinement_token_delta", 0)) != expected_tokens:
 					errors.append({"code": "INVALID_ELITE_REWARD_SKIP", "option_id": option_id})
+			RewardOptionScript.ADD_TILE:
+				pivot_count += 1
+				var metadata: Variant = option.get("metadata", {})
+				var tile_id := str(option.get("tile_id", ""))
+				var tile_definition = content_registry.resolve(tile_id) if content_registry != null else null
+				var expected_pivot_kind := "EXCLUDED_SUIT" if tile_definition != null and tile_definition.suit == excluded_suit else "HONORS"
+				var is_valid_pivot: bool = character_id == RESERVE_CHARACTER_ID \
+					and not excluded_suit.is_empty() \
+					and metadata is Dictionary \
+					and bool(metadata.get("special_pivot", false)) \
+					and str(metadata.get("pivot_kind", "")) == expected_pivot_kind \
+					and option.get("context_bias", "") == RewardOptionScript.PIVOT \
+					and tile_definition is TileDefinitionScript \
+					and tile_definition.suit in [excluded_suit, "honors"] \
+					and int(owned_tile_counts.get(tile_id, 0)) < RunEconomyScript.DEFAULT_TILE_COPY_LIMIT
+				if not is_valid_pivot:
+					errors.append({"code": "INVALID_ELITE_PIVOT_PROVENANCE", "option_id": option_id, "tile_id": tile_id})
 			_:
 				errors.append({"code": "INVALID_ELITE_REWARD_OPTION", "option_id": option_id})
-	if relic_count < 1 or technique_count < 1 or skip_count != 1 or relic_count + technique_count != 3 or content_ids.size() != 3:
+	var expected_pivot_count := 1 if options.size() == 5 else 0
+	if relic_count < 1 or technique_count < 1 or skip_count != 1 or relic_count + technique_count != 3 or content_ids.size() != 3 or pivot_count != expected_pivot_count:
 		errors.append({"code": "INVALID_ELITE_REWARD_COMPOSITION"})
+
+func _validate_normal_reward_draft(draft, phase: String, content_registry, errors: Array) -> void:
+	if phase != RunPhaseScript.REWARD_CHOICE or not draft is Dictionary or draft.is_empty() or str(draft.get("draft_kind", "")) != "NORMAL":
+		return
+	var options = draft.get("options", [])
+	if not options is Array:
+		errors.append({"code": "INVALID_NORMAL_REWARD_CHOICES"})
+		return
+	for option in options:
+		if not option is Dictionary:
+			errors.append({"code": "INVALID_NORMAL_REWARD_OPTION"})
+			continue
+		var metadata: Variant = option.get("metadata", {})
+		if not metadata is Dictionary:
+			errors.append({"code": "INVALID_NORMAL_REWARD_METADATA", "option_id": str(option.get("option_id", ""))})
+			continue
+		if bool(metadata.get("special_pivot", false)):
+			errors.append({"code": "NORMAL_REWARD_CANNOT_PIVOT", "option_id": str(option.get("option_id", ""))})
+		if not metadata.has("target_mode"):
+			continue
+		var option_id := str(option.get("option_id", ""))
+		var target_limit: Variant = metadata.get("target_limit", null)
+		var modifier_id := str(option.get("modifier_id", ""))
+		var valid_target_mode := str(metadata.get("target_mode", "")) == "CHOOSE_TYPE" \
+			and str(option.get("kind", "")) == RewardOptionScript.MODIFIED_TILE \
+			and typeof(target_limit) == TYPE_INT \
+			and int(target_limit) in [1, 2] \
+			and str(option.get("tile_id", "")).is_empty() \
+			and str(option.get("target_instance_id", "")).is_empty() \
+			and not modifier_id.is_empty()
+		if content_registry != null and not content_registry.resolve(modifier_id) is TileModifierDefinitionScript:
+			valid_target_mode = false
+		if not valid_target_mode:
+			errors.append({"code": "INVALID_TARGETED_MODIFIED_REWARD", "option_id": option_id})
 
 func _validate_map(map_state: Dictionary, act_index: int, errors: Array) -> void:
 	var ordered = map_state.get("ordered_path", [])

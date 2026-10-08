@@ -346,13 +346,13 @@ func _build_cue_visuals(tween: Tween) -> void:
 			else:
 				for member in members:
 					_build_tile_flight(tween, false, member)
-			_add_caption_track(tween, _cue_text(), _point("hand"), BRASS, 18, Vector2(0.0, -68.0))
+			_add_caption_track(tween, _cue_text(), _point("hand"), BRASS, "secondary", Vector2(0.0, -68.0))
 		"DISCARD":
 			_build_tile_flight(tween, true)
-			_add_caption_track(tween, _cue_text(), _point("discard"), IVORY, 17, Vector2(0.0, 62.0))
+			_add_caption_track(tween, _cue_text(), _point("discard"), IVORY, "secondary", Vector2(0.0, 62.0))
 		"SETTLE", "COMPLETE":
 			_build_settlement_fan(tween)
-			_add_caption_track(tween, _cue_text(), _point("discard"), BRASS, 18, Vector2(0.0, 66.0))
+			_add_caption_track(tween, _cue_text(), _point("discard"), BRASS, "secondary", Vector2(0.0, 66.0))
 		"ATTACK":
 			var enemy := _point("enemy")
 			var origin := _point(str(_current.get("origin", "player")))
@@ -374,7 +374,7 @@ func _build_cue_visuals(tween: Tween) -> void:
 			var enemy := _point("enemy")
 			var target := _enemy_effect_target()
 			_add_ink_track(tween, "effect", enemy, target, VERMILION)
-			_add_caption_track(tween, _cue_text(), target, IVORY, 17, Vector2(0.0, 40.0))
+			_add_caption_track(tween, _cue_text(), target, IVORY, "secondary", Vector2(0.0, 40.0))
 		"STABILITY":
 			var player := _point("player")
 			var amount := int(_current.get("amount", 0))
@@ -388,13 +388,13 @@ func _build_cue_visuals(tween: Tween) -> void:
 		"PHASE":
 			var enemy := _point("enemy")
 			_add_ink_track(tween, "phase", enemy, enemy, BRASS)
-			_add_caption_track(tween, _cue_text(), enemy, BRASS, 25, Vector2(0.0, -84.0))
+			_add_caption_track(tween, _cue_text(), enemy, BRASS, "heading", Vector2(0.0, -84.0))
 		"VICTORY":
 			var enemy := _point("enemy")
 			_add_ink_track(tween, "victory", enemy, enemy, BRASS)
-			_add_caption_track(tween, _cue_text(), enemy, BRASS, 30, Vector2(0.0, -24.0))
+			_add_caption_track(tween, _cue_text(), enemy, BRASS, "title", Vector2(0.0, -24.0))
 		_:
-			_add_caption_track(tween, _cue_text(), _point("player"), IVORY, 17, Vector2.ZERO)
+			_add_caption_track(tween, _cue_text(), _point("player"), IVORY, "secondary", Vector2.ZERO)
 
 
 func _build_burst_summary(tween: Tween) -> void:
@@ -482,7 +482,7 @@ func _build_burst_card() -> void:
 	headline.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	headline.text = str(summary_lines[0]) if not summary_lines.is_empty() else _cue_text()
-	headline.add_theme_font_size_override("font_size", 20)
+	headline.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("body", ForbiddenThemeScript.ui_scale_for(self)))
 	headline.add_theme_color_override("font_color", BRASS)
 	headline.add_theme_color_override("font_outline_color", ForbiddenThemeScript.color("ink"))
 	headline.add_theme_constant_override("outline_size", 3)
@@ -498,7 +498,7 @@ func _build_burst_card() -> void:
 	details.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var detail_text := "\n".join(summary_lines.slice(1)) if summary_lines.size() > 1 else ""
 	details.text = detail_text
-	details.add_theme_font_size_override("font_size", 17)
+	details.add_theme_font_size_override("font_size", ForbiddenThemeScript.font_size_for("secondary", ForbiddenThemeScript.ui_scale_for(self)))
 	details.add_theme_color_override("font_color", IVORY)
 	details.add_theme_color_override("font_outline_color", ForbiddenThemeScript.color("ink"))
 	details.add_theme_constant_override("outline_size", 2)
@@ -604,9 +604,11 @@ func _add_method_track(tween: Tween, callable: Callable) -> void:
 	method_tween.set_ease(Tween.EASE_IN_OUT)
 
 
-func _add_caption_track(tween: Tween, caption_text: String, anchor: Vector2, color: Color, font_size: int, offset: Vector2, start_fraction: float = 0.0) -> void:
+func _add_caption_track(tween: Tween, caption_text: String, anchor: Vector2, color: Color, font_role: String, offset: Vector2, start_fraction: float = 0.0) -> void:
 	if caption_text.strip_edges().is_empty():
 		return
+	var ui_scale := ForbiddenThemeScript.ui_scale_for(self)
+	var font_size := ForbiddenThemeScript.font_size_for(font_role, ui_scale)
 	var label := Label.new()
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.focus_mode = Control.FOCUS_NONE
@@ -616,8 +618,8 @@ func _add_caption_track(tween: Tween, caption_text: String, anchor: Vector2, col
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.text = caption_text
 	label.visible = start_fraction <= 0.0
-	label.size = Vector2(308.0, 54.0)
-	label.position = _caption_position(anchor + offset - Vector2(154.0, 27.0), label.size)
+	label.size = Vector2(minf(360.0 * ui_scale, maxf(200.0, size.x - 16.0)), maxf(54.0 * ui_scale, font_size * 2.0 + 12.0 * ui_scale))
+	label.position = _caption_position(anchor + offset - label.size * 0.5, label.size)
 	label.z_index = 42
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
@@ -649,10 +651,12 @@ func _add_amount_track(tween: Tween, amount_text: String, caption_text: String, 
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.text = amount_text
 	label.visible = start_fraction <= 0.0
-	label.size = Vector2(270.0, 52.0)
-	label.position = _caption_position(anchor + Vector2(-135.0, -70.0), label.size)
+	var ui_scale := ForbiddenThemeScript.ui_scale_for(self)
+	var amount_font_size := ForbiddenThemeScript.font_size_for("title", ui_scale)
+	label.size = Vector2(minf(360.0 * ui_scale, maxf(200.0, size.x - 16.0)), maxf(60.0 * ui_scale, amount_font_size * 1.4 + 16.0 * ui_scale))
+	label.position = _caption_position(anchor + Vector2(-label.size.x * 0.5, -70.0 * ui_scale), label.size)
 	label.z_index = 43
-	label.add_theme_font_size_override("font_size", 29)
+	label.add_theme_font_size_override("font_size", amount_font_size)
 	label.add_theme_color_override("font_color", amount_color)
 	label.add_theme_color_override("font_outline_color", ForbiddenThemeScript.color("ink"))
 	label.add_theme_constant_override("outline_size", 5)
@@ -660,7 +664,7 @@ func _add_amount_track(tween: Tween, amount_text: String, caption_text: String, 
 	_visual_nodes.append(label)
 	var from := label.position
 	_add_method_track(tween, Callable(self, "_set_caption_position").bind(label, from, from + Vector2(0.0, -38.0), start_fraction))
-	_add_caption_track(tween, caption_text, anchor, caption_color, 17, Vector2(0.0, 15.0), start_fraction)
+	_add_caption_track(tween, caption_text, anchor, caption_color, "secondary", Vector2(0.0, 15.0), start_fraction)
 
 
 func _caption_position(desired: Vector2, caption_size: Vector2) -> Vector2:

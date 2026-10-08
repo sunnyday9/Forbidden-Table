@@ -21,6 +21,7 @@ var act_index: int
 var act_count: int
 var phase: String
 var character_id: String
+var excluded_suit: String
 var contract_id: String
 var map_state: RunMapState
 var tile_pool: RunTilePoolState
@@ -60,6 +61,7 @@ func _init(
 	act_count = initial_act_count
 	phase = RunPhaseScript.CHARACTER_SELECT
 	character_id = ""
+	excluded_suit = ""
 	contract_id = ""
 	map_state = RunMapStateScript.new()
 	tile_pool = initial_tile_pool if initial_tile_pool != null and initial_tile_pool is RunTilePoolStateScript else RunTilePoolStateScript.new()
@@ -112,6 +114,8 @@ func to_dictionary() -> Dictionary:
 	}
 	if run_started_at_unix_seconds > 0:
 		result["run_started_at_unix_seconds"] = run_started_at_unix_seconds
+	if not excluded_suit.is_empty():
+		result["excluded_suit"] = excluded_suit
 	if not pattern_counts.is_empty():
 		result["pattern_counts"] = pattern_counts.duplicate(true)
 	if not yaku_counts.is_empty():
@@ -127,11 +131,21 @@ func to_dictionary() -> Dictionary:
 	return result
 
 func active_modifier(modifier_id: String):
-	for effect_key in _sorted_effect_keys():
-		var effect = active_effects[effect_key]
-		if effect is ActiveEffectInstanceScript and effect.runtime_parameters.get("modifier_id", "") == modifier_id:
+	for effect in active_modifiers():
+		if str(effect.runtime_parameters.get("modifier_id", "")) == modifier_id:
 			return effect
 	return null
+
+func active_modifiers() -> Array:
+	var modifiers: Array = []
+	for effect_key in _sorted_effect_keys():
+		var effect = active_effects.get(effect_key)
+		if not effect is ActiveEffectInstanceScript or not effect.is_active():
+			continue
+		if str(effect.runtime_parameters.get("modifier_id", "")).is_empty():
+			continue
+		modifiers.append(effect)
+	return modifiers
 
 func _sorted_effect_keys() -> Array:
 	var keys: Array = active_effects.keys()

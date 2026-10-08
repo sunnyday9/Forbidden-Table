@@ -17,10 +17,11 @@ func run() -> Array[String]:
 		"stage4-localization",
 		"stage4-accessibility",
 		"stage45-ui",
+		"guided-sample",
 	]
 	assert_true(
 		default_suite_ids == expected_default_suite_ids,
-		"the default runner selects Stage 2 exit review, Alpha simulation and coverage, Run scene, Meta Progress, Character passive, Run Summary, Stage 4 content, localization, accessibility, and Stage 4.5 UI exactly once",
+		"the default runner selects Stage 2 exit review, Alpha simulation and coverage, Run scene, Meta Progress, Character passive, Run Summary, Stage 4 content, localization, accessibility, Stage 4.5 UI, and Guided Sample exactly once",
 		failures
 	)
 	var focused_cases: Array[Dictionary] = [
@@ -36,6 +37,7 @@ func run() -> Array[String]:
 		{"flag": "--stage4-onboarding-flow", "suites": ["stage4-onboarding-flow"]},
 		{"flag": "--stage4-accessibility", "suites": ["stage4-accessibility"]},
 		{"flag": "--stage45-ui", "suites": ["stage45-ui"]},
+		{"flag": "--guided-sample", "suites": ["guided-sample"]},
 	]
 	for focused_case in focused_cases:
 		var expected_ids: Array[String] = []

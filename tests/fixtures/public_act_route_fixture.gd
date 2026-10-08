@@ -8,6 +8,7 @@ const ChooseEventOptionCommand = preload("res://src/domain/commands/choose_event
 const ChooseRewardCommand = preload("res://src/domain/commands/choose_reward_command.gd")
 const DomainEvent = preload("res://src/domain/events/domain_event.gd")
 const EndTurnCommand = preload("res://src/domain/commands/end_turn_command.gd")
+const DiscardTileCommand = preload("res://src/domain/commands/discard_tile_command.gd")
 const EnterEventCommand = preload("res://src/domain/commands/enter_event_command.gd")
 const Phase2Catalog = preload("res://src/content/catalogs/phase_2_catalog.gd")
 const RunDomain = preload("res://src/domain/run/run_domain.gd")
@@ -151,6 +152,10 @@ static func _win_battle(domain: RunDomain, command_prefix: String, failures: Arr
 			return false
 		action_count += 1
 		if domain.state.phase == RunPhase.BATTLE:
+			if domain.current_battle.validate_end_turn().code == "PLAY_REQUIRED":
+				var hand: Array = domain.current_battle.zones.contents("Hand")
+				var play = _execute(domain, DiscardTileCommand.new("%s.play.%d" % [command_prefix, action_count], str(hand[0].instance_id)), "required Hand play", failures)
+				if play == null or not play.accepted: return false
 			var end_turn = _execute(domain, EndTurnCommand.new("%s.end-turn.%d" % [command_prefix, action_count]), "controlled Battle End Turn", failures)
 			if end_turn == null or not end_turn.accepted:
 				return false

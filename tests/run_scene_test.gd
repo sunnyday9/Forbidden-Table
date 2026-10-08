@@ -81,9 +81,9 @@ func test_launch_scene_uses_the_two_act_presentation_flow(failures: Array[String
 	assert_true(scene.controller.action_descriptors().filter(func(action): return action.get("kind") == "CHARACTER").size() == 2, "a fresh launch profile shows its two unlocked Characters", failures)
 	assert_true(scene.controller.domain.content_registry.resolve("alpha.character.harbor_reader") != null, "the new Character is registered even while its Run-start unlock is pending", failures)
 
-	var character_action: Dictionary = scene.controller.action_descriptors().filter(func(action): return action.get("kind") == "CHARACTER")[0]
+	var character_action: Dictionary = scene.controller.action_descriptors().filter(func(action): return action.get("target_id") == "base.character.sequence")[0]
 	scene._on_action_pressed(str(character_action.id))
-	assert_true(scene.controller.domain.state.tile_pool.tile_instances.size() == 14, "the Character command initializes its starting Tile Pool inside RunDomain", failures)
+	assert_true(scene.controller.domain.state.tile_pool.tile_instances.size() == 68, "the Sequence command initializes its 68-tile pool inside RunDomain", failures)
 	var contract_action: Dictionary = scene.controller.action_descriptors().filter(func(action): return action.get("kind") == "CONTRACT")[0]
 	assert_true(scene.controller.action_descriptors().filter(func(action): return action.get("kind") == "CONTRACT").size() == 3, "a fresh launch profile shows its three unlocked Contracts", failures)
 	scene._on_action_pressed(str(contract_action.id))
@@ -418,6 +418,8 @@ func test_run_scene_persists_and_resumes_suspend_save(failures: Array[String]) -
 		if uninterrupted_draw.accepted and resumed_draw.accepted and first.controller.domain.current_battle != null and resumed.controller.domain.current_battle != null:
 			assert_true(first.controller.domain.current_battle.checkpoint() == resumed.controller.domain.current_battle.checkpoint(), "future Draw outputs match after disk Resume", failures)
 			assert_true(first.controller.domain.rng_snapshot() == resumed.controller.domain.rng_snapshot(), "future RNG state matches after the same resumed command", failures)
+		_play_before_end_turn(first, failures)
+		_play_before_end_turn(resumed, failures)
 		var uninterrupted_end_turn = first.controller.confirm("battle.end_turn")
 		var resumed_end_turn = resumed.controller.confirm("battle.end_turn")
 		assert_true(uninterrupted_end_turn.accepted and resumed_end_turn.accepted, "EndTurn resolves identically on uninterrupted and resumed paths", failures)
@@ -534,10 +536,8 @@ func test_rejected_suspend_save_is_preserved_for_explicit_recovery(failures: Arr
 	assert_true(new_run_button is Button, "the player can explicitly choose a new Run after preservation", failures)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
-		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
-		scene._confirm_pending_new_run()
-	assert_true(scene.controller != null, "the explicit recovery choice starts a fresh Run", failures)
-	assert_true(not FileAccess.file_exists(suspend_path), "the old active slot is cleared only after the explicit New Run choice", failures)
+	assert_true(scene.controller != null, "one direct recovery choice starts a fresh Run", failures)
+	assert_true(not FileAccess.file_exists(suspend_path), "one direct New Run choice clears the rejected active slot", failures)
 	assert_true(FileAccess.file_exists(preserved_path) and FileAccess.get_file_as_string(preserved_path) == source_bytes, "starting over keeps the rejected source available for recovery", failures)
 	scene.free()
 	_clear_test_file(suspend_path)
@@ -577,10 +577,8 @@ func test_interrupted_suspend_sources_are_not_rolled_back(failures: Array[String
 	var new_run_button = scene.find_child("NewRunFromSuspendButton", true, false)
 	if new_run_button is Button:
 		new_run_button.emit_signal("pressed")
-		assert_true(scene.controller == null and FileAccess.file_exists(suspend_path), "opening recovery confirmation preserves the active source", failures)
-		scene._confirm_pending_new_run()
-	assert_true(scene.controller != null, "explicit New Run recovers from an interrupted slot", failures)
-	assert_true(not FileAccess.file_exists(suspend_path) and not FileAccess.file_exists(suspend_path + ".tmp") and not FileAccess.file_exists(suspend_path + ".bak"), "only the explicit New Run action retires interrupted sources", failures)
+	assert_true(scene.controller != null, "one direct New Run choice recovers from an interrupted slot", failures)
+	assert_true(not FileAccess.file_exists(suspend_path) and not FileAccess.file_exists(suspend_path + ".tmp") and not FileAccess.file_exists(suspend_path + ".bak"), "one New Run action retires interrupted sources", failures)
 	assert_true(FileAccess.get_file_as_string(rejected_main) == main_bytes and FileAccess.get_file_as_string(rejected_main + ".1") == temporary_bytes and FileAccess.get_file_as_string(rejected_main + ".2") == backup_bytes, "explicit recovery keeps every original source copied byte for byte", failures)
 	scene.free()
 	for path in [suspend_path, suspend_path + ".tmp", suspend_path + ".bak", profile_path, rejected_main, rejected_main + ".1", rejected_main + ".2"]:
@@ -646,10 +644,8 @@ func test_terminal_new_run_retires_old_suspend_slot(failures: Array[String]) -> 
 		assert_true(written.get("accepted", false), "terminal checkpoint occupies the single save slot before New Run", failures)
 	scene._render()
 	scene._on_new_run_pressed()
-	assert_true(scene.controller.domain.state.run_id == old_run_id and FileAccess.file_exists(suspend_path), "opening terminal New Run confirmation preserves the current Run and slot", failures)
-	scene._confirm_pending_new_run()
-	assert_true(scene.controller != null and scene.controller.domain.state.run_id != old_run_id, "explicit terminal New Run starts a different Run", failures)
-	assert_true(not FileAccess.file_exists(suspend_path), "terminal New Run clears the prior Run slot before starting", failures)
+	assert_true(scene.controller != null and scene.controller.domain.state.run_id != old_run_id, "one terminal New Run activation starts a different Run", failures)
+	assert_true(not FileAccess.file_exists(suspend_path), "terminal New Run clears the prior Run slot as it starts", failures)
 	if scene.controller != null:
 		var new_run_id := str(scene.controller.domain.state.run_id)
 		scene._on_action_pressed("character:base.character.sequence")
@@ -718,8 +714,9 @@ func test_reserve_swap_is_atomic_and_limited_per_draw(failures: Array[String]) -
 	var stored_result = scene._on_action_pressed(str(store_actions[0].get("id", "")))
 	assert_true(stored_result.accepted, "Store moves one selected Hand tile into Reserve", failures)
 	assert_true(scene.controller.domain.current_battle.zones.zone_of(stored_id) == TileZoneScript.RESERVE, "the stored TileInstance enters Reserve", failures)
-	var remaining_reserve_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") in ["RESERVE", "DISCARD", "RESERVE_SWAP"])
+	var remaining_reserve_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") in ["RESERVE", "RESERVE_SWAP"])
 	assert_true(remaining_reserve_actions.is_empty(), "Store consumes the single Hand/Reserve manipulation for this Draw Action", failures)
+	assert_true(not scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "DISCARD").is_empty(), "Store preserves the separate Discard allowance", failures)
 	var before_rejected_store: Dictionary = scene.controller.domain.checkpoint()
 	var rng_before_rejected_store: Dictionary = scene.controller.domain.rng_snapshot()
 	var rejected_store = scene.controller.domain.execute(StoreTileCommandScript.new("swap.budget.store", stored_id))
@@ -744,7 +741,7 @@ func test_reserve_swap_is_atomic_and_limited_per_draw(failures: Array[String]) -
 		assert_true(not rejected_swap.accepted, "stale zone IDs are rejected after the atomic Swap", failures)
 		assert_true(scene.controller.domain.checkpoint() == before_stale_swap and scene.controller.domain.rng_snapshot() == rng_before_stale_swap, "a rejected stale Swap preserves RunState and all RNG streams", failures)
 		var loaded: Dictionary = SaveMapperScript.load_into_domain(FileAccess.get_file_as_string(suspend_path), scene.controller.domain.content_registry)
-		assert_true(loaded.get("accepted", false), "accepted Store and Swap snapshots reload", failures)
+		assert_true(loaded.get("accepted", false), "accepted Store and Swap snapshots reload (%s)" % str(loaded), failures)
 		if loaded.get("accepted", false):
 			assert_true(loaded.domain.checkpoint() == scene.controller.domain.checkpoint(), "Resume restores the exact post-Swap battle checkpoint", failures)
 			assert_true(loaded.snapshot.checkpoint_metadata.get("stable_boundary", "") == "BATTLE_ACTION", "Swap persistence names the completed battle action boundary", failures)
@@ -809,6 +806,13 @@ func test_owned_active_technique_is_available(failures: Array[String]) -> void:
 					break
 			if selected_tile != null and battle.zones.zone_of(selected_tile.instance_id) != TileZoneScript.HAND:
 				battle.zones.transfer(selected_tile.instance_id, battle.zones.zone_of(selected_tile.instance_id), TileZoneScript.HAND)
+		# Leave a slot for the future Draw compared after Resume; the fixture above
+		# deliberately brings a Sequence from the larger RC6 wall into Hand.
+		if battle.zones.size(TileZoneScript.HAND) == 14:
+			for hand_tile in battle.zones.contents(TileZoneScript.HAND):
+				if not hand_tile.definition_id in settlement_definitions:
+					assert_true(battle.zones.transfer(hand_tile.instance_id, TileZoneScript.HAND, TileZoneScript.DISCARD), "the comparison fixture leaves one Hand slot before its stable checkpoint", failures)
+					break
 		assert_true(battle.settlement_window.open(), "the fixture opens its Settlement Window from a legal Hand Sequence", failures)
 		assert_true(battle.settlement_window.settlement_capacity().consume(), "the fixture marks one Settlement use as spent before the Technique", failures)
 		var technique_actions: Array = scene.controller.action_descriptors().filter(func(action): return action.get("kind", "") == "TECHNIQUE")
@@ -849,9 +853,10 @@ func test_owned_active_technique_is_available(failures: Array[String]) -> void:
 					var repeated_core = scene.controller.domain.execute(UseTechniqueCommandScript.new("technique.core.repeat", "base.technique.core.sequence_line"))
 					assert_true(not repeated_core.accepted and repeated_core.validation.code == "CORE_TECHNIQUE_ALREADY_USED", "the authoritative command rejects a repeated Core Technique", failures)
 					assert_true(scene.controller.domain.checkpoint() == before_repeat_core and scene.controller.domain.rng_snapshot() == rng_before_repeat_core, "a repeated Core Technique preserves RunState and all RNG streams", failures)
+					var reserve_capacity_before: int = battle.combat_state.reserve_capacity
 					var reserve_result = scene._on_action_pressed("battle.technique:base.technique.reserve_exchange")
 					assert_true(reserve_result.accepted, "the owned Reserve capacity Technique resolves", failures)
-					assert_true(battle.combat_state.reserve_capacity == 5 and battle.reserve_service.reserve_capacity == 5 and battle.zones.reserve_capacity == 5, "owned Passive and Active Reserve capacity effects synchronize CombatState, ReserveService, and TileZoneContainer", failures)
+					assert_true(battle.combat_state.reserve_capacity == reserve_capacity_before + 1 and battle.reserve_service.reserve_capacity == battle.combat_state.reserve_capacity and battle.zones.reserve_capacity == battle.combat_state.reserve_capacity, "owned Passive and Active Reserve capacity effects synchronize CombatState, ReserveService, and TileZoneContainer", failures)
 					assert_true(reserve_result.events.any(func(event): return event.event_type == DomainEventScript.CAPACITY_CHANGED and event.data.get("capacity", "") == "reserve_capacity"), "Reserve capacity activation emits the factual capacity event", failures)
 					var settlement_result = scene._on_action_pressed("battle.technique:base.technique.settlement_focus")
 					assert_true(settlement_result.accepted, "the owned Settlement Technique resolves while its Window is open", failures)
@@ -872,6 +877,8 @@ func test_owned_active_technique_is_available(failures: Array[String]) -> void:
 					assert_true(resumed.controller != null and resumed.controller.domain.checkpoint() == scene.controller.domain.checkpoint(), "player-facing Resume restores the post-Technique state exactly", failures)
 					if resumed.controller != null:
 						assert_true(resumed.controller.action_descriptors() == scene.controller.action_descriptors(), "Resume restores the same legal action choices", failures)
+						_play_before_end_turn(scene, failures)
+						_play_before_end_turn(resumed, failures)
 						var first_end_turn = scene.controller.confirm("battle.end_turn")
 						var resumed_end_turn = resumed.controller.confirm("battle.end_turn")
 						assert_true(first_end_turn.accepted and resumed_end_turn.accepted, "the same next End Turn is accepted on both paths", failures)
@@ -1121,3 +1128,14 @@ func assert_true(condition: bool, message: String, failures: Array[String]) -> v
 	if not condition:
 		failures.append("ASSERTION FAILED: " + message)
 		push_error("ASSERTION FAILED: " + message)
+
+func _play_before_end_turn(scene, failures: Array[String]) -> void:
+	var battle = scene.controller.domain.current_battle
+	if not battle.combat_state.turn_play_enabled or not battle.combat_state.played_tile_ids_this_turn.is_empty():
+		return
+	var hand: Array = battle.zones.contents(TileZoneScript.HAND)
+	assert_true(not hand.is_empty(), "Resume fixture has a physical Hand tile to play", failures)
+	if hand.is_empty():
+		return
+	var result = scene.controller.confirm("battle.discard:%s" % hand[0].instance_id)
+	assert_true(result.accepted, "both Resume paths satisfy the current mandatory Hand-play rule", failures)

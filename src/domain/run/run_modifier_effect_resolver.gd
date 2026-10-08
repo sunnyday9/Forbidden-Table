@@ -3,35 +3,24 @@ extends RefCounted
 
 const EffectScript = preload("res://src/domain/effects/effect.gd")
 const EffectTriggerScript = preload("res://src/domain/effects/effect_trigger.gd")
-const GainPressureOperationScript = preload("res://src/domain/effects/operations/gain_pressure_operation.gd")
-const GainTPOperationScript = preload("res://src/domain/effects/operations/gain_tp_operation.gd")
-const ModifyReserveCapacityOperationScript = preload("res://src/domain/effects/operations/modify_reserve_capacity_operation.gd")
-const ModifySettlementCapacityOperationScript = preload("res://src/domain/effects/operations/modify_settlement_capacity_operation.gd")
-
-const WORKSHOP_KIT_MODIFIER_ID := "content.base.relic.workshop_kit"
-const EVENT_RISK_BARGAIN_MODIFIER_ID := "event.risk_bargain.accept"
-const EVENT_CONTRACT_CLAUSE_MODIFIER_ID := "event.contract_clause.apply"
-const ACT_TWO_CONTRACT_CLAUSE_MODIFIER_ID := "event.act_two.contract_clause"
-const ACT_TWO_RULE_MEMORY_MODIFIER_ID := "event.act_two.rule_memory"
-const EVENT_RISK_BARGAIN_VICTORY_GOLD := 2
+const EffectOperationFactoryScript = preload("res://src/domain/effects/effect_operation_factory.gd")
 
 func workshop_price(run_state, base_price: int) -> Dictionary:
 	var bounded_base := maxi(0, base_price)
 	var price := bounded_base
 	var adjustments: Array = []
-	if run_state != null and run_state.has_method("active_modifier"):
-		var modifier = run_state.active_modifier(WORKSHOP_KIT_MODIFIER_ID)
-		if modifier != null:
-			var configured_discount := maxi(0, int(modifier.runtime_parameters.get("value", 0)))
-			var discount := mini(bounded_base, configured_discount)
-			if discount > 0:
-				price -= discount
-				adjustments.append({
-					"modifier_id": WORKSHOP_KIT_MODIFIER_ID,
-					"effect_id": modifier.definition_id,
-					"instance_id": modifier.instance_id,
-					"amount": -discount,
-				})
+	for modifier in _active_modifiers(run_state):
+		var configured_discount := maxi(0, int(modifier.runtime_parameters.get("workshop_price_discount", 0)))
+		var discount := mini(price, configured_discount)
+		if discount <= 0:
+			continue
+		price -= discount
+		adjustments.append({
+			"modifier_id": str(modifier.runtime_parameters.get("modifier_id", "")),
+			"effect_id": modifier.definition_id,
+			"instance_id": modifier.instance_id,
+			"amount": -discount,
+		})
 	return {
 		"base_price": bounded_base,
 		"price": maxi(0, price),
@@ -40,27 +29,41 @@ func workshop_price(run_state, base_price: int) -> Dictionary:
 
 func battle_entry_effects(run_state) -> Array:
 	var effects: Array = []
-	var effect_specs := [
-		[EVENT_RISK_BARGAIN_MODIFIER_ID, GainPressureOperationScript.new(1)],
-		[EVENT_CONTRACT_CLAUSE_MODIFIER_ID, ModifySettlementCapacityOperationScript.new(1)],
-		[ACT_TWO_CONTRACT_CLAUSE_MODIFIER_ID, ModifyReserveCapacityOperationScript.new(1)],
-		[ACT_TWO_RULE_MEMORY_MODIFIER_ID, GainTPOperationScript.new(1)],
-	]
-	for effect_spec in effect_specs:
-		var modifier_id := str(effect_spec[0])
-		if run_state == null or not run_state.has_method("active_modifier") or run_state.active_modifier(modifier_id) == null:
+	for modifier in _active_modifiers(run_state):
+		var modifier_id := str(modifier.runtime_parameters.get("modifier_id", ""))
+		var operation_specs = modifier.runtime_parameters.get("battle_entry_operations", [])
+		if not operation_specs is Array:
 			continue
-		var operation = effect_spec[1]
-		effects.append(EffectScript.new(
-			"run_modifier.%s" % modifier_id,
-			EffectTriggerScript.new(EffectTriggerScript.MANUAL),
-			[],
-			[],
-			[operation],
-		))
+		for operation_index in operation_specs.size():
+			var operation_spec = operation_specs[operation_index]
+			if not operation_spec is Dictionary:
+				continue
+			var operation = _operation_from_spec(operation_spec)
+			if operation == null:
+				continue
+			var effect_id := "run_modifier.%s" % modifier_id
+			if operation_index > 0:
+				effect_id += ".%d" % (operation_index + 1)
+			effects.append(EffectScript.new(
+				effect_id,
+				EffectTriggerScript.new(EffectTriggerScript.MANUAL),
+				[],
+				[],
+				[operation],
+			))
 	return effects
 
-func risk_bargain_victory_gold(run_state) -> int:
-	if run_state == null or not run_state.has_method("active_modifier"):
-		return 0
-	return EVENT_RISK_BARGAIN_VICTORY_GOLD if run_state.active_modifier(EVENT_RISK_BARGAIN_MODIFIER_ID) != null else 0
+func battle_victory_gold_bonus(run_state) -> int:
+	var bonus := 0
+	for modifier in _active_modifiers(run_state):
+		bonus += maxi(0, int(modifier.runtime_parameters.get("battle_victory_gold", 0)))
+	return bonus
+
+func _active_modifiers(run_state) -> Array:
+	if run_state == null or not run_state.has_method("active_modifiers"):
+		return []
+	return run_state.active_modifiers()
+
+func _operation_from_spec(spec: Dictionary):
+	var amount := int(spec.get("amount", 0))
+	return EffectOperationFactoryScript.create_shared_amount_operation(str(spec.get("operation_id", "")), amount)

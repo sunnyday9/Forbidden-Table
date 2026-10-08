@@ -22,6 +22,7 @@ const SaveCoordinatorScript = preload("res://src/infrastructure/persistence/save
 const SaveMapperScript = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const ModifyRunCurrencyOperationScript = preload("res://src/domain/effects/operations/modify_run_currency_operation.gd")
 const RunEconomyScript = preload("res://src/domain/run/run_economy.gd")
+const RunBattleSnapshotScript = preload("res://src/domain/run/run_battle_snapshot.gd")
 const WorkshopStateScript = preload("res://src/domain/run/workshop_state.gd")
 const SettlePatternCommandScript = preload("res://src/domain/commands/settle_pattern_command.gd")
 const SelectMapNodeCommandScript = preload("res://src/domain/commands/select_map_node_command.gd")
@@ -40,6 +41,7 @@ func run() -> Array[String]:
 	test_invalid_tile_modifier_rejects_settlement_atomically(failures)
 	test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures)
 	test_authored_run_modifiers_have_gameplay_effects_and_expire(failures)
+	test_run_modifier_behavior_is_data_driven(failures)
 	return failures
 
 func test_owned_starting_relic_effect_replays_and_resumes_once(failures: Array[String]) -> void:
@@ -53,9 +55,13 @@ func test_owned_starting_relic_effect_replays_and_resumes_once(failures: Array[S
 
 	var battle = domain.current_battle
 	assert_true(domain.state.build_ownership.owned_relic_ids.has("base.relic.open_hand"), "the Character's starting Relic is owned", failures)
-	assert_true(battle.zones.size(TileZoneScript.HAND) == 1, "an owned battle-entry DrawTile Relic effect draws exactly one tile", failures)
+	assert_true(battle.zones.size(TileZoneScript.HAND) == 11, "the Reserve-capacity starter Relic leaves the opening Hand at eleven tiles", failures)
+	assert_true(battle.zones.size(TileZoneScript.DRAW_WALL) == domain.state.tile_pool.tile_instances.size() - 11, "battle entry deals exactly eleven tiles without drawing an extra tile", failures)
+	assert_true(battle.zones.size(TileZoneScript.RESERVE) == 0, "the capacity bonus does not automatically place tiles in Reserve", failures)
+	assert_true(battle.combat_state.reserve_capacity == 4 and battle.reserve_service.reserve_capacity == 4 and battle.zones.reserve_capacity == 4, "the owned starter Relic synchronizes one extra Reserve slot across battle services", failures)
 	assert_true(battle.combat_state.tp == 0, "a registered but unowned GainTP Relic has no battle effect", failures)
-	assert_true(_has_effect_event(selected.events, DomainEventScript.TILE_DRAWN, "content.base.relic.open_hand"), "the accepted map command exposes the Relic's factual draw event", failures)
+	assert_true(_has_capacity_event(selected.events, "reserve_capacity", 4), "the accepted map command exposes the Relic's factual Reserve-capacity event", failures)
+	assert_true(not _has_effect_event(selected.events, DomainEventScript.TILE_DRAWN, "content.base.relic.open_hand"), "the starter Relic no longer emits an extra TileDrawn effect", failures)
 
 	var checkpoint_before_resume: Dictionary = domain.checkpoint()
 	var rng_before_resume: Dictionary = domain.rng_snapshot()
@@ -65,12 +71,31 @@ func test_owned_starting_relic_effect_replays_and_resumes_once(failures: Array[S
 		var resumed = SaveMapperScript.load_into_domain(saved.snapshot.to_dictionary(), registry)
 		assert_true(resumed.accepted, "the saved battle resumes through the public load pipeline", failures)
 		if resumed.accepted:
-			assert_true(resumed.domain.current_battle.zones.size(TileZoneScript.HAND) == 1, "resuming a battle does not reapply its one-time entry draw", failures)
+			assert_true(resumed.domain.current_battle.zones.size(TileZoneScript.HAND) == 11, "resuming preserves the eleven-tile Hand without reapplying its one-time entry draw", failures)
+			assert_true(resumed.domain.current_battle.combat_state.reserve_capacity == 4, "resuming preserves the serialized Reserve-capacity bonus without applying it again", failures)
 			assert_true(resumed.domain.checkpoint() == checkpoint_before_resume, "resuming preserves the battle checkpoint after entry effects", failures)
 			assert_true(resumed.domain.rng_snapshot() == rng_before_resume, "resuming does not advance RNG for already resolved entry effects", failures)
 
 	var replay = domain.verify_replay()
 	assert_true(replay.is_match(), "accepted map commands replay the same owned Relic effects and checkpoint", failures)
+
+	var legacy_domain := _prepared_domain("build-effects.relic-legacy-capacity", 7831, registry)
+	var legacy_entry = legacy_domain.execute(SelectMapNodeCommandScript.new("build-effects.relic-legacy-capacity.enter", legacy_domain.map_definition.start_node_id))
+	assert_true(legacy_entry.accepted, "the legacy-capacity fixture starts an ongoing battle", failures)
+	if legacy_entry.accepted:
+		legacy_domain.current_battle.combat_state.reserve_capacity = 3
+		assert_true(legacy_domain.current_battle.reserve_service.set_capacity(3), "the compatibility fixture represents a saved pre-bonus Reserve capacity", failures)
+		legacy_domain.state.current_battle_snapshot = RunBattleSnapshotScript.new(legacy_domain.current_battle.checkpoint())
+		var legacy_saved = SaveCoordinatorScript.new().save(legacy_domain)
+		assert_true(legacy_saved.accepted, "an ongoing battle with its serialized legacy capacity remains saveable", failures)
+		if legacy_saved.accepted:
+			var legacy_resumed = SaveMapperScript.load_into_domain(legacy_saved.snapshot.to_dictionary(), registry)
+			assert_true(legacy_resumed.accepted, "the legacy ongoing battle resumes under the updated starter Relic definition", failures)
+			if legacy_resumed.accepted:
+				assert_true(legacy_resumed.domain.current_battle.combat_state.reserve_capacity == 3 and legacy_resumed.domain.current_battle.reserve_service.reserve_capacity == 3, "loading an ongoing battle preserves its serialized Reserve capacity instead of retroactively applying the new bonus", failures)
+	var next_fresh_domain := _prepared_domain("build-effects.relic-next-fresh", 7832, registry)
+	var next_fresh_entry = next_fresh_domain.execute(SelectMapNodeCommandScript.new("build-effects.relic-next-fresh.enter", next_fresh_domain.map_definition.start_node_id))
+	assert_true(next_fresh_entry.accepted and next_fresh_domain.current_battle.combat_state.reserve_capacity == 4, "a later fresh battle receives the new starter Relic effect", failures)
 
 func test_act_two_rule_breaker_effect_applies_only_when_owned(failures: Array[String]) -> void:
 	var registry := _alpha_registry()
@@ -289,7 +314,7 @@ func test_stage_four_tile_modifiers_apply_distinct_existing_effects_and_replay(f
 		assert_true(saved.accepted, "%s settlement with persistent Modifier state saves" % modifier_id, failures)
 		if saved.accepted:
 			var resumed = SaveMapperScript.load_into_domain(saved.snapshot.to_dictionary(), registry)
-			assert_true(resumed.accepted, "%s settlement resumes through the public save pipeline" % modifier_id, failures)
+			assert_true(resumed.accepted, "%s settlement resumes through the public save pipeline (%s: %s)" % [modifier_id, resumed.get("code", ""), resumed.get("errors", [])], failures)
 			if resumed.accepted:
 				assert_true(resumed.domain.state.build_ownership.persistent_tile_modifier_state == domain.state.build_ownership.persistent_tile_modifier_state, "%s retains its exact TileInstance Modifier owner on resume" % modifier_id, failures)
 				assert_true(resumed.domain.checkpoint() == domain.checkpoint(), "%s resume preserves its settled state without replaying the Modifier" % modifier_id, failures)
@@ -350,6 +375,35 @@ func test_invalid_owned_entry_effect_rejects_map_entry_atomically(failures: Arra
 func test_authored_run_modifiers_have_gameplay_effects_and_expire(failures: Array[String]) -> void:
 	test_workshop_kit_changes_workshop_prices_and_expires(failures)
 	test_rule_memory_changes_battle_entry_tp_and_replays_once(failures)
+
+func test_run_modifier_behavior_is_data_driven(failures: Array[String]) -> void:
+	var registry := ContentRegistryScript.new()
+	Phase2CatalogScript.register_all(registry)
+	var domain := _prepared_domain("build-effects.generic-modifier", 7830, registry)
+	var modifier := ActiveEffectInstanceScript.new(
+		"run.modifier.event.custom.training",
+		DurationSpecScript.new(DurationSpecScript.RUN, 1),
+		"UNIQUE",
+		"test.custom.training",
+		1,
+		-1,
+		-1,
+		"run.modifier.event.custom.training",
+		0,
+		{
+			"modifier_id": "event.custom.training",
+			"workshop_price_discount": 4,
+			"battle_entry_operations": [{"operation_id": "GainTP", "amount": 3}],
+			"battle_victory_gold": 6,
+		},
+	)
+	domain.state.active_effects[modifier.instance_id] = modifier
+	var resolver = RunModifierEffectResolverScript.new()
+	var workshop_price: Dictionary = resolver.workshop_price(domain.state, 10)
+	assert_true(int(workshop_price.get("price", -1)) == 6, "a previously unknown modifier applies its authored Workshop discount", failures)
+	var entry_effects: Array = resolver.battle_entry_effects(domain.state)
+	assert_true(entry_effects.size() == 1 and entry_effects[0].operations[0].amount == 3, "a previously unknown modifier resolves its authored battle-entry operation", failures)
+	assert_true(resolver.battle_victory_gold_bonus(domain.state) == 6, "a previously unknown modifier applies its authored victory Gold bonus", failures)
 
 func test_workshop_kit_changes_workshop_prices_and_expires(failures: Array[String]) -> void:
 	var registry := ContentRegistryScript.new()
@@ -589,10 +643,12 @@ func _prepared_rule_memory_domain(run_id: String, seed: int, registry, owns_rule
 
 func _prepared_modifier_domain(run_id: String, seed: int, registry) -> RunDomainScript:
 	var domain := _prepared_domain(run_id, seed, registry)
+	_configure_test_opening_order(domain)
 	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, domain.map_definition.start_node_id))
 	if not selected.accepted:
 		return domain
 	var battle = domain.current_battle
+	battle.combat_state.enemy_hp = 999
 	for _draw_index in range(12):
 		if battle.settlement_window.open():
 			break
@@ -607,10 +663,12 @@ func _prepared_modifier_domain(run_id: String, seed: int, registry) -> RunDomain
 
 func _prepared_complete_hand_modifier_domain(run_id: String, seed: int, registry) -> RunDomainScript:
 	var domain := _prepared_domain(run_id, seed, registry)
+	_configure_test_opening_order(domain)
 	var selected = domain.execute(SelectMapNodeCommandScript.new("%s.enter" % run_id, domain.map_definition.start_node_id))
 	if not selected.accepted:
 		return domain
 	var battle = domain.current_battle
+	battle.combat_state.enemy_hp = 999
 	for _draw_index in range(20):
 		if battle.complete_hand_interpretations().size() > 0:
 			break
@@ -623,6 +681,25 @@ func _prepared_complete_hand_modifier_domain(run_id: String, seed: int, registry
 	domain.state.current_battle_snapshot = preload("res://src/domain/run/run_battle_snapshot.gd").new(battle.checkpoint())
 	_record_replay_segment(domain)
 	return domain
+
+func _configure_test_opening_order(domain: RunDomainScript) -> void:
+	if domain == null or domain.content_registry == null:
+		return
+	var order: Array[String] = [
+		"base.tile.characters.1", "base.tile.characters.2", "base.tile.characters.3",
+		"base.tile.characters.7", "base.tile.characters.8", "base.tile.characters.9",
+		"base.tile.dots.1", "base.tile.dots.2", "base.tile.dots.3",
+		"base.tile.dots.7", "base.tile.dots.8", "base.tile.dots.9",
+		"base.tile.honors.east", "base.tile.honors.east",
+	]
+	var normal_enemy_ids: Array = []
+	normal_enemy_ids.append_array(Phase2CatalogScript.NORMAL_ENEMY_IDS)
+	normal_enemy_ids.append_array(AlphaScaleCatalogScript.ACT_ONE_NORMAL_ENEMY_IDS)
+	normal_enemy_ids.append_array(AlphaScaleCatalogScript.ACT_TWO_NORMAL_ENEMY_IDS)
+	for enemy_id in normal_enemy_ids:
+		var enemy = domain.content_registry.resolve(str(enemy_id))
+		if enemy != null and enemy.battle_values is Dictionary:
+			enemy.battle_values["opening_tile_orders"] = [order]
 
 func _assign_modifier_to_candidate_and_other_tile(domain: RunDomainScript, candidate) -> Dictionary:
 	var candidate_instance_ids: Array[String] = []

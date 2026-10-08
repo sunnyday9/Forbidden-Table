@@ -13,6 +13,8 @@ const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot
 const MetaProgressSnapshotScript = preload("res://src/infrastructure/persistence/meta_progress_snapshot.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
 
+var _timeout_executable_path_for_run := ""
+
 const REPORT_SCHEMA := "alpha.gate-corpus-jsonl.v3"
 const OUTLIER_DISPOSITION_SCHEMA := "alpha.gate-corpus-outlier-dispositions.v1"
 const VALID_OUTLIER_DISPOSITIONS := ["ACCEPTED_AS_DESIGNED", "REMEDIATION_REQUIRED", "RETEST_REQUIRED"]
@@ -535,6 +537,53 @@ func _execution_metadata(options: Dictionary, cumulative_case_count: int, repeat
 		"exact_repeats_match_so_far": repeat_matches,
 	}
 
+static func _command_argv_matches(expected: Array, observed: Array) -> bool:
+	if expected.size() != observed.size():
+		return false
+	var path_options: Array[String] = ["--path", "--output", "--manifest-output", "--resume-from", "--report-output", "--outlier-disposition-file"]
+	var index := 0
+	while index < expected.size():
+		if typeof(expected[index]) != TYPE_STRING or typeof(observed[index]) != TYPE_STRING:
+			return false
+		var expected_argument := str(expected[index])
+		var observed_argument := str(observed[index])
+		if expected_argument in path_options or observed_argument in path_options:
+			if expected_argument != observed_argument or index + 1 >= expected.size():
+				return false
+			if not _command_paths_match(str(expected[index + 1]), str(observed[index + 1])):
+				return false
+			index += 2
+			continue
+		var expected_is_path := _is_absolute_command_path(expected_argument)
+		var observed_is_path := _is_absolute_command_path(observed_argument)
+		if expected_is_path or observed_is_path:
+			if not expected_is_path or not observed_is_path or not _command_paths_match(expected_argument, observed_argument):
+				return false
+		elif expected_argument != observed_argument:
+			return false
+		index += 1
+	return true
+
+static func _is_absolute_command_path(value: String) -> bool:
+	if value.begins_with("res://") or value.begins_with("user://"):
+		return false
+	if value.is_absolute_path():
+		return true
+	return OS.get_name() == "Windows" and value.length() >= 3 and value.substr(1, 2) in [":/", ":\\"]
+
+static func _command_paths_match(expected_path: String, observed_path: String) -> bool:
+	return _normalize_command_path(expected_path) == _normalize_command_path(observed_path)
+
+static func _normalize_command_path(path: String) -> String:
+	var normalized := path
+	if OS.get_name() == "Windows":
+		normalized = normalized.replace("\\", "/")
+	while normalized.ends_with("/") and normalized != "/" and not normalized.ends_with(":/"):
+		normalized = normalized.trim_suffix("/")
+	if OS.get_name() == "Windows":
+		normalized = normalized.to_lower()
+	return normalized
+
 func _recorded_timeout_command(options: Dictionary) -> String:
 	var project_path := ProjectSettings.globalize_path("res://")
 	var parts: Array[String] = [
@@ -555,7 +604,9 @@ func _recorded_timeout_command(options: Dictionary) -> String:
 	return " ".join(parts)
 
 func _resolved_timeout_executable_path() -> String:
-	return GnuTimeoutLocatorScript.resolve_path()
+	if _timeout_executable_path_for_run.is_empty():
+		_timeout_executable_path_for_run = GnuTimeoutLocatorScript.resolve_path()
+	return _timeout_executable_path_for_run
 
 func _recorded_timeout_command_argv(options: Dictionary) -> Array[String]:
 	var project_path := ProjectSettings.globalize_path("res://")
@@ -729,8 +780,8 @@ func _consume_resume_chunks(
 			and FileAccess.file_exists(timeout_executable_path)
 			and not expected_command_argv_value.is_empty()
 			and not status_command_argv_value.is_empty()
-			and str(expected_command_argv_value[0]) == timeout_executable_path
-			and str(status_command_argv_value[0]) == timeout_executable_path
+			and _command_paths_match(str(expected_command_argv_value[0]), timeout_executable_path)
+			and _command_paths_match(str(status_command_argv_value[0]), timeout_executable_path)
 		)
 		if (
 			str(process_status.get("schema", "")) != "alpha.gate-corpus-process-status.v1"
@@ -739,12 +790,12 @@ func _consume_resume_chunks(
 			or not str(process_status.get("timeout_version", "")).contains("GNU coreutils")
 			or int(process_status.get("timeout_seconds", 0)) != process_timeout_seconds
 			or int(process_status.get("kill_after_seconds", 0)) != PROCESS_TIMEOUT_KILL_AFTER_SECONDS
-			or str(process_status.get("output_path", "")) != path
+			or not _command_paths_match(str(process_status.get("output_path", "")), path)
 			or str(process_status.get("output_sha256", "")) != source_hash_before
 			or not expected_command_argv_value is Array
 			or not status_command_argv_value is Array
 			or not timeout_command_matches
-			or _canonical_hash(expected_command_argv_value) != _canonical_hash(status_command_argv_value)
+			or not _command_argv_matches(expected_command_argv_value, status_command_argv_value)
 		):
 			source.close()
 			return "Resume chunk %s has a missing, nonzero, timed-out, or mismatched GNU process-status record." % path

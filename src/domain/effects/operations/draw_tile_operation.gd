@@ -14,6 +14,9 @@ func validate(context, _targets: Dictionary) -> String:
 		return "DRAW_WALL_NOT_READY"
 	return "" if DrawSourceScript.is_valid(source) else "INVALID_SOURCE"
 
+func hand_addition_demand(_context, _targets: Dictionary) -> int:
+	return 1
+
 func apply(context, _targets: Dictionary, sequence_index: int, effect_id: String) -> Array:
 	var result = context.resolve_draw_resolver().draw(1, source, sequence_index)
 	var events: Array = []

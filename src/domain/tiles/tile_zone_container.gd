@@ -4,6 +4,8 @@ extends RefCounted
 const TileZoneScript = preload("res://src/domain/tiles/tile_zone.gd")
 const TileInstanceScript = preload("res://src/domain/tiles/tile_instance.gd")
 
+const MAX_HAND_SIZE := 14
+
 var _contents: Dictionary = {}
 var _locations: Dictionary = {}
 var reserve_capacity: int
@@ -26,6 +28,8 @@ func add(tile_instance, zone: String) -> bool:
 		return false
 	if _locations.has(tile_instance.instance_id):
 		return false
+	if zone == TileZoneScript.HAND and _contents[zone].size() >= MAX_HAND_SIZE:
+		return false
 	if zone == TileZoneScript.RESERVE and _contents[zone].size() >= reserve_capacity:
 		return false
 
@@ -43,6 +47,8 @@ func transfer(instance_id: String, source_zone: String, target_zone: String) -> 
 	if not TileZoneScript.is_active(source_zone):
 		return false
 	if not _locations.has(instance_id) or _locations[instance_id] != source_zone:
+		return false
+	if target_zone == TileZoneScript.HAND and _contents[target_zone].size() >= MAX_HAND_SIZE:
 		return false
 	if target_zone == TileZoneScript.RESERVE and _contents[target_zone].size() >= reserve_capacity:
 		return false
@@ -137,6 +143,9 @@ func size(zone: String) -> int:
 	if not TileZoneScript.is_valid(zone):
 		return 0
 	return _contents[zone].size()
+
+func remaining_hand_capacity() -> int:
+	return maxi(0, MAX_HAND_SIZE - size(TileZoneScript.HAND))
 
 func _find_instance_index(zone_contents: Array, instance_id: String) -> int:
 	for index in range(zone_contents.size()):

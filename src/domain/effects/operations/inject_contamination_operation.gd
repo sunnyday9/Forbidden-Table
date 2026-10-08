@@ -32,6 +32,9 @@ func validate(context, _targets: Dictionary) -> String:
 		return ContaminationResultScript.INVALID_ZONE
 	return ""
 
+func hand_addition_demand(_context, _targets: Dictionary) -> int:
+	return 1 if target_zone == TileZoneScript.HAND else 0
+
 func apply(context, _targets: Dictionary, sequence_index: int, _effect_id: String) -> Array:
 	return context.resolve_contamination_service().inject_contamination(instance_id, tile_definition_id, _definition(), target_zone, sequence_index).events
 

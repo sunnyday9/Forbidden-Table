@@ -27,6 +27,7 @@ const TechniqueDefinition = preload("res://src/content/definitions/technique_def
 const ChooseCharacterCommand = preload("res://src/domain/commands/choose_character_command.gd")
 const ChooseContractCommand = preload("res://src/domain/commands/choose_contract_command.gd")
 const DrawCommand = preload("res://src/domain/commands/draw_command.gd")
+const DiscardTileCommand = preload("res://src/domain/commands/discard_tile_command.gd")
 const EndTurnCommand = preload("res://src/domain/commands/end_turn_command.gd")
 const ResolveEnemyIntentCommand = preload("res://src/domain/commands/resolve_enemy_intent_command.gd")
 const SelectMapNodeCommand = preload("res://src/domain/commands/select_map_node_command.gd")
@@ -34,6 +35,7 @@ const UseTechniqueCommand = preload("res://src/domain/commands/use_technique_com
 const DrawSource = preload("res://src/domain/tiles/draw_source.gd")
 const TileInstance = preload("res://src/domain/tiles/tile_instance.gd")
 const TileZone = preload("res://src/domain/tiles/tile_zone.gd")
+const TileZoneContainer = preload("res://src/domain/tiles/tile_zone_container.gd")
 const SaveCoordinator = preload("res://src/infrastructure/persistence/save_coordinator.gd")
 const SaveMapper = preload("res://src/infrastructure/persistence/save_mapper.gd")
 const ReplayRecord = preload("res://src/infrastructure/replay/replay_record.gd")
@@ -59,6 +61,7 @@ func run() -> Array[String]:
 	test_battle_outcome_transfer_opens_reward_or_terminates(failures)
 	test_reward_tax_survives_save_replay_and_taxes_victory_once(failures)
 	test_authored_intent_types_resolve_for_normal_elite_and_boss(failures)
+	test_enemy_contamination_uses_authored_definition_and_count(failures)
 	test_stage_four_enemy_encounters_resolve_through_catalog_path(failures)
 	test_owned_passive_technique_applies_once_on_battle_entry(failures)
 	test_stage_four_run_techniques_resolve_through_existing_commands_and_resume_replay(failures)
@@ -241,6 +244,44 @@ func test_authored_intent_types_resolve_for_normal_elite_and_boss(failures: Arra
 		assert_true(boss_result.is_resolved(), "the Boss Table Interference intent resolves", failures)
 		assert_true(boss_battle.combat_state.stability == 0 and boss_battle.combat_state.pressure == 0, "the Boss typed phase applies Stability loss rather than Pressure", failures)
 
+func test_enemy_contamination_uses_authored_definition_and_count(failures: Array[String]) -> void:
+	var registry := ContentRegistry.new()
+	var registration = Phase2Catalog.register_all(registry)
+	assert_true(registration.is_valid(), "the contamination fixture has a valid base catalog", failures)
+	if not registration.is_valid():
+		return
+	var graph := IntentGraph.new("configured_contamination.seed", [
+		EnemyIntent.new("configured_contamination.seed", "Seed the Table", 1, EnemyIntent.CONTAMINATION, [IntentTransition.fixed("configured_contamination.loop", "configured_contamination.seed")]),
+	])
+	var enemy_id := "prototype.enemy.configured_contaminator"
+	var encounter_id := "prototype.encounter.configured_contaminator"
+	var enemy_registration = registry.register(EnemyDefinition.new(
+		enemy_id,
+		graph,
+		EnemyDefinition.NORMAL,
+		8,
+		{"pressure_limit": 10},
+		{"contamination_id": "base.contamination.pressure_dross", "injection_count": 2},
+	))
+	var encounter_registration = registry.register(EncounterDefinition.new(encounter_id, [enemy_id], EncounterDefinition.NORMAL))
+	assert_true(enemy_registration.is_valid() and encounter_registration.is_valid(), "the authored contamination fixture registers", failures)
+	if not enemy_registration.is_valid() or not encounter_registration.is_valid():
+		return
+	var domain := RunDomain.new("run.enemy.configured_contamination", 7426, registry)
+	domain.execute(ChooseCharacterCommand.new("configured.contamination.character", Phase2Catalog.CHARACTER_IDS[0]))
+	domain.execute(ChooseContractCommand.new("configured.contamination.contract", Phase2Catalog.CONTRACT_IDS[0]))
+	var battle = domain.encounter_factory.create(domain.state, encounter_id, domain.rng_streams, EncounterDefinition.NORMAL)
+	assert_true(battle != null, "the enemy with authored contamination settings enters BattleDomain", failures)
+	if battle == null:
+		return
+	var result: Dictionary = battle.resolve_enemy_intent()
+	var injected_tiles: Array = battle.zones.contents(TileZone.DRAW_WALL).filter(func(tile): return tile.origin == "ENEMY")
+	var contamination_event = _event_of_type(result.get("events", []), DomainEvent.CONTAMINATION_APPLIED)
+	assert_true(result.get("accepted", false), "the authored Contamination Intent resolves through BattleDomain", failures)
+	assert_true(injected_tiles.size() == 2, "the authored injection_count controls the number of contaminated tiles", failures)
+	assert_true(injected_tiles.all(func(tile): return tile.contamination_id == "base.contamination.pressure_dross"), "every injected tile uses the configured Pressure Dross definition", failures)
+	assert_true(contamination_event != null and contamination_event.data.get("contamination_id", "") == "base.contamination.pressure_dross", "the causal contamination event reports its authored definition", failures)
+
 func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Array[String]) -> void:
 	var registry := ContentRegistry.new()
 	var phase2_registration = Phase2Catalog.register_all(registry)
@@ -273,8 +314,8 @@ func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Arr
 		var draw_wall_before: int = battle.zones.size(TileZone.DRAW_WALL)
 		if starting_intent != null and starting_intent.action_type in [EnemyIntent.INTEGRITY, EnemyIntent.HUNT]:
 			battle.zones.add(TileInstance.new("stage4.reserve.%s" % encounter_id, "base.tile.characters.1"), TileZone.RESERVE)
-		var intent_result = battle.combat_resolver.resolve_enemy_intent(battle.combat_state)
-		assert_true(intent_result.is_resolved(), "%s resolves its starting authored enemy intent" % encounter_id, failures)
+		var intent_result: Dictionary = battle.resolve_enemy_intent()
+		assert_true(intent_result.get("accepted", false), "%s resolves its starting authored enemy intent" % encounter_id, failures)
 		if starting_intent == null:
 			continue
 		match starting_intent.action_type:
@@ -284,14 +325,14 @@ func test_stage_four_enemy_encounters_resolve_through_catalog_path(failures: Arr
 				assert_true(battle.combat_state.draw_capacity < draw_capacity_before, "%s applies its authored Wall Tax action" % encounter_id, failures)
 			EnemyIntent.CONTAMINATION:
 				assert_true(battle.zones.size(TileZone.DRAW_WALL) > draw_wall_before, "%s adds authored contamination to the Draw Wall" % encounter_id, failures)
-				var contamination_applied = _event_of_type(intent_result.events, DomainEvent.CONTAMINATION_APPLIED)
+				var contamination_applied = _event_of_type(intent_result.get("events", []), DomainEvent.CONTAMINATION_APPLIED)
 				assert_true(contamination_applied != null and contamination_applied.data.get("contamination_id", "") == "base.contamination.clutter", "%s applies the supported Clutter contamination" % encounter_id, failures)
 			EnemyIntent.AUDIT:
 				assert_true(battle.combat_state.fatigue > fatigue_before, "%s applies its authored Audit action" % encounter_id, failures)
 			EnemyIntent.REWARD_TAX:
 				assert_true(battle.combat_state.reward_tax > reward_tax_before, "%s applies its authored Reward Tax action" % encounter_id, failures)
 			EnemyIntent.INTEGRITY, EnemyIntent.HUNT:
-				assert_true(_event_of_type(intent_result.events, DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
+				assert_true(_event_of_type(intent_result.get("events", []), DomainEvent.INTEGRITY_CHANGED) != null, "%s applies its authored Reserve Integrity action" % encounter_id, failures)
 
 	var persisted_domain := RunDomain.new("run.stage4.enemy.resume", 8411, registry)
 	persisted_domain.execute(ChooseCharacterCommand.new("stage4.enemy.resume.character", Phase2Catalog.CHARACTER_IDS[0]))
@@ -458,6 +499,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	if not clean_resume.get("accepted", false):
 		return
 	var clean_resumed: RunDomain = clean_resume.domain
+	_play_before_end_turn(clean_resumed, "reaction.clean.end_turn.play", failures)
 	var clean_turn = clean_resumed.execute(EndTurnCommand.new("reaction.clean.end_turn"))
 	assert_true(clean_turn.is_accepted(), "the matching enemy Contamination intent completes", failures)
 	var clean_used = _event_of_type(clean_turn.events, DomainEvent.TECHNIQUE_USED)
@@ -490,6 +532,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	var cleansing_entry = cleansing_domain.execute(SelectMapNodeCommand.new("reaction.cleansing.select", LEFT))
 	if cleansing_entry.is_accepted():
 		cleansing_domain.execute(UseTechniqueCommand.new("reaction.cleansing.setup_tp", "base.technique.tp_stability_support"))
+		_play_before_end_turn(cleansing_domain, "reaction.cleansing.end_turn.play", failures)
 		var cleansing_turn = cleansing_domain.execute(EndTurnCommand.new("reaction.cleansing.end_turn"))
 		var cleansing_used = _event_of_type(cleansing_turn.events, DomainEvent.TECHNIQUE_USED)
 		assert_true(cleansing_turn.is_accepted() and cleansing_used != null and cleansing_used.data.get("technique_id", "") == "alpha.technique.cleansing_call", "Cleansing Call also responds to added enemy Contamination", failures)
@@ -504,6 +547,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	var nonmatching_entry = nonmatching_domain.execute(SelectMapNodeCommand.new("reaction.nonmatching.select", LEFT))
 	if nonmatching_entry.is_accepted():
 		nonmatching_domain.execute(UseTechniqueCommand.new("reaction.nonmatching.setup_tp", "base.technique.tp_stability_support"))
+		_play_before_end_turn(nonmatching_domain, "reaction.nonmatching.end_turn.play", failures)
 		var nonmatching_turn = nonmatching_domain.execute(EndTurnCommand.new("reaction.nonmatching.end_turn"))
 		assert_true(nonmatching_turn.is_accepted() and not _has_event(nonmatching_turn.events, DomainEvent.TECHNIQUE_USED), "a Stability-loss Reaction does not answer a Contamination intent", failures)
 		assert_true(not _has_event(nonmatching_turn.events, DomainEvent.REACTION_WINDOW_OPENED) and not _has_event(nonmatching_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED), "a nonmatching intent opens no Reaction window and reports no attempted response", failures)
@@ -516,6 +560,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 	insufficient_domain.state.build_ownership.run_technique_ids.append("base.technique.clean_table")
 	var insufficient_entry = insufficient_domain.execute(SelectMapNodeCommand.new("reaction.insufficient.select", LEFT))
 	if insufficient_entry.is_accepted():
+		_play_before_end_turn(insufficient_domain, "reaction.insufficient.end_turn.play", failures)
 		var insufficient_turn = insufficient_domain.execute(EndTurnCommand.new("reaction.insufficient.end_turn"))
 		var skipped = _event_of_type(insufficient_turn.events, DomainEvent.TECHNIQUE_REACTION_SKIPPED)
 		assert_true(insufficient_turn.is_accepted() and skipped != null and skipped.data.get("reason", "") == "INSUFFICIENT_TP", "a matching Reaction with insufficient TP reports why it could not fire", failures)
@@ -543,6 +588,7 @@ func test_reaction_techniques_resolve_only_in_matching_windows(failures: Array[S
 		if not guard_resume.get("accepted", false):
 			return
 		guard_domain = guard_resume.domain
+		_play_before_end_turn(guard_domain, "reaction.guard.end_turn.play", failures)
 		var guard_turn = guard_domain.execute(EndTurnCommand.new("reaction.guard.end_turn"))
 		var guard_used = _event_of_type(guard_turn.events, DomainEvent.TECHNIQUE_USED)
 		assert_true(guard_turn.is_accepted() and guard_used != null and guard_used.data.get("reaction_trigger_id", "") == TechniqueDefinition.REACTION_ENEMY_STABILITY_LOST, "Reaction Guard answers Stability loss caused by Table Interference", failures)
@@ -611,6 +657,9 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 	var first_domain: RunDomain = _prepared_domain("run.draw.budget")
 	var second_domain := _prepared_domain("run.draw.budget")
 	var replacement_domain := _prepared_domain("run.draw.replacement")
+	_configure_draw_capacity(first_domain, 1)
+	_configure_draw_capacity(second_domain, 1)
+	_configure_draw_capacity(replacement_domain, 1)
 	var first_selection = first_domain.execute(SelectMapNodeCommand.new("draw.budget.select", LEFT))
 	var second_selection = second_domain.execute(SelectMapNodeCommand.new("draw.budget.select", LEFT))
 	var replacement_selection = replacement_domain.execute(SelectMapNodeCommand.new("draw.replacement.select", LEFT))
@@ -619,8 +668,8 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 	if not first_selection.is_accepted() or not second_selection.is_accepted() or not replacement_selection.is_accepted():
 		return
 	var capacity := int(first_domain.current_battle.combat_state.draw_capacity)
-	assert_true(capacity >= 2, "the fixture Battle has multiple Draw Actions to spend", failures)
-	if capacity < 2:
+	assert_true(capacity == 1, "the test fixture isolates one Draw Action per turn so Hand capacity cannot mask budget exhaustion", failures)
+	if capacity != 1:
 		return
 	var replacement = replacement_domain.current_battle.tile_actions.draw(DrawSource.SETTLEMENT_REPLACEMENT)
 	assert_true(replacement.is_accepted(), "a settlement replacement draw is available in the fixture", failures)
@@ -637,7 +686,7 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 				"identical seeded Draw Actions produce identical checkpoints",
 				failures,
 			)
-			if turn_index == 0 and draw_index == capacity - 2:
+			if turn_index == 0 and draw_index == 0:
 				var saved = SaveCoordinator.new().save(first_domain)
 				assert_true(saved.get("accepted", false), "a partially spent Draw Action budget can be saved", failures)
 				if saved.get("accepted", false):
@@ -658,6 +707,7 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 		var second_rejected = second_domain.execute(DrawCommand.new(rejected_command_id))
 		assert_true(not first_rejected.is_accepted() and not second_rejected.is_accepted(), "a Draw Action beyond capacity is rejected", failures)
 		assert_true(first_rejected.validation.code == "DRAW_ACTION_BUDGET_EXHAUSTED", "exhaustion reports the authoritative Draw Action budget", failures)
+		assert_true(first_domain.current_battle.zones.size(TileZone.HAND) < TileZoneContainer.MAX_HAND_SIZE, "budget exhaustion is tested while Hand slots are still available", failures)
 		assert_true(first_domain.checkpoint() == checkpoint_before_rejected_draw, "rejected Draw Actions leave the checkpoint unchanged", failures)
 		assert_true(first_domain.replay_record.commands.size() == replay_count_before_rejected_draw, "rejected Draw Actions are omitted from replay", failures)
 		assert_true(
@@ -666,7 +716,9 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 			failures,
 		)
 		if turn_index == 0:
+			_play_before_end_turn(first_domain, "draw.budget.turn.end.play", failures)
 			var first_end_turn = first_domain.execute(EndTurnCommand.new("draw.budget.turn.end"))
+			_play_before_end_turn(second_domain, "draw.budget.turn.end.play", failures)
 			var second_end_turn = second_domain.execute(EndTurnCommand.new("draw.budget.turn.end"))
 			assert_true(first_end_turn.is_accepted() and second_end_turn.is_accepted(), "End Turn is accepted after Draw Action exhaustion", failures)
 			assert_true(
@@ -678,11 +730,13 @@ func test_draw_actions_are_limited_and_reset_each_turn(failures: Array[String]) 
 
 func test_draw_capacity_changes_preserve_remaining_actions(failures: Array[String]) -> void:
 	var domain := _prepared_domain("run.draw.capacity")
+	_configure_draw_capacity(domain, 1)
 	var selection = domain.execute(SelectMapNodeCommand.new("draw.capacity.select", LEFT))
 	assert_true(selection.is_accepted(), "Draw capacity setup enters a Battle", failures)
 	if not selection.is_accepted():
 		return
 	var initial_capacity := int(domain.current_battle.combat_state.draw_capacity)
+	assert_true(initial_capacity == 1, "the capacity-change fixture starts below the Hand limit", failures)
 	var first_draw = domain.execute(DrawCommand.new("draw.capacity.first"))
 	assert_true(first_draw.is_accepted(), "an initial Draw Action is accepted before a capacity change", failures)
 	domain.current_battle.combat_state.draw_capacity += 1
@@ -696,6 +750,12 @@ func test_draw_capacity_changes_preserve_remaining_actions(failures: Array[Strin
 		assert_true(result.is_accepted(), "a Draw Action granted by changed capacity is accepted", failures)
 	var rejected = domain.execute(DrawCommand.new("draw.capacity.modified.exhausted"))
 	assert_true(not rejected.is_accepted() and rejected.validation.code == "DRAW_ACTION_BUDGET_EXHAUSTED", "changed capacity remains subject to authoritative exhaustion", failures)
+	assert_true(domain.current_battle.zones.size(TileZone.HAND) < TileZoneContainer.MAX_HAND_SIZE, "changed-budget exhaustion is not hidden by full Hand capacity", failures)
+
+func _configure_draw_capacity(domain: RunDomain, capacity: int) -> void:
+	var enemy = domain.content_registry.resolve("base.enemy.wall_taxer") if domain != null and domain.content_registry != null else null
+	if enemy != null and enemy.battle_values is Dictionary:
+		enemy.battle_values["draw_capacity"] = capacity
 
 func _registry(normal_intent_graph = null) -> ContentRegistry:
 	var registry := ContentRegistry.new()
@@ -826,3 +886,14 @@ func assert_true(condition: bool, message: String, failures: Array[String]) -> v
 	if not condition:
 		failures.append("ASSERTION FAILED: " + message)
 		push_error("ASSERTION FAILED: " + message)
+
+func _play_before_end_turn(domain: RunDomain, command_id: String, failures: Array[String]) -> void:
+	var battle = domain.current_battle
+	if not battle.combat_state.turn_play_enabled or not battle.combat_state.played_tile_ids_this_turn.is_empty():
+		return
+	var hand: Array = battle.zones.contents(TileZone.HAND)
+	assert_true(not hand.is_empty(), "integration fixture has a Hand tile for mandatory play", failures)
+	if hand.is_empty():
+		return
+	var result = domain.execute(DiscardTileCommand.new(command_id, str(hand[0].instance_id)))
+	assert_true(result.is_accepted(), "integration End Turn satisfies the current Hand-play rule", failures)

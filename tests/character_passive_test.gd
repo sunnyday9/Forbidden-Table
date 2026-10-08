@@ -44,8 +44,10 @@ func test_harbor_read_resolves_in_encounters(failures: Array[String]) -> void:
 	if not battle_start.accepted:
 		return
 	domain.current_battle.combat_state.enemy_hp = 999
+	var opening_hand_size: int = domain.current_battle.zones.size(TileZoneScript.HAND)
+	assert_true(opening_hand_size == 11, "Harbor Reader enters with the shared eleven-tile opening Hand", failures)
 	var draws_accepted := true
-	for draw_index in range(14):
+	for draw_index in range(domain.current_battle.zones.remaining_hand_capacity()):
 		if domain.current_battle.combat_state.draw_actions_remaining() <= 0:
 			var end_turn = domain.execute(EndTurnCommandScript.new("passive.draw.end-turn.%d" % draw_index))
 			if not end_turn.accepted:

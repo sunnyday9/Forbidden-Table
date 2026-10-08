@@ -44,7 +44,7 @@ func resolve_combat_conversion(state, combat_output):
 		),
 	])
 
-func resolve_enemy_intent(state, reaction_handler: Callable = Callable()):
+func resolve_enemy_intent(state, reaction_handler: Callable = Callable(), contamination_config: Dictionary = {}):
 	if not state is CombatStateScript or not state.is_active():
 		return _terminal_result(state)
 	if state.intent_graph == null or not state.intent_graph.validation().is_valid():
@@ -63,7 +63,7 @@ func resolve_enemy_intent(state, reaction_handler: Callable = Callable()):
 	else:
 		queue.enqueue_effect(CombatResolutionEffectScript.new(
 			"intent.action.%s" % intent.intent_id,
-			Callable(self, "_resolve_enemy_intent_action").bind(reaction_handler),
+			Callable(self, "_resolve_enemy_intent_action").bind(reaction_handler, contamination_config.duplicate(true)),
 		))
 	queue.enqueue_effect(CombatResolutionEffectScript.new(
 		"intent.transition.%s" % intent.intent_id,
@@ -72,7 +72,7 @@ func resolve_enemy_intent(state, reaction_handler: Callable = Callable()):
 	var result = queue.drain()
 	return result
 
-func _resolve_enemy_intent_action(queue, state, sequence_index: int, reaction_handler: Callable = Callable()) -> Array:
+func _resolve_enemy_intent_action(queue, state, sequence_index: int, reaction_handler: Callable = Callable(), contamination_config: Dictionary = {}) -> Array:
 	var intent = state.current_intent
 	if intent == null:
 		return []
@@ -119,10 +119,13 @@ func _resolve_enemy_intent_action(queue, state, sequence_index: int, reaction_ha
 				_fail_enemy_intent_action(queue, intent, "NO_TILE_ZONES", sequence_index)
 				return events
 			var service = state.contamination_service if state.contamination_service != null else ContaminationServiceScript.new(state.zones, state)
-			var contamination = ContaminationCatalogScript.by_id("base.contamination.clutter")
+			var contamination_id := str(contamination_config.get("contamination_id", "base.contamination.clutter"))
+			var contamination = ContaminationCatalogScript.by_id(contamination_id)
 			if service == null or contamination == null or not contamination.is_valid():
 				_fail_enemy_intent_action(queue, intent, "CONTAMINATION_SERVICE_UNAVAILABLE", sequence_index)
 				return events
+			if contamination_config.has("injection_count"):
+				requested_amount = maxi(1, int(contamination_config.get("injection_count", requested_amount)))
 			for injection_index in requested_amount:
 				var instance_id := "battle.intent.%d.%s.%d" % [state.queue_index, intent.intent_id, injection_index]
 				var injection = service.inject_contamination(

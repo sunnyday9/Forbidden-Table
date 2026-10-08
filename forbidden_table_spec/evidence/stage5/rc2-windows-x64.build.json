@@ -1,0 +1,16 @@
+{
+  "application_version": "1.0.0-rc.2",
+  "artifact": "forbidden-table-1.0.0-rc.2-windows-x64.zip",
+  "artifact_sha256": "3c460f48d5556778da18cd9ef80621d61cd400fd6e68342141f2bfa0a86600f6",
+  "content_version": "content.bundle.v1.alpha.act_two@v5+alpha.scale@v12+phase2@v4",
+  "engine_version": "4.7.2.stable.official.ed1daf0bf",
+  "game_version": "game.phase2.v1",
+  "platform": "windows-x86_64",
+  "replay_schema_version": 1,
+  "save_schema_versions": {
+    "meta_progress": 2,
+    "suspend_snapshot": 1
+  },
+  "source_commit": "9279e9070ee45d4298c01ea260a141be8aacc374",
+  "source_dirty": false
+}

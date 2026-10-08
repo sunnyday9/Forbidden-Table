@@ -6,7 +6,6 @@ const ReplayCheckpointScript = preload("res://src/infrastructure/replay/replay_c
 const ReplayCommandFactoryScript = preload("res://src/infrastructure/replay/replay_command_factory.gd")
 const ReplayDivergenceReportScript = preload("res://src/infrastructure/replay/replay_divergence_report.gd")
 const ReplayRecordScript = preload("res://src/infrastructure/replay/replay_record.gd")
-const SnapshotDtoScript = preload("res://src/infrastructure/persistence/snapshot_dto.gd")
 
 static func verify(record, replay_factory: Callable, expected_content_version: String = "", resume_factory: Callable = Callable()):
 	if record == null:
@@ -20,13 +19,13 @@ static func verify(record, replay_factory: Callable, expected_content_version: S
 			ReplayRecordScript.SCHEMA_VERSION,
 			record.schema_version,
 		)
-	if record.game_version != SnapshotDtoScript.GAME_VERSION:
+	if record.game_version != ReplayRecordScript.GAME_VERSION:
 		return ReplayDivergenceReportScript.new(
 			ReplayDivergenceReportScript.UNAVAILABLE,
 			"GAME_VERSION_UNAVAILABLE",
 			-1,
 			-1,
-			SnapshotDtoScript.GAME_VERSION,
+			ReplayRecordScript.GAME_VERSION,
 			record.game_version,
 		)
 	if not expected_content_version.is_empty() and record.content_version != expected_content_version:
