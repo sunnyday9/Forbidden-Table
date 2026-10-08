@@ -20,15 +20,16 @@ Package
 Known limits
 - This is an experimental MVP prerelease, not a stable 1.0 compatibility baseline.
 - Full simulation/fixed-seed progression checks have unresolved failures; balance is not cleared.
-- Human two-Act Windows 10/11 gameplay and physical controller validation remain open.
+- The maintainer reports completing human two-Act validation for the MVP.
+  Windows 10/11 platform-specific and physical controller coverage are not established here.
 - Automated headless layout and package startup checks are not human playtesting.
 - Hand display order resets on restart. Some older rule-version replays are unavailable.
 - Back up pre-1.0 saves and settings; no general prerelease compatibility guarantee is made.
-- Public publication and the game's source license require a separate maintainer decision.
+- Original game source is MIT licensed; dependency and asset licenses are included.
 
 简体中文
 本次改进了角色/契约选择、战斗引导、奖励反馈、布局及中英文本。
 新增手牌整理和自由排序；弃牌区只显示数量。
 每回合结束前须打出 1–3 张手牌，三张构成顺子或刻子时获得 +3 金币。
 打牌不耗 TP，也不会自动补牌。旧存档中的当前战斗保留原规则。
-这是实验性 MVP，完整模拟、平衡和 Windows 双幕人工体验验证仍未完成。
+这是实验性 MVP，维护者已报告完成双幕人工体验验证；完整模拟、平衡和平台/设备覆盖仍有限。

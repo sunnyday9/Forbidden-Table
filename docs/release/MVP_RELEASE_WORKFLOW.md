@@ -8,4 +8,6 @@
 6. Create a **draft prerelease** at the exact tested commit. Upload the ZIP and both sidecars, download them again, and compare hashes. List known limitations in release notes.
 7. Before public publication, resolve the source license, audit public source/history and asset rights, and obtain the maintainer's visibility/publication go/no-go in issue #106. Stable 1.0 additionally requires the corpus, supported-platform human validation, and findings disposition in #105–107. MVP preparation does not close those issues.
 
+The maintainer has authorized the public MVP publication and selected MIT. See [MVP_PUBLICATION.md](MVP_PUBLICATION.md) for accepted scope and evidence.
+
 Use a new prerelease version for changes to a published candidate. Never silently replace an already published ZIP with a different build.

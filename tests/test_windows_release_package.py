@@ -145,6 +145,8 @@ class WindowsReleasePackageTest(unittest.TestCase):
         (scripts_dir / "GODOT_VERSION").write_bytes(pinned_version_bytes)
         shutil.copytree(ROOT / "docs" / "release", project_root / "docs" / "release")
         shutil.copytree(ROOT / "assets" / "ui", project_root / "assets" / "ui")
+        if (ROOT / "LICENSE").is_file():
+            shutil.copy2(ROOT / "LICENSE", project_root / "LICENSE")
         return project_root
 
     def _fake_git_environment(self, status):
@@ -234,7 +236,7 @@ class WindowsReleasePackageTest(unittest.TestCase):
                     "licenses/NotoSerifSC-OFL.txt",
                     "licenses/Mahjong-tiles-LICENSE.txt",
                     "licenses/Mahjong-tiles-ATTRIBUTION.md",
-                },
+                } | ({"LICENSE.txt"} if (ROOT / "LICENSE").is_file() else set()),
             )
             self.assertIsNone(package.testzip())
             readme = package.read("README.txt").decode("utf-8")
@@ -257,6 +259,8 @@ class WindowsReleasePackageTest(unittest.TestCase):
                     self.assertGreater(len(package.read(name)), 100, name)
             self.assertEqual(package.read("licenses/Godot-LICENSE.txt"),
                              (ROOT / "docs/release/licenses/Godot-LICENSE.txt").read_bytes())
+            if (ROOT / "LICENSE").is_file():
+                self.assertEqual(package.read("LICENSE.txt"), (ROOT / "LICENSE").read_bytes())
 
         digest = hashlib.sha256(archive.read_bytes()).hexdigest()
         checksum_path = Path(f"{archive}.sha256")

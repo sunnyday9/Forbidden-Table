@@ -16,7 +16,8 @@ Hand display order resets on restart. Some older replays are unavailable after r
 Pre-1.0 saves and replays have no general compatibility guarantee.
 
 This is an experimental MVP, not the stable 1.0 release. Automated package checks do not establish
-human two-Act playability, Windows 10/11 gameplay coverage, or physical controller compatibility.
+platform-specific Windows 10/11 gameplay coverage or physical controller compatibility.
+The maintainer reports completing human two-Act validation for this MVP.
 Fixed-seed simulation progression failures remain open. See RELEASE_NOTES.txt for limitations.
 Read THIRD_PARTY_NOTICES.md and licenses/ for bundled dependencies and asset notices.
 
@@ -28,4 +29,4 @@ Report version, language, seed and steps: https://github.com/sunnyday9/Forbidden
 每回合结束前需打出 1–3 张手牌；三张组成顺子或刻子时获得 +3 金币。
 打出的牌进入弃牌区，不自动补牌；弃牌区仅显示数量。可整理或自由调整手牌顺序。
 安装前请备份存档和设置。旧战斗保留原规则，新战斗采用打牌规则。
-手牌显示顺序在重启后重置，部分旧回放无法使用。此版本尚未完成双幕人工验证。
+手牌显示顺序在重启后重置，部分旧回放无法使用。维护者已报告完成双幕人工验证；特定平台和设备覆盖仍有限。
