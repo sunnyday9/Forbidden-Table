@@ -1,5 +1,7 @@
 # Forbidden Table
 
+**English** · [简体中文](docs/README.zh-CN.md)
+
 **Turn a mahjong hand into a roguelite build.** Forbidden Table is a single-player, turn-based game where you draw and arrange tiles, settle patterns, and adapt your build as you travel through two Acts. Each turn asks you to balance a stronger hand against the enemy's next move—and decide which tiles you can afford to let go.
 
 **[Download the Windows MVP](https://github.com/sunnyday9/Forbidden-Table/releases/tag/v1.0.0-mvp.1)** · [Report a problem or suggest an improvement](https://github.com/sunnyday9/Forbidden-Table/issues)
