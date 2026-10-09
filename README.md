@@ -12,7 +12,7 @@ The current version is **1.0.0-mvp.1**, an experimental Windows x64 prerelease.
 
 ## What makes the game stand out?
 
-- **Mahjong as tactical combat.** Pairs, sequences, and triplets help you cycle your hand; a Complete Hand converts your score into damage. Action previews show the base outcome before you commit.
+- **Mahjong as tactical combat.** Sequences, triplets, and quads help you cycle your hand; pairs help complete a full hand. A Complete Hand converts your score into damage. Action previews show the base outcome before you commit.
 - **A build that changes throughout the Run.** Choose a Character and a Contract, then collect tiles, tile upgrades, Relics, Techniques, and rule breakers. Rewards can strengthen your plan or offer a reason to change direction.
 - **A route through two Acts.** Battles, Events, Shops, Workshops, Elites, and Bosses give you different opportunities to spend resources and improve your Tile Pool.
 - **A decision before every End Turn.** Play 1–3 tiles from your Hand. If all three tiles played that turn form a sequence or triplet, earn **+3 Gold**. Keep your best hand intact, or cash in a group for resources.
@@ -44,12 +44,13 @@ You do not need to know every mahjong scoring rule to begin:
 
 | Shape | Example | How it helps |
 | --- | --- | --- |
-| Pair | Two identical tiles | A small pattern to settle, or the pair in a standard Complete Hand |
+| Pair | Two identical tiles | Part of a Complete Hand; a pair alone cannot be settled |
 | Sequence | 2–3–4 of the same numbered suit | A three-tile pattern; ranks do not wrap from 9 to 1 |
 | Triplet | Three identical tiles | Another three-tile pattern |
+| Quad | Four identical tiles | A four-tile pattern to settle; the separate Play allowance still caps at 3 |
 | Complete Hand | Four sequences/triplets plus a pair, or seven pairs | A valid 14-tile hand for a larger settlement |
 
-Click tiles to select them, then inspect the actions offered for that selection. **Settle Pattern** consumes the selected pattern and draws replacements according to the preview. Small patterns mainly help exchange tiles; their damage depends on your build. **Complete Hand** settles a valid full hand for damage and enters Recovery. Use **Select hand** to select the whole Hand when checking a complete arrangement.
+Click tiles to select them, then inspect the actions offered for that selection. **Settle Pattern** consumes a selected sequence, triplet, or quad and draws replacements according to the preview. Small patterns mainly help exchange tiles; their damage depends on your build. **Complete Hand** settles a valid full hand for damage and enters Recovery. Use **Select Hand** to select the whole Hand when checking a complete arrangement.
 
 Your **Core Technique** provides another tool during battle. Check its effect, TP cost, and availability. **Reserve** lets you store a tile and swap it back later, but stored tiles lose Integrity as turns end and expire at 0. Stability effects can help lower Pressure; follow the action previews and enemy Intent when deciding what to use.
 
